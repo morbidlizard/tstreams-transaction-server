@@ -13,7 +13,7 @@ struct Transaction {
     4: required i64                 transactionID
     5: required TransactionStates   state
     6: required i32                 quantity
-    7: required i32                 timestamp
+    7: required i64                 timestamp
 }
 
 struct Stream {
@@ -36,7 +36,9 @@ service StreamService {
 
 service TransactionMetaService {
 
-   bool putTransaction(1: string token, 2: list<Transaction> transactions),
+   bool putTransaction(1: string token, 2: Transaction transaction),
+
+   bool putTransactions(1: string token, 2: list<Transaction> transactions),
 
    bool delTransaction(1: string token, 2: string stream, 3: i32 partition, 4: i64 interval, 5: i64 transaction),
 

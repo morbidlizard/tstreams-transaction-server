@@ -9,7 +9,7 @@ enum TransactionStates {
 struct Transaction {
     1: required string              stream
     2: required i32                 partition
-    3: required i64                 interval
+    ???3: required i64                 interval
     4: required i64                 transactionID
     5: required TransactionStates   state
     6: required i32                 quantity
@@ -40,7 +40,7 @@ service TransactionMetaService {
 
    bool putTransactions(1: string token, 2: list<Transaction> transactions),
 
-   bool delTransaction(1: string token, 2: string stream, 3: i32 partition, 4: i64 interval, 5: i64 transaction),
+  ??? bool delTransaction(1: string token, 2: string stream, 3: i32 partition, 4: i64 interval, 5: i64 transaction),
 
    list<Transaction> scanTransactions(1: string token, 2: string stream, 3: i32 partition, 4: i64 interval),
 

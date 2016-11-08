@@ -2,10 +2,10 @@ package transactionService
 
 import com.twitter.finagle.Thrift
 import com.twitter.util.Await
-import transactionService.impl.TransactionMetaServiceImpl
+import transactionService.impl.{StreamServiceImpl, TransactionMetaServiceImpl}
 
 object Server extends App {
-  private class ThriftServer extends TransactionMetaServiceImpl
+  private class ThriftServer extends StreamServiceImpl with TransactionMetaServiceImpl
 
   val server = Thrift.server
   val iface1 = server.serveIface("localhost:8080", new ThriftServer)

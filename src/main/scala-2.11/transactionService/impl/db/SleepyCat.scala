@@ -6,11 +6,13 @@ import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
-import com.sleepycat.je.{CacheMode, Environment, EnvironmentConfig}
+import com.mongodb.operation.WriteOperation
+import com.sleepycat.je._
 import com.sleepycat.persist.{EntityCursor, EntityStore, StoreConfig}
 import com.sleepycat.persist.model.{Entity, KeyField, Persistent, PrimaryKey}
 import com.twitter.io.TempDirectory
 import com.twitter.util.Time
+import transactionService.impl.StreamServiceImpl
 
 object SleepyCat extends App{
 
@@ -63,7 +65,7 @@ object SleepyCat extends App{
   }
 
   def setup(directory: String =""): (Environment, EntityStore) = {
-    val envHome = TempDirectory.create()
+    val directory = new File("/home/revenskiy_ag/1")
     val myEnvConfig = new EnvironmentConfig()
       .setAllowCreate(true)
       .setTransactional(true)
@@ -71,12 +73,9 @@ object SleepyCat extends App{
 
     val storeConfig = new StoreConfig()
       .setAllowCreate(true)
+      .setTransactional(true)
 
-    val myEnv = if (directory == "")
-      new Environment(envHome, myEnvConfig)
-    else
-      new Environment(new File(s"/tmp/$directory"), myEnvConfig)
-
+    val myEnv = new Environment(directory, myEnvConfig)
 
     val store = new EntityStore(myEnv, "EntityStore", storeConfig)
     (myEnv,store)
@@ -119,7 +118,7 @@ object SleepyCat extends App{
 
     val dbTransaction = environment.beginTransaction(null, null)
 
-    simpleDA.pIdx.putNoReturn(transaction)
+    simpleDA.pIdx.put(dbTransaction,transaction,Put.NO_OVERWRITE,new WriteOptions().setTTL(1,TimeUnit.HOURS))
 
     dbTransaction.commit()
   }
@@ -167,19 +166,17 @@ object SleepyCat extends App{
   }
 
   val (envHome,store) = setup()
-  val nanosOld = ManagementFactory.getThreadMXBean.getThreadCpuTime(Thread.currentThread().getId)
 
-  val transactions = (1 to 100000000)
-    .foreach {_=>
-      val txn = new MyTransaction(java.time.Clock.systemUTC().millis(), 0, scala.util.Random.nextInt(), java.time.Clock.systemUTC().millis(), java.time.Clock.systemUTC().millis(), -1, scala.util.Random.nextInt(200))
-    }
+//  val transactions = (1 to 10)
+//    .foreach {_=>
+//      val txn = new MyTransaction(java.time.Clock.systemUTC().millis(), 0, scala.util.Random.nextInt(), java.time.Clock.systemUTC().millis(), java.time.Clock.systemUTC().millis(), -1, scala.util.Random.nextInt(200))
+//      saveAtomicallyTransaction(txn,envHome,store )
+//    }
 
-  val nanosNew = ManagementFactory.getThreadMXBean.getThreadCpuTime(Thread.currentThread().getId)
 
-  val dif = nanosNew-nanosOld
+  val transactionsFromDb = getTransactionRange(new MyKey(Int.MinValue,Int.MinValue,0L),new MyKey(Int.MaxValue,Int.MaxValue,Long.MaxValue), store)
 
-  println(TimeUnit.NANOSECONDS.toMillis(dif))
-  //val transactionsFromDb = getTransactionRange(new MyKey(0,0,0L),new MyKey(9999999,0,999999999999999999L), envHome, store)
+  transactionsFromDb foreach (x=> println(x))
 
   close(envHome,store)
 }

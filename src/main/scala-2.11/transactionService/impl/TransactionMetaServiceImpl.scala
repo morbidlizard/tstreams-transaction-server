@@ -1,130 +1,127 @@
 package transactionService.impl
 
+import java.io.File
+
+import com.sleepycat.je.{Environment, EnvironmentConfig}
+import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.sleepycat.persist.model.{Entity, KeyField, Persistent, PrimaryKey}
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util.{Future, Try}
 import org.rocksdb.{RocksDBException, WriteBatch, WriteOptions}
 import transactionService.impl.db._
 import transactionService.impl.`implicit`.Implicits._
-import transactionService.rpc.{Transaction, TransactionMetaService}
+import transactionService.rpc.{Transaction, TransactionMetaService, TransactionStates}
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[Future] {
-  def putTransaction(token: String, transaction: Transaction): Future[Boolean] = Future {
-    val rocksDB = new MyRocksDbConnection
-
-    val stream = transaction._1
-    val partition = transaction._2
-    val interval = transaction._3
-    val transactionId = transaction._4
-    val state = transaction._5
-    val quantity = transaction._6
-    val timestamp = transaction._7
-
-
-    val key = s"$stream $partition $transactionId"
-    val familyHandler = rocksDB.getOrCreateFamilyHandler(key)
-
-    val batch = new WriteBatch()
-    batch.put(familyHandler, s"${TransactionTable.interval} $interval", Array.emptyByteArray)
-    batch.put(familyHandler, TransactionTable.state, state.value)
-    batch.put(familyHandler, TransactionTable.quantity, quantity)
-    batch.put(familyHandler, TransactionTable.timestamp, timestamp)
-
-    val client = rocksDB.client
-    client.write(new WriteOptions(), batch)
-
-
-    batch.close()
-    rocksDB.close()
-    true
-  }
+  def putTransaction(token: String, transaction: Transaction): Future[Boolean] = ???
+//    Future {
+//    val rocksDB = new MyRocksDbConnection
+//
+//    val stream = transaction._1
+//    val partition = transaction._2
+//    val transactionId = transaction._3
+//    val state = transaction._4
+//    val quantity = transaction._5
+//    val timestamp = transaction._6
+//
+//
+//    val key = s"$stream $partition $transactionId"
+//    val familyHandler = rocksDB.getOrCreateFamilyHandler(key)
+//
+//    val batch = new WriteBatch()
+//    batch.put(familyHandler, TransactionTable.state, state.value)
+//    batch.put(familyHandler, TransactionTable.quantity, quantity)
+//    batch.put(familyHandler, TransactionTable.timestamp, timestamp)
+//
+//    val client = rocksDB.client
+//    client.write(new WriteOptions(), batch)
+//
+//
+//    batch.close()
+//    rocksDB.close()
+//    true
+//  }
 
   def putTransactions(token: String, transactions: Seq[Transaction]): Future[Boolean] = Future {
-    val rocksDB = new MyRocksDbConnection
-    val batch = new WriteBatch()
+    val environmentConfig = new EnvironmentConfig()
+      .setAllowCreate(true)
+      .setLocking(true)
+      .setTransactional(true)
 
-    transactions foreach  { transaction =>
-      val stream = transaction._1
-      val partition = transaction._2
-      val interval = transaction._3
-      val transactionId = transaction._4
-      val state = transaction._5
-      val quantity = transaction._6
-      val timestamp = transaction._7
+    val storeConfig = new StoreConfig()
+      .setAllowCreate(true)
 
-      val key = s"$stream $partition $transactionId"
-      val familyHandler = rocksDB.getOrCreateFamilyHandler(key)
+    val directory = StreamServiceImpl.pathToDatabases
+    val environment = new Environment(new File(directory), environmentConfig)
+    import scala.collection.JavaConverters._
+    environment.getDatabaseNames.asScala foreach println
 
-      batch.put(familyHandler, s"${TransactionTable.interval} $interval", Array.emptyByteArray)
-      batch.put(familyHandler, TransactionTable.state, state.value)
-      batch.put(familyHandler, TransactionTable.quantity, quantity)
-      batch.put(familyHandler, TransactionTable.timestamp, timestamp)
-    }
+    //val store = new EntityStore(environment, "EntityStore", storeConfig)
 
-    val client = rocksDB.client
-    client.write(new WriteOptions(), batch)
-
-    batch.close()
-    rocksDB.close()
     true
   }
 
-  def delTransaction(token: String, stream: String, partition: Int, interval: Long, transaction: Long): Future[Boolean] = Future {
-    val rocksDB = new MyRocksDbConnection
-    val client = rocksDB.client
+  def delTransaction(token: String, stream: String, partition: Int, transaction: Long): Future[Boolean] = ???
+//    Future {
+//    val rocksDB = new MyRocksDbConnection
+//    val client = rocksDB.client
+//
+//    val key = s"$stream $partition $transaction"
+//    val familyHandler = rocksDB.getCreateFamilyHandlerOpt(key)
+//
+//    val res = familyHandler match {
+//      case Some(handler) => {
+//        val tryToDelete = Try(client.remove(handler, s"${TransactionTable.interval} $interval"))
+//        if (tryToDelete.isReturn) true else false
+//      }
+//      case None => false
+//    }
+//    rocksDB.close()
+//    res
+//  }
 
-    val key = s"$stream $partition $transaction"
-    val familyHandler = rocksDB.getCreateFamilyHandlerOpt(key)
+  def scanTransactions(token: String, stream: String, partition: Int): Future[Seq[Transaction]] = ???
 
-    val res = familyHandler match {
-      case Some(handler) => {
-        val tryToDelete = Try(client.remove(handler, s"${TransactionTable.interval} $interval"))
-        if (tryToDelete.isReturn) true else false
-      }
-      case None => false
-    }
-    rocksDB.close()
-    res
-  }
-
-  def scanTransactions(token: String, stream: String, partition: Int, interval: Long): Future[Seq[Transaction]] = ???
-
-  def scanTransactionsCRC32(token: String, stream: String, partition: Int, interval: Long): Future[Int] = ???
+  def scanTransactionsCRC32(token: String, stream: String, partition: Int): Future[Int] = ???
 }
 
 object TransactionMetaServiceImpl {
   @Entity
   class Transaction extends transactionService.rpc.Transaction {
-    @PrimaryKey var myPrimaryKey: MyKey = _
+    @PrimaryKey var key: TransactionKey = _
     private var stateDB: Int = _
     private var timestampDB: java.lang.Long = _
-    private var intervalDB: java.lang.Long = _
     private var quantityDB: Int = _
 
     def this(transactionID: java.lang.Long,
              state: Int,
-             stream: Int,
+             stream: String,
              timestamp: java.lang.Long,
-             interval: java.lang.Long,
              quantity: Int,
              partition: Int) {
       this()
       this.stateDB = state
       this.timestampDB = timestamp
-      this.intervalDB = interval
       this.quantityDB = quantity
-      this.myPrimaryKey = new MyKey(stream, partition,transactionID)
+      this.key = new TransactionKey(stream, partition, transactionID)
     }
 
-    override def toString: String = {s"$myPrimaryKey"}
+    override def transactionID: Long = key.transactionID
+    override def state: TransactionStates = TransactionStates(stateDB)
+    override def stream: String = key.stream
+    override def timestamp: Long = timestampDB
+    override def quantity: Int = quantityDB
+    override def partition: Int = key.partition
+
+    override def toString: String = {s"$key"}
   }
 
   @Persistent
-  class MyKey {
-    @KeyField(1) var stream: Int = _
+  class TransactionKey {
+    @KeyField(1) var stream: String = _
     @KeyField(2) var partition: Int = _
     @KeyField(3) var transactionID: java.lang.Long = _
-    def this(stream: Int, partition:Int, transactionID: java.lang.Long) = {
+    def this(stream: String, partition:Int, transactionID: java.lang.Long) = {
       this()
       this.stream = stream
       this.partition = partition

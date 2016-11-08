@@ -52,8 +52,6 @@ object Client extends App {
 
     override val timestamp: Long = Time.epoch.inNanoseconds
 
-    override val interval: Long = Time.epoch.inNanoseconds
-
     override val quantity: Int = -1
 
     override val partition: Int = 0
@@ -62,13 +60,7 @@ object Client extends App {
   val resultsPut = request.putTransactions("", transactions)
   println(Await.ready(resultsPut))
 
-  val resultsDelete = transactions map (transaction => request.delTransaction("",transaction.stream,transaction.partition,transaction.interval,transaction.transactionID))
+  val resultsDelete = transactions map (transaction => request.delTransaction("",transaction.stream,transaction.partition,transaction.transactionID))
   Await.ready(Future.collectToTry(resultsDelete)) foreach(x=> x.foreach(println(_)))
-
-
-
-
-
-
 
 }

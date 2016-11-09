@@ -9,9 +9,9 @@ import transactionService.impl.db.SleepyCat.{MyKey, MyTransaction}
 object RangeBenchmark
   extends Bench[Double] {
 
-  val interval = 1000000
+  val interval = 1000
   val minValue = interval
-  val maxValue = 200000000
+  val maxValue = 10000
 
   val sizes = Gen.range("size")(minValue, maxValue, interval)
 

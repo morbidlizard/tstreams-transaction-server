@@ -65,11 +65,11 @@ object SleepyCat extends App{
   }
 
   def setup(directory: String =""): (Environment, EntityStore) = {
-    val directory = new File("/home/revenskiy_ag/1")
+//    val directory = new File("/home/revenskiy_ag/1")
+    val directory = com.twitter.io.TempDirectory.create()
     val myEnvConfig = new EnvironmentConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-      .setLocking(true)
 
     val storeConfig = new StoreConfig()
       .setAllowCreate(true)
@@ -167,11 +167,11 @@ object SleepyCat extends App{
 
   val (envHome,store) = setup()
 
-//  val transactions = (1 to 10)
-//    .foreach {_=>
-//      val txn = new MyTransaction(java.time.Clock.systemUTC().millis(), 0, scala.util.Random.nextInt(), java.time.Clock.systemUTC().millis(), java.time.Clock.systemUTC().millis(), -1, scala.util.Random.nextInt(200))
-//      saveAtomicallyTransaction(txn,envHome,store )
-//    }
+  val transactions = (1 to 10000)
+    .foreach {_=>
+      val txn = new MyTransaction(java.time.Clock.systemUTC().millis(), 0, scala.util.Random.nextInt(), java.time.Clock.systemUTC().millis(), java.time.Clock.systemUTC().millis(), -1, scala.util.Random.nextInt(200))
+      saveAtomicallyTransaction(txn,envHome,store )
+    }
 
 
   val transactionsFromDb = getTransactionRange(new MyKey(Int.MinValue,Int.MinValue,0L),new MyKey(Int.MaxValue,Int.MaxValue,Long.MaxValue), store)

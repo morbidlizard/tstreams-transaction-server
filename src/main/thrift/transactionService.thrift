@@ -6,15 +6,31 @@ enum TransactionStates {
     Invalid      = 3
 }
 
-struct Transaction {
-    1: required string              stream
-    2: required i32                 partition
-    3: required i64                 interval
-    4: required i64                 transactionID
-    5: required TransactionStates   state
-    6: required i32                 quantity
-    7: required i64                 timestamp
+typedef string StreamType
+typedef i32    PartitionType
+typedef i64    transactionIDType
+
+struct ProducerTransaction {
+   1: required StreamType          stream
+   2: required PartitionType       partition
+   3: required transactionIDType   transactionID
+   4: required TransactionStates   state
+   5: required i32                 quantity
+   6: required i64                 timestamp
 }
+
+struct ConsumerTransaction {
+   1: required StreamType          stream
+   2: required PartitionType       partition
+   3: required transactionIDType   transactionID
+   4: required string              name
+}
+
+struct Transaction {
+    1: optional ProducerTransaction    producerTransaction
+    2: optional ConsumerTransaction    consumerTransaction
+}
+
 
 struct Stream {
     1: required i32 partitions
@@ -25,11 +41,13 @@ struct Stream {
 
 service StreamService {
 
-  bool putStream(1: string token, 2: string stream, 3: i32 partitions, 4: string description),
+  bool putStream(1: string token, 2: StreamType stream, 3: i32 partitions, 4: optional string description),
 
-  Stream getStream(1: string token, 2: string stream),
+  bool isStreamExist(1: string token, 2: StreamType stream),
 
-  bool delStream(1: string token, 2: string stream)
+  Stream getStream(1: string token, 2: StreamType stream),
+
+  bool delStream(1: string token, 2: StreamType stream)
 }
 
 
@@ -40,27 +58,27 @@ service TransactionMetaService {
 
    bool putTransactions(1: string token, 2: list<Transaction> transactions),
 
-   bool delTransaction(1: string token, 2: string stream, 3: i32 partition, 4: i64 interval, 5: i64 transaction),
+   bool delTransaction(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction),
 
-   list<Transaction> scanTransactions(1: string token, 2: string stream, 3: i32 partition, 4: i64 interval),
+   list<Transaction> scanTransactions(1: string token, 2: StreamType stream, 3: PartitionType partition),
 
-   i32 scanTransactionsCRC32(1: string token, 2: string stream, 3: i32 partition, 4: i64 interval)
+   i32 scanTransactionsCRC32(1: string token, 2: StreamType stream, 3: PartitionType partition)
 }
 
 
 
 service TransactionDataService {
 
-  bool putTransactionData(1: string token, 2: string stream, 3: i32 partition, 4: i64 transaction, 5: i32 from, 6: list<binary> data),
+  bool putTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: list<binary> data),
 
-  list <binary> getTransactionData(1: string token, 2: string stream, 3: i32 partition, 4: i64 transaction, 5: i32 from, 6: i32 to)
+  list <binary> getTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: i32 to)
 }
 
 
 
 service ConsumerService {
 
- bool setConsumerState(1: string token, 2: string name, 3: string stream, 4: i32 partition, 5: i64 transaction),
+ bool setConsumerState(1: string token, 2: string name, 3: StreamType stream, 4: PartitionType partition, 5: transactionIDType transaction),
 
- i64 getConsumerState(1: string token, 2: string name, 3: string stream, 4: i32 partition)
+ i64 getConsumerState(1: string token, 2: string name, 3: StreamType stream, 4: PartitionType partition)
 }

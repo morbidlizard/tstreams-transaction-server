@@ -32,7 +32,7 @@ class MyRocksDbConnection(path: String = MyRocksDbConnection.path) extends Close
     }
   }
 
-  def getFamilyHandler(name: String) = {
+  def getOrCreateFamilyHandler(name: String) = {
     val handlerOpt = familyHandlerByDescriptorName(name)
     if (handlerOpt.isEmpty) {
       val descriptor = new ColumnFamilyDescriptor(name)
@@ -42,6 +42,8 @@ class MyRocksDbConnection(path: String = MyRocksDbConnection.path) extends Close
       handlerOpt.get
     }
   }
+
+  def getCreateFamilyHandlerOpt(name: String) = familyHandlerByDescriptorName(name)
 
   override def close(): Unit = {
     map.keys foreach (_.columnFamilyOptions().close())

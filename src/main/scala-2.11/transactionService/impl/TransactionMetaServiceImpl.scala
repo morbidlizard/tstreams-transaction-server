@@ -86,48 +86,48 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[Future] {
 }
 
 object TransactionMetaServiceImpl {
-  @Entity
-  class Transaction extends transactionService.rpc.Transaction {
-    @PrimaryKey var key: TransactionKey = _
-    private var stateDB: Int = _
-    private var timestampDB: java.lang.Long = _
-    private var quantityDB: Int = _
-
-    def this(transactionID: java.lang.Long,
-             state: Int,
-             stream: String,
-             timestamp: java.lang.Long,
-             quantity: Int,
-             partition: Int) {
-      this()
-      this.stateDB = state
-      this.timestampDB = timestamp
-      this.quantityDB = quantity
-      this.key = new TransactionKey(stream, partition, transactionID)
-    }
-
-    override def transactionID: Long = key.transactionID
-    override def state: TransactionStates = TransactionStates(stateDB)
-    override def stream: String = key.stream
-    override def timestamp: Long = timestampDB
-    override def quantity: Int = quantityDB
-    override def partition: Int = key.partition
-
-    override def toString: String = {s"$key"}
-  }
-
-  @Persistent
-  class TransactionKey {
-    @KeyField(1) var stream: String = _
-    @KeyField(2) var partition: Int = _
-    @KeyField(3) var transactionID: java.lang.Long = _
-    def this(stream: String, partition:Int, transactionID: java.lang.Long) = {
-      this()
-      this.stream = stream
-      this.partition = partition
-      this.transactionID = transactionID
-    }
-
-    override def toString: String = s"$stream $partition $transactionID"
-  }
+//  @Entity
+//  class Transaction extends transactionService.rpc.Transaction {
+//    @PrimaryKey var key: TransactionKey = _
+//    private var stateDB: Int = _
+//    private var timestampDB: java.lang.Long = _
+//    private var quantityDB: Int = _
+//
+//    def this(transactionID: java.lang.Long,
+//             state: Int,
+//             stream: String,
+//             timestamp: java.lang.Long,
+//             quantity: Int,
+//             partition: Int) {
+//      this()
+//      this.stateDB = state
+//      this.timestampDB = timestamp
+//      this.quantityDB = quantity
+//      this.key = new TransactionKey(stream, partition, transactionID)
+//    }
+//
+//    override def transactionID: Long = key.transactionID
+//    override def state: TransactionStates = TransactionStates(stateDB)
+//    override def stream: String = key.stream
+//    override def timestamp: Long = timestampDB
+//    override def quantity: Int = quantityDB
+//    override def partition: Int = key.partition
+//
+//    override def toString: String = {s"$key"}
+//  }
+//
+//  @Persistent
+//  class TransactionKey {
+//    @KeyField(1) var stream: String = _
+//    @KeyField(2) var partition: Int = _
+//    @KeyField(3) var transactionID: java.lang.Long = _
+//    def this(stream: String, partition:Int, transactionID: java.lang.Long) = {
+//      this()
+//      this.stream = stream
+//      this.partition = partition
+//      this.transactionID = transactionID
+//    }
+//
+//    override def toString: String = s"$stream $partition $transactionID"
+//  }
 }

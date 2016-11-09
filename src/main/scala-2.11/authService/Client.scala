@@ -21,7 +21,7 @@ object Client extends App  {
   val iface: ServiceIface = client.newServiceIface[AuthService.ServiceIface]("localhost:8080", "auth")
   val authCopy = iface.copy(
     authenticate = iface.authenticate,
-    authorize = iface.authorize
+    isValid = iface.isValid
   )
   val request = Thrift.client.newMethodIface(authCopy)
 
@@ -29,7 +29,7 @@ object Client extends App  {
   val password = "1488"
 
   val session = request.authenticate(name, password)
-  val expiredSession = session flatMap {str=> request.authorize(str)}
+  val expiredSession = session flatMap {str=> request.isValid(str)}
 
   println(Await.ready(expiredSession))
 

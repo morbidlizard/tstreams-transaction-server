@@ -14,7 +14,7 @@ trait AuthServiceImpl extends AuthService[Future] {
     )
   )
 
-  override def authorize(token: String): Future[Boolean] = Future(
+  override def isValid(token: String): Future[Boolean] = Future(
     Jwt.isValid(token,secretKey,Seq(JwtAlgorithm.HS256))
   )
 }

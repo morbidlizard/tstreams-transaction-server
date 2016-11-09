@@ -14,7 +14,6 @@ import com.sleepycat.persist.model.{Entity, Persistent, PrimaryKey}
 import transactionService.impl.`implicit`.Implicits._
 
 trait StreamServiceImpl extends StreamService[Future] {
-
    def putStream(token: String, stream: String, partitions: Int, description: Option[String]): Future[Boolean] = Future {
      val directory = createDirectory()
 
@@ -40,7 +39,7 @@ trait StreamServiceImpl extends StreamService[Future] {
      true
    }
 
-   def getStream(token: String, stream: String): Future[Stream] = Future {
+   def isStreamExist(token: String, stream: String): Future[Boolean] = Future {
      val directory = new File(pathToDatabases)
 
      val environmentConfig = new EnvironmentConfig()
@@ -53,6 +52,23 @@ trait StreamServiceImpl extends StreamService[Future] {
      val environment = new Environment(directory, environmentConfig)
      val entityStore = new EntityStore(environment, "StreamStore", storeConfig)
 
+     val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[StreamServiceImpl.Stream])
+
+     if (pIdx.get(stream) == null) false else true
+   }
+
+   def getStream(token: String, stream: String): Future[Stream] = Future {
+     val directory = new File(pathToDatabases)
+
+     val environmentConfig = new EnvironmentConfig()
+       .setTransactional(true)
+
+     val storeConfig = new StoreConfig()
+       .setTransactional(true)
+
+
+     val environment = new Environment(directory, environmentConfig)
+     val entityStore = new EntityStore(environment, "StreamStore", storeConfig)
      val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[StreamServiceImpl.Stream])
 
      pIdx.get(stream)

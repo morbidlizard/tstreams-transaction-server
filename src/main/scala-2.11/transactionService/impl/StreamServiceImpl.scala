@@ -26,13 +26,10 @@ trait StreamServiceImpl extends StreamService[Future] {
        .setTransactional(true)
 
      val environment = new Environment(directory, environmentConfig)
-     val entityStore = new EntityStore(environment, "StreamStore", storeConfig)
+     val entityStore = new EntityStore(environment, storeName, storeConfig)
 
-     val transactionDB = environment.beginTransaction(null, null)
      val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[StreamServiceImpl.Stream])
-     pIdx.put(transactionDB, new StreamServiceImpl.Stream(stream,partitions,description))
-
-     transactionDB.commit()
+     pIdx.put(new StreamServiceImpl.Stream(stream,partitions,description))
 
      entityStore.close()
      environment.close()
@@ -50,7 +47,7 @@ trait StreamServiceImpl extends StreamService[Future] {
 
 
      val environment = new Environment(directory, environmentConfig)
-     val entityStore = new EntityStore(environment, "StreamStore", storeConfig)
+     val entityStore = new EntityStore(environment, storeName, storeConfig)
 
      val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[StreamServiceImpl.Stream])
 
@@ -68,7 +65,7 @@ trait StreamServiceImpl extends StreamService[Future] {
 
 
      val environment = new Environment(directory, environmentConfig)
-     val entityStore = new EntityStore(environment, "StreamStore", storeConfig)
+     val entityStore = new EntityStore(environment, storeName, storeConfig)
      val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[StreamServiceImpl.Stream])
 
      pIdx.get(stream)
@@ -79,6 +76,7 @@ trait StreamServiceImpl extends StreamService[Future] {
 
 object StreamServiceImpl {
   final val pathToDatabases = "/tmp"
+  final val storeName = "StreamStore"
 
   final val partitionKey = new DatabaseEntry("partitions")
   final val descriptionKey = new DatabaseEntry("description")

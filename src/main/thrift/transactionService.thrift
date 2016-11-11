@@ -17,6 +17,7 @@ struct ProducerTransaction {
    4: required TransactionStates   state
    5: required i32                 quantity
    6: required i64                 timestamp
+   7: required i64                 tll
 }
 
 struct ConsumerTransaction {
@@ -57,8 +58,6 @@ service TransactionMetaService {
    bool putTransaction(1: string token, 2: Transaction transaction),
 
    bool putTransactions(1: string token, 2: list<Transaction> transactions),
-
-   bool delTransaction(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction),
 
    list<Transaction> scanTransactions(1: string token, 2: StreamType stream, 3: PartitionType partition),
 

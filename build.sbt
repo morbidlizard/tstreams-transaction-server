@@ -15,5 +15,6 @@ libraryDependencies ++= Seq(
   "org.scalactic" %% "scalactic" % "3.0.0",
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   "com.storm-enroute" % "scalameter_2.11" % "0.8.1",
-  "com.pauldijou" %% "jwt-core" % "0.9.0"
+  "com.pauldijou" %% "jwt-core" % "0.9.0",
+  "com.twitter" % "bijection-util_2.11" % "0.9.2"
 )

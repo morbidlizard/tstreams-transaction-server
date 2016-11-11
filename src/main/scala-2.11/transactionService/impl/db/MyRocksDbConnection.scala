@@ -2,6 +2,7 @@ package transactionService.impl.db
 
 import java.io.Closeable
 
+import com.twitter.io.TempDirectory
 import org.rocksdb._
 import transactionService.impl.`implicit`.Implicits._
 
@@ -14,8 +15,7 @@ class MyRocksDbConnection(path: String = MyRocksDbConnection.path) extends Close
       .setCreateIfMissing(true)
       .setCreateMissingColumnFamilies(true)
 
-    val columnFamilies = RocksDB.listColumnFamilies(new Options(), path).asScala
-
+    val columnFamilies = RocksDB.listColumnFamilies(new Options(), path).asScala :+ RocksDB.DEFAULT_COLUMN_FAMILY
     val descriptors = columnFamilies map (new ColumnFamilyDescriptor(_))
     val handlers = new java.util.ArrayList[ColumnFamilyHandle]().asScala
 
@@ -53,5 +53,6 @@ class MyRocksDbConnection(path: String = MyRocksDbConnection.path) extends Close
 }
 
 object MyRocksDbConnection {
-  val path = "/tmp/rocksdb_simple_example"
+  //"/tmp/rocksdb_simple_example"
+  val path = TempDirectory.create().getAbsolutePath
 }

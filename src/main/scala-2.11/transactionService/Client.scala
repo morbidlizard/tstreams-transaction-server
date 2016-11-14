@@ -3,6 +3,7 @@ package transactionService
 import com.twitter.finagle._
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util._
+import org.apache.thrift.protocol.TCompactProtocol
 import transactionService.rpc._
 import transactionService.rpc.TransactionMetaService.ServiceIface
 
@@ -24,7 +25,7 @@ object Client extends App {
     putStream = ifaceStream.putStream,
     getStream = ifaceStream.getStream
   )
-  val requestStream = Thrift.client.newMethodIface(streamCopy)
+  val requestStream = Thrift.client.withProtocolFactory(new TCompactProtocol.Factory()).newMethodIface(streamCopy)
 
   val streams = (0 to 0).map(_=> new transactionService.rpc.Stream {
     override val partitions = scala.util.Random.nextInt()
@@ -64,7 +65,7 @@ object Client extends App {
     putTransaction = ifaceTransaction.putTransaction,
     putTransactions = ifaceTransaction.putTransactions
   )
-  val requestTransaction = Thrift.client.newMethodIface(transactionCopy)
+  val requestTransaction = Thrift.client.withProtocolFactory(new TCompactProtocol.Factory()).newMethodIface(transactionCopy)
 
   producerTransactions foreach (x => println (x.transactionID))
 

@@ -46,15 +46,21 @@ object DataClient extends App {
   }
 
   val genData = (0 to 7).map(_=>
-    java.nio.ByteBuffer.allocate(8)
-      .putInt(scala.util.Random.nextInt(200))
-      .putInt(scala.util.Random.nextInt(200))
+    scala.util.Random.nextString(4)
   )
 
-  val putResult = requestData.putTransactionData(" ",txn.stream,txn.partition,txn.transactionID,0,genData)
+  genData foreach println
+
+  val putResult = requestData.putTransactionData(" ",txn.stream,txn.partition,txn.transactionID,0, genData map (x => java.nio.ByteBuffer.wrap(x.getBytes())))
   println(Await.ready(putResult))
 
 
-  val getResult = requestData.getTransactionData(" ",txn.stream,txn.partition,txn.transactionID,2,6)
-  val res = println(Await.result(getResult).map(_.array().length))
+  val getResult = requestData.getTransactionData(" ",txn.stream,txn.partition,txn.transactionID,0,7)
+  val res = Await.result(getResult)
+  res foreach {x =>
+    val sizeOfSlicedData  = x.limit() - x.position()
+    val bytes = new Array[Byte](sizeOfSlicedData)
+    x.get(bytes)
+    println(new String(bytes))
+  }
 }

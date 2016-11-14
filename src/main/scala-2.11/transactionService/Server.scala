@@ -2,7 +2,8 @@ package transactionService
 
 import com.twitter.finagle.Thrift
 import com.twitter.util.Await
-import transactionService.impl.{StreamServiceImpl, TransactionMetaServiceImpl, TransactionDataServiceImpl}
+import org.apache.thrift.protocol.{TBinaryProtocol, TCompactProtocol}
+import transactionService.impl.{StreamServiceImpl, TransactionDataServiceImpl, TransactionMetaServiceImpl}
 
 object Server extends App {
   private class ThriftTransactionServer extends TransactionMetaServiceImpl

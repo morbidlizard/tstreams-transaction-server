@@ -2,39 +2,73 @@ package transactionService.impl
 
 import java.nio.ByteBuffer
 
+import transactionService.impl.TransactionDataServiceImpl.{Key, KeyDataSeq}
 import com.twitter.util.Future
+import org.rocksdb.{RocksDB, WriteBatch, WriteOptions}
+import com.twitter.util.{Future => TwitterFuture}
+import transactionService.impl.db.MyRocksDbConnection
 import transactionService.rpc.TransactionDataService
+import transactionService.impl.`implicit`.Implicits._
+
+import scala.collection.mutable.ArrayBuffer
 
 trait TransactionDataServiceImpl extends TransactionDataService[Future] {
-  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, data: Seq[ByteBuffer]): Future[Boolean] = ???
+  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, data: Seq[ByteBuffer]): TwitterFuture[Boolean] = TwitterFuture {
+    RocksDB.loadLibrary()
+    val rangeDataToSave = from until (from + data.length)
+    val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(stream,partition,transaction),seqId).toString)
+    val batch = new WriteBatch()
+    (keys zip data) foreach {case (key,datum) =>
+      val sizeOfSlicedData  = datum.limit() - datum.position()
+      val bytes = new Array[Byte](sizeOfSlicedData)
+      datum.get(bytes)
+      batch.put(key, bytes)
+    }
 
-  def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]] = ???
+
+    val rocksDB = new MyRocksDbConnection()
+    val client  = rocksDB.client
+    val result = Option(client.write(new WriteOptions(), batch)) match {
+      case Some(_) => true
+      case None => false
+    }
+
+    batch.close()
+    rocksDB.close()
+
+    result
+  }
+
+  def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] = TwitterFuture {
+    RocksDB.loadLibrary()
+    val prefix = KeyDataSeq(Key(stream,partition,transaction),from).toString
+    val rocksDB = new MyRocksDbConnection()
+    val client  = rocksDB.client
+    val iterator = client.newIterator()
+
+    iterator.seek(prefix)
+
+    def getKeyDataSeq(key: Array[Byte]) = new String(key).split("\\s+").last.toInt
+
+    val data = new ArrayBuffer[ByteBuffer](to - from)
+    while(iterator.isValid && getKeyDataSeq(iterator.key()) < to)
+    {
+      data += java.nio.ByteBuffer.wrap(iterator.value())
+      iterator.next()
+    }
+    data += java.nio.ByteBuffer.wrap(iterator.value())
+
+    iterator.close()
+    rocksDB.close()
+    data
+  }
 }
 
-//    Future {
-//    val rocksDB = new MyRocksDbConnection
-//
-//    val stream = transaction._1
-//    val partition = transaction._2
-//    val transactionId = transaction._3
-//    val state = transaction._4
-//    val quantity = transaction._5
-//    val timestamp = transaction._6
-//
-//
-//    val key = s"$stream $partition $transactionId"
-//    val familyHandler = rocksDB.getOrCreateFamilyHandler(key)
-//
-//    val batch = new WriteBatch()
-//    batch.put(familyHandler, TransactionTable.state, state.value)
-//    batch.put(familyHandler, TransactionTable.quantity, quantity)
-//    batch.put(familyHandler, TransactionTable.timestamp, timestamp)
-//
-//    val client = rocksDB.client
-//    client.write(new WriteOptions(), batch)
-//
-//
-//    batch.close()
-//    rocksDB.close()
-//    true
-//  }
+private object TransactionDataServiceImpl {
+  case class KeyDataSeq(key: Key, dataSeq: Int) {
+    override def toString: String = s"${key.toString} $dataSeq"
+  }
+  case class Key(stream: String, partition: Int, transaction: Long) {
+    override def toString: String = s"$stream $partition $transaction"
+  }
+}

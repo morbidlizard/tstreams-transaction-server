@@ -65,7 +65,7 @@ object Client extends App {
     putTransaction = ifaceTransaction.putTransaction,
     putTransactions = ifaceTransaction.putTransactions
   )
-  val requestTransaction = Thrift.client.withProtocolFactory(new TCompactProtocol.Factory()).newMethodIface(transactionCopy)
+  val requestTransaction = Thrift.client.newMethodIface(transactionCopy)
 
   producerTransactions foreach (x => println (x.transactionID))
 

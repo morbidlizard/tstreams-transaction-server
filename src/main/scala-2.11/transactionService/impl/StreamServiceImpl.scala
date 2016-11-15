@@ -1,85 +1,51 @@
 package transactionService.impl
 
-import java.io.File
-import java.nio.file.{Files, Path, Paths}
-import java.util.concurrent.TimeUnit
+import java.io.{Closeable, File}
+import java.nio.file.{Files, Paths}
 
 import com.sleepycat.je._
-import com.twitter.util.Future
+import com.twitter.util.{Future => TwitterFuture}
 import transactionService.rpc.{Stream, StreamService}
 import StreamServiceImpl._
-import com.sleepycat.bind.tuple.TupleBinding
 import com.sleepycat.persist.{EntityStore, StoreConfig}
-import com.sleepycat.persist.model.{Entity, Persistent, PrimaryKey}
+import com.sleepycat.persist.model.{Entity, PrimaryKey}
 import transactionService.impl.`implicit`.Implicits._
 
-trait StreamServiceImpl extends StreamService[Future] {
-   def putStream(token: String, stream: String, partitions: Int, description: Option[String]): Future[Boolean] = Future {
-     val directory = createDirectory()
+trait StreamServiceImpl extends StreamService[TwitterFuture] with Closeable {
+  def putStream(token: String, stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] = TwitterFuture {
+    pIdx.put(new StreamServiceImpl.Stream(stream, partitions, description))
+    true
+  }
 
-     val environmentConfig = new EnvironmentConfig()
-       .setAllowCreate(true)
-       .setTransactional(true)
+  def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] = TwitterFuture{
+    if (pIdx.get(stream) == null) false else true
+  }
 
-     val storeConfig = new StoreConfig()
-       .setAllowCreate(true)
-       .setTransactional(true)
+  def getStream(token: String, stream: String): TwitterFuture[Stream] = TwitterFuture(pIdx.get(stream))
+  def delStream(token: String, stream: String): TwitterFuture[Boolean] = TwitterFuture(pIdx.delete(stream))
 
-     val environment = new Environment(directory, environmentConfig)
-     val entityStore = new EntityStore(environment, storeName, storeConfig)
-
-     val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[StreamServiceImpl.Stream])
-     pIdx.put(new StreamServiceImpl.Stream(stream,partitions,description))
-
-     entityStore.close()
-     environment.close()
-     true
-   }
-
-   def isStreamExist(token: String, stream: String): Future[Boolean] = Future {
-     val directory = new File(pathToDatabases)
-
-     val environmentConfig = new EnvironmentConfig()
-       .setTransactional(true)
-
-     val storeConfig = new StoreConfig()
-       .setTransactional(true)
-
-
-     val environment = new Environment(directory, environmentConfig)
-     val entityStore = new EntityStore(environment, storeName, storeConfig)
-
-     val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[StreamServiceImpl.Stream])
-
-     if (pIdx.get(stream) == null) false else true
-   }
-
-   def getStream(token: String, stream: String): Future[Stream] = Future {
-     val directory = new File(pathToDatabases)
-
-     val environmentConfig = new EnvironmentConfig()
-       .setTransactional(true)
-
-     val storeConfig = new StoreConfig()
-       .setTransactional(true)
-
-
-     val environment = new Environment(directory, environmentConfig)
-     val entityStore = new EntityStore(environment, storeName, storeConfig)
-     val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[StreamServiceImpl.Stream])
-
-     pIdx.get(stream)
-   }
-
-   def delStream(token: String, stream: String): Future[Boolean] = ???
+  override def close(): Unit = {
+    entityStore.close()
+    environment.close()
+  }
 }
 
-object StreamServiceImpl {
+private object StreamServiceImpl {
   final val pathToDatabases = "/tmp"
   final val storeName = "StreamStore"
 
   final val partitionKey = new DatabaseEntry("partitions")
   final val descriptionKey = new DatabaseEntry("description")
+
+
+  val directory = createDirectory("stream")
+  val environmentConfig = new EnvironmentConfig()
+    .setAllowCreate(true)
+  val storeConfig = new StoreConfig()
+    .setAllowCreate(true)
+  val environment = new Environment(directory, environmentConfig)
+  val entityStore = new EntityStore(environment, storeName, storeConfig)
+  val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[Stream])
 
   def createDirectory(name: String = pathToDatabases, deleteAtExit: Boolean = true): File = {
     val path = {
@@ -98,7 +64,7 @@ object StreamServiceImpl {
     path.toFile
   }
 
-  @Entity private class Stream extends transactionService.rpc.Stream {
+  @Entity class Stream extends transactionService.rpc.Stream {
     @PrimaryKey private var nameDB: String = _
     private var partitionsDB: Int = _
     private var descriptionDB:  String = _

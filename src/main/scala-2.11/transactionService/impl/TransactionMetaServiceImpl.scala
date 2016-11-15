@@ -1,6 +1,6 @@
 package transactionService.impl
 
-import java.io.File
+import java.io.Closeable
 
 import scala.concurrent.{Future => ScalaFuture}
 import com.twitter.util.{Future => TwitterFuture}
@@ -10,23 +10,15 @@ import com.twitter.bijection.twitter_util.UtilBijections._
 import com.sleepycat.je.{Environment, EnvironmentConfig}
 import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.sleepycat.persist.model._
+
 import com.twitter.logging.{Level, Logger}
 import transactionService.rpc._
+import TransactionMetaServiceImpl._
 
 
-trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] {
+trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] with Closeable{
 
   def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = {
-    val directory = new File(StreamServiceImpl.pathToDatabases)
-
-    val environmentConfig = new EnvironmentConfig()
-      .setAllowCreate(true)
-    val storeConfig = new StoreConfig()
-      .setAllowCreate(true)
-
-    val environment = new Environment(directory, environmentConfig)
-    val entityStore = new EntityStore(environment, TransactionMetaServiceImpl.storeName, storeConfig)
-
     val (producerTransactionOpt, consumerTransactionOpt) = (transaction.producerTransaction, transaction.consumerTransaction)
 
     val result = (producerTransactionOpt, consumerTransactionOpt) match {
@@ -34,10 +26,8 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] {
         implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)
         ScalaFuture {
           val isNotExist =
-            entityStore.getPrimaryIndex(
-            classOf[TransactionMetaServiceImpl.ProducerTransactionKey],
-            classOf[TransactionMetaServiceImpl.ProducerTransaction]
-            ).putNoOverwrite(new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
+            producerPrimaryIndex
+              .putNoOverwrite(new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
           if (isNotExist) {
             TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
             isNotExist
@@ -49,47 +39,18 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] {
       case (_, Some(txn)) =>
         implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(0L)
         ScalaFuture(
-          entityStore.getPrimaryIndex(
-            classOf[TransactionMetaServiceImpl.ConsumerTransactionKey],
-            classOf[TransactionMetaServiceImpl.ConsumerTransaction]
-          ).putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
-        )(transactionService.impl.thread.Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)).as[TwitterFuture[Boolean]]
+          consumerPrimaryIndex
+            .putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
+        ).as[TwitterFuture[Boolean]]
       case _ =>
         implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(0L)
         ScalaFuture(false).as[TwitterFuture[Boolean]]
     }
 
-
-    result flatMap {isInserted =>
-      entityStore.close()
-      environment.close()
-      TwitterFuture.value(isInserted)
-    }
+    result flatMap TwitterFuture.value
   }
 
   override def putTransactions(token: String, transactions: Seq[Transaction]): TwitterFuture[Boolean] = {
-    val directory = new File(StreamServiceImpl.pathToDatabases)
-    val environmentConfig = new EnvironmentConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-
-    val storeConfig = new StoreConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-
-    val environment = new Environment(directory, environmentConfig)
-    val entityStore = new EntityStore(environment, TransactionMetaServiceImpl.storeName, storeConfig)
-
-    val producerPrimaryIndex = entityStore.getPrimaryIndex(
-      classOf[TransactionMetaServiceImpl.ProducerTransactionKey],
-      classOf[TransactionMetaServiceImpl.ProducerTransaction]
-    )
-
-    val consumerPrimaryIndex = entityStore.getPrimaryIndex(
-      classOf[TransactionMetaServiceImpl.ConsumerTransactionKey],
-      classOf[TransactionMetaServiceImpl.ConsumerTransaction]
-    )
-
     val transactionDB = environment.beginTransaction(null, null)
     val result = transactions map { transaction =>
       (transaction.producerTransaction, transaction.consumerTransaction) match {
@@ -97,10 +58,8 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] {
           implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)
           ScalaFuture {
             val isNotExist =
-              entityStore.getPrimaryIndex(
-                classOf[TransactionMetaServiceImpl.ProducerTransactionKey],
-                classOf[TransactionMetaServiceImpl.ProducerTransaction]
-              ).putNoOverwrite(new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
+              producerPrimaryIndex
+                .putNoOverwrite(new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
             if (isNotExist) {
               TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
               isNotExist
@@ -112,11 +71,9 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] {
         case (_, Some(txn)) =>
           implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(0L)
           ScalaFuture(
-            entityStore.getPrimaryIndex(
-              classOf[TransactionMetaServiceImpl.ConsumerTransactionKey],
-              classOf[TransactionMetaServiceImpl.ConsumerTransaction]
-            ).putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
-          )(transactionService.impl.thread.Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)).as[TwitterFuture[Boolean]]
+            consumerPrimaryIndex
+              .putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
+          ).as[TwitterFuture[Boolean]]
         case _ =>
           implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(0L)
           ScalaFuture(false).as[TwitterFuture[Boolean]]
@@ -125,10 +82,6 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] {
 
     TwitterFuture.collect(result).flatMap { transactions =>
       transactionDB.commit()
-
-      entityStore.close()
-      environment.close()
-
       TwitterFuture.value(transactions.forall(_ == true))
     }
   }
@@ -175,11 +128,36 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] {
   def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = ???
 
   def scanTransactionsCRC32(token: String, stream: String, partition: Int): TwitterFuture[Int] = ???
+
+  override def close(): Unit = {
+    entityStore.close()
+    environment.close()
+  }
 }
 
 private object TransactionMetaServiceImpl {
   final val storeName = "TransactionStore"
   val logger = Logger.get()
+
+  val directory = StreamServiceImpl.createDirectory("transaction")
+  val environmentConfig = new EnvironmentConfig()
+    .setAllowCreate(true)
+    .setTransactional(true)
+  val storeConfig = new StoreConfig()
+    .setAllowCreate(true)
+    .setTransactional(true)
+  val environment = new Environment(directory, environmentConfig)
+  val entityStore = new EntityStore(environment, TransactionMetaServiceImpl.storeName, storeConfig)
+
+  val producerPrimaryIndex = entityStore.getPrimaryIndex(
+    classOf[TransactionMetaServiceImpl.ProducerTransactionKey],
+    classOf[TransactionMetaServiceImpl.ProducerTransaction]
+  )
+
+  val consumerPrimaryIndex = entityStore.getPrimaryIndex(
+    classOf[TransactionMetaServiceImpl.ConsumerTransactionKey],
+    classOf[TransactionMetaServiceImpl.ConsumerTransaction]
+  )
 
   @Entity
   class ProducerTransaction extends transactionService.rpc.ProducerTransaction {

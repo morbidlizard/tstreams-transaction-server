@@ -1,12 +1,8 @@
 package transactionService
 
 import com.twitter.finagle.{Failure, Thrift}
-import com.twitter.io.Buf.ByteBuffer
 import com.twitter.logging.{Level, Logger}
-import com.twitter.util.{Await, Future, Monitor, Time}
-import org.apache.thrift.protocol.TCompactProtocol
-import org.apache.thrift.protocol.TCompactProtocol.Factory
-import org.apache.thrift.transport.TIOStreamTransport
+import com.twitter.util.{Await, Monitor, Time}
 import transactionService.rpc.{ProducerTransaction, TransactionDataService, TransactionStates}
 
 

@@ -7,37 +7,45 @@ import scala.concurrent.{Future => ScalaFuture}
 import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.bijection.Conversion.asMethod
 import com.twitter.bijection.twitter_util.UtilBijections._
-
 import com.sleepycat.je.{DatabaseEntry, Environment, EnvironmentConfig}
 import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.sleepycat.persist.model._
-
 import transactionService.rpc.ConsumerService
 import transactionService.impl.`implicit`.Implicits._
 import ConsumerServiceImpl._
+import transactionService.Context
 
-trait ConsumerServiceImpl extends ConsumerService[TwitterFuture] with Closeable {
-  def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =  {
-    implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(partition, stream.toInt)
-    val transaction = ScalaFuture {
-      val pIdx = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerServiceImpl.Consumer])
-      Option(pIdx.get(new ConsumerKey(name, stream, partition))) match {
-        case Some(consumer) => consumer.transactionId
-        case None => -1L
-      }
-    }.as[TwitterFuture[Long]]
+trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
+  with Closeable
+  with Authenticable
+{
 
-    transaction flatMap TwitterFuture.value
+
+  def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] = authClient.isValid(token) flatMap {isValid=>
+    if (isValid) {
+      implicit val context = Context.transactionContexts.getContext(partition, stream.toInt)
+      val transaction = ScalaFuture {
+        val pIdx = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerServiceImpl.Consumer])
+        Option(pIdx.get(new ConsumerKey(name, stream, partition))) match {
+          case Some(consumer) => consumer.transactionId
+          case None => -1L
+        }
+      }.as[TwitterFuture[Long]]
+
+      transaction flatMap TwitterFuture.value
+    } else TwitterFuture.exception(throw new IllegalArgumentException("Token isn't valid"))
   }
 
-  def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =  {
-    implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(partition, stream.toInt)
-    val isSetted = ScalaFuture {
-      val pIdx = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerServiceImpl.Consumer])
-      pIdx.putNoOverwrite(new ConsumerServiceImpl.Consumer(name, stream, partition, transaction))
-    }.as[TwitterFuture[Boolean]]
+  def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] = authClient.isValid(token) flatMap {isValid=>
+    if (isValid) {
+      implicit val context = transactionService.Context.transactionContexts.getContext(partition, stream.toInt)
+      val isSetted = ScalaFuture {
+        val pIdx = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerServiceImpl.Consumer])
+        pIdx.putNoOverwrite(new ConsumerServiceImpl.Consumer(name, stream, partition, transaction))
+      }.as[TwitterFuture[Boolean]]
 
-    isSetted flatMap TwitterFuture.value
+      isSetted flatMap TwitterFuture.value
+    } else TwitterFuture.exception(throw new IllegalArgumentException("Token isn't valid"))
   }
 
   override def close(): Unit = {
@@ -62,24 +70,6 @@ private object ConsumerServiceImpl {
     .setAllowCreate(true)
   val environment = new Environment(directory, environmentConfig)
   val entityStore = new EntityStore(environment, storeName, storeConfig)
-
-
-  def createDirectory(name: String = pathToDatabases, deleteAtExit: Boolean = true): File = {
-    val path = {
-      val dir = Paths.get(name)
-      if (Files.exists(dir)) dir else java.nio.file.Files.createDirectory(Paths.get(name))
-    }
-
-    import org.apache.commons.io.FileUtils
-
-    if (deleteAtExit)
-      Runtime.getRuntime.addShutdownHook(new Thread {
-        override def run() {
-          FileUtils.forceDelete(path.toFile)
-        }
-      })
-    path.toFile
-  }
 
   @Entity
   class Consumer {

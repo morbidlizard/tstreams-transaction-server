@@ -6,56 +6,27 @@ import scala.concurrent.{Future => ScalaFuture}
 import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.bijection.Conversion.asMethod
 import com.twitter.bijection.twitter_util.UtilBijections._
-
 import com.sleepycat.je.{Environment, EnvironmentConfig}
 import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.sleepycat.persist.model._
-
 import com.twitter.logging.{Level, Logger}
 import transactionService.rpc._
 import TransactionMetaServiceImpl._
+import transactionService.Context
 
 
-trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] with Closeable{
+trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
+  with Closeable
+  with Authenticable
+{
 
-  def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = {
-    val (producerTransactionOpt, consumerTransactionOpt) = (transaction.producerTransaction, transaction.consumerTransaction)
+  def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+    if (isValid) {
+      val (producerTransactionOpt, consumerTransactionOpt) = (transaction.producerTransaction, transaction.consumerTransaction)
 
-    val result = (producerTransactionOpt, consumerTransactionOpt) match {
-      case (Some(txn), _) =>
-        implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)
-        ScalaFuture {
-          val isNotExist =
-            producerPrimaryIndex
-              .putNoOverwrite(new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
-          if (isNotExist) {
-            TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
-            isNotExist
-          } else {
-            TransactionMetaServiceImpl.logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
-            isNotExist
-          }
-        }.as[TwitterFuture[Boolean]]
-      case (_, Some(txn)) =>
-        implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(0L)
-        ScalaFuture(
-          consumerPrimaryIndex
-            .putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
-        ).as[TwitterFuture[Boolean]]
-      case _ =>
-        implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(0L)
-        ScalaFuture(false).as[TwitterFuture[Boolean]]
-    }
-
-    result flatMap TwitterFuture.value
-  }
-
-  override def putTransactions(token: String, transactions: Seq[Transaction]): TwitterFuture[Boolean] = {
-    val transactionDB = environment.beginTransaction(null, null)
-    val result = transactions map { transaction =>
-      (transaction.producerTransaction, transaction.consumerTransaction) match {
+      val result = (producerTransactionOpt, consumerTransactionOpt) match {
         case (Some(txn), _) =>
-          implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)
+          implicit val context = Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)
           ScalaFuture {
             val isNotExist =
               producerPrimaryIndex
@@ -69,21 +40,56 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture] w
             }
           }.as[TwitterFuture[Boolean]]
         case (_, Some(txn)) =>
-          implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(0L)
+          implicit val context = transactionService.Context.transactionContexts.getContext(0L)
           ScalaFuture(
             consumerPrimaryIndex
               .putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
           ).as[TwitterFuture[Boolean]]
         case _ =>
-          implicit val context = transactionService.impl.thread.Context.transactionContexts.getContext(0L)
+          implicit val context = transactionService.Context.transactionContexts.getContext(0L)
           ScalaFuture(false).as[TwitterFuture[Boolean]]
       }
-    }
+      result flatMap TwitterFuture.value
+    } else TwitterFuture.exception(throw new IllegalArgumentException("Token isn't valid"))
+  }
 
-    TwitterFuture.collect(result).flatMap { transactions =>
-      transactionDB.commit()
-      TwitterFuture.value(transactions.forall(_ == true))
-    }
+  override def putTransactions(token: String, transactions: Seq[Transaction]): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+    if (isValid) {
+      val transactionDB = environment.beginTransaction(null, null)
+      val result = transactions map { transaction =>
+        (transaction.producerTransaction, transaction.consumerTransaction) match {
+          case (Some(txn), _) =>
+            implicit val context = transactionService.Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)
+            ScalaFuture {
+              val isNotExist =
+                producerPrimaryIndex
+                  .putNoOverwrite(new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
+              if (isNotExist) {
+                TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
+                isNotExist
+              } else {
+                TransactionMetaServiceImpl.logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+                isNotExist
+              }
+            }.as[TwitterFuture[Boolean]]
+          case (_, Some(txn)) =>
+            implicit val context = transactionService.Context.transactionContexts.getContext(0L)
+            ScalaFuture(
+              consumerPrimaryIndex
+                .putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
+            ).as[TwitterFuture[Boolean]]
+          case _ =>
+            implicit val context = transactionService.Context.transactionContexts.getContext(0L)
+            ScalaFuture(false).as[TwitterFuture[Boolean]]
+        }
+      }
+
+      TwitterFuture.collect(result).flatMap { transactions =>
+        val isOkay = transactions.forall(_ == true)
+        if (isOkay) transactionDB.commit() else transactionDB.abort()
+        TwitterFuture.value(isOkay)
+      }
+    } else TwitterFuture.exception(throw new IllegalArgumentException("Token isn't valid"))
   }
 
 //  def delTransaction(token: String, stream: String, partition: Int, transaction: Long): Future[Boolean] = {

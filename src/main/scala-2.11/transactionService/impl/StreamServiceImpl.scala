@@ -11,18 +11,34 @@ import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.sleepycat.persist.model.{Entity, PrimaryKey}
 import transactionService.impl.`implicit`.Implicits._
 
-trait StreamServiceImpl extends StreamService[TwitterFuture] with Closeable {
-  def putStream(token: String, stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] = TwitterFuture {
-    pIdx.put(new StreamServiceImpl.Stream(stream, partitions, description))
-    true
+trait StreamServiceImpl extends StreamService[TwitterFuture]
+  with Closeable
+  with Authenticable
+{
+
+  def putStream(token: String, stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+    if (isValid) {
+      TwitterFuture {
+        pIdx.put(new StreamServiceImpl.Stream(stream, partitions, description))
+        true
+      }
+    } else TwitterFuture.exception(throw new IllegalArgumentException("Token isn't valid"))
   }
 
-  def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] = TwitterFuture{
-    if (pIdx.get(stream) == null) false else true
+  def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+    if (isValid) {
+      TwitterFuture {
+        if (pIdx.get(stream) == null) false else true
+      }
+    } else TwitterFuture.exception(throw new IllegalArgumentException("Token isn't valid"))
   }
 
-  def getStream(token: String, stream: String): TwitterFuture[Stream] = TwitterFuture(pIdx.get(stream))
-  def delStream(token: String, stream: String): TwitterFuture[Boolean] = TwitterFuture(pIdx.delete(stream))
+  def getStream(token: String, stream: String): TwitterFuture[Stream] = authClient.isValid(token) flatMap { isValid =>
+    if (isValid) TwitterFuture(pIdx.get(stream)) else TwitterFuture.exception(throw new IllegalArgumentException("Token isn't valid"))
+  }
+  def delStream(token: String, stream: String): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+    if (isValid) TwitterFuture(pIdx.delete(stream)) else TwitterFuture.exception(throw new IllegalArgumentException("Token isn't valid"))
+  }
 
   override def close(): Unit = {
     entityStore.close()
@@ -50,7 +66,7 @@ private object StreamServiceImpl {
   def createDirectory(name: String = pathToDatabases, deleteAtExit: Boolean = true): File = {
     val path = {
       val dir = Paths.get(name)
-      if (Files.exists(dir)) dir else java.nio.file.Files.createDirectory(Paths.get(name))
+      if (Files.exists(dir)) dir else java.nio.file.Files.createDirectory(Paths.get(s"/tmp/$name"))
     }
 
     import org.apache.commons.io.FileUtils

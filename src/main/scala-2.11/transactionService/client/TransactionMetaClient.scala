@@ -1,13 +1,13 @@
-package transactionService
+package transactionService.client
 
 import com.twitter.finagle._
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util._
 import org.apache.thrift.protocol.TCompactProtocol
-import transactionService.rpc._
 import transactionService.rpc.TransactionMetaService.ServiceIface
+import transactionService.rpc._
 
-object Client extends App {
+object TransactionMetaClient extends App {
   val client = Thrift.client.withMonitor(new Monitor {
     def handle(error: Throwable): Boolean = error match {
       case e: com.twitter.util.TimeoutException => true
@@ -18,6 +18,7 @@ object Client extends App {
       case _ => false
     }
   })
+
 
 
   val ifaceStream= client.newServiceIface[StreamService.ServiceIface]("localhost:8080", "stream")
@@ -60,7 +61,7 @@ object Client extends App {
     override def consumerTransaction: Option[ConsumerTransaction] = None
   })
 
-  val ifaceTransaction: ServiceIface = client.newServiceIface[TransactionMetaService.ServiceIface]("localhost:8081", "transaction")
+  val ifaceTransaction: ServiceIface = client.newServiceIface[TransactionMetaService.ServiceIface]("localhost:8080", "transaction")
   val transactionCopy = ifaceTransaction.copy(
     putTransaction = ifaceTransaction.putTransaction,
     putTransactions = ifaceTransaction.putTransactions

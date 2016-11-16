@@ -1,4 +1,4 @@
-package transactionService
+package transactionService.client
 
 import com.twitter.finagle.{Failure, Thrift}
 import com.twitter.logging.{Level, Logger}
@@ -18,7 +18,7 @@ object DataClient extends App {
     }
   })
 
-  val ifaceData= client.newServiceIface[TransactionDataService.ServiceIface]("localhost:8082", "data")
+  val ifaceData= client.newServiceIface[TransactionDataService.ServiceIface]("localhost:8080", "data")
   val dataCopy = ifaceData.copy(
     putTransactionData = ifaceData.putTransactionData,
     getTransactionData = ifaceData.getTransactionData

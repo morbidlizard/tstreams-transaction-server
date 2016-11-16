@@ -1,4 +1,4 @@
-package transactionService
+package transactionService.client
 
 import com.twitter.finagle.{Failure, Thrift}
 import com.twitter.logging.{Level, Logger}
@@ -17,7 +17,7 @@ object ConsumerClient extends App {
     }
   })
 
-  val ifaceConsumer= client.newServiceIface[ConsumerService.ServiceIface]("localhost:8083", "consumer")
+  val ifaceConsumer= client.newServiceIface[ConsumerService.ServiceIface]("localhost:8080", "consumer")
   val consumerCopy = ifaceConsumer.copy(
     setConsumerState = ifaceConsumer.setConsumerState,
     getConsumerState = ifaceConsumer.getConsumerState

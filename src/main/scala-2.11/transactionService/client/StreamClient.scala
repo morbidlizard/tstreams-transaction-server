@@ -1,8 +1,8 @@
-package transactionService
+package transactionService.client
 
 import com.twitter.finagle.{Failure, Thrift}
 import com.twitter.logging.{Level, Logger}
-import com.twitter.util.{Await, Future, Monitor, Time}
+import com.twitter.util.{Await, Future, Monitor}
 import transactionService.rpc.StreamService
 
 object StreamClient extends App {

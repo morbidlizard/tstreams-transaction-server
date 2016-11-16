@@ -2,6 +2,7 @@ package transactionService.impl
 
 import java.io.{Closeable, File}
 import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 
 import scala.concurrent.{Future => ScalaFuture}
 import com.twitter.util.{Future => TwitterFuture}
@@ -25,9 +26,8 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
     if (isValid) {
       implicit val context = Context.transactionContexts.getContext(partition, stream.toInt)
       val transaction = ScalaFuture {
-        val pIdx = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerServiceImpl.Consumer])
-        Option(pIdx.get(new ConsumerKey(name, stream, partition))) match {
-          case Some(consumer) => consumer.transactionId
+        Option(consumerPrimaryIndex.get(new ConsumerKey(name, stream, partition))) match {
+          case Some(consumer) => consumer.transactionID
           case None => -1L
         }
       }.as[TwitterFuture[Long]]
@@ -40,8 +40,8 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
     if (isValid) {
       implicit val context = transactionService.Context.transactionContexts.getContext(partition, stream.toInt)
       val isSetted = ScalaFuture {
-        val pIdx = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerServiceImpl.Consumer])
-        pIdx.putNoOverwrite(new ConsumerServiceImpl.Consumer(name, stream, partition, transaction))
+        consumerPrimaryIndex.put(new ConsumerServiceImpl.ConsumerTransaction(name, stream, partition, transaction))
+        true
       }.as[TwitterFuture[Boolean]]
 
       isSetted flatMap TwitterFuture.value
@@ -55,7 +55,6 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
 }
 
 private object ConsumerServiceImpl {
-  final val pathToDatabases = "/tmp"
   final val storeName = "ConsumerStore"
 
   final val consumerKey = new DatabaseEntry("consumer")
@@ -63,16 +62,17 @@ private object ConsumerServiceImpl {
   final val partitionKey = new DatabaseEntry("partition")
   final val txnKey = new DatabaseEntry("txn")
 
-  val directory = StreamServiceImpl.createDirectory("consumer")
-  val environmentConfig = new EnvironmentConfig()
-    .setAllowCreate(true)
+  val directory = TransactionMetaServiceImpl.directory
   val storeConfig = new StoreConfig()
     .setAllowCreate(true)
-  val environment = new Environment(directory, environmentConfig)
+    .setTransactional(true)
+  val environment = TransactionMetaServiceImpl.environment
   val entityStore = new EntityStore(environment, storeName, storeConfig)
 
+  val consumerPrimaryIndex = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerServiceImpl.ConsumerTransaction])
+
   @Entity
-  class Consumer {
+  class ConsumerTransaction extends transactionService.rpc.ConsumerTransaction {
     @PrimaryKey private var key: ConsumerKey = _
     private var transactionIDDB: java.lang.Long = _
 
@@ -86,10 +86,11 @@ private object ConsumerServiceImpl {
       this.key = new ConsumerKey(name, stream, partition)
     }
 
-    def transactionId: Long = transactionIDDB
-    def name: String = key.name
-    def stream: String = key.stream
-    def partition: Int = key.partition
+    override def transactionID: Long = transactionIDDB
+    override def name: String = key.name
+    override def stream: String = key.stream
+    override def partition: Int = key.partition
+    override def toString: String = s"Consumer transaction: ${key.toString}"
   }
 
   @Persistent

@@ -4,6 +4,10 @@ version := "1.0"
 
 scalaVersion := "2.11.8"
 
+resolvers ++= Seq(
+  "twitter-repo" at "https://maven.twttr.com",
+  "Oracle Maven2 Repo" at "http://download.oracle.com/maven"
+)
 
 libraryDependencies ++= Seq(
   "org.apache.thrift" % "libthrift" % "0.5.0-1",

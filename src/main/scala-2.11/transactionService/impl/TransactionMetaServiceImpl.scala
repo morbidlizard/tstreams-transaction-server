@@ -19,7 +19,6 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   with Closeable
   with Authenticable
 {
-
   def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
     if (isValid) {
       val (producerTransactionOpt, consumerTransactionOpt) = (transaction.producerTransaction, transaction.consumerTransaction)
@@ -40,10 +39,11 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
             }
           }.as[TwitterFuture[Boolean]]
         case (_, Some(txn)) =>
+          import transactionService.impl.ConsumerServiceImpl._
           implicit val context = transactionService.Context.transactionContexts.getContext(0L)
           ScalaFuture(
             consumerPrimaryIndex
-              .putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
+              .putNoOverwrite(new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
           ).as[TwitterFuture[Boolean]]
         case _ =>
           implicit val context = transactionService.Context.transactionContexts.getContext(0L)
@@ -63,7 +63,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
             ScalaFuture {
               val isNotExist =
                 producerPrimaryIndex
-                  .putNoOverwrite(new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
+                  .putNoOverwrite(transactionDB, new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
               if (isNotExist) {
                 TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
                 isNotExist
@@ -73,11 +73,20 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
               }
             }.as[TwitterFuture[Boolean]]
           case (_, Some(txn)) =>
+            import transactionService.impl.ConsumerServiceImpl._
             implicit val context = transactionService.Context.transactionContexts.getContext(0L)
-            ScalaFuture(
-              consumerPrimaryIndex
-                .putNoOverwrite(new TransactionMetaServiceImpl.ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
-            ).as[TwitterFuture[Boolean]]
+            ScalaFuture {
+              val isNotExist =
+                consumerPrimaryIndex
+                  .putNoOverwrite(transactionDB, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
+              if (isNotExist) {
+                TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
+                isNotExist
+              } else {
+                TransactionMetaServiceImpl.logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+                isNotExist
+              }
+            }.as[TwitterFuture[Boolean]]
           case _ =>
             implicit val context = transactionService.Context.transactionContexts.getContext(0L)
             ScalaFuture(false).as[TwitterFuture[Boolean]]
@@ -149,6 +158,7 @@ private object TransactionMetaServiceImpl {
   val environmentConfig = new EnvironmentConfig()
     .setAllowCreate(true)
     .setTransactional(true)
+    .setTxnTimeout(5, java.util.concurrent.TimeUnit.MINUTES)
   val storeConfig = new StoreConfig()
     .setAllowCreate(true)
     .setTransactional(true)
@@ -158,11 +168,6 @@ private object TransactionMetaServiceImpl {
   val producerPrimaryIndex = entityStore.getPrimaryIndex(
     classOf[TransactionMetaServiceImpl.ProducerTransactionKey],
     classOf[TransactionMetaServiceImpl.ProducerTransaction]
-  )
-
-  val consumerPrimaryIndex = entityStore.getPrimaryIndex(
-    classOf[TransactionMetaServiceImpl.ConsumerTransactionKey],
-    classOf[TransactionMetaServiceImpl.ConsumerTransaction]
   )
 
   @Entity
@@ -196,7 +201,7 @@ private object TransactionMetaServiceImpl {
     override def partition: Int = key.partition
     override def tll: Long = ttlDB
 
-    override def toString: String = {s"Producer transaction: ${key.toString}"}
+    override def toString: String = s"Producer transaction: ${key.toString}"
   }
 
   @Persistent
@@ -212,37 +217,5 @@ private object TransactionMetaServiceImpl {
     }
 
     override def toString: String = s"stream:$stream\tpartition:$partition\tid:$transactionID"
-  }
-
-  @Entity
-  class ConsumerTransaction extends transactionService.rpc.ConsumerTransaction {
-    @PrimaryKey var key: ConsumerTransactionKey = _
-    var transactionIDDB: java.lang.Long = _
-
-    def this(name: String, stream: String, partition:Int, transactionID: java.lang.Long) = {
-      this()
-      this.transactionIDDB = transactionID
-      this.key = new ConsumerTransactionKey(name, stream, partition)
-    }
-
-    override def transactionID: Long = transactionIDDB
-    override def stream: String = key.stream
-    override def partition: Int = key.partition
-    override def name: String = key.name
-  }
-
-  @Persistent
-  class ConsumerTransactionKey {
-    @KeyField(1) var name: String = _
-    @KeyField(2) var stream: String = _
-    @KeyField(3) var partition: Int = _
-    def this(name: String, stream: String, partition:Int) = {
-      this()
-      this.name = name
-      this.stream = stream
-      this.partition = partition
-    }
-
-    override def toString: String = s"$name $stream $partition"
   }
 }

@@ -37,7 +37,7 @@ class Client(login: String, password: String, serverIPAddress: String, private v
       case e =>
         val messageToParse = e.getMessage
         Logger.get().log(Level.ERROR, messageToParse)
-        if (messageToParse.contains("Token isn't valid")) {
+        if (messageToParse.contains(transactionService.exception.Throwables.tokenInvalidException.getMessage)) {
           token = Await.result(authenticate(login, password))
           true
         } else false
@@ -75,16 +75,6 @@ class Client(login: String, password: String, serverIPAddress: String, private v
     )))
     .withSessionQualifier.noFailFast
     .withTransport.connectTimeout(1.minute)
-    .withMonitor(new Monitor {
-      def handle(error: Throwable): Boolean = error match {
-        case e: com.twitter.util.TimeoutException => true
-        case e: Failure => {
-          Logger.get().log(Level.ERROR, e.getMessage, e)
-          true
-        }
-        case _ => false
-      }
-    })
 
   private val interface= client.newServiceIface[TransactionService.ServiceIface](serverIPAddress, "transaction")
   private val interfaceCopy = interface.copy(

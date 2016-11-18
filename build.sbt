@@ -6,10 +6,11 @@ scalaVersion := "2.11.8"
 
 
 val sroogeGenOutput = "src/main/thrift/gen"
+
 ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile <<= baseDirectory {
   base => base / sroogeGenOutput
 }
-unmanagedSourceDirectories in Compile += baseDirectory.value / sroogeGenOutput
+managedSourceDirectories in Compile += baseDirectory.value / sroogeGenOutput
 
 resolvers ++= Seq(
   "twitter-repo" at "https://maven.twttr.com",

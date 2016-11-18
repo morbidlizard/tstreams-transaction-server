@@ -50,7 +50,7 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
 }
 
 object ConsumerServiceImpl {
-  final val storeName = "ConsumerStore"
+  val storeName = resource.DB.ConsumerStoreName
 
   val directory   =  TransactionMetaServiceImpl.directory
   val storeConfig = new StoreConfig()

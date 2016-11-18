@@ -46,10 +46,9 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
 }
 
 private object StreamServiceImpl {
-  final val pathToDatabases = "/tmp"
-  final val storeName = "StreamStore"
+  val storeName = resource.DB.StreamStoreName
 
-  val directory = transactionService.io.FileUtils.createDirectory("stream")
+  val directory = transactionService.io.FileUtils.createDirectory(resource.DB.StreamDirName)
   val environmentConfig = new EnvironmentConfig()
     .setAllowCreate(true)
   val storeConfig = new StoreConfig()

@@ -15,5 +15,5 @@ class Context (threadNumber: Int) {
 
 object Context {
   def apply(threadNumber: Int): Context = new Context(threadNumber)
-  lazy val transactionContexts = Context(5)
+  lazy val transactionContexts = Context(resource.ThreadPool.TransactionMetaServiceThreadPoolNumber)
 }

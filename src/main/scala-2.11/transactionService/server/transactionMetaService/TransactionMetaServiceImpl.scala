@@ -154,14 +154,14 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 }
 
 object TransactionMetaServiceImpl {
-  final val storeName = "TransactionStore"
+  val storeName = resource.DB.TransactionMetaStoreName
   val logger = Logger.get()
 
-  val directory = transactionService.io.FileUtils.createDirectory("transaction")
+  val directory = transactionService.io.FileUtils.createDirectory(resource.DB.TransactionMetaDirName)
   val environmentConfig = new EnvironmentConfig()
     .setAllowCreate(true)
     .setTransactional(true)
-    .setTxnTimeout(5, java.util.concurrent.TimeUnit.MINUTES)
+    .setTxnTimeout(resource.DB.TransactionMetaMaxTimeout, resource.DB.TransactionMetaTimeUnit)
   val storeConfig = new StoreConfig()
     .setAllowCreate(true)
     .setTransactional(true)

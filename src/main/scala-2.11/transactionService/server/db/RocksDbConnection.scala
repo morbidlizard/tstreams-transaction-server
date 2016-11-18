@@ -9,12 +9,11 @@ import transactionService.server.`implicit`.Implicits._
 import scala.collection.JavaConverters._
 
 
-class RocksDbConnection(path: String = RocksDbConnection.path) extends Closeable{
-  val client = RocksDB.open(new Options().setCreateIfMissing(true),path)
+class RocksDbConnection extends Closeable{
+  val client = RocksDB.open(new Options().setCreateIfMissing(true),RocksDbConnection.path.getAbsolutePath)
   override def close(): Unit = client.close()
 }
 
 object RocksDbConnection {
-  //"/tmp/rocksdb_simple_example"
-  val path = TempDirectory.create().getAbsolutePath
+  val path = transactionService.io.FileUtils.createDirectory(resource.DB.TransactionDataDirName)
 }

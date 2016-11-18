@@ -9,12 +9,11 @@ class Context (threadNumber: Int) {
   require(threadNumber > 0)
   private def newExecutionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
   val contexts = (1 to threadNumber).map(_=> newExecutionContext).toArray
-  def getContext: ExecutionContextExecutor = contexts.head
   def getContext(value: Long): ExecutionContextExecutor = contexts((value % threadNumber).toInt)
-  def getContext(val1: Int, val2: Int): ExecutionContextExecutor = getContext(ByteBuffer.allocate(8).putInt(val1).putInt(val2).getLong(0))
+  def getContext(stream: Int, partition: Int): ExecutionContextExecutor = getContext(ByteBuffer.allocate(8).putInt(stream).putInt(partition).getLong(0))
 }
 
-object Context extends App {
+object Context {
   def apply(threadNumber: Int): Context = new Context(threadNumber)
-  lazy val transactionContexts = Context(5)
+  lazy val transactionContexts = Context(resource.ThreadPool.TransactionMetaServiceThreadPoolNumber)
 }

@@ -5,7 +5,7 @@ import pdi.jwt.{Jwt, JwtAlgorithm, JwtHeader, JwtClaim}
 import com.twitter.util.Future
 import AuthServiceImpl._
 
-//TODO remake to a stateful service, using hashMap
+//TODO remake to a stateful service using hashMap
 trait AuthServiceImpl extends AuthService[Future] {
   override def authenticate(login: String, password: String): Future[String] = Future(
    Jwt.encode(

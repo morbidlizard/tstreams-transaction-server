@@ -3,7 +3,6 @@ package transactionService.client
 import java.nio.ByteBuffer
 
 import authService.ClientAuth
-import authService.rpc.AuthService
 
 import scala.concurrent.{Future => ScalaFuture}
 import com.twitter.util.{Await, Duration, Monitor, Throw, Time, Try, Future => TwitterFuture}
@@ -21,7 +20,7 @@ import com.twitter.finagle.service.exp.FailureAccrualPolicy
 import scala.collection.mutable.ArrayBuffer
 
 
-class Client(login: String, password: String, serverIPAddress: String, private val authClient: ClientAuth)/*(implicit val threadPool: transactionService.Context)*/ extends TransactionService[TwitterFuture] {
+class ClientTransaction(login: String, password: String, serverIPAddress: String, private val authClient: ClientAuth)/*(implicit val threadPool: transactionService.Context)*/ extends TransactionService[TwitterFuture] {
   def authenticate(login: String, password: String) = authClient.authenticate(login,password)
   def isValid(token: String) = authClient.isValid(token)
 
@@ -124,9 +123,9 @@ class Client(login: String, password: String, serverIPAddress: String, private v
     request.getConsumerState(token,name,stream,partition)
 }
 
-object Client extends App {
+object ClientTransaction extends App {
  // implicit lazy val context = transactionService.Context(2)
-  val client = new Client("ognelis","228",":8080",new ClientAuth(":8081"))
+  val client = new ClientTransaction("ognelis","228",":8080",new ClientAuth(":8081"))
 
   println(Await.ready(client.putStream(client.token,"1",5, None)))
 

@@ -19,7 +19,6 @@ import scala.concurrent.{Future => ScalaFuture}
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
-  with Closeable
   with Authenticable
 {
   def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
@@ -146,11 +145,6 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = ???
 
   def scanTransactionsCRC32(token: String, stream: String, partition: Int): TwitterFuture[Int] = ???
-
-  override def close(): Unit = {
-    entityStore.close()
-    environment.close()
-  }
 }
 
 object TransactionMetaServiceImpl {
@@ -169,4 +163,9 @@ object TransactionMetaServiceImpl {
   val entityStore = new EntityStore(environment, TransactionMetaServiceImpl.storeName, storeConfig)
 
   val producerPrimaryIndex = entityStore.getPrimaryIndex(classOf[ProducerTransactionKey], classOf[ProducerTransaction])
+
+  def close(): Unit = {
+    entityStore.close()
+    environment.close()
+  }
 }

@@ -11,7 +11,6 @@ import transactionService.rpc.StreamService
 import transactionService.exception.Throwables._
 
 trait StreamServiceImpl extends StreamService[TwitterFuture]
-  with Closeable
   with Authenticable
 {
 
@@ -38,11 +37,6 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
   def delStream(token: String, stream: String): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
     if (isValid) TwitterFuture(pIdx.delete(stream)) else TwitterFuture.exception(tokenInvalidException)
   }
-
-  override def close(): Unit = {
-    entityStore.close()
-    environment.close()
-  }
 }
 
 private object StreamServiceImpl {
@@ -56,4 +50,9 @@ private object StreamServiceImpl {
   val environment = new Environment(directory, environmentConfig)
   val entityStore = new EntityStore(environment, storeName, storeConfig)
   val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[Stream])
+
+  def close(): Unit = {
+    entityStore.close()
+    environment.close()
+  }
 }

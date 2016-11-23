@@ -34,8 +34,9 @@ struct Transaction {
 
 
 struct Stream {
-    1: required i32 partitions
-    2: optional string description
+    1: required StreamType name,
+    2: required i32 partitions
+    3: optional string description
 }
 
 

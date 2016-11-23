@@ -521,66 +521,6 @@ class TransactionService$FinagleClient(
       }
     }
   }
-  private[this] object __stats_scanTransactionsCRC32 {
-    val RequestsCounter = scopedStats.scope("scanTransactionsCRC32").counter("requests")
-    val SuccessCounter = scopedStats.scope("scanTransactionsCRC32").counter("success")
-    val FailuresCounter = scopedStats.scope("scanTransactionsCRC32").counter("failures")
-    val FailuresScope = scopedStats.scope("scanTransactionsCRC32").scope("failures")
-  }
-  
-  def scanTransactionsCRC32(token: String, stream: String, partition: Int): Future[Int] = {
-    __stats_scanTransactionsCRC32.RequestsCounter.incr()
-    val inputArgs = ScanTransactionsCRC32.Args(token, stream, partition)
-    val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Int] =
-      response => {
-        val decodeResult: _root_.com.twitter.util.Try[ScanTransactionsCRC32.Result] =
-          _root_.com.twitter.util.Try {
-            decodeResponse(response, ScanTransactionsCRC32.Result)
-          }
-  
-        decodeResult match {
-          case t@_root_.com.twitter.util.Throw(_) =>
-            t.cast[Int]
-          case  _root_.com.twitter.util.Return(result) =>
-            val serviceException: Throwable =
-              null
-  
-            if (result.success.isDefined)
-              _root_.com.twitter.util.Return(result.success.get)
-            else if (serviceException != null)
-              _root_.com.twitter.util.Throw(serviceException)
-            else
-              _root_.com.twitter.util.Throw(missingResult("scanTransactionsCRC32"))
-        }
-      }
-  
-    val serdeCtx = new _root_.com.twitter.finagle.thrift.DeserializeCtx[Int](inputArgs, replyDeserializer)
-    _root_.com.twitter.finagle.context.Contexts.local.let(
-      _root_.com.twitter.finagle.thrift.DeserializeCtx.Key,
-      serdeCtx
-    ) {
-      val serialized = encodeRequest("scanTransactionsCRC32", inputArgs)
-      this.service(serialized).flatMap { response =>
-        Future.const(serdeCtx.deserialize(response))
-      }.respond { response =>
-        val responseClass = responseClassifier.applyOrElse(
-          ctfs.ReqRep(inputArgs, response),
-          ctfs.ResponseClassifier.Default)
-        responseClass match {
-          case ctfs.ResponseClass.Successful(_) =>
-            __stats_scanTransactionsCRC32.SuccessCounter.incr()
-          case ctfs.ResponseClass.Failed(_) =>
-            __stats_scanTransactionsCRC32.FailuresCounter.incr()
-            response match {
-              case Throw(ex) =>
-                setServiceName(ex)
-                __stats_scanTransactionsCRC32.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
-              case _ =>
-            }
-        }
-      }
-    }
-  }
   private[this] object __stats_putTransactionData {
     val RequestsCounter = scopedStats.scope("putTransactionData").counter("requests")
     val SuccessCounter = scopedStats.scope("putTransactionData").counter("success")

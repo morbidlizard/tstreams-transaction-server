@@ -1,7 +1,7 @@
 package transactionService.server
 
 import com.twitter.finagle.Thrift
-import com.twitter.util.{Await, Future}
+import com.twitter.util.{Await, Future, FuturePool, FuturePools}
 import org.apache.curator.retry.ExponentialBackoffRetry
 import transactionService.server.transactionDataService.TransactionDataServiceImpl
 import transactionService.server.streamService.StreamServiceImpl
@@ -33,7 +33,7 @@ object TransactionServiceImpl extends App{
 
   val address = "localhost:8080"
   val server = Thrift.server
-  val service = new TransactionServiceImpl(address,Address,SessionTimeout,ConnectionTimeout,TimeoutBetweenRetries,MaxRetriesNumber,Prefix, new authService.ClientAuth(":8081"))
+  val service = new TransactionServiceImpl(address,Address,SessionTimeout,ConnectionTimeout,TimeoutBetweenRetries,MaxRetriesNumber,Prefix, new authService.ClientAuth(":8081",50000,5000))
   service.putMasterToZooKeeper
 
   Await.ready(server.serveIface(address, service))

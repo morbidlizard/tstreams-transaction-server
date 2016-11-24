@@ -1,5 +1,6 @@
 package transactionService.server.transactionDataService
 
 case class KeyDataSeq(key: Key, dataSeq: Int) {
-  override def toString: String = s"${key.toString} $dataSeq"
+  private def dataSeqToBinary = String.format("%16s", Integer.toBinaryString(dataSeq)).replace(' ', '0')
+  override def toString: String = s"$dataSeqToBinary ${key.toString}"
 }

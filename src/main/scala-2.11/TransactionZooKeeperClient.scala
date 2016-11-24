@@ -1,5 +1,5 @@
 import authService.ClientAuth
-import com.twitter.finagle.Service
+import com.twitter.finagle.{Service, ServiceTimeoutException}
 import com.twitter.finagle.param.HighResTimer
 import com.twitter.finagle.service.{Backoff, RetryExceptionsFilter, RetryPolicy}
 import com.twitter.logging.{Level, Logger}
@@ -15,14 +15,16 @@ import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transac
 class TransactionZooKeeperClient(private val config: ConfigClient) {
   import config._
 
-  private val zKLeaderClient = new ZKLeaderClient(zkAddress, zkTimeoutSession, zkTimeoutConnection,
+  private val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new ExponentialBackoffRetry(zkTimeoutBetweenRetries, zkRetriesMax), zkPrefix)
   zKLeaderClient.start
 
-  private val clientAuth = new ClientAuth(authAddress)
+  private val clientAuth = new ClientAuth(authAddress, authTimeoutConnection, authTimeoutExponentialBetweenRetries)
   @volatile private var token = Await.result(clientAuth.authenticate(login, password))
   private val retryConditionToken: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
+      case e: ServiceTimeoutException => true
+      case e: com.twitter.finagle.ChannelWriteException => true
       case e =>
         val messageToParse = e.getMessage
         Logger.get().log(Level.ERROR, messageToParse)
@@ -149,17 +151,47 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
     })
   }
 
-  //TODO data could be safely saved in an absence of SeqID from client, it's better to pull a SeqID from server
-  def putTransactionData(producerTransaction: ProducerTransaction, data: Seq[Array[Byte]]): TwitterFuture[Boolean] = {
-    val transactionDataService = new Service[(ProducerTransaction, Seq[Array[Byte]]), Boolean] {
-      override def apply(request: (ProducerTransaction, Seq[Array[Byte]])): TwitterFuture[Boolean] = {
+  def putTransactionData(producerTransaction: ProducerTransaction, data: Seq[Seq[Byte]]): TwitterFuture[Boolean] = {
+    val transactionDataService = new Service[(ProducerTransaction, Seq[Seq[Byte]]), Boolean] {
+      override def apply(request: (ProducerTransaction, Seq[Seq[Byte]])): TwitterFuture[Boolean] = {
         val (txn, dataBinary) = request
-        val data = dataBinary map (data => java.nio.ByteBuffer.wrap(data))
-        getClientTransaction.putTransactionData(token,txn.stream,txn.partition,txn.transactionID, ???, data)
+        val data = dataBinary map (data => java.nio.ByteBuffer.wrap(data.toArray))
+        getClientTransaction.putTransactionData(token,txn.stream,txn.partition,txn.transactionID, data)
       }
     }
     val requestChain = retryFilterToken.andThen(transactionDataService)
     requestChain((producerTransaction, data))
+  }
+
+  def putTransactionData(consumerTransaction: ConsumerTransaction, data: Seq[Seq[Byte]]): TwitterFuture[Boolean] = {
+    val transactionDataService = new Service[(ConsumerTransaction, Seq[Seq[Byte]]), Boolean] {
+      override def apply(request: (ConsumerTransaction, Seq[Seq[Byte]])): TwitterFuture[Boolean] = {
+        val (txn, dataBinary) = request
+        val data = dataBinary map (data => java.nio.ByteBuffer.wrap(data.toArray))
+        getClientTransaction.putTransactionData(token,txn.stream,txn.partition,txn.transactionID, data)
+      }
+    }
+    val requestChain = retryFilterToken.andThen(transactionDataService)
+    requestChain((consumerTransaction, data))
+  }
+
+
+
+  def getTransactionData(consumerTransaction: ConsumerTransaction, from: Int, to: Int): TwitterFuture[Seq[Array[Byte]]] = {
+    require(from >=0 && to >=0)
+    val transactionDataService = new Service[ConsumerTransaction, Seq[Array[Byte]]] {
+      override def apply(request: ConsumerTransaction): TwitterFuture[Seq[Array[Byte]]] = {
+        val future = getClientTransaction.getTransactionData(token, request.stream, request.partition, request.transactionID, from, to)
+        future map(data => data map {datum =>
+          val sizeOfSlicedData = datum.limit() - datum.position()
+          val bytes = new Array[Byte](sizeOfSlicedData)
+          datum.get(bytes)
+          bytes
+        })
+      }
+    }
+    val requestChain = retryFilterToken.andThen(transactionDataService)
+    requestChain(consumerTransaction)
   }
 
   def setConsumerState(consumerTransaction: ConsumerTransaction): TwitterFuture[Boolean] = {
@@ -189,30 +221,32 @@ object TransactionZooKeeperClient extends App {
   val client = new TransactionZooKeeperClient(config)
   println(Await.result(client.putStream("1",20, None)))
 
-    val producerTransactions = (0 to 10000).map(_ => new ProducerTransaction {
-        override val transactionID: Long = scala.util.Random.nextLong()
+  val rand = scala.util.Random
+
+    val producerTransactions = (0 to 100).map(_ => new ProducerTransaction {
+        override val transactionID: Long = rand.nextLong()
 
         override val state: TransactionStates = TransactionStates.Opened
 
-        override val stream: String = scala.util.Random.nextInt(1000).toString
+        override val stream: String = rand.nextInt(1000).toString
 
         override val timestamp: Long = Time.epoch.inNanoseconds
 
         override val quantity: Int = -1
 
-        override val partition: Int = scala.util.Random.nextInt(10000)
+        override val partition: Int = rand.nextInt(10000)
 
         override def tll: Long = Time.epoch.inNanoseconds
       })
 
-      val consumerTransactions = (0 to 10000).map(_ => new ConsumerTransaction {
+      val consumerTransactions = (0 to 100).map(_ => new ConsumerTransaction {
         override def transactionID: Long = scala.util.Random.nextLong()
 
-        override def name: String = scala.util.Random.nextInt(1000).toString
+        override def name: String = rand.nextInt(1000).toString
 
-        override def stream: String = scala.util.Random.nextInt(1000).toString
+        override def stream: String = rand.nextInt(1000).toString
 
-        override def partition: Int = scala.util.Random.nextInt(10000)
+        override def partition: Int = rand.nextInt(10000)
       })
 
   println(Await.result(client.putTransactions(producerTransactions, consumerTransactions)))

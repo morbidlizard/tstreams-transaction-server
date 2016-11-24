@@ -528,9 +528,9 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("putTransactionData").scope("failures")
   }
   
-  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): Future[Boolean] = {
+  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): Future[Boolean] = {
     __stats_putTransactionData.RequestsCounter.incr()
-    val inputArgs = PutTransactionData.Args(token, stream, partition, transaction, from, data)
+    val inputArgs = PutTransactionData.Args(token, stream, partition, transaction, data)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
       response => {
         val decodeResult: _root_.com.twitter.util.Try[PutTransactionData.Result] =

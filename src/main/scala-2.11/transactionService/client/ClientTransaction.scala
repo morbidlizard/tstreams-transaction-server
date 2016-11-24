@@ -5,30 +5,18 @@ import java.nio.ByteBuffer
 import authService.ClientAuth
 
 import scala.concurrent.{Future => ScalaFuture}
-import com.twitter.util.{Await, Duration, Monitor, Throw, Time, Try, Future => TwitterFuture}
+import com.twitter.util.{Await, Future => TwitterFuture}
 import com.twitter.bijection.Conversion.asMethod
 import com.twitter.bijection.twitter_util.UtilBijections._
-import com.twitter.finagle.service._
-import com.twitter.finagle.util.DefaultTimer
 import com.twitter.finagle.{Failure, Thrift}
 import com.twitter.logging.{Level, Logger}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Stream, Transaction, TransactionService, TransactionStates}
 import com.twitter.conversions.time._
-import com.twitter.finagle.param.HighResTimer
-import com.twitter.finagle.service.exp.FailureAccrualPolicy
-
-import scala.collection.mutable.ArrayBuffer
-
 
 class ClientTransaction(serverIPAddress: String)/*(implicit val threadPool: transactionService.Context)*/ extends TransactionService[TwitterFuture] {
   private val client = Thrift.client
-    .configured(FailureAccrualFactory.Param(() => FailureAccrualPolicy.successRate(
-      requiredSuccessRate = 0.00,
-      window = 100,
-      markDeadFor = Backoff.const(10.seconds)
-    )))
     .withSessionQualifier.noFailFast
-    .withTransport.connectTimeout(1.minute)
+    .withSessionQualifier.noFailureAccrual
 
   private val interface= client.newServiceIface[TransactionService.ServiceIface](serverIPAddress, "transaction")
   private val interfaceCopy = interface.copy(
@@ -64,8 +52,8 @@ class ClientTransaction(serverIPAddress: String)/*(implicit val threadPool: tran
   override def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = request.scanTransactions(token, stream, partition)
 
   //TransactionData API
-  override def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, data: Seq[ByteBuffer]): TwitterFuture[Boolean] =
-    request.putTransactionData(token, stream, partition, transaction, from, data)
+  override def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] =
+    request.putTransactionData(token, stream, partition, transaction, data)
   override def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
     request.getTransactionData(token,stream,partition,transaction,from,to)
 

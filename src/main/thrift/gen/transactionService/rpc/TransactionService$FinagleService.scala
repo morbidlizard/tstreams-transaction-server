@@ -381,7 +381,7 @@ class TransactionService$FinagleService(
       val args = PutTransactionData.Args.decode(iprot)
       iprot.readMessageEnd()
       (try {
-        iface.putTransactionData(args.token, args.stream, args.partition, args.transaction, args.from, args.data)
+        iface.putTransactionData(args.token, args.stream, args.partition, args.transaction, args.data)
       } catch {
         case e: Exception => Future.exception(e)
       }).flatMap { value: Boolean =>

@@ -19,14 +19,15 @@ class ConfigClient(pathToConfig: String) {
   // listen.address = "1.2.3.4"
   // listen.port = 8888
 
-  val login = Option(properties.getProperty("login"))
-    .getOrElse(throw new NoSuchElementException("login isn't defined"))
+  val login = Option(properties.getProperty("auth.login"))
+    .getOrElse(throw new NoSuchElementException("auth.login isn't defined"))
 
-  val password = Option(properties.getProperty("password"))
-    .getOrElse(throw new NoSuchElementException("password isn't defined"))
+  val password = Option(properties.getProperty("auth.password"))
+    .getOrElse(throw new NoSuchElementException("auth.password isn't defined"))
 
-  val zkAddress = Option(properties.getProperty("zk.address"))
+  val zkEndpoints = Option(properties.getProperty("zk.endpoints"))
     .getOrElse(throw new NoSuchElementException("zk.address isn't defined"))
+    .split(',')
 
   val zkTimeoutSession = Option(properties.getProperty("zk.timeout.session"))
     .getOrElse(throw new NoSuchElementException("zk.timeout.session isn't defined"))
@@ -53,4 +54,10 @@ class ConfigClient(pathToConfig: String) {
   val authTimeoutConnection = Option(properties.getProperty("auth.timeout.connection"))
     .getOrElse(throw new NoSuchElementException("auth.timeout.connection isn't defined"))
     .toInt
+
+  val authTimeoutExponentialBetweenRetries =  Option(properties.getProperty("auth.timeout.exponentialBetweenRetries"))
+    .getOrElse(throw new NoSuchElementException("auth.timeout.exponentialBetweenRetries isn't defined"))
+    .toInt
+
+
 }

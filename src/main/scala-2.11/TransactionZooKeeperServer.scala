@@ -10,7 +10,7 @@ private object TransactionZooKeeperServer extends App {
   val path = "/stream_1"
   val agent= Agent("localhost", 8080, 1)
   val priority = LeaderSelectorPriority.Priority.Normal
-  val clientAuth = new ClientAuth("localhost:8081")
+  val clientAuth = new ClientAuth("localhost:8081", 5000,50000)
 
   val server = Thrift.server
   val leaderSelectorByPriorityClient =

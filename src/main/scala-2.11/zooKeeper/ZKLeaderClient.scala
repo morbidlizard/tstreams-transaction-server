@@ -1,25 +1,20 @@
 package zooKeeper
 
-import com.twitter.finagle.Thrift
-import com.twitter.util.Await
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
-import org.apache.curator.retry.ExponentialBackoffRetry
-import org.apache.zookeeper.CreateMode
-import transactionService.server.TransactionServiceImpl
 
-class ZKLeaderClient(address: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
+
+//TODO think of implementation when there are many zkServers combined a Quorum
+class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends NodeCacheListener {
   @volatile var master: Option[String] = None
   val client = {
-    val connection = CuratorFrameworkFactory.newClient(address, sessionTimeoutMillis, connectionTimeoutMillis, policy)
+    val connection = CuratorFrameworkFactory.newClient(endpoints.head, sessionTimeoutMillis, connectionTimeoutMillis, policy)
     connection.start()
     connection.blockUntilConnected()
     connection
   }
-
-  scala.util.Try(client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(prefix,Array[Byte](0)))
 
   val nodeToWatch = new NodeCache(client, prefix, false)
   nodeToWatch.getListenable.addListener(this)
@@ -36,6 +31,10 @@ class ZKLeaderClient(address: String, sessionTimeoutMillis: Int, connectionTimeo
       master = Some(new String(nodeToWatch.getCurrentData.getData))
       )
   }
+
+  Runtime.getRuntime.addShutdownHook(new Thread {
+    override def run() = close
+  })
 }
 
 

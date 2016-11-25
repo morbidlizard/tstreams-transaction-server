@@ -32,5 +32,6 @@ libraryDependencies ++= Seq(
 
   "org.slf4j" % "slf4j-simple" % "1.7.21",
   "org.apache.curator" % "curator-framework" % "2.11.0",
-  "org.apache.curator" % "curator-recipes" % "2.11.0"
+  "org.apache.curator" % "curator-recipes" % "2.11.0",
+  "org.apache.curator" % "curator-x-discovery" % "2.11.0"
 )

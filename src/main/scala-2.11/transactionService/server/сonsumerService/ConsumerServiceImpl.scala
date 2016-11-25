@@ -16,7 +16,6 @@ import transactionService.server.transactionMetaService.TransactionMetaServiceIm
 import scala.concurrent.{Future => ScalaFuture}
 
 trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
-  with Closeable
   with Authenticable
 {
 
@@ -42,11 +41,6 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
       }.as[TwitterFuture[Boolean]]
     } else TwitterFuture.exception(tokenInvalidException)
   }
-
-  override def close(): Unit = {
-    entityStore.close()
-    environment.close()
-  }
 }
 
 object ConsumerServiceImpl {
@@ -60,4 +54,9 @@ object ConsumerServiceImpl {
   val entityStore = new EntityStore(environment, storeName, storeConfig)
 
   val consumerPrimaryIndex = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerTransaction])
+
+  def close(): Unit = {
+    entityStore.close()
+    environment.close()
+  }
 }

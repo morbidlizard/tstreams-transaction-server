@@ -3,6 +3,7 @@ package transactionService.server.transactionDataService
 import java.nio.ByteBuffer
 
 import com.twitter.util.{Future => TwitterFuture}
+import org.apache.commons.lang.StringUtils
 import org.rocksdb.{RocksDB, WriteBatch, WriteOptions}
 import transactionService.server.Authenticable
 import transactionService.server.db.RocksDbConnection
@@ -14,11 +15,23 @@ import scala.collection.mutable.ArrayBuffer
 
 trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
   with Authenticable {
-  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, data: Seq[ByteBuffer]): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+
+  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
     if (isValid) {
       TwitterFuture {
         RocksDB.loadLibrary()
-        val rangeDataToSave = from until (from + data.length)
+        val rocksDB = new RocksDbConnection()
+        val client = rocksDB.client
+
+        val keyToStartWrite = Key(stream, partition, transaction).maxDataSeq
+        val indexOfKeyToWrite = Option(client.get(keyToStartWrite))
+        val delta = indexOfKeyToWrite match {
+          case Some(bytes) => java.nio.ByteBuffer.wrap(bytes).getInt(0)
+          case None => 0
+        }
+
+        val rangeDataToSave = delta until (delta + data.length)
+
         val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(stream, partition, transaction), seqId).toString)
         val batch = new WriteBatch()
         (keys zip data) foreach { case (key, datum) =>
@@ -28,9 +41,10 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
           batch.put(key, bytes)
         }
 
+        if (indexOfKeyToWrite.isDefined) batch.remove(keyToStartWrite)
 
-        val rocksDB = new RocksDbConnection()
-        val client = rocksDB.client
+        batch.put(keyToStartWrite, delta + data.length)
+
         val result = Option(client.write(new WriteOptions(), batch)) match {
           case Some(_) => true
           case None => false
@@ -48,22 +62,20 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     if (isValid) {
       TwitterFuture {
         RocksDB.loadLibrary()
-        val prefix = KeyDataSeq(Key(stream, partition, transaction), from).toString
         val rocksDB = new RocksDbConnection()
         val client = rocksDB.client
-        val iterator = client.newIterator()
 
+        val prefix = KeyDataSeq(Key(stream, partition, transaction), from).toString
+        val toSeqId = KeyDataSeq(Key(stream, partition, transaction), to).toString
+
+        val iterator = client.newIterator()
         iterator.seek(prefix)
 
-        def getKeyDataSeq(key: Array[Byte]) = new String(key).split("\\s+").last.toInt
-
         val data = new ArrayBuffer[ByteBuffer](to - from)
-        while (iterator.isValid && getKeyDataSeq(iterator.key()) < to) {
+        while (iterator.isValid && new String(iterator.key()) <= toSeqId) {
           data += java.nio.ByteBuffer.wrap(iterator.value())
           iterator.next()
         }
-        data += java.nio.ByteBuffer.wrap(iterator.value())
-
         iterator.close()
         rocksDB.close()
         data

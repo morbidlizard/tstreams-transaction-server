@@ -34,8 +34,9 @@ struct Transaction {
 
 
 struct Stream {
-    1: required i32 partitions
-    2: optional string description
+    1: required StreamType name,
+    2: required i32 partitions
+    3: optional string description
 }
 
 
@@ -61,14 +62,13 @@ service TransactionMetaService {
 
    list<Transaction> scanTransactions(1: string token, 2: StreamType stream, 3: PartitionType partition),
 
-   i32 scanTransactionsCRC32(1: string token, 2: StreamType stream, 3: PartitionType partition)
 }
 
 
 
 service TransactionDataService {
 
-  bool putTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: list<binary> data),
+  bool putTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: list<binary> data),
 
   list <binary> getTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: i32 to)
 }
@@ -98,9 +98,7 @@ service TransactionService {
 
   list<Transaction> scanTransactions(1: string token, 2: StreamType stream, 3: PartitionType partition),
 
-  i32 scanTransactionsCRC32(1: string token, 2: StreamType stream, 3: PartitionType partition),
-
-  bool putTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: list<binary> data),
+  bool putTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: list<binary> data),
 
   list <binary> getTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: i32 to),
 

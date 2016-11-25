@@ -1,12 +1,10 @@
 package authService
 
 import authService.rpc.AuthService
-import com.twitter.finagle.param.HighResTimer
-import com.twitter.finagle.service.{Backoff, RetryExceptionsFilter, RetryPolicy}
 import com.twitter.finagle.{ServiceTimeoutException, Thrift}
-import com.twitter.logging.{Level, Logger}
-import com.twitter.util.{Throw,Try, Future => TwitterFuture}
-import com.twitter.util.TimeConversions._
+import com.twitter.logging.Logger
+import com.twitter.util.{Throw, Try, Future => TwitterFuture}
+import filter.TransportConnectionTimeoutFilter
 
 class ClientAuth(ipAddress: String, authTimeoutConnection: Int, authTimeoutExponentialBetweenRetries: Int) extends AuthService[TwitterFuture] {
   private val logger = Logger.get(this.getClass)
@@ -14,32 +12,14 @@ class ClientAuth(ipAddress: String, authTimeoutConnection: Int, authTimeoutExpon
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual
 
-  private val retryConditionToConnect: PartialFunction[Try[Nothing], Boolean] = {
-    case Throw(error) => error match {
-      case e: ServiceTimeoutException =>
-        logger.log(Level.INFO, resource.LogMessage.tryingToConnectToAuthServer)
-        true
-      case e: com.twitter.finagle.ChannelWriteException =>
-        logger.log(Level.INFO, resource.LogMessage.tryingToConnectToAuthServer)
-        true
-      case e =>
-        Logger.get().log(Level.ERROR, e.getMessage)
-        false
-    }
-    case _ => false
-  }
-  private val retryPolicyConnection = RetryPolicy.backoff(
-    Backoff.exponentialJittered
-    (authTimeoutExponentialBetweenRetries.milliseconds, authTimeoutConnection.milliseconds)
-  )(retryConditionToConnect)
-
-  private def retryFilterConnection[Req, Rep] = new RetryExceptionsFilter[Req, Rep](retryPolicyConnection, HighResTimer.Default)
+  def timeOutFilter[Req, Rep] = TransportConnectionTimeoutFilter
+    .retryFilterConnection[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries, logger, resource.LogMessage.tryingToConnectToAuthServer)
 
   private def interface = {
     val interface= client.newServiceIface[AuthService.ServiceIface](ipAddress, "transaction")
     interface.copy(
-      authenticate = retryFilterConnection andThen interface.authenticate,
-      isValid = retryFilterConnection andThen interface.isValid
+      authenticate = timeOutFilter andThen interface.authenticate,
+      isValid = timeOutFilter andThen interface.isValid
     )
   }
 

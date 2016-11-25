@@ -369,40 +369,6 @@ class TransactionService$FinagleService(
       case e: Exception => Future.exception(e)
     }
   })
-  private[this] object __stats_scanTransactionsCRC32 {
-    val RequestsCounter = scopedStats.scope("scanTransactionsCRC32").counter("requests")
-    val SuccessCounter = scopedStats.scope("scanTransactionsCRC32").counter("success")
-    val FailuresCounter = scopedStats.scope("scanTransactionsCRC32").counter("failures")
-    val FailuresScope = scopedStats.scope("scanTransactionsCRC32").scope("failures")
-  }
-  addFunction("scanTransactionsCRC32", { (iprot: TProtocol, seqid: Int) =>
-    try {
-      __stats_scanTransactionsCRC32.RequestsCounter.incr()
-      val args = ScanTransactionsCRC32.Args.decode(iprot)
-      iprot.readMessageEnd()
-      (try {
-        iface.scanTransactionsCRC32(args.token, args.stream, args.partition)
-      } catch {
-        case e: Exception => Future.exception(e)
-      }).flatMap { value: Int =>
-        reply("scanTransactionsCRC32", seqid, ScanTransactionsCRC32.Result(success = Some(value)))
-      }.rescue {
-        case e => Future.exception(e)
-      }.respond {
-        case Return(_) =>
-          __stats_scanTransactionsCRC32.SuccessCounter.incr()
-        case Throw(ex) =>
-          __stats_scanTransactionsCRC32.FailuresCounter.incr()
-          __stats_scanTransactionsCRC32.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
-      }
-    } catch {
-      case e: TProtocolException => {
-        iprot.readMessageEnd()
-        exception("scanTransactionsCRC32", seqid, TApplicationException.PROTOCOL_ERROR, e.getMessage)
-      }
-      case e: Exception => Future.exception(e)
-    }
-  })
   private[this] object __stats_putTransactionData {
     val RequestsCounter = scopedStats.scope("putTransactionData").counter("requests")
     val SuccessCounter = scopedStats.scope("putTransactionData").counter("success")
@@ -415,7 +381,7 @@ class TransactionService$FinagleService(
       val args = PutTransactionData.Args.decode(iprot)
       iprot.readMessageEnd()
       (try {
-        iface.putTransactionData(args.token, args.stream, args.partition, args.transaction, args.from, args.data)
+        iface.putTransactionData(args.token, args.stream, args.partition, args.transaction, args.data)
       } catch {
         case e: Exception => Future.exception(e)
       }).flatMap { value: Boolean =>

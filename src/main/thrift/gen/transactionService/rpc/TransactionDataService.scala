@@ -40,7 +40,7 @@ import scala.language.higherKinds
 @javax.annotation.Generated(value = Array("com.twitter.scrooge.Compiler"))
 trait TransactionDataService[+MM[_]] extends ThriftService {
   
-  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): MM[Boolean]
+  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): MM[Boolean]
   
   def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): MM[Seq[ByteBuffer]]
 }
@@ -79,8 +79,8 @@ object TransactionDataService { self =>
     extends TransactionDataService[Future] {
     private[this] val __putTransactionData_service =
       ThriftServiceIface.resultFilter(self.PutTransactionData) andThen serviceIface.putTransactionData
-    def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): Future[Boolean] =
-      __putTransactionData_service(self.PutTransactionData.Args(token, stream, partition, transaction, from, data))
+    def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): Future[Boolean] =
+      __putTransactionData_service(self.PutTransactionData.Args(token, stream, partition, transaction, data))
     private[this] val __getTransactionData_service =
       ThriftServiceIface.resultFilter(self.GetTransactionData) andThen serviceIface.getTransactionData
     def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]] =
@@ -106,9 +106,7 @@ object TransactionDataService { self =>
       val PartitionFieldManifest = implicitly[Manifest[Int]]
       val TransactionField = new TField("transaction", TType.I64, 4)
       val TransactionFieldManifest = implicitly[Manifest[Long]]
-      val FromField = new TField("from", TType.I32, 5)
-      val FromFieldManifest = implicitly[Manifest[Int]]
-      val DataField = new TField("data", TType.LIST, 6)
+      val DataField = new TField("data", TType.LIST, 5)
       val DataFieldManifest = implicitly[Manifest[Seq[ByteBuffer]]]
     
       /**
@@ -160,17 +158,6 @@ object TransactionDataService { self =>
           None
         ),
         new ThriftStructFieldInfo(
-          FromField,
-          false,
-          false,
-          FromFieldManifest,
-          _root_.scala.None,
-          _root_.scala.None,
-          immutable$Map.empty[String, String],
-          immutable$Map.empty[String, String],
-          None
-        ),
-        new ThriftStructFieldInfo(
           DataField,
           false,
           false,
@@ -214,11 +201,6 @@ object TransactionDataService { self =>
               val field = original.transaction
               field
             },
-          from =
-            {
-              val field = original.from
-              field
-            },
           data =
             {
               val field = original.data
@@ -237,7 +219,6 @@ object TransactionDataService { self =>
         var stream: String = null
         var partition: Int = 0
         var transaction: Long = 0L
-        var from: Int = 0
         var data: Seq[ByteBuffer] = Seq[ByteBuffer]()
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
@@ -303,19 +284,6 @@ object TransactionDataService { self =>
                 }
               case 5 =>
                 _field.`type` match {
-                  case TType.I32 =>
-                    from = readFromValue(_iprot)
-                  case _actualType =>
-                    val _expectedType = TType.I32
-                    throw new TProtocolException(
-                      "Received wrong type for field 'from' (expected=%s, actual=%s).".format(
-                        ttypeToString(_expectedType),
-                        ttypeToString(_actualType)
-                      )
-                    )
-                }
-              case 6 =>
-                _field.`type` match {
                   case TType.LIST =>
                     data = readDataValue(_iprot)
                   case _actualType =>
@@ -342,7 +310,6 @@ object TransactionDataService { self =>
           stream,
           partition,
           transaction,
-          from,
           data,
           if (_passthroughFields == null)
             NoPassthroughFields
@@ -356,7 +323,6 @@ object TransactionDataService { self =>
         stream: String,
         partition: Int,
         transaction: Long,
-        from: Int,
         data: Seq[ByteBuffer] = Seq[ByteBuffer]()
       ): Args =
         new Args(
@@ -364,11 +330,10 @@ object TransactionDataService { self =>
           stream,
           partition,
           transaction,
-          from,
           data
         )
     
-      def unapply(_item: Args): _root_.scala.Option[scala.Product6[String, String, Int, Long, Int, Seq[ByteBuffer]]] = _root_.scala.Some(_item)
+      def unapply(_item: Args): _root_.scala.Option[scala.Product5[String, String, Int, Long, Seq[ByteBuffer]]] = _root_.scala.Some(_item)
     
     
       @inline private def readTokenValue(_iprot: TProtocol): String = {
@@ -427,20 +392,6 @@ object TransactionDataService { self =>
         _oprot.writeI64(transaction_item)
       }
     
-      @inline private def readFromValue(_iprot: TProtocol): Int = {
-        _iprot.readI32()
-      }
-    
-      @inline private def writeFromField(from_item: Int, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(FromField)
-        writeFromValue(from_item, _oprot)
-        _oprot.writeFieldEnd()
-      }
-    
-      @inline private def writeFromValue(from_item: Int, _oprot: TProtocol): Unit = {
-        _oprot.writeI32(from_item)
-      }
-    
       @inline private def readDataValue(_iprot: TProtocol): Seq[ByteBuffer] = {
         val _list = _iprot.readListBegin()
         if (_list.size == 0) {
@@ -493,11 +444,10 @@ object TransactionDataService { self =>
         val stream: String,
         val partition: Int,
         val transaction: Long,
-        val from: Int,
         val data: Seq[ByteBuffer],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with scala.Product6[String, String, Int, Long, Int, Seq[ByteBuffer]]
+      with scala.Product5[String, String, Int, Long, Seq[ByteBuffer]]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
@@ -507,14 +457,12 @@ object TransactionDataService { self =>
         stream: String,
         partition: Int,
         transaction: Long,
-        from: Int,
         data: Seq[ByteBuffer] = Seq[ByteBuffer]()
       ) = this(
         token,
         stream,
         partition,
         transaction,
-        from,
         data,
         Map.empty
       )
@@ -523,8 +471,7 @@ object TransactionDataService { self =>
       def _2 = stream
       def _3 = partition
       def _4 = transaction
-      def _5 = from
-      def _6 = data
+      def _5 = data
     
     
     
@@ -535,7 +482,6 @@ object TransactionDataService { self =>
         if (stream ne null) writeStreamField(stream, _oprot)
         writePartitionField(partition, _oprot)
         writeTransactionField(transaction, _oprot)
-        writeFromField(from, _oprot)
         if (data ne null) writeDataField(data, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
@@ -549,7 +495,6 @@ object TransactionDataService { self =>
         stream: String = this.stream,
         partition: Int = this.partition,
         transaction: Long = this.transaction,
-        from: Int = this.from,
         data: Seq[ByteBuffer] = this.data,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
@@ -558,7 +503,6 @@ object TransactionDataService { self =>
           stream,
           partition,
           transaction,
-          from,
           data,
           _passthroughFields
         )
@@ -575,15 +519,14 @@ object TransactionDataService { self =>
       override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
     
     
-      override def productArity: Int = 6
+      override def productArity: Int = 5
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.token
         case 1 => this.stream
         case 2 => this.partition
         case 3 => this.transaction
-        case 4 => this.from
-        case 5 => this.data
+        case 4 => this.data
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -1524,7 +1467,7 @@ object TransactionDataService { self =>
 
   trait FutureIface extends TransactionDataService[Future] {
     
-    def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): Future[Boolean]
+    def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): Future[Boolean]
     
     def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]]
   }

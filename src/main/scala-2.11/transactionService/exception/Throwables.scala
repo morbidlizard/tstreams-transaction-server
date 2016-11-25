@@ -1,5 +1,6 @@
 package transactionService.exception
 
 object Throwables {
-  val tokenInvalidException: Throwable = throw new IllegalArgumentException("Token isn't valid")
+  val tokenInvalidExceptionMessage: String = "Token isn't valid"
+  def tokenInvalidException: Throwable = throw new IllegalArgumentException(tokenInvalidExceptionMessage)
 }

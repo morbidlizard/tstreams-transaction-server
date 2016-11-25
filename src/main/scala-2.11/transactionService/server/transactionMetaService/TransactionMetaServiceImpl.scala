@@ -19,9 +19,9 @@ import scala.concurrent.{Future => ScalaFuture}
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
-  with Closeable
   with Authenticable
 {
+  val logger = Logger.get(this.getClass)
   def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
     if (isValid) {
       val (producerTransactionOpt, consumerTransactionOpt) = (transaction.producerTransaction, transaction.consumerTransaction)
@@ -34,10 +34,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
               producerPrimaryIndex
                 .putNoOverwrite(new ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
             if (isNotExist) {
-              TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
+              logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
               isNotExist
             } else {
-              TransactionMetaServiceImpl.logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+              logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
               isNotExist
             }
           }.as[TwitterFuture[Boolean]]
@@ -68,10 +68,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
                 producerPrimaryIndex
                   .putNoOverwrite(transactionDB, new ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition, txn.tll))
               if (isNotExist) {
-                TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
+                logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
                 isNotExist
               } else {
-                TransactionMetaServiceImpl.logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+                logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
                 isNotExist
               }
             }.as[TwitterFuture[Boolean]]
@@ -83,10 +83,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
                 consumerPrimaryIndex
                   .putNoOverwrite(transactionDB, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
               if (isNotExist) {
-                TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
+                logger.log(Level.INFO, s"${txn.toString} inserted to DB!")
                 isNotExist
               } else {
-                TransactionMetaServiceImpl.logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+                logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
                 isNotExist
               }
             }.as[TwitterFuture[Boolean]]
@@ -146,16 +146,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = ???
 
   def scanTransactionsCRC32(token: String, stream: String, partition: Int): TwitterFuture[Int] = ???
-
-  override def close(): Unit = {
-    entityStore.close()
-    environment.close()
-  }
 }
 
 object TransactionMetaServiceImpl {
   val storeName = resource.DB.TransactionMetaStoreName
-  val logger = Logger.get()
 
   val directory = transactionService.io.FileUtils.createDirectory(resource.DB.TransactionMetaDirName)
   val environmentConfig = new EnvironmentConfig()
@@ -169,4 +163,9 @@ object TransactionMetaServiceImpl {
   val entityStore = new EntityStore(environment, TransactionMetaServiceImpl.storeName, storeConfig)
 
   val producerPrimaryIndex = entityStore.getPrimaryIndex(classOf[ProducerTransactionKey], classOf[ProducerTransaction])
+
+  def close(): Unit = {
+    entityStore.close()
+    environment.close()
+  }
 }

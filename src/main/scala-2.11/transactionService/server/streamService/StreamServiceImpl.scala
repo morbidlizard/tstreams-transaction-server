@@ -14,7 +14,8 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
   with Authenticable
 {
 
-  def putStream(token: String, stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+  def putStream(token: String, stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] =
+    authClient.isValid(token) flatMap { isValid =>
     if (isValid) {
       TwitterFuture {
         pIdx.put(new Stream(stream, partitions, description))
@@ -23,7 +24,8 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
     } else TwitterFuture.exception(tokenInvalidException)
   }
 
-  def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+  def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
+    authClient.isValid(token) flatMap { isValid =>
     if (isValid) {
       TwitterFuture {
         if (pIdx.get(stream) == null) false else true
@@ -31,10 +33,14 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
     } else TwitterFuture.exception(tokenInvalidException)
   }
 
-  def getStream(token: String, stream: String): TwitterFuture[Stream] = authClient.isValid(token) flatMap { isValid =>
+  def getStream(token: String, stream: String): TwitterFuture[Stream] =
+    authClient.isValid(token) flatMap { isValid =>
     if (isValid) TwitterFuture(pIdx.get(stream)) else TwitterFuture.exception(tokenInvalidException)
   }
-  def delStream(token: String, stream: String): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
+
+
+  def delStream(token: String, stream: String): TwitterFuture[Boolean] =
+    authClient.isValid(token) flatMap { isValid =>
     if (isValid) TwitterFuture(pIdx.delete(stream)) else TwitterFuture.exception(tokenInvalidException)
   }
 }

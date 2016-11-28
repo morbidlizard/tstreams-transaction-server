@@ -18,21 +18,25 @@ class ClientTransaction(serverIPAddress: String)/*(implicit val threadPool: tran
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual
 
-  private val interface= client.newServiceIface[TransactionService.ServiceIface](serverIPAddress, "transaction")
-  private val interfaceCopy = interface.copy(
-    putStream =             interface.putStream,
-    isStreamExist =         interface.isStreamExist,
-    getStream =             interface.getStream,
-    delStream =             interface.delStream,
-    putTransaction =        interface.putTransaction,
-    putTransactions =       interface.putTransactions,
-    scanTransactions =      interface.scanTransactions,
-    putTransactionData =    interface.putTransactionData,
-    getTransactionData =    interface.getTransactionData,
-    setConsumerState =      interface.setConsumerState,
-    getConsumerState =      interface.getConsumerState
-  )
-  private val request = Thrift.client.newMethodIface(interfaceCopy)
+
+  private def getInterface = {
+    val interface = client.newServiceIface[TransactionService.ServiceIface](serverIPAddress, "transaction")
+    interface.copy(
+      putStream = interface.putStream,
+      isStreamExist = interface.isStreamExist,
+      getStream = interface.getStream,
+      delStream = interface.delStream,
+      putTransaction = interface.putTransaction,
+      putTransactions = interface.putTransactions,
+      scanTransactions = interface.scanTransactions,
+      putTransactionData = interface.putTransactionData,
+      getTransactionData = interface.getTransactionData,
+      setConsumerState = interface.setConsumerState,
+      getConsumerState = interface.getConsumerState
+    )
+  }
+
+  private val request = Thrift.client.newMethodIface(getInterface)
 
   //Stream API
   override def putStream(token: String, stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] = {
@@ -63,51 +67,3 @@ class ClientTransaction(serverIPAddress: String)/*(implicit val threadPool: tran
   override def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     request.getConsumerState(token,name,stream,partition)
 }
-
-//object ClientTransaction extends App {
-// // implicit lazy val context = transactionService.Context(2)
-//  val client = new ClientTransaction("ognelis","228",":8080",new ClientAuth(":8081"))
-//
-//  println(Await.ready(client.putStream(client.token,"1",5, None)))
-//
-//  val acc: ArrayBuffer[TwitterFuture[Boolean]] = new ArrayBuffer[TwitterFuture[Boolean]]()
-//
-//  val producerTransactions = (0 to 1000).map(_ => new ProducerTransaction {
-//    override val transactionID: Long = scala.util.Random.nextLong()
-//
-//    override val state: TransactionStates = TransactionStates.Opened
-//
-//    override val stream: String = "1"
-//
-//    override val timestamp: Long = Time.epoch.inNanoseconds
-//
-//    override val quantity: Int = -1
-//
-//    override val partition: Int = scala.util.Random.nextInt(10000)
-//
-//    override def tll: Long = Time.epoch.inNanoseconds
-//  })
-//
-//  val consumerTransactions = (0 to 1000).map(_ => new ConsumerTransaction {
-//    override def transactionID: Long = scala.util.Random.nextLong()
-//
-//    override def name: String = scala.util.Random.nextInt(1000).toString
-//
-//    override def stream: String = "1"
-//
-//    override def partition: Int = scala.util.Random.nextInt(10000)
-//  })
-//
-//  val transactions = (producerTransactions++consumerTransactions).map{
-//    case txn: ProducerTransaction => new Transaction {
-//      override def producerTransaction: Option[ProducerTransaction] = Some(txn)
-//      override def consumerTransaction: Option[ConsumerTransaction] = None
-//    }
-//    case txn: ConsumerTransaction => new Transaction {
-//      override def producerTransaction: Option[ProducerTransaction] = None
-//      override def consumerTransaction: Option[ConsumerTransaction] = Some(txn)
-//    }
-//  }
-//
-//  println(Await.ready(client.putTransactions(client.token, transactions)))
-//}

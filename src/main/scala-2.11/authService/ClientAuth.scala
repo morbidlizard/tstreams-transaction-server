@@ -4,7 +4,7 @@ import authService.rpc.AuthService
 import com.twitter.finagle.{ServiceTimeoutException, Thrift}
 import com.twitter.logging.Logger
 import com.twitter.util.{Throw, Try, Future => TwitterFuture}
-import filter.TransportConnectionTimeoutFilter
+import filter.Filter
 
 class ClientAuth(ipAddress: String, authTimeoutConnection: Int, authTimeoutExponentialBetweenRetries: Int) extends AuthService[TwitterFuture] {
   private val logger = Logger.get(this.getClass)
@@ -12,8 +12,8 @@ class ClientAuth(ipAddress: String, authTimeoutConnection: Int, authTimeoutExpon
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual
 
-  def timeOutFilter[Req, Rep] = TransportConnectionTimeoutFilter
-    .retryFilterConnection[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries, logger, resource.LogMessage.tryingToConnectToAuthServer)
+  def timeOutFilter[Req, Rep] = Filter
+      .retryFilterConnection[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries, logger, resource.LogMessage.tryingToConnectToAuthServer)
 
   private def interface = {
     val interface= client.newServiceIface[AuthService.ServiceIface](ipAddress, "transaction")

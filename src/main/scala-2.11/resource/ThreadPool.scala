@@ -1,5 +1,5 @@
 package resource
 
 object ThreadPool {
-  val TransactionMetaServiceThreadPoolNumber = 5
+  val TransactionMetaServiceThreadPoolNumber = 1
 }

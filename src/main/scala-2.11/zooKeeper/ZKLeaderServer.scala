@@ -4,9 +4,9 @@ import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.zookeeper.CreateMode
 
-class ZKLeaderServer(address: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String) {
+class ZKLeaderServer(address: Seq[String], sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String) {
   val client = {
-    val connection = CuratorFrameworkFactory.newClient(address, sessionTimeoutMillis, connectionTimeoutMillis, policy)
+    val connection = CuratorFrameworkFactory.newClient(address.head, sessionTimeoutMillis, connectionTimeoutMillis, policy)
     connection.start()
     connection.blockUntilConnected()
     connection

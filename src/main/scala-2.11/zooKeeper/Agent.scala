@@ -1,14 +1,8 @@
 package zooKeeper
 
-case class Agent(address: String,port: String,id: String, priority: Agent.Priority.Value)
+case class Agent(address: String, port: Int, id: Int)
 {
+  require(port > 0)
   def name = toString
-  override def toString: String = s"$address:$port(version:$id)"
+  override def toString: String = s"$address:$port"
 }
-
-object Agent {
-  object Priority extends Enumeration {
-    val Normal, Low = Value
-  }
-}
-

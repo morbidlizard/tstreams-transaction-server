@@ -9,6 +9,7 @@ import com.sleepycat.persist.model.{Entity, PrimaryKey}
 
   override def partitions: Int = partitionsDB
   override def description: Option[String] = Option(descriptionDB)
+  override def name: String = nameDB
 
   def this(name: String, partitions:Int, description: Option[String]) = {
     this()

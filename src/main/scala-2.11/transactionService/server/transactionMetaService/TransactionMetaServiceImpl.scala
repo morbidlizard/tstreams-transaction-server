@@ -1,6 +1,5 @@
 package transactionService.server.transactionMetaService
 
-import java.io.Closeable
 
 import com.sleepycat.je.{Environment, EnvironmentConfig}
 import com.sleepycat.persist.{EntityStore, StoreConfig}
@@ -28,7 +27,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
       val result = (producerTransactionOpt, consumerTransactionOpt) match {
         case (Some(txn), _) =>
-          implicit val context = Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)
+          implicit val context = Context.transactionContexts.getContext(txn.partition, txn.stream.hashCode)
           ScalaFuture {
             val isNotExist =
               producerPrimaryIndex
@@ -62,7 +61,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
       val result = transactions map { transaction =>
         (transaction.producerTransaction, transaction.consumerTransaction) match {
           case (Some(txn), _) =>
-            implicit val context = transactionService.Context.transactionContexts.getContext(txn.partition, txn.stream.toInt)
+            implicit val context = transactionService.Context.transactionContexts.getContext(txn.partition, txn.stream.hashCode)
             ScalaFuture {
               val isNotExist =
                 producerPrimaryIndex
@@ -104,48 +103,26 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
     } else TwitterFuture.exception(tokenInvalidException)
   }
 
-//  def delTransaction(token: String, stream: String, partition: Int, transaction: Long): Future[Boolean] = {
-//    val directory = new File(StreamServiceImpl.pathToDatabases)
-//
-//    val environmentConfig = new EnvironmentConfig()
-//    val storeConfig = new StoreConfig()
-//
-//    val environment = new Environment(directory, environmentConfig)
-//    val entityStore = new EntityStore(environment, TransactionMetaServiceImpl.storeName, storeConfig)
-//
-//    val result = Future {
-//      val producerPrimaryKey = entityStore.getPrimaryIndex(
-//        classOf[TransactionMetaServiceImpl.ProducerTransactionKey],
-//        classOf[TransactionMetaServiceImpl.ProducerTransaction]
-//      )
-//      val txnOpt = Option(producerPrimaryKey.get(new TransactionMetaServiceImpl.ProducerTransactionKey(stream, partition, transaction)))
-//      txnOpt match {
-//        case Some(txn) => {
-//          val txnToSave = new TransactionMetaServiceImpl.ProducerTransaction(txn.transactionID, TransactionStates.Invalid, txn.stream, txn.timestamp, txn.quantity, txn.partition)
-//          if (producerPrimaryKey.put(txnToSave) != null) {
-//            TransactionMetaServiceImpl.logger.log(Level.INFO, s"${txnToSave.toString} changes ${txn.state} state to ${TransactionStates.Invalid} state!")
-//            true
-//          } else {
-//            TransactionMetaServiceImpl.logger.log(Level.ERROR, s"${txnToSave.toString}. Unexpected error.")
-//            false
-//          }
-//        }
-//        case None =>
-//          TransactionMetaServiceImpl.logger.log(Level.WARNING, s"Producer transaction ${transaction.toString} doesn't exist!")
-//          false
-//      }
-//    }
-//
-//    result flatMap { isMarked =>
-//      entityStore.close()
-//      environment.close()
-//      Future.value(isMarked)
-//    }
-//  }
 
-  def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = ???
+  def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = authClient.isValid(token) flatMap { isValid =>
+    if (isValid) {
+      TwitterFuture {
+        import scala.collection.JavaConverters._
 
-  def scanTransactionsCRC32(token: String, stream: String, partition: Int): TwitterFuture[Int] = ???
+        val producerTransactions = producerPrimaryIndex
+          .entities(
+            new ProducerTransactionKey(stream, partition, Long.MinValue), false,
+            new ProducerTransactionKey(stream, partition, Long.MaxValue), false
+          ).iterator().asScala.toArray
+
+        producerTransactions.map(txn => new Transaction {
+          override def producerTransaction: Option[ProducerTransaction] = Some(txn)
+          override def consumerTransaction: Option[ConsumerTransaction] = None
+        })
+      }
+    } else TwitterFuture.exception(tokenInvalidException)
+  }
+
 }
 
 object TransactionMetaServiceImpl {

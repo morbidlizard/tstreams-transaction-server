@@ -1,22 +1,31 @@
 import authService.ClientAuth
 import com.twitter.finagle.Thrift
-import transactionService.server.TransactionServiceImpl
-import zooKeeper.{Agent, LeaderSelectorPriority, LeaderSelectorPriorityServer}
+import transactionService.server.TransactionServer
 import com.twitter.util.Await
+import org.apache.curator.retry.ExponentialBackoffRetry
+import resource.ConfigServer
+import zooKeeper.ZKLeaderServer
 
 
-private object TransactionZooKeeperServer extends App {
-  val addressZooKeeper = "172.17.0.2:2181"
-  val path = "/stream_1"
-  val agent= Agent("localhost", 8080, 1)
-  val priority = LeaderSelectorPriority.Priority.Normal
-  val clientAuth = new ClientAuth("localhost:8081", 5000,50000)
+class TransactionZooKeeperServer(val clientAuth: ClientAuth, config: ConfigServer)
+  extends TransactionServer(clientAuth) {
+  import config._
 
-  val server = Thrift.server
-  val leaderSelectorByPriorityClient =
-    new LeaderSelectorPriorityServer(addressZooKeeper,priority,path,agent.name)
-  leaderSelectorByPriorityClient.start()
+  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
+    new ExponentialBackoffRetry(zkTimeoutBetweenRetries,zkRetriesMax),zkPrefix)
+
+  zk.putData(transactionServerAddress.getBytes())
+
+  private val server = Thrift.server
+  def serve = server.serveIface(transactionServerAddress, this)
 
 
-  //Await.result(server.start())
+}
+
+object TransactionZooKeeperServer extends App {
+  val config = new ConfigServer("serverProperties.properties")
+  import config._
+  val server = new TransactionZooKeeperServer(new ClientAuth(authAddress,authTimeoutConnection,authTimeoutExponentialBetweenRetries),config)
+
+  Await.ready(server.serve)
 }

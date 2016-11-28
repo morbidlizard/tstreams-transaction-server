@@ -4,11 +4,6 @@ import java.io.FileInputStream
 import java.util.Properties
 
 abstract class Config(pathToConfig: String) {
-  def stringToSting: String => String = str => str
-  def stringToInt: String => Int = str => str.toInt
-  def stringToFloat: String => Float = str => str.toFloat
-  def stringToLong: String => Long = str => str.toLong
-
   private lazy val properties = {
     val file = new Properties()
     scala.util.Try {

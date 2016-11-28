@@ -5,7 +5,7 @@ import java.nio.file.{Files, Paths}
 import resource.DB.PathToDatabases
 
 object FileUtils {
-  def createDirectory(name: String, deleteAtExit: Boolean = true): File = {
+  def createDirectory(name: String, path: String = PathToDatabases, deleteAtExit: Boolean = true): File = {
     val path = {
       val dir = Paths.get(name)
       if (Files.exists(dir)) dir else java.nio.file.Files.createDirectory(Paths.get(s"/$PathToDatabases/$name"))
@@ -19,4 +19,6 @@ object FileUtils {
       })
     path.toFile
   }
+
+  def dirToFile(path: String) = new File(path)
 }

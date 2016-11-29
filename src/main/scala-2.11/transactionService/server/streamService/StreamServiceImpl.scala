@@ -45,13 +45,13 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
 
   def getStream(token: String, stream: String): TwitterFuture[Stream] =
     authClient.isValid(token) flatMap { isValid =>
-      streamTTL.remove(stream)
       if (isValid) TwitterFuture(pIdx.get(stream)) else TwitterFuture.exception(tokenInvalidException)
     }
 
 
   def delStream(token: String, stream: String): TwitterFuture[Boolean] =
     authClient.isValid(token) flatMap { isValid =>
+      streamTTL.remove(stream)
     if (isValid) TwitterFuture(pIdx.delete(stream)) else TwitterFuture.exception(tokenInvalidException)
   }
 }

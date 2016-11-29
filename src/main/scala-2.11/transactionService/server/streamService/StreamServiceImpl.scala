@@ -1,24 +1,34 @@
 package transactionService.server.streamService
 
-import java.io.{Closeable, File}
-
 import com.sleepycat.je._
 import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.twitter.util.{Future => TwitterFuture}
-import transactionService.server.Authenticable
+import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.streamService.StreamServiceImpl._
 import transactionService.rpc.StreamService
 import transactionService.exception.Throwables._
 
 trait StreamServiceImpl extends StreamService[TwitterFuture]
   with Authenticable
+  with CheckpointTTL
 {
 
-  def putStream(token: String, stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] =
+  def getStreamTTL(stream: String): TwitterFuture[Int] =
+    if (streamTTL.containsKey(stream)) TwitterFuture.value(streamTTL.get(stream))
+    else {
+      TwitterFuture(pIdx.get(stream)) flatMap { streamObj => if (streamObj != null) {
+        streamTTL.put(streamObj.name, streamObj.ttl)
+        TwitterFuture.value(streamObj.ttl)
+      } else TwitterFuture.exception(throw new StreamNotExist)
+      }
+  }
+
+  def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
     authClient.isValid(token) flatMap { isValid =>
     if (isValid) {
       TwitterFuture {
-        pIdx.put(new Stream(stream, partitions, description))
+        pIdx.put(new Stream(stream, partitions, description, ttl))
+        streamTTL.putIfAbsent(stream, ttl)
         true
       }
     } else TwitterFuture.exception(tokenInvalidException)
@@ -35,8 +45,9 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
 
   def getStream(token: String, stream: String): TwitterFuture[Stream] =
     authClient.isValid(token) flatMap { isValid =>
-    if (isValid) TwitterFuture(pIdx.get(stream)) else TwitterFuture.exception(tokenInvalidException)
-  }
+      streamTTL.remove(stream)
+      if (isValid) TwitterFuture(pIdx.get(stream)) else TwitterFuture.exception(tokenInvalidException)
+    }
 
 
   def delStream(token: String, stream: String): TwitterFuture[Boolean] =

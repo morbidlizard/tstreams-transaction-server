@@ -5,10 +5,10 @@ import java.nio.file.{Files, Paths}
 import resource.DB.PathToDatabases
 
 object FileUtils {
-  def createDirectory(name: String, path: String = PathToDatabases, deleteAtExit: Boolean = true): File = {
+  def createDirectory(name: String, path: String = PathToDatabases, deleteAtExit: Boolean = false): File = {
     val path = {
-      val dir = Paths.get(name)
-      if (Files.exists(dir)) dir else java.nio.file.Files.createDirectory(Paths.get(s"/$PathToDatabases/$name"))
+      val dir = Paths.get(s"/$PathToDatabases/$name")
+      if (Files.exists(dir)) dir else java.nio.file.Files.createDirectories(Paths.get(s"/$PathToDatabases/$name"))
     }
 
     if (deleteAtExit)

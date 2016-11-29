@@ -8,7 +8,7 @@ import transactionService.rpc.TransactionService
 import transactionService.server.transactionMetaService.TransactionMetaServiceImpl
 
 
-class TransactionServer(override val authClient: authService.ClientAuth)
+class TransactionServer(override val authClient: authService.ClientAuth, override val ttlToAdd: Int)
   extends TransactionService[TwitterFuture]
     with ConsumerServiceImpl
     with StreamServiceImpl

@@ -143,7 +143,7 @@ class StreamService$FinagleService(
       val args = PutStream.Args.decode(iprot)
       iprot.readMessageEnd()
       (try {
-        iface.putStream(args.token, args.stream, args.partitions, args.description)
+        iface.putStream(args.token, args.stream, args.partitions, args.description, args.ttl)
       } catch {
         case e: Exception => Future.exception(e)
       }).flatMap { value: Boolean =>

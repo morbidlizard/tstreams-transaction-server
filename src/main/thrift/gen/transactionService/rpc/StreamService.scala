@@ -40,7 +40,7 @@ import scala.language.higherKinds
 @javax.annotation.Generated(value = Array("com.twitter.scrooge.Compiler"))
 trait StreamService[+MM[_]] extends ThriftService {
   
-  def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None): MM[Boolean]
+  def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): MM[Boolean]
   
   def isStreamExist(token: String, stream: String): MM[Boolean]
   
@@ -89,8 +89,8 @@ object StreamService { self =>
     extends StreamService[Future] {
     private[this] val __putStream_service =
       ThriftServiceIface.resultFilter(self.PutStream) andThen serviceIface.putStream
-    def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None): Future[Boolean] =
-      __putStream_service(self.PutStream.Args(token, stream, partitions, description))
+    def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean] =
+      __putStream_service(self.PutStream.Args(token, stream, partitions, description, ttl))
     private[this] val __isStreamExist_service =
       ThriftServiceIface.resultFilter(self.IsStreamExist) andThen serviceIface.isStreamExist
     def isStreamExist(token: String, stream: String): Future[Boolean] =
@@ -124,6 +124,8 @@ object StreamService { self =>
       val PartitionsFieldManifest = implicitly[Manifest[Int]]
       val DescriptionField = new TField("description", TType.STRING, 4)
       val DescriptionFieldManifest = implicitly[Manifest[String]]
+      val TtlField = new TField("ttl", TType.I32, 5)
+      val TtlFieldManifest = implicitly[Manifest[Int]]
     
       /**
        * Field information in declaration order.
@@ -172,6 +174,17 @@ object StreamService { self =>
           immutable$Map.empty[String, String],
           immutable$Map.empty[String, String],
           None
+        ),
+        new ThriftStructFieldInfo(
+          TtlField,
+          false,
+          false,
+          TtlFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
         )
       )
     
@@ -207,6 +220,11 @@ object StreamService { self =>
               field.map { field =>
                 field
               }
+            },
+          ttl =
+            {
+              val field = original.ttl
+              field
             }
         )
     
@@ -219,6 +237,7 @@ object StreamService { self =>
         var stream: String = null
         var partitions: Int = 0
         var description: _root_.scala.Option[String] = _root_.scala.None
+        var ttl: Int = 0
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -281,6 +300,19 @@ object StreamService { self =>
                       )
                     )
                 }
+              case 5 =>
+                _field.`type` match {
+                  case TType.I32 =>
+                    ttl = readTtlValue(_iprot)
+                  case _actualType =>
+                    val _expectedType = TType.I32
+                    throw new TProtocolException(
+                      "Received wrong type for field 'ttl' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
               case _ =>
                 if (_passthroughFields == null)
                   _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
@@ -296,6 +328,7 @@ object StreamService { self =>
           stream,
           partitions,
           description,
+          ttl,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -307,16 +340,18 @@ object StreamService { self =>
         token: String,
         stream: String,
         partitions: Int,
-        description: _root_.scala.Option[String] = _root_.scala.None
+        description: _root_.scala.Option[String] = _root_.scala.None,
+        ttl: Int
       ): Args =
         new Args(
           token,
           stream,
           partitions,
-          description
+          description,
+          ttl
         )
     
-      def unapply(_item: Args): _root_.scala.Option[scala.Product4[String, String, Int, Option[String]]] = _root_.scala.Some(_item)
+      def unapply(_item: Args): _root_.scala.Option[scala.Product5[String, String, Int, Option[String], Int]] = _root_.scala.Some(_item)
     
     
       @inline private def readTokenValue(_iprot: TProtocol): String = {
@@ -375,6 +410,20 @@ object StreamService { self =>
         _oprot.writeString(description_item)
       }
     
+      @inline private def readTtlValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
+      }
+    
+      @inline private def writeTtlField(ttl_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(TtlField)
+        writeTtlValue(ttl_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeTtlValue(ttl_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(ttl_item)
+      }
+    
     
     }
     
@@ -383,9 +432,10 @@ object StreamService { self =>
         val stream: String,
         val partitions: Int,
         val description: _root_.scala.Option[String],
+        val ttl: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with scala.Product4[String, String, Int, Option[String]]
+      with scala.Product5[String, String, Int, Option[String], Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
@@ -394,12 +444,14 @@ object StreamService { self =>
         token: String,
         stream: String,
         partitions: Int,
-        description: _root_.scala.Option[String] = _root_.scala.None
+        description: _root_.scala.Option[String] = _root_.scala.None,
+        ttl: Int
       ) = this(
         token,
         stream,
         partitions,
         description,
+        ttl,
         Map.empty
       )
     
@@ -407,6 +459,7 @@ object StreamService { self =>
       def _2 = stream
       def _3 = partitions
       def _4 = description
+      def _5 = ttl
     
     
     
@@ -417,6 +470,7 @@ object StreamService { self =>
         if (stream ne null) writeStreamField(stream, _oprot)
         writePartitionsField(partitions, _oprot)
         if (description.isDefined) writeDescriptionField(description.get, _oprot)
+        writeTtlField(ttl, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -429,6 +483,7 @@ object StreamService { self =>
         stream: String = this.stream,
         partitions: Int = this.partitions,
         description: _root_.scala.Option[String] = this.description,
+        ttl: Int = this.ttl,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
@@ -436,6 +491,7 @@ object StreamService { self =>
           stream,
           partitions,
           description,
+          ttl,
           _passthroughFields
         )
     
@@ -451,13 +507,14 @@ object StreamService { self =>
       override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
     
     
-      override def productArity: Int = 4
+      override def productArity: Int = 5
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.token
         case 1 => this.stream
         case 2 => this.partitions
         case 3 => this.description
+        case 4 => this.ttl
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -2046,7 +2103,7 @@ object StreamService { self =>
 
   trait FutureIface extends StreamService[Future] {
     
-    def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None): Future[Boolean]
+    def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean]
     
     def isStreamExist(token: String, stream: String): Future[Boolean]
     

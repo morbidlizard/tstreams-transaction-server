@@ -28,4 +28,6 @@ class ConfigServer(pathToConfig: String) extends Config(pathToConfig) {
   val authTimeoutConnection = readProperty("auth.timeout.connection")(Config.stringToInt)
 
   val authTimeoutExponentialBetweenRetries = readProperty("auth.timeout.exponentialBetweenRetries")(Config.stringToInt)
+
+  val transactionDataTtlAdd = readProperty("transaction.data.ttl.add")(Config.stringToInt)
 }

@@ -17,7 +17,6 @@ struct ProducerTransaction {
    4: required TransactionStates   state
    5: required i32                 quantity
    6: required i64                 timestamp
-   7: required i64                 tll
 }
 
 struct ConsumerTransaction {
@@ -34,16 +33,17 @@ struct Transaction {
 
 
 struct Stream {
-    1: required StreamType name,
-    2: required i32 partitions
-    3: optional string description
+    1: required StreamType    name
+    2: required i32           partitions
+    3: optional string        description
+    4: required i32           ttl
 }
 
 
 
 service StreamService {
 
-  bool putStream(1: string token, 2: StreamType stream, 3: i32 partitions, 4: optional string description),
+  bool putStream(1: string token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl),
 
   bool isStreamExist(1: string token, 2: StreamType stream),
 
@@ -84,7 +84,7 @@ service ConsumerService {
 
 service TransactionService {
 
-  bool putStream(1: string token, 2: StreamType stream, 3: i32 partitions, 4: optional string description),
+  bool putStream(1: string token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl),
 
   bool isStreamExist(1: string token, 2: StreamType stream),
 

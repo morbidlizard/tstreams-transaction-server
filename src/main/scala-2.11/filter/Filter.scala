@@ -1,6 +1,5 @@
 package filter
 
-import com.twitter.finagle.context.Deadline
 import com.twitter.finagle.{Service, ServiceTimeoutException, SimpleFilter}
 import com.twitter.finagle.param.HighResTimer
 import com.twitter.finagle.service.{Backoff, RetryExceptionsFilter, RetryPolicy}
@@ -20,7 +19,7 @@ object Filter {
           logger.log(Level.INFO, message)
           true
         case e =>
-          Logger.get().log(Level.ERROR, e.getMessage)
+          logger.log(Level.ERROR, e.getMessage)
           false
       }
       case _ => false
@@ -38,10 +37,10 @@ object Filter {
     val retryConditionToGetMaster: PartialFunction[Try[Nothing], Boolean] = {
       case Throw(error) => error match {
         case e: java.util.NoSuchElementException =>
-          Logger.get().log(Level.INFO, "Trying to get master...")
+          logger.log(Level.INFO, resource.LogMessage.tryingToGetMasterFromZookeeper)
           true
         case e =>
-          Logger.get().log(Level.ERROR, e.getMessage)
+          logger.log(Level.ERROR, e.getMessage)
           false
       }
       case _ => false

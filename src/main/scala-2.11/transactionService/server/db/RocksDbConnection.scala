@@ -9,8 +9,8 @@ import transactionService.server.`implicit`.Implicits._
 import scala.collection.JavaConverters._
 
 
-class RocksDbConnection extends Closeable{
-  val client = RocksDB.open(new Options().setCreateIfMissing(true),RocksDbConnection.path.getAbsolutePath)
+class RocksDbConnection(ttl: Int = -1) extends Closeable{
+  val client = TtlDB.open(new Options().setCreateIfMissing(true),RocksDbConnection.path.getAbsolutePath, ttl, false)
   override def close(): Unit = client.close()
 }
 

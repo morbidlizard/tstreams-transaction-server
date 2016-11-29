@@ -39,8 +39,8 @@ class ClientTransaction(serverIPAddress: String)/*(implicit val threadPool: tran
   private val request = Thrift.client.newMethodIface(getInterface)
 
   //Stream API
-  override def putStream(token: String, stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] = {
-    request.putStream(token, stream, partitions, description)
+  override def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] = {
+    request.putStream(token, stream, partitions, description, ttl)
   }
   override def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] = request.isStreamExist(token, stream)
   override def getStream(token: String, stream: String): TwitterFuture[Stream]  = request.getStream(token, stream)

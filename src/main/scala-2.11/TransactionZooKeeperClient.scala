@@ -56,24 +56,24 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
   }
 
 
-  private case class Stream(override val name: String, override val partitions: Int, override val description:Option[String])
+  private case class Stream(override val name: String, override val partitions: Int, override val description:Option[String], override val ttl: Int)
     extends transactionService.rpc.Stream
 
-  def putStream(stream: String, partitions: Int, description: Option[String]): TwitterFuture[Boolean] = {
+  def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] = {
     val streamService = new Service[(ClientTransaction,Stream), Boolean] {
       override def apply(request: (ClientTransaction,Stream)): TwitterFuture[Boolean] = {
         val (client, stream) = request
-        client.putStream(token, stream.name, stream.partitions, stream.description)}
+        client.putStream(token, stream.name, stream.partitions, stream.description, ttl)}
     }
     val requestChain = retryFilterToken.andThen(streamService)
-    zkService().flatMap(client => requestChain(client, Stream(stream,partitions,description)))
+    zkService().flatMap(client => requestChain(client, Stream(stream,partitions,description, ttl)))
   }
 
   def putStream(stream: Stream): TwitterFuture[Boolean] = {
     val streamService = new Service[(ClientTransaction,Stream), Boolean] {
       override def apply(request: (ClientTransaction,Stream)): TwitterFuture[Boolean] = {
         val (client, stream) = request
-        client.putStream(token, stream.name, stream.partitions, stream.description)}
+        client.putStream(token, stream.name, stream.partitions, stream.description, stream.ttl)}
     }
     val requestChain = retryFilterToken.andThen(streamService)
     zkService().flatMap(client => requestChain(client, stream))
@@ -106,8 +106,7 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
                                          override val transactionID: Long,
                                          override val state: transactionService.rpc.TransactionStates,
                                          override val quantity: Int,
-                                         override val timestamp: Long,
-                                         override val tll: Long
+                                         override val timestamp: Long
                                         ) extends transactionService.rpc.ProducerTransaction
 
   private case class ConsumerTransactionWrapper(override val stream: String,
@@ -261,7 +260,7 @@ object TransactionZooKeeperClient extends App {
   import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
   val config = new ConfigClient("clientProperties.properties")
   val client = new TransactionZooKeeperClient(config)
-  println(Await.result(client.putStream("1",20, None)))
+  println(Await.result(client.putStream("1",20, None, 5)))
 
   val rand = scala.util.Random
 
@@ -270,15 +269,13 @@ object TransactionZooKeeperClient extends App {
 
         override val state: TransactionStates = TransactionStates.Opened
 
-        override val stream: String = rand.nextInt(10000).toString
+        override val stream: String = "1"
 
         override val timestamp: Long = Time.epoch.inNanoseconds
 
         override val quantity: Int = -1
 
         override val partition: Int = rand.nextInt(10000)
-
-        override def tll: Long = Time.epoch.inNanoseconds
       })
 
       val consumerTransactions = (0 to 100000).map(_ => new ConsumerTransaction {
@@ -286,7 +283,7 @@ object TransactionZooKeeperClient extends App {
 
         override def name: String = rand.nextInt(10000).toString
 
-        override def stream: String = rand.nextInt(10000).toString
+        override def stream: String = "1"
 
         override def partition: Int = rand.nextInt(10000)
       })

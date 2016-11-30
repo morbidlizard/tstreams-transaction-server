@@ -32,10 +32,9 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
         TwitterFuture {
           RocksDB.loadLibrary()
           val rocksDB = new RocksDbConnection(calculateTTL(ttl))
-          val client = rocksDB.client
 
           val keyToStartWrite = Key(stream, partition, transaction).maxDataSeq
-          val indexOfKeyToWrite = Option(client.get(keyToStartWrite))
+          val indexOfKeyToWrite = Option(rocksDB.get(keyToStartWrite))
           val delta = indexOfKeyToWrite match {
             case Some(bytes) => java.nio.ByteBuffer.wrap(bytes).getInt(0)
             case None => 0
@@ -44,24 +43,17 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
           val rangeDataToSave = delta until (delta + data.length)
 
           val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(stream, partition, transaction), seqId).toString)
-          val batch = new WriteBatch()
           (keys zip data) foreach { case (key, datum) =>
             val sizeOfSlicedData = datum.limit() - datum.position()
             val bytes = new Array[Byte](sizeOfSlicedData)
             datum.get(bytes)
-            batch.put(key, bytes)
+            rocksDB.put(key, bytes)
           }
 
-          if (indexOfKeyToWrite.isDefined) batch.remove(keyToStartWrite)
+          if (indexOfKeyToWrite.isDefined) rocksDB.remove(keyToStartWrite)
+          rocksDB.put(keyToStartWrite, delta + data.length)
 
-          batch.put(keyToStartWrite, delta + data.length)
-
-          val result = Option(client.write(new WriteOptions(), batch)) match {
-            case Some(_) => true
-            case None => false
-          }
-
-          batch.close()
+          val result = rocksDB.write()
           rocksDB.close()
 
           result
@@ -73,13 +65,12 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     authenticate(token) {
       RocksDB.loadLibrary()
       val rocksDB = new RocksDbConnection()
-      val client = rocksDB.client
 
-      val prefix = KeyDataSeq(Key(stream, partition, transaction), from).toString
+      val fromSeqId = KeyDataSeq(Key(stream, partition, transaction), from).toString
       val toSeqId = KeyDataSeq(Key(stream, partition, transaction), to).toString
 
-      val iterator = client.newIterator()
-      iterator.seek(prefix)
+      val iterator = rocksDB.iterator
+      iterator.seek(fromSeqId)
 
       val data = new ArrayBuffer[ByteBuffer](to - from)
       while (iterator.isValid && new String(iterator.key()) <= toSeqId) {

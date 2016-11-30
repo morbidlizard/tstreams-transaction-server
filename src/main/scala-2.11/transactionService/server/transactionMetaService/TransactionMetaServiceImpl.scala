@@ -30,21 +30,23 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   }
 
 
-  private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction, ttl: Int) = {
-    implicit val context = Context.transactionContexts.getContext(txn.partition, txn.stream.hashCode)
-    ScalaFuture {
-      val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(ttl)) else new WriteOptions()
-      val isNotExist =
-        producerPrimaryIndex
-          .put(databaseTxn, new ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition), putType, writeOptions) != null
-      if (isNotExist) {
-        logger.log(Level.INFO, s"${txn.toString} inserted/updated!")
-        isNotExist
-      } else {
-        logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
-        isNotExist
-      }
-    }.as[TwitterFuture[Boolean]]
+  private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction) = {
+    getStreamTTL(txn.stream) flatMap {ttl =>
+      implicit val context = Context.transactionContexts.getContext(txn.partition, txn.stream.hashCode)
+      ScalaFuture {
+        val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(ttl)) else new WriteOptions()
+        val isNotExist =
+          producerPrimaryIndex
+            .put(databaseTxn, new ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition), putType, writeOptions) != null
+        if (isNotExist) {
+          logger.log(Level.INFO, s"${txn.toString} inserted/updated!")
+          isNotExist
+        } else {
+          logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+          isNotExist
+        }
+      }.as[TwitterFuture[Boolean]]
+    }
   }
 
 
@@ -65,7 +67,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
       val (producerTransactionOpt, consumerTransactionOpt) = (transaction.producerTransaction, transaction.consumerTransaction)
 
       val result = (producerTransactionOpt, consumerTransactionOpt) match {
-        case (Some(txn), _) => getStreamTTL(txn.stream) flatMap { ttl => putProducerTransaction(transactionDB, txn, ttl)}
+        case (Some(txn), _) => putProducerTransaction(transactionDB, txn)
         case (_, Some(txn)) => putConsumerTransaction(transactionDB, txn)
         case _ => putNoTransaction
       }
@@ -81,7 +83,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
     val transactionDB = environment.beginTransaction(null, null)
     val result = transactions map { transaction =>
       (transaction.producerTransaction, transaction.consumerTransaction) match {
-        case (Some(txn), _) => getStreamTTL(txn.stream) flatMap { ttl => putProducerTransaction(transactionDB, txn, ttl)}
+        case (Some(txn), _) => putProducerTransaction(transactionDB, txn)
         case (_, Some(txn)) => putConsumerTransaction(transactionDB, txn)
         case _ => putNoTransaction
       }

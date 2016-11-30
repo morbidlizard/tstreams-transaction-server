@@ -11,12 +11,9 @@ object FileUtils {
       if (Files.exists(dir)) dir else java.nio.file.Files.createDirectories(Paths.get(s"/$PathToDatabases/$name"))
     }
 
-    if (deleteAtExit)
-      Runtime.getRuntime.addShutdownHook(new Thread {
-        override def run() {
-          org.apache.commons.io.FileUtils.forceDelete(path.toFile)
-        }
-      })
-    path.toFile
+    val file = path.toFile
+
+    if (deleteAtExit) file.deleteOnExit()
+    file
   }
 }

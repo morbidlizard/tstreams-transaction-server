@@ -26,9 +26,9 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     TimeUnit.HOURS.toSeconds(ttl).toInt + convertTTL
   }
 
-  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] = authClient.isValid(token) flatMap { isValid =>
-    if (isValid) {
-      getStreamTTL(stream) flatMap { ttl =>
+  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] =
+    authenticateFutureBody(token) {
+      getStreamTTL(stream).flatMap { ttl =>
         TwitterFuture {
           RocksDB.loadLibrary()
           val rocksDB = new RocksDbConnection(calculateTTL(ttl))
@@ -67,31 +67,27 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
           result
         }
       }
-    } else TwitterFuture.exception(tokenInvalidException)
-  }
+    }
 
-  def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] = authClient.isValid(token) flatMap { isValid =>
-    if (isValid) {
-      TwitterFuture {
-        RocksDB.loadLibrary()
-        val rocksDB = new RocksDbConnection()
-        val client = rocksDB.client
+  def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
+    authenticate(token) {
+      RocksDB.loadLibrary()
+      val rocksDB = new RocksDbConnection()
+      val client = rocksDB.client
 
-        val prefix = KeyDataSeq(Key(stream, partition, transaction), from).toString
-        val toSeqId = KeyDataSeq(Key(stream, partition, transaction), to).toString
+      val prefix = KeyDataSeq(Key(stream, partition, transaction), from).toString
+      val toSeqId = KeyDataSeq(Key(stream, partition, transaction), to).toString
 
-        val iterator = client.newIterator()
-        iterator.seek(prefix)
+      val iterator = client.newIterator()
+      iterator.seek(prefix)
 
-        val data = new ArrayBuffer[ByteBuffer](to - from)
-        while (iterator.isValid && new String(iterator.key()) <= toSeqId) {
-          data += java.nio.ByteBuffer.wrap(iterator.value())
-          iterator.next()
-        }
-        iterator.close()
-        rocksDB.close()
-        data
+      val data = new ArrayBuffer[ByteBuffer](to - from)
+      while (iterator.isValid && new String(iterator.key()) <= toSeqId) {
+        data += java.nio.ByteBuffer.wrap(iterator.value())
+        iterator.next()
       }
-    } else TwitterFuture.exception(tokenInvalidException)
-  }
+      iterator.close()
+      rocksDB.close()
+      data
+    }
 }

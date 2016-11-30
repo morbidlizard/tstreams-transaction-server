@@ -4,7 +4,7 @@ import authService.rpc.AuthService
 import com.twitter.finagle.Thrift
 import com.twitter.logging.Logger
 import com.twitter.util.{Throw, Try, Future => TwitterFuture}
-import configProperties.LogMessage
+import exception.Throwables.tokenInvalidException
 import filter.Filter
 
 class AuthClient(ipAddress: String, authTimeoutConnection: Int, authTimeoutExponentialBetweenRetries: Int) extends AuthService[TwitterFuture] {
@@ -26,5 +26,7 @@ class AuthClient(ipAddress: String, authTimeoutConnection: Int, authTimeoutExpon
 
   private final val request = Thrift.client.newMethodIface(interface)
   override def authenticate(login: String, password: String): TwitterFuture[String] =  request.authenticate(login,password)
-  override def isValid(token: String): TwitterFuture[Boolean] = request.isValid(token)
+  override def isValid(token: String): TwitterFuture[Boolean] = request.isValid(token) flatMap (valid =>
+    if (valid) TwitterFuture.value(valid) else TwitterFuture.exception(tokenInvalidException)
+    )
 }

@@ -24,36 +24,24 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
   }
 
   def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
-    authClient.isValid(token) flatMap { isValid =>
-    if (isValid) {
-      TwitterFuture {
-        pIdx.put(new Stream(stream, partitions, description, ttl))
-        streamTTL.putIfAbsent(stream, ttl)
-        true
-      }
-    } else TwitterFuture.exception(tokenInvalidException)
-  }
+    authenticate(token) {
+      pIdx.put(new Stream(stream, partitions, description, ttl))
+      streamTTL.putIfAbsent(stream, ttl)
+      true
+    }
 
   def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
-    authClient.isValid(token) flatMap { isValid =>
-    if (isValid) {
-      TwitterFuture {
-        if (pIdx.get(stream) == null) false else true
-      }
-    } else TwitterFuture.exception(tokenInvalidException)
-  }
+    authenticate(token) (if (pIdx.get(stream) == null) false else true)
 
   def getStream(token: String, stream: String): TwitterFuture[Stream] =
-    authClient.isValid(token) flatMap { isValid =>
-      if (isValid) TwitterFuture(pIdx.get(stream)) else TwitterFuture.exception(tokenInvalidException)
-    }
+    authenticate(token) (pIdx.get(stream))
 
 
   def delStream(token: String, stream: String): TwitterFuture[Boolean] =
-    authClient.isValid(token) flatMap { isValid =>
+    authenticate(token) {
       streamTTL.remove(stream)
-    if (isValid) TwitterFuture(pIdx.delete(stream)) else TwitterFuture.exception(tokenInvalidException)
-  }
+      pIdx.delete(stream)
+    }
 }
 
 private object StreamServiceImpl {

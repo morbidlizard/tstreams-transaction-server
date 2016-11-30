@@ -48,7 +48,7 @@ class TransactionZooKeeperClient {
   }
 
   private def getMasterFilter[Req, Rep] = Filter
-    .retryGetMaster[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries)
+    .filter[Req, Rep](zkTimeoutConnection, zkTimeoutBetweenRetries, Filter.retryConditionToGetMaster)
   private val zkService = getMasterFilter andThen new Service[Unit, TransactionClient] {
     override def apply(request: Unit): TwitterFuture[TransactionClient] = {
       TwitterFuture(getClientTransaction)

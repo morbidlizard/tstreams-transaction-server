@@ -34,9 +34,6 @@ object Filter {
     case _ => false
   }
 
-  def retryFilterConnection[Req, Rep](timeoutConnection: Int, timeoutExponentialBetweenRetries: Int) =
-    filter[Req, Rep](timeoutConnection, timeoutExponentialBetweenRetries, retryConditionToConnect)
-
 
   val retryConditionToGetMaster: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
@@ -49,7 +46,4 @@ object Filter {
     }
     case _ => false
   }
-
-  def retryGetMaster[Req, Rep](timeoutConnection: Int, timeoutExponentialBetweenRetries: Int) =
-    filter[Req, Rep](timeoutConnection, timeoutExponentialBetweenRetries, retryConditionToGetMaster)
 }

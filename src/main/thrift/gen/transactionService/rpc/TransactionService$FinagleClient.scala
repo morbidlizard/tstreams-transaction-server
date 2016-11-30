@@ -161,21 +161,21 @@ class TransactionService$FinagleClient(
       }
     }
   }
-  private[this] object __stats_isStreamExist {
-    val RequestsCounter = scopedStats.scope("isStreamExist").counter("requests")
-    val SuccessCounter = scopedStats.scope("isStreamExist").counter("success")
-    val FailuresCounter = scopedStats.scope("isStreamExist").counter("failures")
-    val FailuresScope = scopedStats.scope("isStreamExist").scope("failures")
+  private[this] object __stats_doesStreamExist {
+    val RequestsCounter = scopedStats.scope("doesStreamExist").counter("requests")
+    val SuccessCounter = scopedStats.scope("doesStreamExist").counter("success")
+    val FailuresCounter = scopedStats.scope("doesStreamExist").counter("failures")
+    val FailuresScope = scopedStats.scope("doesStreamExist").scope("failures")
   }
   
-  def isStreamExist(token: String, stream: String): Future[Boolean] = {
-    __stats_isStreamExist.RequestsCounter.incr()
-    val inputArgs = IsStreamExist.Args(token, stream)
+  def doesStreamExist(token: String, stream: String): Future[Boolean] = {
+    __stats_doesStreamExist.RequestsCounter.incr()
+    val inputArgs = DoesStreamExist.Args(token, stream)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
       response => {
-        val decodeResult: _root_.com.twitter.util.Try[IsStreamExist.Result] =
+        val decodeResult: _root_.com.twitter.util.Try[DoesStreamExist.Result] =
           _root_.com.twitter.util.Try {
-            decodeResponse(response, IsStreamExist.Result)
+            decodeResponse(response, DoesStreamExist.Result)
           }
   
         decodeResult match {
@@ -190,7 +190,7 @@ class TransactionService$FinagleClient(
             else if (serviceException != null)
               _root_.com.twitter.util.Throw(serviceException)
             else
-              _root_.com.twitter.util.Throw(missingResult("isStreamExist"))
+              _root_.com.twitter.util.Throw(missingResult("doesStreamExist"))
         }
       }
   
@@ -199,7 +199,7 @@ class TransactionService$FinagleClient(
       _root_.com.twitter.finagle.thrift.DeserializeCtx.Key,
       serdeCtx
     ) {
-      val serialized = encodeRequest("isStreamExist", inputArgs)
+      val serialized = encodeRequest("doesStreamExist", inputArgs)
       this.service(serialized).flatMap { response =>
         Future.const(serdeCtx.deserialize(response))
       }.respond { response =>
@@ -208,13 +208,13 @@ class TransactionService$FinagleClient(
           ctfs.ResponseClassifier.Default)
         responseClass match {
           case ctfs.ResponseClass.Successful(_) =>
-            __stats_isStreamExist.SuccessCounter.incr()
+            __stats_doesStreamExist.SuccessCounter.incr()
           case ctfs.ResponseClass.Failed(_) =>
-            __stats_isStreamExist.FailuresCounter.incr()
+            __stats_doesStreamExist.FailuresCounter.incr()
             response match {
               case Throw(ex) =>
                 setServiceName(ex)
-                __stats_isStreamExist.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
+                __stats_doesStreamExist.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
               case _ =>
             }
         }

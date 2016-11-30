@@ -1,5 +1,7 @@
 package transactionService.server
 
+import authService.AuthClient
+
 trait Authenticable {
-  val authClient: authService.ClientAuth
+  val authClient: AuthClient
 }

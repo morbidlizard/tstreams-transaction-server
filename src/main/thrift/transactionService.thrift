@@ -45,7 +45,7 @@ service StreamService {
 
   bool putStream(1: string token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl),
 
-  bool isStreamExist(1: string token, 2: StreamType stream),
+  bool doesStreamExist(1: string token, 2: StreamType stream),
 
   Stream getStream(1: string token, 2: StreamType stream),
 
@@ -86,7 +86,7 @@ service TransactionService {
 
   bool putStream(1: string token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl),
 
-  bool isStreamExist(1: string token, 2: StreamType stream),
+  bool doesStreamExist(1: string token, 2: StreamType stream),
 
   Stream getStream(1: string token, 2: StreamType stream),
 

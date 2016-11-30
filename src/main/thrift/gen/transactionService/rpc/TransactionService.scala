@@ -42,7 +42,7 @@ trait TransactionService[+MM[_]] extends ThriftService {
   
   def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): MM[Boolean]
   
-  def isStreamExist(token: String, stream: String): MM[Boolean]
+  def doesStreamExist(token: String, stream: String): MM[Boolean]
   
   def getStream(token: String, stream: String): MM[transactionService.rpc.Stream]
   
@@ -69,7 +69,7 @@ object TransactionService { self =>
 
   case class ServiceIface(
       putStream : com.twitter.finagle.Service[self.PutStream.Args, self.PutStream.Result],
-      isStreamExist : com.twitter.finagle.Service[self.IsStreamExist.Args, self.IsStreamExist.Result],
+      doesStreamExist : com.twitter.finagle.Service[self.DoesStreamExist.Args, self.DoesStreamExist.Result],
       getStream : com.twitter.finagle.Service[self.GetStream.Args, self.GetStream.Result],
       delStream : com.twitter.finagle.Service[self.DelStream.Args, self.DelStream.Result],
       putTransaction : com.twitter.finagle.Service[self.PutTransaction.Args, self.PutTransaction.Result],
@@ -84,7 +84,7 @@ object TransactionService { self =>
   // This is needed to support service inheritance.
   trait BaseServiceIface extends ToThriftService {
     def putStream : com.twitter.finagle.Service[self.PutStream.Args, self.PutStream.Result]
-    def isStreamExist : com.twitter.finagle.Service[self.IsStreamExist.Args, self.IsStreamExist.Result]
+    def doesStreamExist : com.twitter.finagle.Service[self.DoesStreamExist.Args, self.DoesStreamExist.Result]
     def getStream : com.twitter.finagle.Service[self.GetStream.Args, self.GetStream.Result]
     def delStream : com.twitter.finagle.Service[self.DelStream.Args, self.DelStream.Result]
     def putTransaction : com.twitter.finagle.Service[self.PutTransaction.Args, self.PutTransaction.Result]
@@ -107,7 +107,7 @@ object TransactionService { self =>
       ): ServiceIface =
         new ServiceIface(
           putStream = ThriftServiceIface(self.PutStream, binaryService, pf, stats),
-          isStreamExist = ThriftServiceIface(self.IsStreamExist, binaryService, pf, stats),
+          doesStreamExist = ThriftServiceIface(self.DoesStreamExist, binaryService, pf, stats),
           getStream = ThriftServiceIface(self.GetStream, binaryService, pf, stats),
           delStream = ThriftServiceIface(self.DelStream, binaryService, pf, stats),
           putTransaction = ThriftServiceIface(self.PutTransaction, binaryService, pf, stats),
@@ -126,10 +126,10 @@ object TransactionService { self =>
       ThriftServiceIface.resultFilter(self.PutStream) andThen serviceIface.putStream
     def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean] =
       __putStream_service(self.PutStream.Args(token, stream, partitions, description, ttl))
-    private[this] val __isStreamExist_service =
-      ThriftServiceIface.resultFilter(self.IsStreamExist) andThen serviceIface.isStreamExist
-    def isStreamExist(token: String, stream: String): Future[Boolean] =
-      __isStreamExist_service(self.IsStreamExist.Args(token, stream))
+    private[this] val __doesStreamExist_service =
+      ThriftServiceIface.resultFilter(self.DoesStreamExist) andThen serviceIface.doesStreamExist
+    def doesStreamExist(token: String, stream: String): Future[Boolean] =
+      __doesStreamExist_service(self.DoesStreamExist.Args(token, stream))
     private[this] val __getStream_service =
       ThriftServiceIface.resultFilter(self.GetStream) andThen serviceIface.getStream
     def getStream(token: String, stream: String): Future[transactionService.rpc.Stream] =
@@ -801,11 +801,11 @@ object TransactionService { self =>
   val putStream$result = PutStream.Result
   type putStream$result = PutStream.Result
 
-  object IsStreamExist extends com.twitter.scrooge.ThriftMethod {
+  object DoesStreamExist extends com.twitter.scrooge.ThriftMethod {
     
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-      val Struct = new TStruct("isStreamExist_args")
+      val Struct = new TStruct("doesStreamExist_args")
       val TokenField = new TField("token", TType.STRING, 1)
       val TokenFieldManifest = implicitly[Manifest[String]]
       val StreamField = new TField("stream", TType.STRING, 2)
@@ -1044,7 +1044,7 @@ object TransactionService { self =>
     
     object Result extends ThriftStructCodec3[Result] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-      val Struct = new TStruct("isStreamExist_result")
+      val Struct = new TStruct("doesStreamExist_result")
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
     
@@ -1241,7 +1241,7 @@ object TransactionService { self =>
       ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
     }
 
-    val name = "isStreamExist"
+    val name = "doesStreamExist"
     val serviceName = "TransactionService"
     val argsCodec = Args
     val responseCodec = Result
@@ -1249,11 +1249,11 @@ object TransactionService { self =>
   }
 
   // Compatibility aliases.
-  val isStreamExist$args = IsStreamExist.Args
-  type isStreamExist$args = IsStreamExist.Args
+  val doesStreamExist$args = DoesStreamExist.Args
+  type doesStreamExist$args = DoesStreamExist.Args
 
-  val isStreamExist$result = IsStreamExist.Result
-  type isStreamExist$result = IsStreamExist.Result
+  val doesStreamExist$result = DoesStreamExist.Result
+  type doesStreamExist$result = DoesStreamExist.Result
 
   object GetStream extends com.twitter.scrooge.ThriftMethod {
     
@@ -6215,7 +6215,7 @@ object TransactionService { self =>
     
     def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean]
     
-    def isStreamExist(token: String, stream: String): Future[Boolean]
+    def doesStreamExist(token: String, stream: String): Future[Boolean]
     
     def getStream(token: String, stream: String): Future[transactionService.rpc.Stream]
     

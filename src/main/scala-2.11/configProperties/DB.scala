@@ -1,4 +1,4 @@
-package resource
+package configProperties
 
 object DB {
   val PathToDatabases = "/tmp"

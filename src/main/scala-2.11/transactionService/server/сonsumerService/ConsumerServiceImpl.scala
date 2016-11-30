@@ -7,7 +7,7 @@ import com.twitter.bijection.Conversion.asMethod
 import com.twitter.bijection.twitter_util.UtilBijections._
 import com.twitter.util.{Future => TwitterFuture}
 import transactionService.Context
-import transactionService.exception.Throwables._
+import exception.Throwables._
 import transactionService.server.сonsumerService.ConsumerServiceImpl._
 import transactionService.server.Authenticable
 import transactionService.rpc.ConsumerService
@@ -44,7 +44,7 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
 }
 
 object ConsumerServiceImpl {
-  val storeName = resource.DB.ConsumerStoreName
+  val storeName = configProperties.DB.ConsumerStoreName
 
   val directory   =  TransactionMetaServiceImpl.directory
   val storeConfig = new StoreConfig()

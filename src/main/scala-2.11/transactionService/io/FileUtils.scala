@@ -2,7 +2,7 @@ package transactionService.io
 
 import java.io.File
 import java.nio.file.{Files, Paths}
-import resource.DB.PathToDatabases
+import configProperties.DB.PathToDatabases
 
 object FileUtils {
   def createDirectory(name: String, path: String = PathToDatabases, deleteAtExit: Boolean = false): File = {
@@ -19,6 +19,4 @@ object FileUtils {
       })
     path.toFile
   }
-
-  def dirToFile(path: String) = new File(path)
 }

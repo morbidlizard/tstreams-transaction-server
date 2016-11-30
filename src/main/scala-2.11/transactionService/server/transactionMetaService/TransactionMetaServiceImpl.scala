@@ -14,7 +14,7 @@ import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.rpc._
 import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
 import transactionService.server.сonsumerService.ConsumerServiceImpl.consumerPrimaryIndex
-import transactionService.exception.Throwables._
+import exception.Throwables._
 import transactionService.rpc.TransactionStates.Checkpointed
 
 import scala.concurrent.{Future => ScalaFuture}
@@ -145,13 +145,14 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 }
 
 object TransactionMetaServiceImpl {
-  val storeName = resource.DB.TransactionMetaStoreName
+  import configProperties.DB
+  val storeName = DB.TransactionMetaStoreName
 
-  val directory = transactionService.io.FileUtils.createDirectory(resource.DB.TransactionMetaDirName)
+  val directory = transactionService.io.FileUtils.createDirectory(DB.TransactionMetaDirName)
   val environmentConfig = new EnvironmentConfig()
     .setAllowCreate(true)
     .setTransactional(true)
-    .setTxnTimeout(resource.DB.TransactionMetaMaxTimeout, resource.DB.TransactionMetaTimeUnit)
+    .setTxnTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
   val storeConfig = new StoreConfig()
     .setAllowCreate(true)
     .setTransactional(true)
@@ -159,7 +160,7 @@ object TransactionMetaServiceImpl {
   val entityStore = new EntityStore(environment, TransactionMetaServiceImpl.storeName, storeConfig)
 
   val producerPrimaryIndex = entityStore.getPrimaryIndex(classOf[ProducerTransactionKey], classOf[ProducerTransaction])
-  val producerSecondaryIndex = entityStore.getSecondaryIndex(producerPrimaryIndex, classOf[Int], resource.DB.TransactionMetaProducerSecondaryIndexName)
+  val producerSecondaryIndex = entityStore.getSecondaryIndex(producerPrimaryIndex, classOf[Int], DB.TransactionMetaProducerSecondaryIndexName)
 
   def close(): Unit = {
     entityStore.close()

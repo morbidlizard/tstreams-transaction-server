@@ -9,7 +9,7 @@ import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.db.RocksDbConnection
 import transactionService.server.`implicit`.Implicits._
 import transactionService.rpc.TransactionDataService
-import transactionService.exception.Throwables._
+import exception.Throwables._
 
 import scala.collection.mutable.ArrayBuffer
 

@@ -6,7 +6,7 @@ import com.twitter.util.{Future => TwitterFuture}
 import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.streamService.StreamServiceImpl._
 import transactionService.rpc.StreamService
-import transactionService.exception.Throwables._
+import exception.Throwables._
 
 trait StreamServiceImpl extends StreamService[TwitterFuture]
   with Authenticable
@@ -34,7 +34,7 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
     } else TwitterFuture.exception(tokenInvalidException)
   }
 
-  def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
+  def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
     authClient.isValid(token) flatMap { isValid =>
     if (isValid) {
       TwitterFuture {
@@ -57,9 +57,9 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
 }
 
 private object StreamServiceImpl {
-  val storeName = resource.DB.StreamStoreName
+  val storeName = configProperties.DB.StreamStoreName
 
-  val directory = transactionService.io.FileUtils.createDirectory(resource.DB.StreamDirName)
+  val directory = transactionService.io.FileUtils.createDirectory(configProperties.DB.StreamDirName)
   val environmentConfig = new EnvironmentConfig()
     .setAllowCreate(true)
   val storeConfig = new StoreConfig()

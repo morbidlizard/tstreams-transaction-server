@@ -3,7 +3,7 @@ package transactionService.server.db
 import com.sleepycat.je.EnvironmentConfig
 import com.sleepycat.je.rep.{ReplicatedEnvironment, ReplicationConfig}
 import com.sleepycat.persist.{EntityStore, StoreConfig}
-import resource.ConfigServer
+import configProperties.ServerConfig
 
 object BerkeleyDBReplication {
 //  val directory = transactionService.io.FileUtils.dirToFile(resource.DB.PathToDatabases)

@@ -1,4 +1,4 @@
-import authService.ClientAuth
+import authService.AuthClient
 import com.sleepycat.je.{CursorConfig, WriteOptions}
 import com.twitter.finagle.Thrift
 import com.twitter.logging.Level
@@ -6,15 +6,18 @@ import transactionService.server.TransactionServer
 import com.twitter.util.Await
 import com.twitter.util.{Future => TwitterFuture}
 import org.apache.curator.retry.ExponentialBackoffRetry
-import resource.ConfigServer
 import transactionService.rpc.TransactionStates
 import transactionService.server.transactionMetaService.ProducerTransaction
 import zooKeeper.ZKLeaderServer
 
 
-class TransactionZooKeeperServer(val clientAuth: ClientAuth, config: ConfigServer)
-  extends TransactionServer(clientAuth, config.transactionDataTtlAdd) {
-  import config._
+class TransactionZooKeeperServer
+  extends TransactionServer({
+    import configProperties.ServerConfig._
+    new AuthClient(authAddress,authTimeoutConnection,authTimeoutExponentialBetweenRetries)
+  }, configProperties.ServerConfig.transactionDataTtlAdd) {
+
+  import configProperties.ServerConfig._
 
   val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
     new ExponentialBackoffRetry(zkTimeoutBetweenRetries,zkRetriesMax),zkPrefix)
@@ -42,14 +45,11 @@ class TransactionZooKeeperServer(val clientAuth: ClientAuth, config: ConfigServe
     transactionDB.commit()
   }
 
-
   transiteTxnsToInvalidState()
 }
 
 object TransactionZooKeeperServer extends App {
-  val config = new ConfigServer("serverProperties.properties")
-  import config._
-  val server = new TransactionZooKeeperServer(new ClientAuth(authAddress,authTimeoutConnection,authTimeoutExponentialBetweenRetries),config)
+  val server = new TransactionZooKeeperServer
 
   Await.ready(server.serve)
 }

@@ -3,8 +3,6 @@ package transactionService.server.transactionMetaService
 
 import com.sleepycat.je.{Environment, EnvironmentConfig, Put, WriteOptions}
 import com.sleepycat.persist.{EntityStore, StoreConfig}
-import com.twitter.bijection.Conversion.asMethod
-import com.twitter.bijection.twitter_util.UtilBijections._
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util.{Future => TwitterFuture}
 import transactionService.Context
@@ -13,8 +11,6 @@ import transactionService.rpc._
 import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
 import transactionService.server.сonsumerService.ConsumerServiceImpl.consumerPrimaryIndex
 import transactionService.rpc.TransactionStates.Checkpointed
-
-import scala.concurrent.{Future => ScalaFuture}
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
@@ -32,8 +28,8 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction) = {
     getStreamTTL(txn.stream) flatMap {ttl =>
-      implicit val context = Context.transactionContexts.getContext(txn.partition, txn.stream.hashCode)
-      ScalaFuture {
+      val futurePool = Context.transactionContexts.getContext(txn.partition, txn.stream.hashCode)
+      futurePool {
         val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(ttl)) else new WriteOptions()
         val isNotExist =
           producerPrimaryIndex
@@ -45,15 +41,15 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
           logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
           isNotExist
         }
-      }.as[TwitterFuture[Boolean]]
+      }
     }
   }
 
 
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
     import transactionService.server.сonsumerService._
-    implicit val context = transactionService.Context.transactionContexts.getContext(0L)
-    ScalaFuture {
+    val futurePool = transactionService.Context.transactionContexts.getContext(0L)
+    futurePool {
       val isNotExist =
         consumerPrimaryIndex
           .put(databaseTxn, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID), putType, new WriteOptions()) != null
@@ -64,7 +60,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
         logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
         isNotExist
       }
-    }.as[TwitterFuture[Boolean]]
+    }
   }
 
   private def putNoTransaction = TwitterFuture.value(false)

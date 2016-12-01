@@ -13,7 +13,6 @@ import configProperties.ClientConfig
 import transactionService.client.TransactionClient
 import zooKeeper.ZKLeaderClient
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transaction}
-import transactionService.Context.ZooKeeperClientContext
 
 import scala.concurrent.ExecutionContext
 
@@ -106,6 +105,16 @@ class TransactionZooKeeperClient {
     zkService().flatMap(client => requestChain(client, stream))
   }
 
+  def doesStreamExist(stream: String) = {
+    val streamService = new Service[(TransactionClient, String), Boolean] {
+      override def apply(request: (TransactionClient, String)): TwitterFuture[Boolean] = {
+        val (client, stream) = request
+        client.doesStreamExist(token, stream)
+      }
+    }
+    val requestChain = retryFilterToken.andThen(streamService)
+    zkService().flatMap(client => requestChain(client, stream))
+  }
 
   private val executor = Executors.newSingleThreadExecutor
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
@@ -171,6 +180,7 @@ class TransactionZooKeeperClient {
     val requestChain = retryFilterToken.andThen(transactionService)
     zkService().flatMap(client => requestChain((client,stream,partition)))
   }
+
 
   //TODO add from: Int to signature
   def putTransactionData(producerTransaction: ProducerTransaction, data: Seq[Seq[Byte]]): TwitterFuture[Boolean] = {

@@ -30,7 +30,6 @@ libraryDependencies ++= Seq(
   "org.scalamock" %% "scalamock-scalatest-support" % "3.2.2" % "test",
   "com.storm-enroute" % "scalameter_2.11" % "0.8.1",
   "com.pauldijou" %% "jwt-core" % "0.9.0",
-  "com.twitter" % "bijection-util_2.11" % "0.9.2",
 
   "org.slf4j" % "slf4j-simple" % "1.7.21",
   "org.apache.curator" % "curator-framework" % "2.11.0",

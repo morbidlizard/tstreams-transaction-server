@@ -2,16 +2,10 @@ package transactionService.client
 
 import java.nio.ByteBuffer
 
-import authService.AuthClient
 
-import scala.concurrent.{Future => ScalaFuture}
-import com.twitter.util.{Await, Future => TwitterFuture}
-import com.twitter.bijection.Conversion.asMethod
-import com.twitter.bijection.twitter_util.UtilBijections._
-import com.twitter.finagle.{Failure, Thrift}
-import com.twitter.logging.{Level, Logger}
-import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Stream, Transaction, TransactionService, TransactionStates}
-import com.twitter.conversions.time._
+import com.twitter.util.{Future => TwitterFuture}
+import com.twitter.finagle.Thrift
+import transactionService.rpc.{Stream, Transaction, TransactionService}
 
 class TransactionClient(serverIPAddress: String)/*(implicit val threadPool: transactionService.Context)*/ extends TransactionService[TwitterFuture] {
   private val client = Thrift.client

@@ -3,8 +3,8 @@ package transactionService.server
 object CloseDBEnviromentsOnExit {
   Runtime.getRuntime.addShutdownHook(new Thread() {
     override def run(): Unit = {
-      streamService.StreamServiceImpl.entityStore.close
-      streamService.StreamServiceImpl.environment.close
+      streamService.StreamServiceImpl.entityStore.close()
+      streamService.StreamServiceImpl.environment.close()
 
       transactionMetaService.TransactionMetaServiceImpl.entityStore.close()
       transactionMetaService.TransactionMetaServiceImpl.environment.close()

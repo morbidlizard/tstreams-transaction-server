@@ -16,4 +16,6 @@ class Context (threadNumber: Int) {
 object Context {
   def apply(threadNumber: Int): Context = new Context(threadNumber)
   lazy val transactionContexts = Context(configProperties.ThreadPool.TransactionMetaServiceThreadPoolNumber)
+
+  lazy val ZooKeeperClientContext = Context(1)
 }

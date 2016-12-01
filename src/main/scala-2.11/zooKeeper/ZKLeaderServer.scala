@@ -19,4 +19,8 @@ class ZKLeaderServer(address: Seq[String], sessionTimeoutMillis: Int, connection
   def putData(data: Array[Byte]) = client.setData().forPath(prefix, data)
 
   override def close(): Unit = client.close()
+
+  Runtime.getRuntime.addShutdownHook(new Thread {
+    override def run() = close()
+  })
 }

@@ -48,10 +48,10 @@ class TransactionClient(serverIPAddress: String)/*(implicit val threadPool: tran
 
   //TransactionMeta API
   override def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = {
-    Await.ready(request.putTransaction(token, transaction))
+    request.putTransaction(token, transaction)
   }
   override def putTransactions(token: String, transactions: Seq[Transaction]): TwitterFuture[Boolean] = {
-    Await.ready(request.putTransactions(token, transactions))
+    request.putTransactions(token, transactions)
   }
   override def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = request.scanTransactions(token, stream, partition)
 

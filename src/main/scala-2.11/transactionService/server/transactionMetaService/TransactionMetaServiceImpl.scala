@@ -53,10 +53,18 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
     import transactionService.server.сonsumerService._
     implicit val context = transactionService.Context.transactionContexts.getContext(0L)
-    ScalaFuture(
-      consumerPrimaryIndex
-        .putNoOverwrite(databaseTxn, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID))
-    ).as[TwitterFuture[Boolean]]
+    ScalaFuture {
+      val isNotExist =
+        consumerPrimaryIndex
+          .put(databaseTxn, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID), putType, new WriteOptions()) != null
+      if (isNotExist) {
+        logger.log(Level.INFO, s"${txn.toString} inserted/updated!")
+        isNotExist
+      } else {
+        logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+        isNotExist
+      }
+    }.as[TwitterFuture[Boolean]]
   }
 
   private def putNoTransaction = TwitterFuture.value(false)
@@ -72,9 +80,9 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
         case _ => putNoTransaction
       }
 
-      result flatMap {value=>
-        if (value) transactionDB.commit() else transactionDB.abort()
-        TwitterFuture.value(value)
+      result flatMap {isOkay=>
+        if (isOkay) transactionDB.commit() else transactionDB.abort()
+        TwitterFuture.value(isOkay)
       }
   }
 

@@ -2,7 +2,7 @@ import java.io.Closeable
 
 import authService.AuthClient
 import com.sleepycat.je.{CursorConfig, WriteOptions}
-import com.twitter.finagle.Thrift
+import com.twitter.finagle.{ListeningServer, Thrift}
 import com.twitter.logging.Level
 import transactionService.server.TransactionServer
 import com.twitter.util.{Await, Closable, Time, Future => TwitterFuture}
@@ -26,7 +26,7 @@ class TransactionZooKeeperServer
   zk.putData(transactionServerAddress.getBytes())
 
   private val server = Thrift.server
-  val start = server.serveIface(transactionServerAddress, this)
+  val start: ListeningServer = server.serveIface(transactionServerAddress, this)
 
   override def close(deadline: Time): TwitterFuture[Unit] = start.close(deadline)
 

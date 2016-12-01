@@ -44,7 +44,7 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
     }
 }
 
-private object StreamServiceImpl {
+object StreamServiceImpl {
   val storeName = configProperties.DB.StreamStoreName
 
   val directory = transactionService.io.FileUtils.createDirectory(configProperties.DB.StreamDirName)

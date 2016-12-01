@@ -1,5 +1,6 @@
 package zooKeeper
 
+import java.io.Closeable
 import java.net.InetAddress
 
 import com.twitter.logging.{Level, Logger}
@@ -10,7 +11,7 @@ import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
 
 //TODO think of implementation when there are many zkServers combined a Quorum
 class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
-  extends NodeCacheListener {
+  extends NodeCacheListener with Closeable {
   private val logger = Logger.get(this.getClass)
   val client = {
     val connection = CuratorFrameworkFactory.newClient(endpoints.head, sessionTimeoutMillis, connectionTimeoutMillis, policy)
@@ -22,9 +23,9 @@ class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connecti
   val nodeToWatch = new NodeCache(client, prefix, false)
   nodeToWatch.getListenable.addListener(this)
 
-  def start = nodeToWatch.start()
+  def start() = nodeToWatch.start()
 
-  def close = {
+  override def close(): Unit = {
     nodeToWatch.close()
     client.close()
   }
@@ -41,7 +42,7 @@ class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connecti
   }
 
   Runtime.getRuntime.addShutdownHook(new Thread {
-    override def run() = close
+    override def run() = close()
   })
 }
 

@@ -1,9 +1,11 @@
+import java.util.concurrent.{ExecutorService, Executors}
+
 import authService.AuthClient
 import com.twitter.finagle.{Service, ServiceTimeoutException}
 import com.twitter.finagle.param.HighResTimer
 import com.twitter.finagle.service.{Backoff, RetryExceptionsFilter, RetryPolicy}
 import com.twitter.logging.{Level, Logger}
-import com.twitter.util.{Await, Throw, Time, Try, Future => TwitterFuture}
+import com.twitter.util.{Await, FuturePool, Throw, Time, Try, Future => TwitterFuture}
 import com.twitter.conversions.time._
 import filter.Filter
 import org.apache.curator.retry.ExponentialBackoffRetry
@@ -12,6 +14,8 @@ import transactionService.client.TransactionClient
 import zooKeeper.ZKLeaderClient
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transaction}
 
+import scala.concurrent.ExecutionContext
+
 
 class TransactionZooKeeperClient {
   import ClientConfig._
@@ -19,7 +23,7 @@ class TransactionZooKeeperClient {
   private val logger = Logger.get(this.getClass)
   private val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new ExponentialBackoffRetry(zkTimeoutBetweenRetries, zkRetriesMax), zkPrefix)
-  zKLeaderClient.start
+  zKLeaderClient.start()
 
   private val clientAuth = new AuthClient(authAddress, authTimeoutConnection, authTimeoutExponentialBetweenRetries)
   @volatile private var token = Await.result(clientAuth.authenticate(login, password))
@@ -101,7 +105,18 @@ class TransactionZooKeeperClient {
     zkService().flatMap(client => requestChain(client, stream))
   }
 
+  def doesStreamExist(stream: String) = {
+    val streamService = new Service[(TransactionClient, String), Boolean] {
+      override def apply(request: (TransactionClient, String)): TwitterFuture[Boolean] = {
+        val (client, stream) = request
+        client.doesStreamExist(token, stream)
+      }
+    }
+    val requestChain = retryFilterToken.andThen(streamService)
+    zkService().flatMap(client => requestChain(client, stream))
+  }
 
+  private val executor = Executors.newSingleThreadExecutor
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): TwitterFuture[Boolean] =
   {
@@ -121,7 +136,8 @@ class TransactionZooKeeperClient {
       override def producerTransaction: Option[ProducerTransaction] = None
       override def consumerTransaction: Option[ConsumerTransaction] = Some(txn)
     })
-    zkService().flatMap(client => requestChain(client, txns))
+
+    FuturePool.interruptible(executor)(zkService().flatMap(client => requestChain(client, txns))).flatten
   }
 
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): TwitterFuture[Boolean] =
@@ -133,10 +149,10 @@ class TransactionZooKeeperClient {
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
-    zkService().flatMap(client => requestChain(client, new Transaction {
+    FuturePool.interruptible(executor)(zkService().flatMap(client => requestChain(client, new Transaction {
       override def producerTransaction: Option[ProducerTransaction] = Some(transaction)
       override def consumerTransaction: Option[ConsumerTransaction] = None
-    }))
+    }))).flatten
   }
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): TwitterFuture[Boolean] =
@@ -148,11 +164,23 @@ class TransactionZooKeeperClient {
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
-    zkService().flatMap(client => requestChain(client, new Transaction {
+    FuturePool.interruptible(executor)(zkService().flatMap(client => requestChain(client, new Transaction {
       override def producerTransaction: Option[ProducerTransaction] = None
       override def consumerTransaction: Option[ConsumerTransaction] = Some(transaction)
-    }))
+    }))).flatten
   }
+
+  def scanTransactions(stream: String, partition: Int):TwitterFuture[Seq[Transaction]] = {
+    val transactionService = new Service[(TransactionClient, String, Int), Seq[Transaction]] {
+      override def apply(request: (TransactionClient, String, Int)): TwitterFuture[Seq[Transaction]] = {
+        val (client, stream, partition) = request
+        client.scanTransactions(token, stream, partition)
+      }
+    }
+    val requestChain = retryFilterToken.andThen(transactionService)
+    zkService().flatMap(client => requestChain((client,stream,partition)))
+  }
+
 
   //TODO add from: Int to signature
   def putTransactionData(producerTransaction: ProducerTransaction, data: Seq[Seq[Byte]]): TwitterFuture[Boolean] = {
@@ -164,7 +192,7 @@ class TransactionZooKeeperClient {
       }
     }
     val requestChain = retryFilterToken.andThen(transactionDataService)
-    zkService().flatMap(client => requestChain((client, producerTransaction, data)))
+      zkService().flatMap(client => requestChain((client, producerTransaction, data)))
   }
 
   //TODO add from: Int to signature

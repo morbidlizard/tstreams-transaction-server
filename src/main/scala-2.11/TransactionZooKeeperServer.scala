@@ -1,10 +1,11 @@
+import java.io.Closeable
+
 import authService.AuthClient
 import com.sleepycat.je.{CursorConfig, WriteOptions}
 import com.twitter.finagle.Thrift
 import com.twitter.logging.Level
 import transactionService.server.TransactionServer
-import com.twitter.util.Await
-import com.twitter.util.{Future => TwitterFuture}
+import com.twitter.util.{Await, Closable, Time, Future => TwitterFuture}
 import org.apache.curator.retry.ExponentialBackoffRetry
 import transactionService.rpc.TransactionStates
 import transactionService.server.transactionMetaService.ProducerTransaction
@@ -15,7 +16,7 @@ class TransactionZooKeeperServer
   extends TransactionServer({
     import configProperties.ServerConfig._
     new AuthClient(authAddress,authTimeoutConnection,authTimeoutExponentialBetweenRetries)
-  }, configProperties.ServerConfig.transactionDataTtlAdd) {
+  }, configProperties.ServerConfig.transactionDataTtlAdd) with Closable {
 
   import configProperties.ServerConfig._
 
@@ -25,7 +26,9 @@ class TransactionZooKeeperServer
   zk.putData(transactionServerAddress.getBytes())
 
   private val server = Thrift.server
-  def serve = server.serveIface(transactionServerAddress, this)
+  val start = server.serveIface(transactionServerAddress, this)
+
+  override def close(deadline: Time): TwitterFuture[Unit] = start.close(deadline)
 
 
   private def transiteTxnsToInvalidState() =  {
@@ -51,5 +54,5 @@ class TransactionZooKeeperServer
 object TransactionZooKeeperServer extends App {
   val server = new TransactionZooKeeperServer
 
-  Await.ready(server.serve)
+  Await.ready(server.start)
 }

@@ -19,7 +19,7 @@ class TransactionZooKeeperClient {
   private val logger = Logger.get(this.getClass)
   private val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new ExponentialBackoffRetry(zkTimeoutBetweenRetries, zkRetriesMax), zkPrefix)
-  zKLeaderClient.start
+  zKLeaderClient.start()
 
   private val clientAuth = new AuthClient(authAddress, authTimeoutConnection, authTimeoutExponentialBetweenRetries)
   @volatile private var token = Await.result(clientAuth.authenticate(login, password))
@@ -152,6 +152,17 @@ class TransactionZooKeeperClient {
       override def producerTransaction: Option[ProducerTransaction] = None
       override def consumerTransaction: Option[ConsumerTransaction] = Some(transaction)
     }))
+  }
+
+  def scanTransactions(stream: String, partition: Int):TwitterFuture[Seq[Transaction]] = {
+    val transactionService = new Service[(TransactionClient, String, Int), Seq[Transaction]] {
+      override def apply(request: (TransactionClient, String, Int)): TwitterFuture[Seq[Transaction]] = {
+        val (client, stream, partition) = request
+        client.scanTransactions(token, stream, partition)
+      }
+    }
+    val requestChain = retryFilterToken.andThen(transactionService)
+    zkService().flatMap(client => requestChain((client,stream,partition)))
   }
 
   //TODO add from: Int to signature

@@ -6,7 +6,7 @@ import com.twitter.util.{Future => TwitterFuture}
 import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.streamService.StreamServiceImpl._
 import transactionService.rpc.StreamService
-import transactionService.exception.Throwables._
+import exception.Throwables._
 
 trait StreamServiceImpl extends StreamService[TwitterFuture]
   with Authenticable
@@ -24,42 +24,30 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
   }
 
   def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
-    authClient.isValid(token) flatMap { isValid =>
-    if (isValid) {
-      TwitterFuture {
-        pIdx.put(new Stream(stream, partitions, description, ttl))
-        streamTTL.putIfAbsent(stream, ttl)
-        true
-      }
-    } else TwitterFuture.exception(tokenInvalidException)
-  }
+    authenticate(token) {
+      pIdx.put(new Stream(stream, partitions, description, ttl))
+      streamTTL.putIfAbsent(stream, ttl)
+      true
+    }
 
-  def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
-    authClient.isValid(token) flatMap { isValid =>
-    if (isValid) {
-      TwitterFuture {
-        if (pIdx.get(stream) == null) false else true
-      }
-    } else TwitterFuture.exception(tokenInvalidException)
-  }
+  def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
+    authenticate(token) (if (pIdx.get(stream) == null) false else true)
 
   def getStream(token: String, stream: String): TwitterFuture[Stream] =
-    authClient.isValid(token) flatMap { isValid =>
-      if (isValid) TwitterFuture(pIdx.get(stream)) else TwitterFuture.exception(tokenInvalidException)
-    }
+    authenticate(token) (pIdx.get(stream))
 
 
   def delStream(token: String, stream: String): TwitterFuture[Boolean] =
-    authClient.isValid(token) flatMap { isValid =>
+    authenticate(token) {
       streamTTL.remove(stream)
-    if (isValid) TwitterFuture(pIdx.delete(stream)) else TwitterFuture.exception(tokenInvalidException)
-  }
+      pIdx.delete(stream)
+    }
 }
 
 private object StreamServiceImpl {
-  val storeName = resource.DB.StreamStoreName
+  val storeName = configProperties.DB.StreamStoreName
 
-  val directory = transactionService.io.FileUtils.createDirectory(resource.DB.StreamDirName)
+  val directory = transactionService.io.FileUtils.createDirectory(configProperties.DB.StreamDirName)
   val environmentConfig = new EnvironmentConfig()
     .setAllowCreate(true)
   val storeConfig = new StoreConfig()

@@ -1,4 +1,4 @@
-import authService.ClientAuth
+import authService.AuthClient
 import com.twitter.finagle.{Service, ServiceTimeoutException}
 import com.twitter.finagle.param.HighResTimer
 import com.twitter.finagle.service.{Backoff, RetryExceptionsFilter, RetryPolicy}
@@ -7,21 +7,21 @@ import com.twitter.util.{Await, Throw, Time, Try, Future => TwitterFuture}
 import com.twitter.conversions.time._
 import filter.Filter
 import org.apache.curator.retry.ExponentialBackoffRetry
-import resource.ConfigClient
-import transactionService.client.ClientTransaction
+import configProperties.ClientConfig
+import transactionService.client.TransactionClient
 import zooKeeper.ZKLeaderClient
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transaction}
 
 
-class TransactionZooKeeperClient(private val config: ConfigClient) {
-  import config._
+class TransactionZooKeeperClient {
+  import ClientConfig._
 
   private val logger = Logger.get(this.getClass)
   private val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new ExponentialBackoffRetry(zkTimeoutBetweenRetries, zkRetriesMax), zkPrefix)
   zKLeaderClient.start
 
-  private val clientAuth = new ClientAuth(authAddress, authTimeoutConnection, authTimeoutExponentialBetweenRetries)
+  private val clientAuth = new AuthClient(authAddress, authTimeoutConnection, authTimeoutExponentialBetweenRetries)
   @volatile private var token = Await.result(clientAuth.authenticate(login, password))
   private val retryConditionToken: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
@@ -30,7 +30,7 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
       case e =>
         val messageToParse = e.getMessage
         Logger.get().log(Level.ERROR, messageToParse)
-        if (messageToParse.contains(transactionService.exception.Throwables.tokenInvalidExceptionMessage)) {
+        if (messageToParse.contains(exception.Throwables.tokenInvalidExceptionMessage)) {
           token = Await.result(clientAuth.authenticate(login, password))
           true
         } else false
@@ -40,17 +40,17 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
   private val retryPolicyToken = RetryPolicy.backoff(Backoff.equalJittered(300.milliseconds, 10.seconds))(retryConditionToken)
   private def retryFilterToken[Req, Rep] = new RetryExceptionsFilter[Req, Rep](retryPolicyToken, HighResTimer.Default)
 
-  private val AddressToTransactionServiceServer = new scala.collection.concurrent.TrieMap[String, ClientTransaction]()
+  private val AddressToTransactionServiceServer = new scala.collection.concurrent.TrieMap[String, TransactionClient]()
   private def getClientTransaction = {
     val master = zKLeaderClient.master.get
-    AddressToTransactionServiceServer.putIfAbsent(master, new ClientTransaction(master))
+    AddressToTransactionServiceServer.putIfAbsent(master, new TransactionClient(master))
     AddressToTransactionServiceServer(master)
   }
 
   private def getMasterFilter[Req, Rep] = Filter
-    .retryGetMaster[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries, logger)
-  private val zkService = getMasterFilter andThen new Service[Unit, ClientTransaction] {
-    override def apply(request: Unit): TwitterFuture[ClientTransaction] = {
+    .filter[Req, Rep](zkTimeoutConnection, zkTimeoutBetweenRetries, Filter.retryConditionToGetMaster)
+  private val zkService = getMasterFilter andThen new Service[Unit, TransactionClient] {
+    override def apply(request: Unit): TwitterFuture[TransactionClient] = {
       TwitterFuture(getClientTransaction)
     }
   }
@@ -60,8 +60,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
     extends transactionService.rpc.Stream
 
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] = {
-    val streamService = new Service[(ClientTransaction,Stream), Boolean] {
-      override def apply(request: (ClientTransaction,Stream)): TwitterFuture[Boolean] = {
+    val streamService = new Service[(TransactionClient,Stream), Boolean] {
+      override def apply(request: (TransactionClient,Stream)): TwitterFuture[Boolean] = {
         val (client, stream) = request
         client.putStream(token, stream.name, stream.partitions, stream.description, ttl)}
     }
@@ -70,8 +70,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
   }
 
   def putStream(stream: Stream): TwitterFuture[Boolean] = {
-    val streamService = new Service[(ClientTransaction,Stream), Boolean] {
-      override def apply(request: (ClientTransaction,Stream)): TwitterFuture[Boolean] = {
+    val streamService = new Service[(TransactionClient,Stream), Boolean] {
+      override def apply(request: (TransactionClient,Stream)): TwitterFuture[Boolean] = {
         val (client, stream) = request
         client.putStream(token, stream.name, stream.partitions, stream.description, stream.ttl)}
     }
@@ -80,8 +80,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
   }
 
   def delStream(stream: String): TwitterFuture[Boolean] = {
-    val streamService = new Service[(ClientTransaction, String), Boolean] {
-      override def apply(request: (ClientTransaction, String)): TwitterFuture[Boolean] = {
+    val streamService = new Service[(TransactionClient, String), Boolean] {
+      override def apply(request: (TransactionClient, String)): TwitterFuture[Boolean] = {
         val (client, stream) = request
         client.delStream(token, stream)
       }
@@ -91,8 +91,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
   }
 
   def delStream(stream: Stream): TwitterFuture[Boolean] = {
-    val streamService = new Service[(ClientTransaction, Stream), Boolean] {
-      override def apply(request: (ClientTransaction, Stream)): TwitterFuture[Boolean] = {
+    val streamService = new Service[(TransactionClient, Stream), Boolean] {
+      override def apply(request: (TransactionClient, Stream)): TwitterFuture[Boolean] = {
         val (client, stream) = request
         client.delStream(token, stream.name)
       }
@@ -101,26 +101,12 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
     zkService().flatMap(client => requestChain(client, stream))
   }
 
-  private case class ProducerTransactionWrapper(override val stream: String,
-                                         override val partition: Int,
-                                         override val transactionID: Long,
-                                         override val state: transactionService.rpc.TransactionStates,
-                                         override val quantity: Int,
-                                         override val timestamp: Long
-                                        ) extends transactionService.rpc.ProducerTransaction
-
-  private case class ConsumerTransactionWrapper(override val stream: String,
-                                         override val partition: Int,
-                                         override val transactionID: Long,
-                                         override val name: String
-                                        ) extends transactionService.rpc.ConsumerTransaction
-
 
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): TwitterFuture[Boolean] =
   {
-    val transactionService = new Service[(ClientTransaction, Seq[Transaction]), Boolean] {
-      override def apply(request: (ClientTransaction, Seq[Transaction])): TwitterFuture[Boolean] = {
+    val transactionService = new Service[(TransactionClient, Seq[Transaction]), Boolean] {
+      override def apply(request: (TransactionClient, Seq[Transaction])): TwitterFuture[Boolean] = {
         val (client,txns) = request
         client.putTransactions(token, txns)
       }
@@ -140,8 +126,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
 
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): TwitterFuture[Boolean] =
   {
-    val transactionService = new Service[(ClientTransaction, Transaction), Boolean] {
-      override def apply(request: (ClientTransaction, Transaction)): TwitterFuture[Boolean] = {
+    val transactionService = new Service[(TransactionClient, Transaction), Boolean] {
+      override def apply(request: (TransactionClient, Transaction)): TwitterFuture[Boolean] = {
         val (client, txn) = request
         client.putTransaction(token, txn)
       }
@@ -155,8 +141,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): TwitterFuture[Boolean] =
   {
-    val transactionService = new Service[(ClientTransaction, Transaction), Boolean] {
-      override def apply(request: (ClientTransaction, Transaction)): TwitterFuture[Boolean] = {
+    val transactionService = new Service[(TransactionClient, Transaction), Boolean] {
+      override def apply(request: (TransactionClient, Transaction)): TwitterFuture[Boolean] = {
         val (client, txn) = request
         client.putTransaction(token, txn)
       }
@@ -170,8 +156,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
 
   //TODO add from: Int to signature
   def putTransactionData(producerTransaction: ProducerTransaction, data: Seq[Seq[Byte]]): TwitterFuture[Boolean] = {
-    val transactionDataService = new Service[(ClientTransaction, ProducerTransaction, Seq[Seq[Byte]]), Boolean] {
-      override def apply(request: (ClientTransaction, ProducerTransaction, Seq[Seq[Byte]])): TwitterFuture[Boolean] = {
+    val transactionDataService = new Service[(TransactionClient, ProducerTransaction, Seq[Seq[Byte]]), Boolean] {
+      override def apply(request: (TransactionClient, ProducerTransaction, Seq[Seq[Byte]])): TwitterFuture[Boolean] = {
         val (client,txn, dataBinary) = request
         val data = dataBinary map (data => java.nio.ByteBuffer.wrap(data.toArray))
         client.putTransactionData(token,txn.stream,txn.partition,txn.transactionID, data)
@@ -183,8 +169,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
 
   //TODO add from: Int to signature
   def putTransactionData(consumerTransaction: ConsumerTransaction, data: Seq[Seq[Byte]]): TwitterFuture[Boolean] = {
-    val transactionDataService = new Service[(ClientTransaction, ConsumerTransaction, Seq[Seq[Byte]]), Boolean] {
-      override def apply(request: (ClientTransaction, ConsumerTransaction, Seq[Seq[Byte]])): TwitterFuture[Boolean] = {
+    val transactionDataService = new Service[(TransactionClient, ConsumerTransaction, Seq[Seq[Byte]]), Boolean] {
+      override def apply(request: (TransactionClient, ConsumerTransaction, Seq[Seq[Byte]])): TwitterFuture[Boolean] = {
         val (client,txn, binaryData) = request
         val data = binaryData map (data => java.nio.ByteBuffer.wrap(data.toArray))
         client.putTransactionData(token,txn.stream,txn.partition,txn.transactionID, data)
@@ -198,8 +184,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
 
   def getTransactionData(consumerTransaction: ConsumerTransaction, from: Int, to: Int): TwitterFuture[Seq[Array[Byte]]] = {
     require(from >=0 && to >=0)
-    val transactionDataService = new Service[(ClientTransaction, ConsumerTransaction), Seq[Array[Byte]]] {
-      override def apply(request: (ClientTransaction, ConsumerTransaction)): TwitterFuture[Seq[Array[Byte]]] = {
+    val transactionDataService = new Service[(TransactionClient, ConsumerTransaction), Seq[Array[Byte]]] {
+      override def apply(request: (TransactionClient, ConsumerTransaction)): TwitterFuture[Seq[Array[Byte]]] = {
         val (client, txn) = request
         val future = client.getTransactionData(token, txn.stream, txn.partition, txn.transactionID, from, to)
         future map(data => data map {datum =>
@@ -216,8 +202,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
 
   def getTransactionData(producerTransaction: ProducerTransaction, from: Int, to: Int): TwitterFuture[Seq[Array[Byte]]] = {
     require(from >=0 && to >=0)
-    val transactionDataService = new Service[(ClientTransaction, ProducerTransaction), Seq[Array[Byte]]] {
-      override def apply(request: (ClientTransaction, ProducerTransaction)): TwitterFuture[Seq[Array[Byte]]] = {
+    val transactionDataService = new Service[(TransactionClient, ProducerTransaction), Seq[Array[Byte]]] {
+      override def apply(request: (TransactionClient, ProducerTransaction)): TwitterFuture[Seq[Array[Byte]]] = {
         val (client, txn) = request
         val future = client.getTransactionData(token, txn.stream, txn.partition, txn.transactionID, from, to)
         future map(data => data map {datum =>
@@ -233,8 +219,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
   }
 
   def setConsumerState(consumerTransaction: ConsumerTransaction): TwitterFuture[Boolean] = {
-    val consumerService = new Service[(ClientTransaction, ConsumerTransaction), Boolean] {
-      override def apply(request: (ClientTransaction, ConsumerTransaction)): TwitterFuture[Boolean] = {
+    val consumerService = new Service[(TransactionClient, ConsumerTransaction), Boolean] {
+      override def apply(request: (TransactionClient, ConsumerTransaction)): TwitterFuture[Boolean] = {
         val (client, txn) = request
         client.setConsumerState(token, txn.name, txn.stream, txn.partition, txn.transactionID)
       }
@@ -244,8 +230,8 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
   }
 
   def getConsumerState(consumerTransaction: (String,String,Int)): TwitterFuture[Long] = {
-    val consumerService = new Service[(ClientTransaction,String,String,Int), Long] {
-      override def apply(request: (ClientTransaction,String,String,Int)): TwitterFuture[Long] = {
+    val consumerService = new Service[(TransactionClient,String,String,Int), Long] {
+      override def apply(request: (TransactionClient,String,String,Int)): TwitterFuture[Long] = {
         val (client, name, stream, partition) = request
         client.getConsumerState(token,name, stream, partition)
       }
@@ -258,8 +244,7 @@ class TransactionZooKeeperClient(private val config: ConfigClient) {
 
 object TransactionZooKeeperClient extends App {
   import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
-  val config = new ConfigClient("clientProperties.properties")
-  val client = new TransactionZooKeeperClient(config)
+  val client = new TransactionZooKeeperClient
   println(Await.result(client.putStream("1",20, None, 5)))
 
   val rand = scala.util.Random

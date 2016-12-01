@@ -165,36 +165,36 @@ class StreamService$FinagleService(
       case e: Exception => Future.exception(e)
     }
   })
-  private[this] object __stats_isStreamExist {
-    val RequestsCounter = scopedStats.scope("isStreamExist").counter("requests")
-    val SuccessCounter = scopedStats.scope("isStreamExist").counter("success")
-    val FailuresCounter = scopedStats.scope("isStreamExist").counter("failures")
-    val FailuresScope = scopedStats.scope("isStreamExist").scope("failures")
+  private[this] object __stats_doesStreamExist {
+    val RequestsCounter = scopedStats.scope("doesStreamExist").counter("requests")
+    val SuccessCounter = scopedStats.scope("doesStreamExist").counter("success")
+    val FailuresCounter = scopedStats.scope("doesStreamExist").counter("failures")
+    val FailuresScope = scopedStats.scope("doesStreamExist").scope("failures")
   }
-  addFunction("isStreamExist", { (iprot: TProtocol, seqid: Int) =>
+  addFunction("doesStreamExist", { (iprot: TProtocol, seqid: Int) =>
     try {
-      __stats_isStreamExist.RequestsCounter.incr()
-      val args = IsStreamExist.Args.decode(iprot)
+      __stats_doesStreamExist.RequestsCounter.incr()
+      val args = DoesStreamExist.Args.decode(iprot)
       iprot.readMessageEnd()
       (try {
-        iface.isStreamExist(args.token, args.stream)
+        iface.doesStreamExist(args.token, args.stream)
       } catch {
         case e: Exception => Future.exception(e)
       }).flatMap { value: Boolean =>
-        reply("isStreamExist", seqid, IsStreamExist.Result(success = Some(value)))
+        reply("doesStreamExist", seqid, DoesStreamExist.Result(success = Some(value)))
       }.rescue {
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
-          __stats_isStreamExist.SuccessCounter.incr()
+          __stats_doesStreamExist.SuccessCounter.incr()
         case Throw(ex) =>
-          __stats_isStreamExist.FailuresCounter.incr()
-          __stats_isStreamExist.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
+          __stats_doesStreamExist.FailuresCounter.incr()
+          __stats_doesStreamExist.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
       }
     } catch {
       case e: TProtocolException => {
         iprot.readMessageEnd()
-        exception("isStreamExist", seqid, TApplicationException.PROTOCOL_ERROR, e.getMessage)
+        exception("doesStreamExist", seqid, TApplicationException.PROTOCOL_ERROR, e.getMessage)
       }
       case e: Exception => Future.exception(e)
     }

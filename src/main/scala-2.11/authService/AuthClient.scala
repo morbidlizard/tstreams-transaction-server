@@ -1,19 +1,20 @@
 package authService
 
 import authService.rpc.AuthService
-import com.twitter.finagle.{ServiceTimeoutException, Thrift}
+import com.twitter.finagle.Thrift
 import com.twitter.logging.Logger
 import com.twitter.util.{Throw, Try, Future => TwitterFuture}
+import exception.Throwables.tokenInvalidException
 import filter.Filter
 
-class ClientAuth(ipAddress: String, authTimeoutConnection: Int, authTimeoutExponentialBetweenRetries: Int) extends AuthService[TwitterFuture] {
+class AuthClient(ipAddress: String, authTimeoutConnection: Int, authTimeoutExponentialBetweenRetries: Int) extends AuthService[TwitterFuture] {
   private val logger = Logger.get(this.getClass)
   private val client = Thrift.client
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual
 
   def timeOutFilter[Req, Rep] = Filter
-      .retryFilterConnection[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries, logger, resource.LogMessage.tryingToConnectToAuthServer)
+    .filter[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries, Filter.retryConditionToConnect)
 
   private def interface = {
     val interface= client.newServiceIface[AuthService.ServiceIface](ipAddress, "transaction")
@@ -25,5 +26,7 @@ class ClientAuth(ipAddress: String, authTimeoutConnection: Int, authTimeoutExpon
 
   private final val request = Thrift.client.newMethodIface(interface)
   override def authenticate(login: String, password: String): TwitterFuture[String] =  request.authenticate(login,password)
-  override def isValid(token: String): TwitterFuture[Boolean] = request.isValid(token)
+  override def isValid(token: String): TwitterFuture[Boolean] = request.isValid(token) flatMap (valid =>
+    if (valid) TwitterFuture.value(valid) else TwitterFuture.exception(tokenInvalidException)
+    )
 }

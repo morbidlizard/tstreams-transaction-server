@@ -21,7 +21,7 @@ trait AuthServiceImpl extends AuthService[Future] {
 }
 
 private object AuthServiceImpl {
-  val tokenExpirationTimeInSeconds: Long = 120L
+  val tokenExpirationTimeInSeconds: Long = configProperties.AuthConfig.authTokenTimeExpiration
   val secretKey: String = "secretKey"
   val headerEncoderAlgorithm: JwtAlgorithm = JwtAlgorithm.HMD5
 }

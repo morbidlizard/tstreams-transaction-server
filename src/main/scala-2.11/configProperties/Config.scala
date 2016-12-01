@@ -1,9 +1,11 @@
-package resource
+package configProperties
 
 import java.io.FileInputStream
 import java.util.Properties
 
-abstract class Config(pathToConfig: String) {
+import exception.Throwables.ConfigNotFoundException
+
+class Config(pathToConfig: String) {
   private lazy val properties = {
     val file = new Properties()
     scala.util.Try {
@@ -12,7 +14,7 @@ abstract class Config(pathToConfig: String) {
       in.close()
     } match {
       case scala.util.Success(_) => file
-      case scala.util.Failure(_) => throw new IllegalArgumentException("Config isn't found!")
+      case scala.util.Failure(_) => throw new ConfigNotFoundException
     }
   }
 
@@ -37,8 +39,8 @@ abstract class Config(pathToConfig: String) {
 }
 
 object Config {
-  implicit def stringToSting: String => String = str => str
-  def stringToInt: String => Int = str => str.toInt
-  def stringToFloat: String => Float = str => str.toFloat
-  def stringToLong: String => Long = str => str.toLong
+  implicit def stringToInt: String => Int = str => augmentString(str).toInt
+  implicit def stringToFloat: String => Float = str => augmentString(str).toFloat
+  implicit def stringToLong: String => Long = str => augmentString(str).toLong
+  implicit def stringToShort: String => Short = str => augmentString(str).toShort
 }

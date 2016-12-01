@@ -2,7 +2,7 @@ package transactionService.client
 
 import java.nio.ByteBuffer
 
-import authService.ClientAuth
+import authService.AuthClient
 
 import scala.concurrent.{Future => ScalaFuture}
 import com.twitter.util.{Await, Future => TwitterFuture}
@@ -13,7 +13,7 @@ import com.twitter.logging.{Level, Logger}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Stream, Transaction, TransactionService, TransactionStates}
 import com.twitter.conversions.time._
 
-class ClientTransaction(serverIPAddress: String)/*(implicit val threadPool: transactionService.Context)*/ extends TransactionService[TwitterFuture] {
+class TransactionClient(serverIPAddress: String)/*(implicit val threadPool: transactionService.Context)*/ extends TransactionService[TwitterFuture] {
   private val client = Thrift.client
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual
@@ -23,7 +23,7 @@ class ClientTransaction(serverIPAddress: String)/*(implicit val threadPool: tran
     val interface = client.newServiceIface[TransactionService.ServiceIface](serverIPAddress, "transaction")
     interface.copy(
       putStream = interface.putStream,
-      isStreamExist = interface.isStreamExist,
+      doesStreamExist = interface.doesStreamExist,
       getStream = interface.getStream,
       delStream = interface.delStream,
       putTransaction = interface.putTransaction,
@@ -42,7 +42,7 @@ class ClientTransaction(serverIPAddress: String)/*(implicit val threadPool: tran
   override def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] = {
     request.putStream(token, stream, partitions, description, ttl)
   }
-  override def isStreamExist(token: String, stream: String): TwitterFuture[Boolean] = request.isStreamExist(token, stream)
+  override def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] = request.doesStreamExist(token, stream)
   override def getStream(token: String, stream: String): TwitterFuture[Stream]  = request.getStream(token, stream)
   override def delStream(token: String, stream: String): TwitterFuture[Boolean] = request.delStream(token, stream)
 

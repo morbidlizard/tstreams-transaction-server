@@ -1,4 +1,6 @@
-package transactionService.exception
+package exception
+
+import java.io.FileNotFoundException
 
 object Throwables {
   val tokenInvalidExceptionMessage: String = "Token isn't valid"
@@ -6,4 +8,7 @@ object Throwables {
 
   val StreamNotExistMessage: String = "Stream doesn't exist in database!"
   class StreamNotExist extends NoSuchElementException(StreamNotExistMessage)
+
+  val configNotFoundMessage: String = "Config isn't found!"
+  class ConfigNotFoundException extends FileNotFoundException(configNotFoundMessage)
 }

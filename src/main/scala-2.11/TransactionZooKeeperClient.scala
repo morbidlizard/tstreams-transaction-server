@@ -123,7 +123,7 @@ class TransactionZooKeeperClient {
     val transactionService = new Service[(TransactionClient, Seq[Transaction]), Boolean] {
       override def apply(request: (TransactionClient, Seq[Transaction])): TwitterFuture[Boolean] = {
         val (client,txns) = request
-        client.putTransactions(token, txns)
+        FuturePool.interruptible(executor)(client.putTransactions(token, txns)).flatten
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
@@ -137,7 +137,7 @@ class TransactionZooKeeperClient {
       override def consumerTransaction: Option[ConsumerTransaction] = Some(txn)
     })
 
-    FuturePool.interruptible(executor)(zkService().flatMap(client => requestChain(client, txns))).flatten
+   zkService().flatMap(client => requestChain(client, txns))
   }
 
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): TwitterFuture[Boolean] =
@@ -145,14 +145,14 @@ class TransactionZooKeeperClient {
     val transactionService = new Service[(TransactionClient, Transaction), Boolean] {
       override def apply(request: (TransactionClient, Transaction)): TwitterFuture[Boolean] = {
         val (client, txn) = request
-        client.putTransaction(token, txn)
+        FuturePool.interruptible(executor)(client.putTransaction(token, txn)).flatten
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
-    FuturePool.interruptible(executor)(zkService().flatMap(client => requestChain(client, new Transaction {
+    zkService().flatMap(client => requestChain(client, new Transaction {
       override def producerTransaction: Option[ProducerTransaction] = Some(transaction)
       override def consumerTransaction: Option[ConsumerTransaction] = None
-    }))).flatten
+    }))
   }
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): TwitterFuture[Boolean] =
@@ -160,14 +160,14 @@ class TransactionZooKeeperClient {
     val transactionService = new Service[(TransactionClient, Transaction), Boolean] {
       override def apply(request: (TransactionClient, Transaction)): TwitterFuture[Boolean] = {
         val (client, txn) = request
-        client.putTransaction(token, txn)
+        FuturePool.interruptible(executor)(client.putTransaction(token, txn)).flatten
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
-    FuturePool.interruptible(executor)(zkService().flatMap(client => requestChain(client, new Transaction {
+    zkService().flatMap(client => requestChain(client, new Transaction {
       override def producerTransaction: Option[ProducerTransaction] = None
       override def consumerTransaction: Option[ConsumerTransaction] = Some(transaction)
-    }))).flatten
+    }))
   }
 
   def scanTransactions(stream: String, partition: Int):TwitterFuture[Seq[Transaction]] = {

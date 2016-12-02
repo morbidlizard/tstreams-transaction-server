@@ -7,7 +7,7 @@ import com.twitter.util.{ExecutorServiceFuturePool, FuturePool}
 
 class Context (threadNumber: Int) {
   require(threadNumber > 0)
-  private def newExecutionContext: ExecutorServiceFuturePool = FuturePool.interruptible(Executors.newSingleThreadScheduledExecutor())
+  private def newExecutionContext: ExecutorServiceFuturePool = FuturePool.interruptible(Executors.newSingleThreadExecutor())
   val contexts = (1 to threadNumber).map(_=> newExecutionContext).toArray
   def getContext(value: Long): ExecutorServiceFuturePool = contexts((value % threadNumber).toInt)
   def getContext(stream: Int, partition: Int): ExecutorServiceFuturePool = getContext(ByteBuffer.allocate(8).putInt(stream).putInt(partition).getLong(0))

@@ -2,6 +2,7 @@ package zooKeeper
 
 import java.io.Closeable
 import java.net.InetAddress
+import java.util.concurrent.TimeUnit
 
 import com.twitter.logging.{Level, Logger}
 import org.apache.curator.RetryPolicy
@@ -16,7 +17,6 @@ class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connecti
   val client = {
     val connection = CuratorFrameworkFactory.newClient(endpoints.head, sessionTimeoutMillis, connectionTimeoutMillis, policy)
     connection.start()
-    connection.blockUntilConnected()
     connection
   }
 

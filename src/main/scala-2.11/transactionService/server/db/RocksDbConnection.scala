@@ -6,11 +6,16 @@ import configProperties.DB
 import org.rocksdb._
 
 class RocksDbConnection(ttl: Int = -1, isReadOnly: Boolean = false) extends Closeable{
-  private val client = TtlDB.open(new Options().setCreateIfMissing(true),RocksDbConnection.path.getAbsolutePath, ttl, isReadOnly)
+  private val client = {
+    if (isReadOnly) {
+      TtlDB.open(new Options().setCreateIfMissing(true), RocksDbConnection.path.getAbsolutePath, ttl, isReadOnly)
+    } else TtlDB.open(new Options().prepareForBulkLoad().setCreateIfMissing(true), RocksDbConnection.path.getAbsolutePath, ttl, isReadOnly)
+  }
   private val batch  = new WriteBatch()
   def put(key: Array[Byte], data: Array[Byte]) = {
     batch.put(key,data)
   }
+
   def get(key: Array[Byte]) = client.get(key)
   def remove(key: Array[Byte]) = batch.remove(key)
   def write(): Boolean = {
@@ -19,6 +24,8 @@ class RocksDbConnection(ttl: Int = -1, isReadOnly: Boolean = false) extends Clos
       case None => false
     }
   }
+
+  def compactRange(from: Array[Byte], to: Array[Byte]) = client.compactRange(from, to)
   def iterator = client.newIterator()
   override def close(): Unit = {
     batch.close()

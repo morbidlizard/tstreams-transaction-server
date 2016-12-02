@@ -2,6 +2,7 @@ import authService.AuthServer
 import com.twitter.util.{Await, Closable, Time}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
+import transactionZookeeperService.{TransactionZooKeeperClient, TransactionZooKeeperServer}
 
 class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   val client: TransactionZooKeeperClient = new TransactionZooKeeperClient

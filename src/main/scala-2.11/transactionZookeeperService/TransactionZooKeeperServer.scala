@@ -1,22 +1,24 @@
+package transactionZookeeperService
+
 import authService.AuthClient
 import com.sleepycat.je.CursorConfig
 import com.twitter.finagle.{ListeningServer, Thrift}
 import com.twitter.logging.Level
-import transactionService.server.TransactionServer
 import com.twitter.util.{Await, Closable, Time, Future => TwitterFuture}
 import org.apache.curator.retry.RetryNTimes
 import transactionService.rpc.TransactionStates
+import transactionService.server.TransactionServer
 import transactionService.server.transactionMetaService.ProducerTransaction
 import zooKeeper.ZKLeaderServer
-
 
 class TransactionZooKeeperServer
   extends TransactionServer({
     import configProperties.ServerConfig._
-    new AuthClient(authAddress,authTimeoutConnection,authTimeoutExponentialBetweenRetries)
+    new AuthClient(authAddress, authTimeoutConnection, authTimeoutExponentialBetweenRetries)
   }, configProperties.ServerConfig.transactionDataTtlAdd) with Closable {
 
   import configProperties.ServerConfig._
+
 
   val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
@@ -28,7 +30,7 @@ class TransactionZooKeeperServer
   override def close(deadline: Time): TwitterFuture[Unit] = start.close(deadline)
 
 
-  private def transiteTxnsToInvalidState() =  {
+  private def transiteTxnsToInvalidState() = {
     import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
     val transactionDB = environment.beginTransaction(null, null)
 

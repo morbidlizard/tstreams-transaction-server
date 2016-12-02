@@ -26,6 +26,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     TimeUnit.HOURS.toSeconds(ttl).toInt + convertTTL
   }
 
+  //TODO RocksDB blocks acceess to DB if there are 2 or more clients
   def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] =
     authenticateFutureBody(token) {
       getStreamTTL(stream).flatMap { ttl =>
@@ -55,6 +56,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
           rocksDB.put(keyToStartWrite, delta + data.length)
 
           val result = rocksDB.write()
+          rocksDB.compactRange(rangeDataToSave.head, rangeDataToSave.last)
           rocksDB.close()
 
           result

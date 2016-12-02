@@ -18,7 +18,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   }
 
   override def afterEach() {
-    Await.ready(Closable.all(transactionServer, authServer).close())
+    Closable.all(transactionServer, authServer).close()
   }
 
   private val rand = scala.util.Random
@@ -59,24 +59,6 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     Await.result(result) shouldBe true
   }
 
-  it should "throw an exception when the auth server isn't available" in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream))
-
-    authServer.close()
-
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(stream))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(stream))
-
-
-    val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
-
-
-    assertThrows[org.apache.thrift.TApplicationException] {
-      Await.result(resultInFuture)
-    }
-  }
-
   //TODO Config shouldn't be static, because it's impossible to make custom configs for test purposes.
   it should "not throw an exception when the auth server isn't available for time less than in config" in {
     val stream = getRandomStream
@@ -103,15 +85,21 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 //    val txn = getRandomProducerTransaction(stream)
 //    Await.result(client.putTransaction(txn))
 //
-//    val data = (0 to 10).map(_=> rand.nextString(1000).getBytes)
+//    val data = (0 to 100000).map(_=> rand.nextString(1000).getBytes)
 //
 //    val resultInFuture = client.putTransactionData(txn, data)
 //
+//
 //    Await.result(resultInFuture) shouldBe true
 //
-//    val dataFromDatabase = Await.result(client.getTransactionData(txn,0,10))
 //
-//    data should contain theSameElementsAs dataFromDatabase
+//    println(timeAfter - timeBefore)
+//
+//    val dataFromDatabase = Await.result(client.getTransactionData(txn,0,1000))
+//
+//    println(dataFromDatabase)
+//
+//    //data should contain theSameElementsAs dataFromDatabase
 //  }
 
   "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
@@ -127,5 +115,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
       Await.result(result)
     }
   }
+
+
 
 }

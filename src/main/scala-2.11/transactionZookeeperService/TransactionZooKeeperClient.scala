@@ -36,7 +36,9 @@ class TransactionZooKeeperClient {
         val messageToParse = e.getMessage
         Logger.get().log(Level.ERROR, messageToParse)
         if (messageToParse.contains(exception.Throwables.tokenInvalidExceptionMessage)) {
-          token = Await.result(clientAuth.authenticate(login, password))
+          token = Await.result(
+            FuturePool.interruptibleUnboundedPool(clientAuth.authenticate(login, password)).flatten
+          )
           true
         } else false
     }
@@ -314,10 +316,18 @@ object TransactionZooKeeperClient extends App {
   })
 
 
-  println(Await.result(client.putTransactions(producerTransactions, Seq())))
+ // println(Await.result(client.putTransactions(producerTransactions, Seq())))
 
-  val data = (0 to 1000000) map (_ => rand.nextString(10).getBytes())
+  val data = (0 to 100000) map (_ => rand.nextString(10).getBytes())
 
-  println(Await.result(client.putTransactionData(producerTransactions.head, data)))
+  Await.result(client.putTransactionData(producerTransactions.head, data))
+
+  val timeBefore = System.currentTimeMillis()
+
+  println(Await.result(client.getTransactionData(producerTransactions.head, 0, 10000)))
+
+  val timeAfter = System.currentTimeMillis()
+
+  println(timeAfter-timeBefore)
 }
 

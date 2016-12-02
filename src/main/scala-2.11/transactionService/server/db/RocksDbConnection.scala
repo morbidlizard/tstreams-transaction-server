@@ -5,8 +5,8 @@ import java.io.Closeable
 import configProperties.DB
 import org.rocksdb._
 
-class RocksDbConnection(ttl: Int = -1) extends Closeable{
-  private val client = TtlDB.open(new Options().setCreateIfMissing(true),RocksDbConnection.path.getAbsolutePath, ttl, false)
+class RocksDbConnection(ttl: Int = -1, isReadOnly: Boolean = false) extends Closeable{
+  private val client = TtlDB.open(new Options().setCreateIfMissing(true),RocksDbConnection.path.getAbsolutePath, ttl, isReadOnly)
   private val batch  = new WriteBatch()
   def put(key: Array[Byte], data: Array[Byte]) = {
     batch.put(key,data)

@@ -12,8 +12,8 @@ object Filter {
 
   def filter[Req, Rep](timeoutConnection: Int, timeoutExponentialBetweenRetries: Int, condition: PartialFunction[Try[Nothing], Boolean]) = {
     val retryPolicy = RetryPolicy.backoff(
-      Backoff.exponentialJittered
-      (timeoutExponentialBetweenRetries.milliseconds, timeoutConnection.milliseconds)
+      Backoff.const(timeoutExponentialBetweenRetries.milliseconds).take(timeoutConnection/timeoutExponentialBetweenRetries)
+//      (timeoutExponentialBetweenRetries.milliseconds, timeoutConnection.milliseconds)
     )(condition)
 
     new RetryExceptionsFilter[Req, Rep](retryPolicy, HighResTimer.Default)

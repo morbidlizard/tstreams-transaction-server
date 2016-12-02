@@ -61,7 +61,7 @@ object TestClient {
   }
 
   def createTransactionData(count: Int) = {
-    (0 until count) map (_ => "data".getBytes().toSeq)
+    (0 until count) map (_ => "data".getBytes())
   }
 
   def writeAsCSV(data: IndexedSeq[(Int, Long)], dataSize: Int) = {

@@ -29,7 +29,8 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
   def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] =
     authenticateFutureBody(token) {
       getStreamTTL(stream).flatMap { ttl =>
-        TwitterFuture {
+        val futurePool = transactionService.Context.transactionDataContext.getContext(0L)
+        futurePool {
           RocksDB.loadLibrary()
           val rocksDB = new RocksDbConnection(calculateTTL(ttl))
 
@@ -64,7 +65,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
   def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
     authenticate(token) {
       RocksDB.loadLibrary()
-      val rocksDB = new RocksDbConnection()
+      val rocksDB = new RocksDbConnection(isReadOnly = true)
 
       val fromSeqId = KeyDataSeq(Key(stream, partition, transaction), from).toString
       val toSeqId = KeyDataSeq(Key(stream, partition, transaction), to).toString

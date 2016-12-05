@@ -5,34 +5,40 @@ import java.io.Closeable
 import configProperties.DB
 import org.rocksdb._
 
-class RocksDbConnection(ttl: Int = -1, isReadOnly: Boolean = false) extends Closeable{
-  private val client = {
-    if (isReadOnly) {
-      TtlDB.open(new Options().setCreateIfMissing(true), RocksDbConnection.path.getAbsolutePath, ttl, isReadOnly)
-    } else TtlDB.open(new Options().prepareForBulkLoad().setCreateIfMissing(true), RocksDbConnection.path.getAbsolutePath, ttl, isReadOnly)
+class RocksDbConnection(name: String, ttl: Int = -1) extends Closeable {
+  RocksDB.loadLibrary()
+
+  private lazy val client =  {
+    val path = transactionService.io.FileUtils.createDirectory(s"${RocksDbConnection.rocksDBStoragesPath}/$name").getAbsolutePath
+    TtlDB.open(new Options().setCreateIfMissing(true).prepareForBulkLoad(), path, ttl, false)
   }
-  private val batch  = new WriteBatch()
+
+  def get(key: Array[Byte]) = client.get(key)
+
+  @volatile private var batch  = new WriteBatch()
   def put(key: Array[Byte], data: Array[Byte]) = {
     batch.put(key,data)
   }
 
-  def get(key: Array[Byte]) = client.get(key)
   def remove(key: Array[Byte]) = batch.remove(key)
   def write(): Boolean = {
     Option(client.write(new WriteOptions(), batch)) match {
-      case Some(_) => true
-      case None => false
+      case Some(_) =>
+        batch.close()
+        batch  = new WriteBatch()
+        true
+      case None =>
+        batch.close()
+        batch  = new WriteBatch()
+        false
     }
   }
 
   def compactRange(from: Array[Byte], to: Array[Byte]) = client.compactRange(from, to)
   def iterator = client.newIterator()
-  override def close(): Unit = {
-    batch.close()
-    client.close()
-  }
+  override def close(): Unit = client.close()
 }
 
 private object RocksDbConnection {
-  val path = transactionService.io.FileUtils.createDirectory(DB.TransactionDataDirName)
+  val rocksDBStoragesPath = DB.TransactionDataDirName
 }

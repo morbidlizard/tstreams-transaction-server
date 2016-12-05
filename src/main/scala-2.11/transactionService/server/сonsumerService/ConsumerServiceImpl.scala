@@ -15,7 +15,7 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
 {
   def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     authenticateFutureBody(token) {
-      val futurePool = Context.transactionContexts.getContext(partition, stream.toInt)
+      val futurePool = Context.transactionContexts.getContext(stream.hashCode, partition)
       futurePool {
         Option(consumerPrimaryIndex.get(new ConsumerKey(name, stream, partition))) match {
           case Some(consumer) => consumer.transactionID
@@ -26,7 +26,7 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
 
   def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =
     authenticateFutureBody(token) {
-      val futurePool = Context.transactionContexts.getContext(partition, stream.toInt)
+      val futurePool = Context.transactionContexts.getContext(stream.hashCode, partition)
       futurePool {
         consumerPrimaryIndex.put(new ConsumerTransaction(name, stream, partition, transaction))
         true

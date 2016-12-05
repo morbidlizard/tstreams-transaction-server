@@ -14,7 +14,7 @@ import zooKeeper.ZKLeaderServer
 class TransactionZooKeeperServer
   extends TransactionServer({
     import configProperties.ServerConfig._
-    new AuthClient(authAddress, authTimeoutConnection, authTimeoutExponentialBetweenRetries)
+    new AuthClient(authAddress, authTimeoutConnection, authTimeoutBetweenRetries)
   }, configProperties.ServerConfig.transactionDataTtlAdd) with Closable {
 
   import configProperties.ServerConfig._

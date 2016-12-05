@@ -59,6 +59,20 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     Await.result(result) shouldBe true
   }
 
+  it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+    Await.result(client.delStream(stream))
+
+    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(stream))
+    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(stream))
+
+    val result = client.putTransactions(producerTransactions, consumerTransactions)
+    assertThrows[org.apache.thrift.TApplicationException] {
+      Await.result(result)
+    }
+  }
+
   //TODO Config shouldn't be static, because it's impossible to make custom configs for test purposes.
   it should "not throw an exception when the auth server isn't available for time less than in config" in {
     val stream = getRandomStream
@@ -115,7 +129,6 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
       Await.result(result)
     }
   }
-
 
 
 }

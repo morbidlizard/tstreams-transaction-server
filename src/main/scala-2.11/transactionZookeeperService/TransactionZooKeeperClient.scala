@@ -28,7 +28,7 @@ class TransactionZooKeeperClient {
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
   zKLeaderClient.start()
 
-  private val clientAuth = new AuthClient(authAddress, authTimeoutConnection, authTimeoutExponentialBetweenRetries)
+  private val clientAuth = new AuthClient(authAddress, authTimeoutConnection, authTimeoutBetweenRetries)
   @volatile private var token: String = _
   private val retryConditionToken: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
@@ -45,15 +45,16 @@ class TransactionZooKeeperClient {
     case _ => false
   }
 
-  private val retryPolicyToken = RetryPolicy.backoff(Backoff.exponentialJittered(300.milliseconds, 1000.milliseconds))(retryConditionToken)
+  private val retryPolicyToken = RetryPolicy.backoff(Backoff.const(authTokenTimeoutBetweenRetries.milliseconds)
+    .take(authTokenTimeoutConnection/authTokenTimeoutBetweenRetries))(retryConditionToken)
+
   private def retryFilterToken[Req, Rep] = new RetryExceptionsFilter[Req, Rep](retryPolicyToken, HighResTimer.Default)
 
-  private val AddressToTransactionServiceServer = new scala.collection.concurrent.TrieMap[String, TransactionClient]()
-
+  private val AddressToTransactionServiceServer = new java.util.concurrent.ConcurrentHashMap[String, TransactionClient]()
   private def getClientTransaction = {
     val master = zKLeaderClient.master.get
     AddressToTransactionServiceServer.putIfAbsent(master, new TransactionClient(master))
-    AddressToTransactionServiceServer(master)
+    AddressToTransactionServiceServer.get(master)
   }
 
   private def getMasterFilter[Req, Rep] = Filter
@@ -66,18 +67,15 @@ class TransactionZooKeeperClient {
   }
 
 
-  private case class Stream(override val name: String, override val partitions: Int, override val description: Option[String], override val ttl: Int)
-    extends transactionService.rpc.Stream
-
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] = {
-    val streamService = new Service[(TransactionClient, Stream), Boolean] {
-      override def apply(request: (TransactionClient, Stream)): TwitterFuture[Boolean] = {
+    val streamService = new Service[(TransactionClient, transactionService.rpc.Stream), Boolean] {
+      override def apply(request: (TransactionClient, transactionService.rpc.Stream)): TwitterFuture[Boolean] = {
         val (client, stream) = request
         client.putStream(token, stream.name, stream.partitions, stream.description, ttl)
       }
     }
     val requestChain = retryFilterToken.andThen(streamService)
-    zkService().flatMap(client => requestChain(client, Stream(stream, partitions, description, ttl)))
+    zkService().flatMap(client => requestChain(client, transactionService.rpc.Stream(stream, partitions, description, ttl)))
   }
 
 
@@ -103,9 +101,9 @@ class TransactionZooKeeperClient {
     zkService().flatMap(client => requestChain(client, stream))
   }
 
-  def delStream(stream: Stream): TwitterFuture[Boolean] = {
-    val streamService = new Service[(TransactionClient, Stream), Boolean] {
-      override def apply(request: (TransactionClient, Stream)): TwitterFuture[Boolean] = {
+  def delStream(stream: transactionService.rpc.Stream): TwitterFuture[Boolean] = {
+    val streamService = new Service[(TransactionClient, transactionService.rpc.Stream), Boolean] {
+      override def apply(request: (TransactionClient, transactionService.rpc.Stream)): TwitterFuture[Boolean] = {
         val (client, stream) = request
         client.delStream(token, stream.name)
       }

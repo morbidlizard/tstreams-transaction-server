@@ -30,5 +30,9 @@ object ClientConfig {
 
   val authTimeoutConnection = config.readProperty[Int]("auth.timeout.connection")
 
-  val authTimeoutExponentialBetweenRetries = config.readProperty[Int]("auth.timeout.exponentialBetweenRetries")
+  val authTimeoutBetweenRetries = config.readProperty[Int]("auth.timeout.betweenRetries")
+
+  val authTokenTimeoutConnection = config.readProperty[Int]("auth.token.timeout.connection")
+
+  val authTokenTimeoutBetweenRetries = config.readProperty[Int]("auth.token.timeout.betweenRetries")
 }

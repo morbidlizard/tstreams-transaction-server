@@ -3,13 +3,11 @@ package transactionService.server.transactionDataService
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
-import com.twitter.util.{FuturePool, Future => TwitterFuture}
-import org.rocksdb.{RocksDB, WriteBatch, WriteOptions}
+import com.twitter.util.{Future => TwitterFuture}
 import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.db.RocksDbConnection
 import transactionService.server.`implicit`.Implicits._
 import transactionService.rpc.TransactionDataService
-import exception.Throwables._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -36,14 +34,12 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     }
   }
 
-  //TODO RocksDB blocks access to DB if there are 2 or more clients
+
   def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] =
     authenticateFutureBody(token) {
       getStreamTTL(stream).flatMap { ttl =>
-        FuturePool.interruptibleUnboundedPool {
+        TwitterFuture {
           val rocksDB = getStorage(stream, partition, ttl)
-
-
           val keyToStartWrite = Key(stream, partition, transaction).maxDataSeq
           val indexOfKeyToWrite = Option(rocksDB.get(keyToStartWrite))
           val delta = indexOfKeyToWrite match {
@@ -51,8 +47,10 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
             case None => 0
           }
 
-          if (indexOfKeyToWrite.isDefined) rocksDB.remove(keyToStartWrite)
-          rocksDB.put(keyToStartWrite, delta + data.length)
+          val batch = rocksDB.newBatch
+
+          if (indexOfKeyToWrite.isDefined) batch.remove(keyToStartWrite)
+          batch.put(keyToStartWrite, delta + data.length)
 
           val rangeDataToSave = delta until (delta + data.length)
           val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(stream, partition, transaction), seqId).toString)
@@ -60,11 +58,10 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
             val sizeOfSlicedData = datum.limit() - datum.position()
             val bytes = new Array[Byte](sizeOfSlicedData)
             datum.get(bytes)
-            rocksDB.put(key, bytes)
+            batch.put(key, bytes)
           }
 
-          val result = rocksDB.write()
-          rocksDB.compactRange(rangeDataToSave.head, rangeDataToSave.last)
+          val result = batch.write()
           result
         }
       }
@@ -73,7 +70,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
   def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
     authenticateFutureBody(token) {
       getStreamTTL(stream).flatMap { ttl =>
-        FuturePool.interruptibleUnboundedPool {
+        TwitterFuture {
           val rocksDB = getStorage(stream, partition, ttl)
 
           val fromSeqId = KeyDataSeq(Key(stream, partition, transaction), from).toString
@@ -81,6 +78,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
 
           val iterator = rocksDB.iterator
           iterator.seek(fromSeqId)
+
 
           val data = new ArrayBuffer[ByteBuffer](to - from)
           while (iterator.isValid && new String(iterator.key()) <= toSeqId) {

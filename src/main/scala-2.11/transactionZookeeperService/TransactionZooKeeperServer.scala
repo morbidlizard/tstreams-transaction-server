@@ -7,7 +7,7 @@ import com.twitter.logging.Level
 import com.twitter.util.{Await, Closable, Time, Future => TwitterFuture}
 import org.apache.curator.retry.RetryNTimes
 import transactionService.rpc.TransactionStates
-import transactionService.server.TransactionServer
+import transactionService.server.{TransactionServer, streamService, transactionMetaService}
 import transactionService.server.transactionMetaService.ProducerTransaction
 import zooKeeper.ZKLeaderServer
 
@@ -48,6 +48,16 @@ class TransactionZooKeeperServer
   }
 
   transiteTxnsToInvalidState()
+
+  Runtime.getRuntime.addShutdownHook(new Thread() {
+    override def run(): Unit = {
+      streamService.StreamServiceImpl.entityStore.close()
+      streamService.StreamServiceImpl.environment.close()
+
+      transactionMetaService.TransactionMetaServiceImpl.entityStore.close()
+      transactionMetaService.TransactionMetaServiceImpl.environment.close()
+    }
+  })
 }
 
 object TransactionZooKeeperServer extends App {

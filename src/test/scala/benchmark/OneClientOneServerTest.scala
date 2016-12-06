@@ -1,8 +1,8 @@
 package benchmark
 
 object OneClientOneServerTest extends Installer {
-  private val txnCount = 1000000
-  private val dataSize = 1000
+  private val txnCount = 500000
+  private val dataSize = 100
 
   def main(args: Array[String]) {
     clearDB()

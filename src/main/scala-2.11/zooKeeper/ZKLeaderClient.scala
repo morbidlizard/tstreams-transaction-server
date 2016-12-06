@@ -2,7 +2,6 @@ package zooKeeper
 
 import java.io.Closeable
 import java.net.InetAddress
-import java.util.concurrent.TimeUnit
 
 import com.twitter.logging.{Level, Logger}
 import org.apache.curator.RetryPolicy
@@ -15,7 +14,13 @@ class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connecti
   extends NodeCacheListener with Closeable {
   private val logger = Logger.get(this.getClass)
   val client = {
-    val connection = CuratorFrameworkFactory.newClient(endpoints.head, sessionTimeoutMillis, connectionTimeoutMillis, policy)
+    val connection = CuratorFrameworkFactory.builder()
+      .sessionTimeoutMs(sessionTimeoutMillis)
+      .connectionTimeoutMs(connectionTimeoutMillis)
+      .retryPolicy(policy)
+      .connectString(endpoints.head)
+      .build()
+
     connection.start()
     connection
   }
@@ -33,7 +38,7 @@ class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connecti
   @volatile var master: Option[String] = None
   override def nodeChanged(): Unit = {
     Option(nodeToWatch.getCurrentData) foreach {node =>
-      val address = new String(nodeToWatch.getCurrentData.getData)
+      val address = new String(node.getData)
       val isValidAddress = scala.util.Try(InetAddress.getByName(address.split(':').head))
       master = if (isValidAddress.isSuccess) Some(address) else {
         logger.log(Level.INFO,s"$prefix data is corrupted!"); None

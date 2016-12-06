@@ -34,9 +34,7 @@ class TransactionZooKeeperClient {
         val messageToParse = e.getMessage
         Logger.get().log(Level.ERROR, messageToParse)
         if (messageToParse.contains(exception.Throwables.tokenInvalidExceptionMessage)) {
-          token = Await.result(
-            FuturePool.interruptibleUnboundedPool(clientAuth.authenticate(login, password)).flatten
-          )
+          clientAuth.authenticate(login, password).onSuccess(newToken => token = newToken)
           true
         } else false
     }
@@ -301,7 +299,7 @@ object TransactionZooKeeperClient extends App {
     override val partition: Int = rand.nextInt(10000)
   })
 
-  val consumerTransactions = (0 to 100000).map(_ => new ConsumerTransaction {
+  val consumerTransactions = (0 to 10).map(_ => new ConsumerTransaction {
     override def transactionID: Long = scala.util.Random.nextLong()
 
     override def name: String = rand.nextInt(10000).toString

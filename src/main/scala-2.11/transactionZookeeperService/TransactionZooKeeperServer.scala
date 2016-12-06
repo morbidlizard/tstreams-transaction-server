@@ -35,6 +35,7 @@ class TransactionZooKeeperServer
     val transactionDB = environment.beginTransaction(null, null)
 
     val entities = producerSecondaryIndex.subIndex(TransactionStates.Opened.getValue()).entities(transactionDB, new CursorConfig())
+
     var txn = entities.next()
     while (txn != null) {
       logger.log(Level.INFO, s"${txn.toString} transit it's state to Invalid!")

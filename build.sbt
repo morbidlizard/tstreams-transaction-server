@@ -28,10 +28,8 @@ libraryDependencies ++= Seq(
   "org.scalactic" %% "scalactic" % "3.0.0",
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   "com.storm-enroute" % "scalameter_2.11" % "0.8.1",
-  "com.pauldijou" %% "jwt-core" % "0.9.0",
 
   "org.slf4j" % "slf4j-simple" % "1.7.21",
   "org.apache.curator" % "curator-framework" % "2.11.0",
-  "org.apache.curator" % "curator-recipes" % "2.11.0",
-  "org.apache.curator" % "curator-x-discovery" % "2.11.0"
+  "org.apache.curator" % "curator-recipes" % "2.11.0"
 )

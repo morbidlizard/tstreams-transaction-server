@@ -20,10 +20,8 @@ import zooKeeper.ZKLeaderClient
 
 
 class TransactionZooKeeperClient {
-
   import ClientConfig._
 
-  private val logger = Logger.get(this.getClass)
   private val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
   zKLeaderClient.start()
@@ -314,7 +312,7 @@ object TransactionZooKeeperClient extends App {
   })
 
 
- // println(Await.result(client.putTransactions(producerTransactions, Seq())))
+  println(Await.result(client.putTransactions(producerTransactions, Seq())))
 
   val data = (0 to 100000) map (_ => rand.nextString(10).getBytes())
 

@@ -1,5 +1,9 @@
+import java.io.File
+
 import authService.AuthServer
 import com.twitter.util.{Await, Closable, Time}
+import configProperties.DB
+import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import transactionZookeeperService.{TransactionZooKeeperClient, TransactionZooKeeperServer}
@@ -19,6 +23,9 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   override def afterEach() {
     Closable.all(transactionServer, authServer).close()
+    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
+    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
+    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
   }
 
   private val rand = scala.util.Random
@@ -92,29 +99,23 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     }
   }
 
-//  it should "put any kind of binary data and get it back" in {
-//    val stream = getRandomStream
-//    Await.result(client.putStream(stream))
-//
-//    val txn = getRandomProducerTransaction(stream)
-//    Await.result(client.putTransaction(txn))
-//
-//    val data = (0 to 100000).map(_=> rand.nextString(1000).getBytes)
-//
-//    val resultInFuture = client.putTransactionData(txn, data)
-//
-//
-//    Await.result(resultInFuture) shouldBe true
-//
-//
-//    println(timeAfter - timeBefore)
-//
-//    val dataFromDatabase = Await.result(client.getTransactionData(txn,0,1000))
-//
-//    println(dataFromDatabase)
-//
-//    //data should contain theSameElementsAs dataFromDatabase
-//  }
+  it should "put any kind of binary data and get it back" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+
+    val txn = getRandomProducerTransaction(stream)
+    Await.result(client.putTransaction(txn))
+
+    val data = (0 to 1000).map(_=> rand.nextString(1000).getBytes)
+
+    val resultInFuture = client.putTransactionData(txn, data)
+
+    Await.result(resultInFuture) shouldBe true
+
+    val dataFromDatabase = Await.result(client.getTransactionData(txn,0,1000))
+
+    data should contain theSameElementsAs dataFromDatabase
+  }
 
   "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
     val stream = getRandomStream
@@ -129,6 +130,5 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
       Await.result(result)
     }
   }
-
-
+  
 }

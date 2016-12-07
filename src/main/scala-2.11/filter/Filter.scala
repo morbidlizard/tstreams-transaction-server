@@ -16,7 +16,7 @@ object Filter {
 //      (timeoutExponentialBetweenRetries.milliseconds, timeoutConnection.milliseconds)
     )(condition)
 
-    new RetryExceptionsFilter[Req, Rep](retryPolicy, HighResTimer.Default)
+    new RetryExceptionsFilter[Req, Rep](retryPolicy, shared.SharedTimer.highResTimer)
   }
 
   val retryConditionToConnect: PartialFunction[Try[Nothing], Boolean] = {

@@ -7,7 +7,7 @@ import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.finagle.Thrift
 import transactionService.rpc.{Stream, Transaction, TransactionService}
 
-class TransactionClient(serverIPAddress: String)/*(implicit val threadPool: transactionService.Context)*/ extends TransactionService[TwitterFuture] {
+class TransactionClient(serverIPAddress: String) extends TransactionService[TwitterFuture] {
   private val client = Thrift.client
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual

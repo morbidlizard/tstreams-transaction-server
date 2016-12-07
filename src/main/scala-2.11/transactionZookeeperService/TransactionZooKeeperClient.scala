@@ -34,7 +34,7 @@ class TransactionZooKeeperClient {
         val messageToParse = e.getMessage
         Logger.get().log(Level.ERROR, messageToParse)
         if (messageToParse.contains(exception.Throwables.tokenInvalidExceptionMessage)) {
-          clientAuth.authenticate(login, password).onSuccess(newToken => token = newToken)
+          clientAuth.authenticate(login, password).map(newToken => token = newToken)
           true
         } else false
     }
@@ -44,13 +44,18 @@ class TransactionZooKeeperClient {
   private val retryPolicyToken = RetryPolicy.backoff(Backoff.const(authTokenTimeoutBetweenRetries.milliseconds)
     .take(authTokenTimeoutConnection/authTokenTimeoutBetweenRetries))(retryConditionToken)
 
-  private def retryFilterToken[Req, Rep] = new RetryExceptionsFilter[Req, Rep](retryPolicyToken, HighResTimer.Default)
+  private def retryFilterToken[Req, Rep] = new RetryExceptionsFilter[Req, Rep](retryPolicyToken, shared.SharedTimer.highResTimer)
 
   private val AddressToTransactionServiceServer = new java.util.concurrent.ConcurrentHashMap[String, TransactionClient]()
   private def getClientTransaction = {
     val master = zKLeaderClient.master.get
-    AddressToTransactionServiceServer.putIfAbsent(master, new TransactionClient(master))
-    AddressToTransactionServiceServer.get(master)
+    if (AddressToTransactionServiceServer.containsKey(master))
+      AddressToTransactionServiceServer.get(master)
+    else {
+      val newClient = new TransactionClient(master)
+      if (AddressToTransactionServiceServer.putIfAbsent(master, newClient) == null)
+        newClient else AddressToTransactionServiceServer.get(master)
+    }
   }
 
   private def getMasterFilter[Req, Rep] = Filter
@@ -130,17 +135,9 @@ class TransactionZooKeeperClient {
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
-
     val txns =
-      producerTransactions.map(txn => new Transaction {
-        override def producerTransaction: Option[ProducerTransaction] = Some(txn)
-
-        override def consumerTransaction: Option[ConsumerTransaction] = None
-      }) ++ consumerTransactions.map(txn => new Transaction {
-        override def producerTransaction: Option[ProducerTransaction] = None
-
-        override def consumerTransaction: Option[ConsumerTransaction] = Some(txn)
-      })
+      producerTransactions.map(txn => Transaction(Some(txn), None)) ++
+      consumerTransactions.map(txn => Transaction(None, Some(txn)))
 
     zkService().flatMap(client => requestChain(client, txns))
   }
@@ -153,11 +150,7 @@ class TransactionZooKeeperClient {
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
-    zkService().flatMap(client => requestChain(client, new Transaction {
-      override def producerTransaction: Option[ProducerTransaction] = Some(transaction)
-
-      override def consumerTransaction: Option[ConsumerTransaction] = None
-    }))
+    zkService().flatMap(client => requestChain(client, Transaction(Some(transaction), None)))
   }
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): TwitterFuture[Boolean] = {
@@ -168,11 +161,7 @@ class TransactionZooKeeperClient {
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
-    zkService().flatMap(client => requestChain(client, new Transaction {
-      override def producerTransaction: Option[ProducerTransaction] = None
-
-      override def consumerTransaction: Option[ConsumerTransaction] = Some(transaction)
-    }))
+    zkService().flatMap(client => requestChain(client, Transaction(None, Some(transaction))))
   }
 
   def scanTransactions(stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = {

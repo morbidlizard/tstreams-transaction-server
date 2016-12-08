@@ -113,7 +113,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     Thread.sleep(configProperties.ClientConfig.authTimeoutConnection*3/5)
-    
+
     authServer = new AuthServer
     authServer.start()
 

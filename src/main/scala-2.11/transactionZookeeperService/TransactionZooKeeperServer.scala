@@ -20,7 +20,7 @@ class TransactionZooKeeperServer
   import configProperties.ServerConfig._
 
 
-  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
+  val zk = new ZKLeaderServer(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
 
   zk.putData(transactionServerAddress.getBytes())

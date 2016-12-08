@@ -14,7 +14,7 @@ object ClientConfig {
 
   val password = config.readProperty[String]("auth.password")
 
-  val zkEndpoints = config.readProperty[String]("zk.endpoints", ',')
+  val zkEndpoints = config.readProperty[String]("zk.endpoints")
 
   val zkTimeoutSession = config.readProperty[Int]("zk.timeout.session")
 

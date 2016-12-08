@@ -2,35 +2,17 @@ package transactionService.client
 
 import java.nio.ByteBuffer
 
-
-import com.twitter.util.{Future => TwitterFuture}
+import com.twitter.util.{Closable, Duration, Time, Future => TwitterFuture}
 import com.twitter.finagle.Thrift
 import transactionService.rpc.{Stream, Transaction, TransactionService}
 
-class TransactionClient(serverIPAddress: String) extends TransactionService[TwitterFuture] {
+class TransactionClient(serverIPAddress: String) extends TransactionService[TwitterFuture] with Closable {
   private val client = Thrift.client
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual
+    .newClient(serverIPAddress)
 
-
-  private def getInterface = {
-    val interface = client.newServiceIface[TransactionService.ServiceIface](serverIPAddress, "transaction")
-    interface.copy(
-      putStream = interface.putStream,
-      doesStreamExist = interface.doesStreamExist,
-      getStream = interface.getStream,
-      delStream = interface.delStream,
-      putTransaction = interface.putTransaction,
-      putTransactions = interface.putTransactions,
-      scanTransactions = interface.scanTransactions,
-      putTransactionData = interface.putTransactionData,
-      getTransactionData = interface.getTransactionData,
-      setConsumerState = interface.setConsumerState,
-      getConsumerState = interface.getConsumerState
-    )
-  }
-
-  private val request = Thrift.client.newMethodIface(getInterface)
+  private val request = new TransactionService.FinagledClient(client.toService)
 
   //Stream API
   override def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] = {
@@ -60,4 +42,7 @@ class TransactionClient(serverIPAddress: String) extends TransactionService[Twit
     request.setConsumerState(token,name,stream,partition,transaction)
   override def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     request.getConsumerState(token,name,stream,partition)
+
+  override def close(deadline: Time): TwitterFuture[Unit]  = client.close(deadline)
+  override def close(after: Duration): TwitterFuture[Unit] = client.close(after)
 }

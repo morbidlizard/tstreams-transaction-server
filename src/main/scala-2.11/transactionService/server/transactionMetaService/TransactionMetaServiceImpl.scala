@@ -27,61 +27,53 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
 
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction) = {
-    getStreamTTL(txn.stream) flatMap {ttl =>
-     TwitterFuture {
-        val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(ttl)) else new WriteOptions()
-        val isNotExist =
-          producerPrimaryIndex
-            .put(databaseTxn, new ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition), putType, writeOptions) != null
-        if (isNotExist) {
-          logger.log(Level.INFO, s"${txn.toString} inserted/updated!")
-          isNotExist
-        } else {
-          logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
-          isNotExist
-        }
-      }
+    val ttl = getStreamTTL(txn.stream)
+    val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(ttl)) else new WriteOptions()
+    val isNotExist =
+      producerPrimaryIndex
+        .put(databaseTxn, new ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition), putType, writeOptions) != null
+    if (isNotExist) {
+      logger.log(Level.INFO, s"${txn.toString} inserted/updated!")
+      isNotExist
+    } else {
+      logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+      isNotExist
     }
   }
 
 
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
     import transactionService.server.сonsumerService._
-    TwitterFuture {
-      val isNotExist =
-        consumerPrimaryIndex
-          .put(databaseTxn, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID), putType, new WriteOptions()) != null
-      if (isNotExist) {
-        logger.log(Level.INFO, s"${txn.toString} inserted/updated!")
-        isNotExist
-      } else {
-        logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
-        isNotExist
-      }
+    val isNotExist =
+      consumerPrimaryIndex
+        .put(databaseTxn, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID), putType, new WriteOptions()) != null
+    if (isNotExist) {
+      logger.log(Level.INFO, s"${txn.toString} inserted/updated!")
+      isNotExist
+    } else {
+      logger.log(Level.WARNING, s"${txn.toString} exists in DB!")
+      isNotExist
     }
   }
 
-  private def putNoTransaction = TwitterFuture.value(false)
+  private def putNoTransaction = false
 
 
-  def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authenticateFutureBody(token) {
-      val transactionDB = environment.beginTransaction(null, null)
-      val (producerTransactionOpt, consumerTransactionOpt) = (transaction.producerTransaction, transaction.consumerTransaction)
+  def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authenticate(token) {
+    val transactionDB = environment.beginTransaction(null, null)
+    val (producerTransactionOpt, consumerTransactionOpt) = (transaction.producerTransaction, transaction.consumerTransaction)
 
-      val result = (producerTransactionOpt, consumerTransactionOpt) match {
-        case (Some(txn), _) => putProducerTransaction(transactionDB, txn)
-        case (_, Some(txn)) => putConsumerTransaction(transactionDB, txn)
-        case _ => putNoTransaction
-      }
+    val result = (producerTransactionOpt, consumerTransactionOpt) match {
+      case (Some(txn), _) => putProducerTransaction(transactionDB, txn)
+      case (_, Some(txn)) => putConsumerTransaction(transactionDB, txn)
+      case _ => putNoTransaction
+    }
 
-      result flatMap {isOkay=>
-        if (isOkay) transactionDB.commit() else transactionDB.abort()
-        TwitterFuture.value(isOkay)
-      }
+    if (result) transactionDB.commit() else transactionDB.abort()
+    result
   }
 
-
-  override def putTransactions(token: String, transactions: Seq[Transaction]): TwitterFuture[Boolean] = authenticateFutureBody(token) {
+  override def putTransactions(token: String, transactions: Seq[Transaction]): TwitterFuture[Boolean] = authenticate(token) {
     val transactionDB = environment.beginTransaction(null, null)
     val result = transactions map { transaction =>
       (transaction.producerTransaction, transaction.consumerTransaction) match {
@@ -91,11 +83,9 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
       }
     }
 
-    TwitterFuture.collect(result).flatMap { transactions =>
-      val isOkay = transactions.forall(_ == true)
-      if (isOkay) transactionDB.commit() else transactionDB.abort()
-      TwitterFuture.value(isOkay)
-    }
+    val isOkay = result.forall(_ == true)
+    if (isOkay) transactionDB.commit() else transactionDB.abort()
+    isOkay
   }
 
 
@@ -109,11 +99,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
           new ProducerTransactionKey(stream, partition, Long.MaxValue), false
         ).iterator().asScala.toArray
 
-      producerTransactions.map(txn => new Transaction {
-        override def producerTransaction: Option[ProducerTransaction] = Some(txn)
-
-        override def consumerTransaction: Option[ConsumerTransaction] = None
-      })
+      producerTransactions.map(txn => Transaction(Some(txn), None))
     }
 }
 

@@ -16,6 +16,7 @@ class AuthClient(ipAddress: String, authTimeoutConnection: Int, authTimeoutExpon
   def timeOutFilter[Req, Rep] = Filter
     .filter[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries, Filter.retryConditionToConnect)
 
+
   private def interface = {
     val interface= client.newServiceIface[AuthService.ServiceIface](ipAddress, "transaction")
     interface.copy(

@@ -1,9 +1,11 @@
 import java.io.File
+import java.util.concurrent.atomic.LongAdder
 
 import authService.AuthServer
 import com.twitter.util.{Await, Closable, Time}
 import configProperties.DB
 import org.apache.commons.io.FileUtils
+import com.twitter.util.{Future => TwitterFuture}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import transactionZookeeperService.{TransactionZooKeeperClient, TransactionZooKeeperServer}
@@ -22,7 +24,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   }
 
   override def afterEach() {
-    Closable.all(transactionServer, authServer).close()
+    Await.result(Closable.all(transactionServer, authServer).close())
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
@@ -53,51 +55,61 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     override def partition: Int = rand.nextInt(10000)
   }
 
-
-  "TransactionZooKeeperClient" should "put producer and consumer transactions" in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream))
-
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(stream))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(stream))
-
-    val result = client.putTransactions(producerTransactions, consumerTransactions)
-
-    Await.result(result) shouldBe true
-  }
-
-  it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream))
-    Await.result(client.delStream(stream))
-
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(stream))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(stream))
-
-    val result = client.putTransactions(producerTransactions, consumerTransactions)
-    assertThrows[org.apache.thrift.TApplicationException] {
-      Await.result(result)
-    }
-  }
-
-  //TODO Config shouldn't be static, because it's impossible to make custom configs for test purposes.
-  it should "not throw an exception when the auth server isn't available for time less than in config" in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream))
-
-    authServer.close()
-
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(stream))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(stream))
+//  val dataCounter = new java.util.concurrent.ConcurrentHashMap[(String,Int), LongAdder]()
+//  def addDataLength(stream: String, partition: Int, dataLength: Int): Unit = {
+//    val valueToAdd = if (dataCounter.containsKey((stream,partition))) dataLength else 0
+//    dataCounter.computeIfAbsent((stream,partition), new java.util.function.Function[(String,Int), LongAdder]{
+//      override def apply(t: (String, Int)): LongAdder = new LongAdder()
+//    }).add(valueToAdd)
+//  }
+//  def getDataLength(stream: String, partition: Int) = dataCounter.get((stream,partition)).intValue()
 
 
-    val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
 
-    assertThrows[org.apache.thrift.TApplicationException] {
-      Await.result(resultInFuture)
-    }
-  }
+  //  "TransactionZooKeeperClient" should "put producer and consumer transactions" in {
+//    val stream = getRandomStream
+//    Await.result(client.putStream(stream))
+//
+//    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+//    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+//
+//    val result = client.putTransactions(producerTransactions, consumerTransactions)
+//
+//    Await.result(result) shouldBe true
+//  }
+
+//  it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
+//    val stream = getRandomStream
+//    Await.result(client.putStream(stream))
+//    Await.result(client.delStream(stream))
+//
+//    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+//    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+//
+//    val result = client.putTransactions(producerTransactions, consumerTransactions)
+//    assertThrows[org.apache.thrift.TApplicationException] {
+//      Await.result(result)
+//    }
+//  }
+//
+//  it should "not throw an exception when the auth server isn't available for time less than in config" in {
+//    val stream = getRandomStream
+//    Await.result(client.putStream(stream))
+//
+//    authServer.close()
+//
+//    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+//    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+//
+//
+//    val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
+//
+//
+//    assertThrows[org.apache.thrift.TApplicationException] {
+//      Await.result(resultInFuture)
+//    }
+//  }
 
   it should "put any kind of binary data and get it back" in {
     val stream = getRandomStream
@@ -106,29 +118,49 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val txn = getRandomProducerTransaction(stream)
     Await.result(client.putTransaction(txn))
 
-    val data = (0 to 1000).map(_=> rand.nextString(1000).getBytes)
+    val data = Array.fill(50)(rand.nextString(10).getBytes)
 
-    val resultInFuture = client.putTransactionData(txn, data)
+
+    val resultInFuture = client.putTransactionData(txn, data, 0)
 
     Await.result(resultInFuture) shouldBe true
 
-    val dataFromDatabase = Await.result(client.getTransactionData(txn,0,1000))
+    val dataFromDatabase = Await.result(client.getTransactionData(txn,0, 50))
 
     data should contain theSameElementsAs dataFromDatabase
   }
 
-  "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream))
-
-    val streamFake = getRandomStream
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(streamFake))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(streamFake))
-
-    val result = client.putTransactions(producerTransactions, consumerTransactions)
-    assertThrows[org.apache.thrift.TApplicationException] {
-      Await.result(result)
-    }
-  }
+//  "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
+//    val stream = getRandomStream
+//    Await.result(client.putStream(stream))
+//
+//    val streamFake = getRandomStream
+//    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
+//    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
+//
+//    val result = client.putTransactions(producerTransactions, consumerTransactions)
+//    assertThrows[org.apache.thrift.TApplicationException] {
+//      Await.result(result)
+//    }
+//  }
+//
+//  "TransactionZooKeeperServer" should "not have problems with many clients" in {
+//    val clients = Array.fill(3)(new TransactionZooKeeperClient)
+//    val streams = Array.fill(10000)(getRandomStream)
+//    Await.result(client.putStream(chooseStreamRandomly(streams)))
+//
+//
+//    val res = TwitterFuture.collect(clients map {client =>
+//      val streamFake = getRandomStream
+//      val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
+//      val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
+//
+//      client.putTransactions(producerTransactions,consumerTransactions)
+//    })
+//
+//    assertThrows[org.apache.thrift.TApplicationException] {
+//      Await.result(res)
+//    }
+//  }
   
 }

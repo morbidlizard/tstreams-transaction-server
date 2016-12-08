@@ -12,6 +12,7 @@ ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile <<= baseDirectory {
 }
 unmanagedSourceDirectories in Compile += baseDirectory.value / "src/main/resources"
 managedSourceDirectories in Compile += baseDirectory.value / sroogeGenOutput
+managedSourceDirectories in Test += baseDirectory.value / "src" / "it"
 
 resolvers ++= Seq(
   "twitter-repo" at "https://maven.twttr.com",
@@ -19,10 +20,9 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "org.apache.thrift" % "libthrift" % "0.5.0-1",
-  "com.twitter" % "scrooge-core_2.11" % "4.11.0",
-  "com.twitter" % "twitter-server_2.11" % "1.24.0",
-  "com.twitter" % "finagle-thrift_2.11" % "6.39.0",
+  "com.twitter" % "scrooge-core_2.11" % "4.12.0",
+  "com.twitter" % "twitter-server_2.11" % "1.25.0",
+  "com.twitter" % "finagle-thrift_2.11" % "6.40.0",
   "org.rocksdb" % "rocksdbjni" % "4.11.2",
   "com.sleepycat" % "je" % "7.0.6",
   "org.scalactic" %% "scalactic" % "3.0.0",

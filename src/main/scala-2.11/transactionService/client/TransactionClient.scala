@@ -50,8 +50,8 @@ class TransactionClient(serverIPAddress: String) extends TransactionService[Twit
   override def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = request.scanTransactions(token, stream, partition)
 
   //TransactionData API
-  override def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] =
-    request.putTransactionData(token, stream, partition, transaction, data)
+  override def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
+    request.putTransactionData(token, stream, partition, transaction, data, from)
   override def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
     request.getTransactionData(token,stream,partition,transaction,from,to)
 

@@ -34,14 +34,12 @@ class TransactionZooKeeperServer
     import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
     val transactionDB = environment.beginTransaction(null, null)
 
+    import scala.collection.JavaConversions._
     val entities = producerSecondaryIndex.subIndex(TransactionStates.Opened.getValue()).entities(transactionDB, new CursorConfig())
-
-    var txn = entities.next()
-    while (txn != null) {
+    entities.iterator().toArray foreach{txn =>
       logger.log(Level.INFO, s"${txn.toString} transit it's state to Invalid!")
       val newInvalidTxn = new ProducerTransaction(txn.transactionID, TransactionStates.Invalid, txn.stream, txn.timestamp, txn.quantity, txn.partition)
       producerPrimaryIndex.put(transactionDB, newInvalidTxn)
-      txn = entities.next()
     }
 
     entities.close()
@@ -50,15 +48,15 @@ class TransactionZooKeeperServer
 
   transiteTxnsToInvalidState()
 
-  Runtime.getRuntime.addShutdownHook(new Thread() {
-    override def run(): Unit = {
-      streamService.StreamServiceImpl.entityStore.close()
-      streamService.StreamServiceImpl.environment.close()
-
-      transactionMetaService.TransactionMetaServiceImpl.entityStore.close()
-      transactionMetaService.TransactionMetaServiceImpl.environment.close()
-    }
-  })
+//  Runtime.getRuntime.addShutdownHook(new Thread() {
+//    override def run(): Unit = {
+//      streamService.StreamServiceImpl.entityStore.close()
+//      streamService.StreamServiceImpl.environment.close()
+//
+//      transactionMetaService.TransactionMetaServiceImpl.entityStore.close()
+//      transactionMetaService.TransactionMetaServiceImpl.environment.close()
+//    }
+//  })
 }
 
 object TransactionZooKeeperServer extends App {

@@ -13,6 +13,7 @@ class RocksDbConnection(name: String, ttl: Int = -1) extends Closeable {
     TtlDB.open(new Options().setCreateIfMissing(true).setBytesPerSync(8000000), path, ttl, false)
   }
 
+
   def get(key: Array[Byte]) = client.get(key)
 
   def iterator = client.newIterator()

@@ -28,8 +28,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction) = {
     getStreamTTL(txn.stream) flatMap {ttl =>
-      val futurePool = Context.transactionContexts.getContext(txn.stream.hashCode, txn.partition)
-      futurePool {
+     TwitterFuture {
         val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(ttl)) else new WriteOptions()
         val isNotExist =
           producerPrimaryIndex
@@ -48,8 +47,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
     import transactionService.server.сonsumerService._
-    val futurePool = transactionService.Context.transactionContexts.getContext(0L)
-    futurePool {
+    TwitterFuture {
       val isNotExist =
         consumerPrimaryIndex
           .put(databaseTxn, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID), putType, new WriteOptions()) != null

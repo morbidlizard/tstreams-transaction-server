@@ -34,33 +34,21 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     }
   }
 
-
-  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer]): TwitterFuture[Boolean] =
+  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
     authenticateFutureBody(token) {
       getStreamTTL(stream).flatMap { ttl =>
         TwitterFuture {
           val rocksDB = getStorage(stream, partition, ttl)
-          val keyToStartWrite = Key(stream, partition, transaction).maxDataSeq
-          val indexOfKeyToWrite = Option(rocksDB.get(keyToStartWrite))
-          val delta = indexOfKeyToWrite match {
-            case Some(bytes) => java.nio.ByteBuffer.wrap(bytes).getInt(0)
-            case None => 0
-          }
-
           val batch = rocksDB.newBatch
 
-          if (indexOfKeyToWrite.isDefined) batch.remove(keyToStartWrite)
-          batch.put(keyToStartWrite, delta + data.length)
-
-          val rangeDataToSave = delta until (delta + data.length)
-          val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(stream, partition, transaction), seqId).toString)
+          val rangeDataToSave = from until (from + data.length)
+          val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(stream, partition, transaction), seqId).toBinary)
           (keys zip data) foreach { case (key, datum) =>
             val sizeOfSlicedData = datum.limit() - datum.position()
             val bytes = new Array[Byte](sizeOfSlicedData)
             datum.get(bytes)
             batch.put(key, bytes)
           }
-
           val result = batch.write()
           result
         }
@@ -73,15 +61,14 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
         TwitterFuture {
           val rocksDB = getStorage(stream, partition, ttl)
 
-          val fromSeqId = KeyDataSeq(Key(stream, partition, transaction), from).toString
-          val toSeqId = KeyDataSeq(Key(stream, partition, transaction), to).toString
+          val fromSeqId = KeyDataSeq(Key(stream, partition, transaction), from).toBinary
+          val toSeqId = KeyDataSeq(Key(stream, partition, transaction), to).toBinary
 
           val iterator = rocksDB.iterator
           iterator.seek(fromSeqId)
 
-
           val data = new ArrayBuffer[ByteBuffer](to - from)
-          while (iterator.isValid && new String(iterator.key()) <= toSeqId) {
+          while (iterator.isValid && ByteArray.lteq(iterator.key(),toSeqId)) {
             data += java.nio.ByteBuffer.wrap(iterator.value())
             iterator.next()
           }

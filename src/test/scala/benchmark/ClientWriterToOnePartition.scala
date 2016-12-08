@@ -29,7 +29,7 @@ object ClientWriterToOnePartition extends TransactionCreator with CsvWriter with
         globalProgress += 1
       }
 
-      x -> time(Await.result(client.putTransactionData(producerTransactions.head, data)))
+      x -> time(Await.result(client.putTransactionData(producerTransactions.head, data, ???)))
     })
 
     writeTransactionsAndTime(filename, result)

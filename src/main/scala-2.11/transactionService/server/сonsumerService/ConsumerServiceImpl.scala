@@ -14,23 +14,17 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
   with Authenticable
 {
   def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
-    authenticateFutureBody(token) {
-      val futurePool = Context.transactionContexts.getContext(0L)
-      futurePool {
-        Option(consumerPrimaryIndex.get(new ConsumerKey(name, stream, partition))) match {
-          case Some(consumer) => consumer.transactionID
-          case None => -1L
-        }
+    authenticate(token) {
+      Option(consumerPrimaryIndex.get(new ConsumerKey(name, stream, partition))) match {
+        case Some(consumer) => consumer.transactionID
+        case None => -1L
       }
     }
 
   def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =
-    authenticateFutureBody(token) {
-      val futurePool = Context.transactionContexts.getContext(0L)
-      futurePool {
-        consumerPrimaryIndex.put(new ConsumerTransaction(name, stream, partition, transaction))
-        true
-      }
+    authenticate(token) {
+      consumerPrimaryIndex.put(new ConsumerTransaction(name, stream, partition, transaction))
+      true
     }
 }
 

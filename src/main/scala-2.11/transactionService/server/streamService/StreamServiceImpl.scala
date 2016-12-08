@@ -25,9 +25,8 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
 
   def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
     authenticate(token) {
-      pIdx.put(new Stream(stream, partitions, description, ttl))
       streamTTL.putIfAbsent(stream, ttl)
-      true
+      pIdx.putNoOverwrite(new Stream(stream, partitions, description, ttl))
     }
 
   def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =

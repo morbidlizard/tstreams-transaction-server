@@ -7,9 +7,8 @@ import authService.AuthClient
 import com.twitter.finagle.service.{Backoff, RetryExceptionsFilter, RetryPolicy}
 import com.twitter.finagle.Service
 import com.twitter.logging.{Level, Logger}
-import com.twitter.util.FuturePool
+import com.twitter.util.{Await, Closable, Duration, FuturePool, Throw, Time, Try, Future => TwitterFuture}
 import com.twitter.conversions.time._
-import com.twitter.util.{Await, Throw, Time, Try, Future => TwitterFuture}
 import filter.Filter
 import org.apache.curator.retry.RetryNTimes
 import configProperties.ClientConfig
@@ -18,7 +17,7 @@ import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transac
 import zooKeeper.ZKLeaderClient
 
 
-class TransactionZooKeeperClient {
+class TransactionZooKeeperClient extends Closable {
   import ClientConfig._
 
   private val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
@@ -27,6 +26,8 @@ class TransactionZooKeeperClient {
 
   private val clientAuth = new AuthClient(authAddress, authTimeoutConnection, authTimeoutBetweenRetries)
   @volatile private var token: String = _
+  clientAuth.authenticate(login, password).map(newToken => token = newToken)
+
   private val retryConditionToken: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
       case e =>
@@ -162,11 +163,12 @@ class TransactionZooKeeperClient {
     zkService().flatMap(client => requestChain(client, Transaction(None, Some(transaction))))
   }
 
-  def scanTransactions(stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = {
-    val transactionService = new Service[(TransactionClient, String, Int), Seq[Transaction]] {
-      override def apply(request: (TransactionClient, String, Int)): TwitterFuture[Seq[Transaction]] = {
+  def scanTransactions(stream: String, partition: Int): TwitterFuture[Seq[ProducerTransaction]] = {
+    val transactionService = new Service[(TransactionClient, String, Int), Seq[ProducerTransaction]] {
+      override def apply(request: (TransactionClient, String, Int)): TwitterFuture[Seq[ProducerTransaction]] = {
         val (client, stream, partition) = request
         client.scanTransactions(token, stream, partition)
+          .flatMap(txn => TwitterFuture.value(txn map (_.producerTransaction.get)))
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
@@ -260,6 +262,15 @@ class TransactionZooKeeperClient {
     val (name, stream, partition) = consumerTransaction
     zkService().flatMap(client => requestChain((client, name, stream, partition)))
   }
+
+  import scala.collection.JavaConverters._
+  override def close(deadline: Time): TwitterFuture[Unit] = {
+    TwitterFuture.collect(AddressToTransactionServiceServer.values().asScala.map(_.close(deadline)).toArray) map (_ => TwitterFuture.value())
+  }
+  override def close(after: Duration): TwitterFuture[Unit] = {
+    TwitterFuture.collect(AddressToTransactionServiceServer.values().asScala.map(_.close(after)).toArray) map (_ => TwitterFuture.value())
+  }
+
 }
 
 object TransactionZooKeeperClient extends App {

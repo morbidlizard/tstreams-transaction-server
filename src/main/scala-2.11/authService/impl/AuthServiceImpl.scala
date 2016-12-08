@@ -10,6 +10,7 @@ trait AuthServiceImpl extends AuthService[TwitterFuture] {
   val usersToken = CacheBuilder.newBuilder()
     .maximumSize(configProperties.AuthConfig.authTokenActiveMax)
     .expireAfterWrite(configProperties.AuthConfig.authTokenTimeExpiration, java.util.concurrent.TimeUnit.SECONDS)
+    .softValues()
     .build[String,(String,String)]()
 
 

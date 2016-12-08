@@ -9,8 +9,7 @@ import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
 
 
-//TODO think of implementation when there are many zkServers combined a Quorum
-class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
+class ZKLeaderClient(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends NodeCacheListener with Closeable {
   private val logger = Logger.get(this.getClass)
   val client = {
@@ -18,7 +17,7 @@ class ZKLeaderClient(endpoints: Seq[String], sessionTimeoutMillis: Int, connecti
       .sessionTimeoutMs(sessionTimeoutMillis)
       .connectionTimeoutMs(connectionTimeoutMillis)
       .retryPolicy(policy)
-      .connectString(endpoints.head)
+      .connectString(endpoints)
       .build()
 
     connection.start()

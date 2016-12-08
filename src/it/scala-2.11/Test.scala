@@ -11,11 +11,12 @@ import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transac
 import transactionZookeeperService.{TransactionZooKeeperClient, TransactionZooKeeperServer}
 
 class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
-  val client: TransactionZooKeeperClient = new TransactionZooKeeperClient
+  var client: TransactionZooKeeperClient = _
   var transactionServer: TransactionZooKeeperServer = _
   var authServer: AuthServer = _
 
   override def beforeEach(): Unit = {
+    client = new TransactionZooKeeperClient
     transactionServer = new TransactionZooKeeperServer
     authServer = new AuthServer
 
@@ -24,7 +25,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   }
 
   override def afterEach() {
-    Await.result(Closable.all(transactionServer, authServer).close())
+    Await.result(Closable.all(transactionServer, authServer, client).close())
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
@@ -45,71 +46,79 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     override val stream: String = streamObj.name
     override val timestamp: Long = Time.epoch.inNanoseconds
     override val quantity: Int = -1
-    override val partition: Int = rand.nextInt(10000)
+    override val partition: Int = streamObj.partitions
   }
 
   private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =  new ConsumerTransaction {
     override def transactionID: Long = scala.util.Random.nextLong()
     override def name: String = rand.nextInt(10000).toString
     override def stream: String = streamObj.name
-    override def partition: Int = rand.nextInt(10000)
+    override def partition: Int = streamObj.partitions
   }
 
-//  val dataCounter = new java.util.concurrent.ConcurrentHashMap[(String,Int), LongAdder]()
-//  def addDataLength(stream: String, partition: Int, dataLength: Int): Unit = {
-//    val valueToAdd = if (dataCounter.containsKey((stream,partition))) dataLength else 0
-//    dataCounter.computeIfAbsent((stream,partition), new java.util.function.Function[(String,Int), LongAdder]{
-//      override def apply(t: (String, Int)): LongAdder = new LongAdder()
-//    }).add(valueToAdd)
-//  }
-//  def getDataLength(stream: String, partition: Int) = dataCounter.get((stream,partition)).intValue()
+
+    "TransactionZooKeeperClient" should "put producer and consumer transactions" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+
+    val result = client.putTransactions(producerTransactions, consumerTransactions)
+
+    Await.result(result) shouldBe true
+  }
+
+  it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+    Await.result(client.delStream(stream))
+
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+
+    val result = client.putTransactions(producerTransactions, consumerTransactions)
+    assertThrows[org.apache.thrift.TApplicationException] {
+      Await.result(result)
+    }
+  }
+
+  it should "throw an exception when the auth server isn't available for time greater than in config" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+
+    authServer.close()
+
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
 
+    val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
 
-  //  "TransactionZooKeeperClient" should "put producer and consumer transactions" in {
-//    val stream = getRandomStream
-//    Await.result(client.putStream(stream))
-//
-//    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
-//    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
-//
-//    val result = client.putTransactions(producerTransactions, consumerTransactions)
-//
-//    Await.result(result) shouldBe true
-//  }
+    assertThrows[org.apache.thrift.TApplicationException] {
+      Await.result(resultInFuture)
+    }
+  }
 
-//  it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
-//    val stream = getRandomStream
-//    Await.result(client.putStream(stream))
-//    Await.result(client.delStream(stream))
-//
-//    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
-//    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
-//
-//    val result = client.putTransactions(producerTransactions, consumerTransactions)
-//    assertThrows[org.apache.thrift.TApplicationException] {
-//      Await.result(result)
-//    }
-//  }
-//
-//  it should "not throw an exception when the auth server isn't available for time less than in config" in {
-//    val stream = getRandomStream
-//    Await.result(client.putStream(stream))
-//
-//    authServer.close()
-//
-//    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
-//    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
-//
-//
-//    val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
-//
-//
-//    assertThrows[org.apache.thrift.TApplicationException] {
-//      Await.result(resultInFuture)
-//    }
-//  }
+  it should "not throw an exception when the auth server isn't available for time less than in config" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+
+    authServer.close()
+
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+
+    val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
+
+    Thread.sleep(configProperties.ClientConfig.authTimeoutConnection*3/5)
+    
+    authServer = new AuthServer
+    authServer.start()
+
+    Await.result(resultInFuture) shouldBe true
+  }
 
   it should "put any kind of binary data and get it back" in {
     val stream = getRandomStream
@@ -130,37 +139,65 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     data should contain theSameElementsAs dataFromDatabase
   }
 
-//  "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
-//    val stream = getRandomStream
-//    Await.result(client.putStream(stream))
-//
-//    val streamFake = getRandomStream
-//    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
-//    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
-//
-//    val result = client.putTransactions(producerTransactions, consumerTransactions)
-//    assertThrows[org.apache.thrift.TApplicationException] {
-//      Await.result(result)
-//    }
-//  }
-//
-//  "TransactionZooKeeperServer" should "not have problems with many clients" in {
-//    val clients = Array.fill(3)(new TransactionZooKeeperClient)
-//    val streams = Array.fill(10000)(getRandomStream)
-//    Await.result(client.putStream(chooseStreamRandomly(streams)))
-//
-//
-//    val res = TwitterFuture.collect(clients map {client =>
-//      val streamFake = getRandomStream
-//      val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
-//      val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
-//
-//      client.putTransactions(producerTransactions,consumerTransactions)
-//    })
-//
-//    assertThrows[org.apache.thrift.TApplicationException] {
-//      Await.result(res)
-//    }
-//  }
+  it should "put transactions and get them back" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+
+    Await.result(client.putTransactions(producerTransactions, consumerTransactions))
+
+    Await.result(client.scanTransactions(stream.name, stream.partitions)) should contain theSameElementsAs producerTransactions
+  }
+
+  "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+
+    val streamFake = getRandomStream
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
+
+    val result = client.putTransactions(producerTransactions, consumerTransactions)
+    assertThrows[org.apache.thrift.TApplicationException] {
+      Await.result(result)
+    }
+  }
+
+  it should "not have problems with many clients" in {
+    val clients = Array.fill(3)(new TransactionZooKeeperClient)
+    val streams = Array.fill(10000)(getRandomStream)
+    Await.result(client.putStream(chooseStreamRandomly(streams)))
+
+    val dataCounter = new java.util.concurrent.ConcurrentHashMap[(String,Int), LongAdder]()
+    def addDataLength(stream: String, partition: Int, dataLength: Int): Unit = {
+      val valueToAdd = if (dataCounter.containsKey((stream,partition))) dataLength else 0
+      dataCounter.computeIfAbsent((stream,partition), new java.util.function.Function[(String,Int), LongAdder]{
+        override def apply(t: (String, Int)): LongAdder = new LongAdder()
+      }).add(valueToAdd)
+    }
+    def getDataLength(stream: String, partition: Int) = dataCounter.get((stream,partition)).intValue()
+
+
+    val res = TwitterFuture.collect(clients map {client =>
+      val streamFake = getRandomStream
+      client.putStream(streamFake).map{_ =>
+        val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
+        val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
+        val data = Array.fill(100)(rand.nextInt(10000).toString.getBytes)
+
+        client.putTransactions(producerTransactions, consumerTransactions)
+
+        val (stream, partition) = (producerTransactions.head.stream, producerTransactions.head.partition)
+        addDataLength(stream, partition, data.length)
+        client.putTransactionData(producerTransactions.head, data, getDataLength(stream, partition))
+      }.flatten
+    })
+
+    all (Await.result(res)) shouldBe true
+    Await.result(Closable.close(clients))
+  }
+
   
 }

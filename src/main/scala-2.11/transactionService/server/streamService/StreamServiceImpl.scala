@@ -13,15 +13,15 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
   with CheckpointTTL
 {
 
-  def getStreamTTL(stream: String): TwitterFuture[Int] =
-    if (streamTTL.containsKey(stream)) TwitterFuture.value(streamTTL.get(stream))
+  def getStreamTTL(stream: String): Int =
+    if (streamTTL.containsKey(stream)) streamTTL.get(stream)
     else {
-      TwitterFuture(pIdx.get(stream)) flatMap { streamObj => if (streamObj != null) {
+      val streamObj = pIdx.get(stream)
+      if (streamObj != null) {
         streamTTL.put(streamObj.name, streamObj.ttl)
-        TwitterFuture.value(streamObj.ttl)
-      } else TwitterFuture.exception(throw new StreamNotExist)
-      }
-  }
+        streamObj.ttl
+      } else throw new StreamNotExist
+    }
 
   def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
     authenticate(token) {

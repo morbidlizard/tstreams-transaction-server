@@ -1,14 +1,10 @@
 package transactionZookeeperService
 
 import authService.AuthClient
-import com.sleepycat.je.CursorConfig
 import com.twitter.finagle.{ListeningServer, Thrift}
-import com.twitter.logging.Level
 import com.twitter.util.{Await, Closable, Time, Future => TwitterFuture}
 import org.apache.curator.retry.RetryNTimes
-import transactionService.rpc.TransactionStates
-import transactionService.server.{TransactionServer, streamService, transactionMetaService}
-import transactionService.server.transactionMetaService.ProducerTransaction
+import transactionService.server.TransactionServer
 import zooKeeper.ZKLeaderServer
 
 class TransactionZooKeeperServer
@@ -28,25 +24,6 @@ class TransactionZooKeeperServer
   private val server = Thrift.server
   val start: ListeningServer = server.serveIface(transactionServerAddress, this)
   override def close(deadline: Time): TwitterFuture[Unit] = start.close(deadline)
-
-
-  private def transiteTxnsToInvalidState() = {
-    import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
-    val transactionDB = environment.beginTransaction(null, null)
-
-    import scala.collection.JavaConversions._
-    val entities = producerSecondaryIndex.subIndex(TransactionStates.Opened.getValue()).entities(transactionDB, new CursorConfig())
-    entities.iterator().toArray foreach{txn =>
-      logger.log(Level.INFO, s"${txn.toString} transit it's state to Invalid!")
-      val newInvalidTxn = new ProducerTransaction(txn.transactionID, TransactionStates.Invalid, txn.stream.toLong, txn.timestamp, txn.quantity, txn.partition)
-      producerPrimaryIndex.put(transactionDB, newInvalidTxn)
-    }
-
-    entities.close()
-    transactionDB.commit()
-  }
-
-  transiteTxnsToInvalidState()
 
 //  Runtime.getRuntime.addShutdownHook(new Thread() {
 //    override def run(): Unit = {

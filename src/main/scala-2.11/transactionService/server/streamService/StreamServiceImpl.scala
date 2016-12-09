@@ -7,26 +7,28 @@ import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.streamService.StreamServiceImpl._
 import transactionService.rpc.StreamService
 import exception.Throwables._
+import shared.FNV
 
 trait StreamServiceImpl extends StreamService[TwitterFuture]
   with Authenticable
   with CheckpointTTL
 {
 
-  def getStreamTTL(stream: String): Int =
+  override def getStream(stream: String): transactionService.server.streamService.Stream =
     if (streamTTL.containsKey(stream)) streamTTL.get(stream)
     else {
       val streamObj = pIdx.get(stream)
       if (streamObj != null) {
-        streamTTL.put(streamObj.name, streamObj.ttl)
-        streamObj.ttl
+        streamTTL.put(streamObj.name, streamObj)
+        streamObj
       } else throw new StreamNotExist
     }
 
   def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
     authenticate(token) {
-      streamTTL.putIfAbsent(stream, ttl)
-      pIdx.putNoOverwrite(new Stream(stream, partitions, description, ttl))
+      val newStream = new Stream(stream, partitions, description, ttl, FNV.hash64a(stream.getBytes()).toLong)
+      streamTTL.putIfAbsent(stream, newStream)
+      pIdx.putNoOverwrite(newStream)
     }
 
   def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =

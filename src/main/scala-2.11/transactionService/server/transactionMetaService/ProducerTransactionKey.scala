@@ -4,10 +4,10 @@ import com.sleepycat.persist.model.{KeyField, Persistent}
 
 @Persistent
 class ProducerTransactionKey {
-  @KeyField(1) var stream: String = _
+  @KeyField(1) var stream: java.lang.Long = _
   @KeyField(2) var partition: Int = _
   @KeyField(3) var transactionID: java.lang.Long = _
-  def this(stream: String, partition:Int, transactionID: java.lang.Long) = {
+  def this(stream: java.lang.Long, partition:Int, transactionID: java.lang.Long) = {
     this()
     this.stream = stream
     this.partition = partition

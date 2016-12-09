@@ -8,7 +8,7 @@ class ConsumerTransaction extends transactionService.rpc.ConsumerTransaction {
   private var transactionIDDB: java.lang.Long = _
 
   def this(name: String,
-           stream: String,
+           stream: java.lang.Long,
            partition: Int,
            transactionID: java.lang.Long
           ) {
@@ -19,7 +19,7 @@ class ConsumerTransaction extends transactionService.rpc.ConsumerTransaction {
 
   override def transactionID: Long = transactionIDDB
   override def name: String = key.name
-  override def stream: String = key.stream
+  override def stream: String = key.stream.toString
   override def partition: Int = key.partition
   override def toString: String = s"Consumer transaction: ${key.toString}"
 }

@@ -3,6 +3,7 @@ package authService.impl
 import authService.rpc.AuthService
 import com.twitter.util.{Future => TwitterFuture}
 import com.google.common.cache.CacheBuilder
+import shared.FNV
 
 
 trait AuthServiceImpl extends AuthService[TwitterFuture] {

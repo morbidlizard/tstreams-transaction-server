@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import com.twitter.util.{Future => TwitterFuture}
 import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.db.RocksDbConnection
-import transactionService.server.`implicit`.Implicits._
+import `implicit`.Implicits._
 import transactionService.rpc.TransactionDataService
 
 import scala.collection.mutable.ArrayBuffer
@@ -36,12 +36,12 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
 
   def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
     authenticate(token) {
-      val ttl = getStreamTTL(stream)
-      val rocksDB = getStorage(stream, partition, ttl)
+      val streamObj = getStream(stream)
+      val rocksDB = getStorage(stream, partition, streamObj.ttl)
       val batch = rocksDB.newBatch
 
       val rangeDataToSave = from until (from + data.length)
-      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(stream, partition, transaction), seqId).toBinary)
+      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(streamObj.streamNameToLong, partition, transaction), seqId).toBinary)
       (keys zip data) foreach { case (key, datum) =>
         val sizeOfSlicedData = datum.limit() - datum.position()
         val bytes = new Array[Byte](sizeOfSlicedData)
@@ -55,11 +55,11 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
 
   def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
     authenticate(token) {
-      val ttl = getStreamTTL(stream)
-      val rocksDB = getStorage(stream, partition, ttl)
+      val streamObj = getStream(stream)
+      val rocksDB = getStorage(stream, partition, streamObj.ttl)
 
-      val fromSeqId = KeyDataSeq(Key(stream, partition, transaction), from).toBinary
-      val toSeqId = KeyDataSeq(Key(stream, partition, transaction), to).toBinary
+      val fromSeqId = KeyDataSeq(Key(streamObj.streamNameToLong, partition, transaction), from).toBinary
+      val toSeqId = KeyDataSeq(Key(streamObj.streamNameToLong, partition, transaction), to).toBinary
 
       val iterator = rocksDB.iterator
       iterator.seek(fromSeqId)

@@ -2,25 +2,27 @@ package transactionService.server.transactionMetaService
 
 
 import com.sleepycat.je.{Transaction => _, _}
+import java.util.concurrent.TimeUnit._
 import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util.{Future => TwitterFuture}
 import transactionService.rpc.TransactionStates.Checkpointed
 import transactionService.rpc._
-import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
 import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.сonsumerService.ConsumerServiceImpl.consumerPrimaryIndex
+import TransactionMetaServiceImpl._
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   with Authenticable
   with CheckpointTTL {
+
   val logger = Logger.get(this.getClass)
 
-  private val putType = Put.OVERWRITE
+  private final val putType = Put.OVERWRITE
 
   private def checkTTL(ttl: Int) = {
-    val ttlInHours = java.util.concurrent.TimeUnit.MILLISECONDS.toHours(ttl.toLong).toInt
+    val ttlInHours = MILLISECONDS.toHours(ttl.toLong).toInt
     if (ttlInHours == 0) 1 else ttlInHours
   }
 
@@ -33,11 +35,11 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   }
 
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction) = {
-    val ttl = getStreamTTL(txn.stream)
-    val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(ttl)) else new WriteOptions()
-    val isNotExist =
-      producerPrimaryIndex
-        .put(databaseTxn, new ProducerTransaction(txn.transactionID, txn.state, txn.stream, txn.timestamp, txn.quantity, txn.partition), putType, writeOptions) != null
+    val streamObj = getStream(txn.stream)
+    val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(streamObj.ttl), HOURS) else new WriteOptions()
+
+    val isNotExist = producerPrimaryIndex
+      .put(databaseTxn, new ProducerTransaction(txn.transactionID, txn.state, streamObj.streamNameToLong, txn.timestamp, txn.quantity, txn.partition), putType, writeOptions) != null
 
     logAboutTransactionExistence(isNotExist, txn.toString)
 
@@ -47,9 +49,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
     import transactionService.server.сonsumerService._
+    val streamNameToLong = getStream(txn.stream).streamNameToLong
     val isNotExist =
       consumerPrimaryIndex
-        .put(databaseTxn, new ConsumerTransaction(txn.name, txn.stream, txn.partition, txn.transactionID), putType, new WriteOptions()) != null
+        .put(databaseTxn, new ConsumerTransaction(txn.name, streamNameToLong, txn.partition, txn.transactionID), putType, new WriteOptions()) != null
     logAboutTransactionExistence(isNotExist, txn.toString)
 
     isNotExist
@@ -64,6 +67,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
       case _ => putNoTransaction
     }
 
+
   def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authenticate(token) {
     val transactionDB = environment.beginTransaction(null, null)
     val result = matchTransactionToPut(transaction, transactionDB)
@@ -71,12 +75,12 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
     result
   }
 
+
   override def putTransactions(token: String, transactions: Seq[Transaction]): TwitterFuture[Boolean] = authenticate(token) {
     val transactionDB = environment.beginTransaction(null, null)
     val result = transactions map { transaction =>
       matchTransactionToPut(transaction, transactionDB)
     }
-
     val isOkay = result.forall(_ == true)
     if (isOkay) transactionDB.commit() else transactionDB.abort()
     isOkay
@@ -84,17 +88,16 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
   def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] =
     authenticate(token) {
-      getProducerTransactions(stream, partition).map(txn => Transaction(Some(txn), None))
-    }
+      import scala.collection.JavaConverters._
+      val streamObj = getStream(stream)
+      val producerTransactions = producerPrimaryIndex
+        .entities(
+          new ProducerTransactionKey(streamObj.streamNameToLong, partition, Long.MinValue), false,
+          new ProducerTransactionKey(streamObj.streamNameToLong, partition, Long.MaxValue), false
+        ).iterator().asScala.toArray.map(txn => ProducerTransaction(streamObj.name,txn.partition,txn.transactionID,txn.state,txn.quantity,txn.timestamp))
 
-  private def getProducerTransactions(stream: String, partition: Int) = {
-    import scala.collection.JavaConverters._
-    producerPrimaryIndex
-      .entities(
-        new ProducerTransactionKey(stream, partition, Long.MinValue), false,
-        new ProducerTransactionKey(stream, partition, Long.MaxValue), false
-      ).iterator().asScala.toArray
-  }
+      producerTransactions.map(txn => Transaction(Some(txn), None))
+    }
 }
 
 object TransactionMetaServiceImpl {
@@ -108,10 +111,17 @@ object TransactionMetaServiceImpl {
     .setAllowCreate(true)
     .setTransactional(true)
     .setTxnTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
+
+  val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
+  environmentConfig.setDurabilityVoid(defaultDurability)
+
+
   val storeConfig = new StoreConfig()
     .setAllowCreate(true)
     .setTransactional(true)
+
   val environment = new Environment(directory, environmentConfig)
+
   val entityStore = new EntityStore(environment, TransactionMetaServiceImpl.storeName, storeConfig)
 
   val producerPrimaryIndex = entityStore.getPrimaryIndex(classOf[ProducerTransactionKey], classOf[ProducerTransaction])

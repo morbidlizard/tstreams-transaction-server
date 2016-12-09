@@ -20,7 +20,7 @@ class TransactionZooKeeperServer
   import configProperties.ServerConfig._
 
 
-  val zk = new ZKLeaderServer(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
+  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
 
   zk.putData(transactionServerAddress.getBytes())
@@ -38,7 +38,7 @@ class TransactionZooKeeperServer
     val entities = producerSecondaryIndex.subIndex(TransactionStates.Opened.getValue()).entities(transactionDB, new CursorConfig())
     entities.iterator().toArray foreach{txn =>
       logger.log(Level.INFO, s"${txn.toString} transit it's state to Invalid!")
-      val newInvalidTxn = new ProducerTransaction(txn.transactionID, TransactionStates.Invalid, txn.stream, txn.timestamp, txn.quantity, txn.partition)
+      val newInvalidTxn = new ProducerTransaction(txn.transactionID, TransactionStates.Invalid, txn.stream.toLong, txn.timestamp, txn.quantity, txn.partition)
       producerPrimaryIndex.put(transactionDB, newInvalidTxn)
     }
 

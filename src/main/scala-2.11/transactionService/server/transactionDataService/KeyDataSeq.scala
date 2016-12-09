@@ -1,6 +1,6 @@
 package transactionService.server.transactionDataService
 
-import transactionService.server.`implicit`.Implicits._
+import `implicit`.Implicits._
 
 case class KeyDataSeq(key: Key, dataSeq: Int) {
   def toBinary: Array[Byte] = key.toBinary ++ intToByteArray(dataSeq)

@@ -1,5 +1,4 @@
-package authService.impl
-
+package shared
 
 //https://github.com/jakedouglas/fnv-java
 object FNV {

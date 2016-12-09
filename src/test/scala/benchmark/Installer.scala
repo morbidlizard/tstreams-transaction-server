@@ -3,9 +3,10 @@ package benchmark
 import java.io.File
 import java.util.logging.LogManager
 
+import com.twitter.util.Await
 import configProperties.DB
 import org.apache.commons.io.FileUtils
-import transactionZookeeperService.TransactionZooKeeperServer
+import transactionZookeeperService.{TransactionZooKeeperClient, TransactionZooKeeperServer}
 
 trait Installer {
   def clearDB() = {
@@ -28,5 +29,15 @@ trait Installer {
 
       override def run(): Unit = TransactionZooKeeperServer.main(Array())
     }).start()
+  }
+
+  def createStream(name: String, partitions: Int) = {
+    val client = new TransactionZooKeeperClient
+    Await.result(client.putStream(name, partitions, None, 5))
+  }
+
+  def deleteStream(name: String) = {
+    val client = new TransactionZooKeeperClient
+    Await.result(client.delStream(name))
   }
 }

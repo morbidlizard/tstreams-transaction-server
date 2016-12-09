@@ -1,12 +1,12 @@
 package transactionService.server.transactionMetaService
 
-import com.sleepycat.persist.model.{Entity, PrimaryKey, Relationship, SecondaryKey}
+import com.sleepycat.persist.model._
 import transactionService.rpc.TransactionStates
 
 @Entity
 class ProducerTransaction extends transactionService.rpc.ProducerTransaction {
   @PrimaryKey private var key: ProducerTransactionKey = _
-  @SecondaryKey(relate = Relationship.MANY_TO_ONE) private var stateDB: Int = _
+  @SecondaryKey(relate = Relationship.MANY_TO_ONE, onRelatedEntityDelete = DeleteAction.CASCADE) private var stateDB: Int = _
   private var timestampDB: java.lang.Long = _
   private var quantityDB: Int = _
 

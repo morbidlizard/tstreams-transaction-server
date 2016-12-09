@@ -10,8 +10,8 @@ object DB {
 
   val TransactionMetaDirName   = "transaction_meta"
   val TransactionMetaStoreName = "TransactionStore"
-  val TransactionMetaProducerSecondaryIndexName = "stateDB"
-  val TransactionMetaTimeUnit  = java.util.concurrent.TimeUnit.MINUTES
+  final val TransactionMetaProducerSecondaryIndexState = "stateDB"
+  val TransactionMetaTimeUnit  = java.util.concurrent.TimeUnit.SECONDS
   val TransactionMetaMaxTimeout = 5L
 
   val ConsumerStoreName = "ConsumerStore"

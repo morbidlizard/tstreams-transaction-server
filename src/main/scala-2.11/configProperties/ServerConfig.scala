@@ -32,5 +32,7 @@ object ServerConfig {
 
   val authTimeoutBetweenRetries = config.readProperty[Int]("auth.timeout.betweenRetries")
 
+  val transactionTimeoutCleanOpened = config.readProperty[Int]("transaction.timeout.clean.opened(sec)")
+
   val transactionDataTtlAdd = config.readProperty[Int]("transaction.data.ttl.add")
 }

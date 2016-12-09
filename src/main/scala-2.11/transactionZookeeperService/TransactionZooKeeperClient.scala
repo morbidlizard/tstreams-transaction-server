@@ -118,14 +118,14 @@ class TransactionZooKeeperClient extends Closable {
     zkService().flatMap(client => requestChain(client, stream))
   }
 
-  private val executor = Executors.newSingleThreadExecutor
+  private val futurePool = FuturePool.interruptible(Executors.newSingleThreadExecutor)
 
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): TwitterFuture[Boolean] = {
     val transactionService = new Service[(TransactionClient, Seq[Transaction]), Boolean] {
       override def apply(request: (TransactionClient, Seq[Transaction])): TwitterFuture[Boolean] = {
         val (client, txns) = request
-        FuturePool.interruptible(executor)(client.putTransactions(token, txns)).flatten
+        futurePool(client.putTransactions(token, txns)).flatten
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
@@ -140,7 +140,7 @@ class TransactionZooKeeperClient extends Closable {
     val transactionService = new Service[(TransactionClient, Transaction), Boolean] {
       override def apply(request: (TransactionClient, Transaction)): TwitterFuture[Boolean] = {
         val (client, txn) = request
-        FuturePool.interruptible(executor)(client.putTransaction(token, txn)).flatten
+        futurePool(client.putTransaction(token, txn)).flatten
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
@@ -151,7 +151,7 @@ class TransactionZooKeeperClient extends Closable {
     val transactionService = new Service[(TransactionClient, Transaction), Boolean] {
       override def apply(request: (TransactionClient, Transaction)): TwitterFuture[Boolean] = {
         val (client, txn) = request
-        FuturePool.interruptible(executor)(client.putTransaction(token, txn)).flatten
+        futurePool(client.putTransaction(token, txn)).flatten
       }
     }
     val requestChain = retryFilterToken.andThen(transactionService)
@@ -223,7 +223,7 @@ class TransactionZooKeeperClient extends Closable {
     val consumerService = new Service[(TransactionClient, ConsumerTransaction), Boolean] {
       override def apply(request: (TransactionClient, ConsumerTransaction)): TwitterFuture[Boolean] = {
         val (client, txn) = request
-        FuturePool.interruptible(executor)(client.setConsumerState(token, txn.name, txn.stream, txn.partition, txn.transactionID)).flatten
+        futurePool(client.setConsumerState(token, txn.name, txn.stream, txn.partition, txn.transactionID)).flatten
       }
     }
     val requestChain = retryFilterToken.andThen(consumerService)

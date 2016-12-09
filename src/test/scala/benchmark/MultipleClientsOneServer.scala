@@ -37,7 +37,7 @@ object MultipleClientsMultipleTransactionsOneServer extends Installer {
   private val streamName = "stream"
   private val txnCount = 1000000
   private val dataSize = 1
-  private val clients = 4
+  private val clients = 16
   private val clientThreads = ArrayBuffer[Thread]()
 
   def main(args: Array[String]) {

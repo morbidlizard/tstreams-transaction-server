@@ -9,6 +9,7 @@ import com.twitter.finagle.Service
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util.{Await, FuturePool, Throw, Try, Future => TwitterFuture}
 import `implicit`.Implicits._
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import filter.Filter
 import org.apache.curator.retry.RetryNTimes
 import configProperties.ClientConfig
@@ -120,7 +121,7 @@ class TransactionZooKeeperClient {
     zkService().flatMap(client => requestChain(client, stream))
   }
 
-  private val futurePool = FuturePool.interruptible(Executors.newSingleThreadExecutor)
+  private val futurePool = FuturePool.interruptible(Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("TransactionZooKeeperClient-%d").build()))
 
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): TwitterFuture[Boolean] = {

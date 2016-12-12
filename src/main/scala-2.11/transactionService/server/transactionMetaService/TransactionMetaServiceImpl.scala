@@ -3,18 +3,18 @@ package transactionService.server.transactionMetaService
 
 import java.time.Instant
 import java.util.concurrent.Executors
-
-import com.sleepycat.je.{Transaction => _, _}
 import java.util.concurrent.TimeUnit._
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.sleepycat.je.{Transaction => _, _}
 import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util.{Future => TwitterFuture}
 import transactionService.rpc.TransactionStates.Checkpointed
 import transactionService.rpc._
+import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
 import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.сonsumerService.ConsumerServiceImpl.consumerPrimaryIndex
-import TransactionMetaServiceImpl._
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
@@ -135,7 +135,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
       transactionDB.commit()
     }
   }
-  Executors.newSingleThreadScheduledExecutor().scheduleWithFixedDelay(transiteTxnsToInvalidState, 0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
+  Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build()).scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 object TransactionMetaServiceImpl {

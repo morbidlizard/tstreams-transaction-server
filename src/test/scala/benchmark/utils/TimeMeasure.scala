@@ -1,4 +1,4 @@
-package benchmark
+package benchmark.utils
 
 trait TimeMeasure {
   def time(block: => Unit) = {

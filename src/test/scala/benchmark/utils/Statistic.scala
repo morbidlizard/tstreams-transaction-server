@@ -1,4 +1,4 @@
-package benchmark
+package benchmark.utils
 
 import scala.io.Source
 
@@ -24,7 +24,7 @@ object Statistic {
 
 
 object CI extends App {
-  val lines = Source.fromFile("100Сlient1000000TransactionsLifeCycleOneServerBenchmark.csv").getLines
+  val lines = Source.fromFile("82Сlient1000000TransactionsOneServerBenchmark.csv").getLines
   val time = lines.drop(1).map(x => x.split(",")(1).trim.toInt).toTraversable
   val mean = Statistic.mean(time)
   val stddev = Statistic.stddev(time)

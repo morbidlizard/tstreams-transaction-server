@@ -1,4 +1,4 @@
-package benchmark
+package benchmark.utils
 
 import java.io.File
 import java.util.logging.LogManager

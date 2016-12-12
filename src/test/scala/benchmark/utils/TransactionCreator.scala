@@ -1,4 +1,4 @@
-package benchmark
+package benchmark.utils
 
 import com.twitter.util.Time
 import transactionService.rpc.{ProducerTransaction, TransactionStates}

@@ -1,12 +1,13 @@
 package transactionZookeeperService
 
 
+import java.time.Instant
 import java.util.concurrent.Executors
 
 import authService.AuthClient
 import com.twitter.finagle.Service
 import com.twitter.logging.{Level, Logger}
-import com.twitter.util.{Await, Closable, Duration, FuturePool, Throw, Time, Try, Future => TwitterFuture}
+import com.twitter.util.{Await, FuturePool, Throw, Try, Future => TwitterFuture}
 import `implicit`.Implicits._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import filter.Filter
@@ -17,7 +18,7 @@ import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transac
 import zooKeeper.ZKLeaderClient
 
 
-class TransactionZooKeeperClient extends Closable {
+class TransactionZooKeeperClient {
   import ClientConfig._
 
   private val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
@@ -28,19 +29,22 @@ class TransactionZooKeeperClient extends Closable {
   @volatile private var token: String = _
   clientAuth.authenticate(login, password).map(newToken => token = newToken)
 
-  private val retryConditionToken: PartialFunction[Try[Nothing], Boolean] = {
+  private val retryConditionTokenOrLock: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
       case e =>
         val messageToParse = e.getMessage
         Logger.get().log(Level.ERROR, messageToParse)
-        if (messageToParse.contains(exception.Throwables.tokenInvalidExceptionMessage)) {
+        if (
+          messageToParse.contains(exception.Throwables.tokenInvalidExceptionMessage) ||
+          messageToParse.contains(exception.Throwables.lockoutTransactionExceptionMessage)
+        ) {
           clientAuth.authenticate(login, password).map(newToken => token = newToken)
           true
         } else false
     }
     case _ => false
   }
-  private def retryFilterToken[Req, Rep] = Filter.filter[Req, Rep](authTokenTimeoutConnection,authTokenTimeoutBetweenRetries, retryConditionToken)
+  private def retryFilterToken[Req, Rep] = Filter.filter[Req, Rep](authTokenTimeoutConnection,authTokenTimeoutBetweenRetries, retryConditionTokenOrLock)
 
   private val AddressToTransactionServiceServer = new java.util.concurrent.ConcurrentHashMap[String, TransactionClient]()
   private def getClientTransaction = {
@@ -58,9 +62,7 @@ class TransactionZooKeeperClient extends Closable {
     .filter[Req, Rep](zkTimeoutConnection, zkTimeoutBetweenRetries, Filter.retryConditionToGetMaster)
 
   private val zkService = getMasterFilter andThen new Service[Unit, TransactionClient] {
-    override def apply(request: Unit): TwitterFuture[TransactionClient] = {
-      TwitterFuture(getClientTransaction)
-    }
+    override def apply(request: Unit): TwitterFuture[TransactionClient] = TwitterFuture(getClientTransaction)
   }
 
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] = {
@@ -159,11 +161,11 @@ class TransactionZooKeeperClient extends Closable {
     zkService().flatMap(client => requestChain(client, Transaction(None, Some(transaction))))
   }
 
-  def scanTransactions(stream: String, partition: Int): TwitterFuture[Seq[ProducerTransaction]] = {
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): TwitterFuture[Seq[ProducerTransaction]] = {
     val transactionService = new Service[(TransactionClient, String, Int), Seq[ProducerTransaction]] {
       override def apply(request: (TransactionClient, String, Int)): TwitterFuture[Seq[ProducerTransaction]] = {
         val (client, stream, partition) = request
-        client.scanTransactions(token, stream, partition)
+        client.scanTransactions(token, stream, partition, from, to)
           .flatMap(txn => TwitterFuture.value(txn map (_.producerTransaction.get)))
       }
     }
@@ -242,17 +244,6 @@ class TransactionZooKeeperClient extends Closable {
     val (name, stream, partition) = consumerTransaction
     zkService().flatMap(client => requestChain((client, name, stream, partition)))
   }
-
-  import scala.collection.JavaConverters._
-  override def close(deadline: Time): TwitterFuture[Unit] = {
-    TwitterFuture.collect(AddressToTransactionServiceServer.values()
-      .asScala.map(_.close(deadline)).toArray) map (_ => TwitterFuture.value())
-  }
-  override def close(after: Duration): TwitterFuture[Unit] = {
-    TwitterFuture.collect(AddressToTransactionServiceServer.values()
-      .asScala.map(_.close(after)).toArray) map (_ => TwitterFuture.value())
-  }
-
 }
 
 object TransactionZooKeeperClient extends App {
@@ -271,7 +262,7 @@ object TransactionZooKeeperClient extends App {
 
     override val stream: String = "1"
 
-    override val timestamp: Long = Time.epoch.inNanoseconds
+    override val timestamp: Long =  Instant.now().getEpochSecond
 
     override val quantity: Int = -1
 

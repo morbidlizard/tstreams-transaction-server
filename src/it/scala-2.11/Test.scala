@@ -1,4 +1,5 @@
 import java.io.File
+import java.time.Instant
 import java.util.concurrent.atomic.LongAdder
 
 import authService.AuthServer
@@ -25,7 +26,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   }
 
   override def afterEach() {
-    Await.result(Closable.all(transactionServer, authServer, client).close())
+    Await.result(Closable.all(transactionServer, authServer).close())
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
@@ -44,7 +45,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     override val transactionID: Long = rand.nextLong()
     override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1)
     override val stream: String = streamObj.name
-    override val timestamp: Long = Time.epoch.inNanoseconds
+    override val timestamp: Long = Long.MaxValue
     override val quantity: Int = -1
     override val partition: Int = streamObj.partitions
   }
@@ -146,9 +147,11 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
+
     Await.result(client.putTransactions(producerTransactions, consumerTransactions))
 
-    Await.result(client.scanTransactions(stream.name, stream.partitions)) should contain theSameElementsAs producerTransactions
+    val (from, to) = (producerTransactions.minBy(_.transactionID).transactionID, producerTransactions.maxBy(_.transactionID).transactionID)
+    Await.result(client.scanTransactions(stream.name, stream.partitions, from, to)) should contain theSameElementsAs producerTransactions
   }
 
   "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
@@ -196,7 +199,6 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     })
 
     all (Await.result(res)) shouldBe true
-    Await.result(Closable.close(clients))
   }
 
   

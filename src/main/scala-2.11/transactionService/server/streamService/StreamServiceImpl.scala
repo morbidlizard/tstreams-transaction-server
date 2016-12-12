@@ -14,7 +14,7 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
   with CheckpointTTL
 {
 
-  override def getStream(stream: String): transactionService.server.streamService.Stream =
+  override def getStreamDatabaseObject(stream: String): transactionService.server.streamService.Stream =
     if (streamTTL.containsKey(stream)) streamTTL.get(stream)
     else {
       val streamObj = pIdx.get(stream)
@@ -24,21 +24,21 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
       } else throw new StreamNotExist
     }
 
-  def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
+  override def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
     authenticate(token) {
       val newStream = new Stream(stream, partitions, description, ttl, FNV.hash64a(stream.getBytes()).toLong)
       streamTTL.putIfAbsent(stream, newStream)
       pIdx.putNoOverwrite(newStream)
     }
 
-  def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
+  override def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
     authenticate(token) (if (pIdx.get(stream) == null) false else true)
 
-  def getStream(token: String, stream: String): TwitterFuture[Stream] =
-    authenticate(token) (pIdx.get(stream))
+  override def getStream(token: String, stream: String): TwitterFuture[Stream] =
+    authenticate(token) (getStreamDatabaseObject(stream))
 
 
-  def delStream(token: String, stream: String): TwitterFuture[Boolean] =
+  override def delStream(token: String, stream: String): TwitterFuture[Boolean] =
     authenticate(token) {
       streamTTL.remove(stream)
       pIdx.delete(stream)

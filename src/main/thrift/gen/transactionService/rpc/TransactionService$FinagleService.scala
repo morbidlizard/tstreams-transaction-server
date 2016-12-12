@@ -347,7 +347,7 @@ class TransactionService$FinagleService(
       val args = ScanTransactions.Args.decode(iprot)
       iprot.readMessageEnd()
       (try {
-        iface.scanTransactions(args.token, args.stream, args.partition)
+        iface.scanTransactions(args.token, args.stream, args.partition, args.from, args.to)
       } catch {
         case e: Exception => Future.exception(e)
       }).flatMap { value: Seq[transactionService.rpc.Transaction] =>

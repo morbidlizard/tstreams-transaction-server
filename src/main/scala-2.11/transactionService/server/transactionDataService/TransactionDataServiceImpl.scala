@@ -34,9 +34,9 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     }
   }
 
-  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
+  override def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
     authenticate(token) {
-      val streamObj = getStream(stream)
+      val streamObj = getStreamDatabaseObject(stream)
       val rocksDB = getStorage(stream, partition, streamObj.ttl)
       val batch = rocksDB.newBatch
 
@@ -53,9 +53,9 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     }
 
 
-  def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
+  override def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
     authenticate(token) {
-      val streamObj = getStream(stream)
+      val streamObj = getStreamDatabaseObject(stream)
       val rocksDB = getStorage(stream, partition, streamObj.ttl)
 
       val fromSeqId = KeyDataSeq(Key(streamObj.streamNameToLong, partition, transaction), from).toBinary

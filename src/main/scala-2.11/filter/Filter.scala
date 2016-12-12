@@ -35,6 +35,22 @@ object Filter {
   }
 
 
+  val retryConditionToConnectToMaster: PartialFunction[Try[Nothing], Boolean] = {
+    case Throw(error) => error match {
+      case e: ServiceTimeoutException =>
+        Logger.get().log(Level.INFO, LogMessage.tryingToConnectToMasterServer)
+        true
+      case e: com.twitter.finagle.ChannelWriteException =>
+        Logger.get().log(Level.INFO, LogMessage.tryingToConnectToMasterServer)
+        true
+      case e =>
+        Logger.get().log(Level.ERROR, e.getMessage)
+        false
+    }
+    case _ => false
+  }
+
+
   val retryConditionToGetMaster: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
       case e: java.util.NoSuchElementException =>

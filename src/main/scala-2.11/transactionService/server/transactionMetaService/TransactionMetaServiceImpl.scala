@@ -152,6 +152,7 @@ object TransactionMetaServiceImpl {
     .setLockTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
     .setConfigParam("je.log.fileMax", configProperties.ServerConfig.transactionServerLogFileMax)
 
+
   val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
   environmentConfig.setDurabilityVoid(defaultDurability)
 

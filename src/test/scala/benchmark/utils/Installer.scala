@@ -15,13 +15,6 @@ trait Installer {
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
   }
 
-  def startAuthServer() = {
-    new Thread(new Runnable {
-      LogManager.getLogManager.reset()
-
-      override def run(): Unit = authService.AuthServer.main(Array())
-    }).start()
-  }
 
   def startTransactionServer() = {
     new Thread(new Runnable {

@@ -28,12 +28,6 @@ object ServerConfig {
 
   val zkPrefix = config.readProperty[String]("zk.prefix")
 
-  val authAddress = config.readProperty[String]("auth.address")
-
-  val authTimeoutConnection = config.readProperty[Int]("auth.timeout.connection")
-
-  val authTimeoutBetweenRetries = config.readProperty[Int]("auth.timeout.betweenRetries")
-
   val transactionTimeoutCleanOpened = config.readProperty[Int]("transaction.timeout.clean.opened(sec)")
 
   val transactionDataCleanAmount = config.readProperty[Int]("transaction.data.clean.amount")

@@ -761,4 +761,124 @@ class TransactionService$FinagleClient(
       }
     }
   }
+  private[this] object __stats_authenticate {
+    val RequestsCounter = scopedStats.scope("authenticate").counter("requests")
+    val SuccessCounter = scopedStats.scope("authenticate").counter("success")
+    val FailuresCounter = scopedStats.scope("authenticate").counter("failures")
+    val FailuresScope = scopedStats.scope("authenticate").scope("failures")
+  }
+  
+  def authenticate(login: String, password: String): Future[String] = {
+    __stats_authenticate.RequestsCounter.incr()
+    val inputArgs = Authenticate.Args(login, password)
+    val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[String] =
+      response => {
+        val decodeResult: _root_.com.twitter.util.Try[Authenticate.Result] =
+          _root_.com.twitter.util.Try {
+            decodeResponse(response, Authenticate.Result)
+          }
+  
+        decodeResult match {
+          case t@_root_.com.twitter.util.Throw(_) =>
+            t.cast[String]
+          case  _root_.com.twitter.util.Return(result) =>
+            val serviceException: Throwable =
+              null
+  
+            if (result.success.isDefined)
+              _root_.com.twitter.util.Return(result.success.get)
+            else if (serviceException != null)
+              _root_.com.twitter.util.Throw(serviceException)
+            else
+              _root_.com.twitter.util.Throw(missingResult("authenticate"))
+        }
+      }
+  
+    val serdeCtx = new _root_.com.twitter.finagle.thrift.DeserializeCtx[String](inputArgs, replyDeserializer)
+    _root_.com.twitter.finagle.context.Contexts.local.let(
+      _root_.com.twitter.finagle.thrift.DeserializeCtx.Key,
+      serdeCtx
+    ) {
+      val serialized = encodeRequest("authenticate", inputArgs)
+      this.service(serialized).flatMap { response =>
+        Future.const(serdeCtx.deserialize(response))
+      }.respond { response =>
+        val responseClass = responseClassifier.applyOrElse(
+          ctfs.ReqRep(inputArgs, response),
+          ctfs.ResponseClassifier.Default)
+        responseClass match {
+          case ctfs.ResponseClass.Successful(_) =>
+            __stats_authenticate.SuccessCounter.incr()
+          case ctfs.ResponseClass.Failed(_) =>
+            __stats_authenticate.FailuresCounter.incr()
+            response match {
+              case Throw(ex) =>
+                setServiceName(ex)
+                __stats_authenticate.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
+              case _ =>
+            }
+        }
+      }
+    }
+  }
+  private[this] object __stats_isValid {
+    val RequestsCounter = scopedStats.scope("isValid").counter("requests")
+    val SuccessCounter = scopedStats.scope("isValid").counter("success")
+    val FailuresCounter = scopedStats.scope("isValid").counter("failures")
+    val FailuresScope = scopedStats.scope("isValid").scope("failures")
+  }
+  
+  def isValid(token: String): Future[Boolean] = {
+    __stats_isValid.RequestsCounter.incr()
+    val inputArgs = IsValid.Args(token)
+    val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
+      response => {
+        val decodeResult: _root_.com.twitter.util.Try[IsValid.Result] =
+          _root_.com.twitter.util.Try {
+            decodeResponse(response, IsValid.Result)
+          }
+  
+        decodeResult match {
+          case t@_root_.com.twitter.util.Throw(_) =>
+            t.cast[Boolean]
+          case  _root_.com.twitter.util.Return(result) =>
+            val serviceException: Throwable =
+              null
+  
+            if (result.success.isDefined)
+              _root_.com.twitter.util.Return(result.success.get)
+            else if (serviceException != null)
+              _root_.com.twitter.util.Throw(serviceException)
+            else
+              _root_.com.twitter.util.Throw(missingResult("isValid"))
+        }
+      }
+  
+    val serdeCtx = new _root_.com.twitter.finagle.thrift.DeserializeCtx[Boolean](inputArgs, replyDeserializer)
+    _root_.com.twitter.finagle.context.Contexts.local.let(
+      _root_.com.twitter.finagle.thrift.DeserializeCtx.Key,
+      serdeCtx
+    ) {
+      val serialized = encodeRequest("isValid", inputArgs)
+      this.service(serialized).flatMap { response =>
+        Future.const(serdeCtx.deserialize(response))
+      }.respond { response =>
+        val responseClass = responseClassifier.applyOrElse(
+          ctfs.ReqRep(inputArgs, response),
+          ctfs.ResponseClassifier.Default)
+        responseClass match {
+          case ctfs.ResponseClass.Successful(_) =>
+            __stats_isValid.SuccessCounter.incr()
+          case ctfs.ResponseClass.Failed(_) =>
+            __stats_isValid.FailuresCounter.incr()
+            response match {
+              case Throw(ex) =>
+                setServiceName(ex)
+                __stats_isValid.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
+              case _ =>
+            }
+        }
+      }
+    }
+  }
 }

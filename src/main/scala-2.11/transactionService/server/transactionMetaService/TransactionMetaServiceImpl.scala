@@ -1,6 +1,7 @@
 package transactionService.server.transactionMetaService
 
 
+import java.time.Instant
 import java.util.concurrent.Executors
 
 import com.sleepycat.je.{Transaction => _, _}
@@ -38,13 +39,13 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   }
 
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction) = {
-    val streamObj = getStream(txn.stream)
+    val streamObj = getStreamDatabaseObject(txn.stream)
     val writeOptions = if (txn.state == Checkpointed) new WriteOptions().setTTL(checkTTL(streamObj.ttl), HOURS) else new WriteOptions()
 
     val isNotExist = producerPrimaryIndex
       .put(databaseTxn, new ProducerTransaction(txn.transactionID, txn.state, streamObj.streamNameToLong, txn.timestamp, txn.quantity, txn.partition), putType, writeOptions) != null
 
-     logAboutTransactionExistence(isNotExist, txn.toString)
+     //logAboutTransactionExistence(isNotExist, txn.toString)
 
     isNotExist
   }
@@ -52,12 +53,12 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
     import transactionService.server.сonsumerService._
-    val streamNameToLong = getStream(txn.stream).streamNameToLong
+    val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
     val isNotExist =
       consumerPrimaryIndex
         .put(databaseTxn, new ConsumerTransaction(txn.name, streamNameToLong, txn.partition, txn.transactionID), putType, new WriteOptions()) != null
 
-    logAboutTransactionExistence(isNotExist, txn.toString)
+    //logAboutTransactionExistence(isNotExist, txn.toString)
 
     isNotExist
   }
@@ -72,7 +73,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
     }
 
 
-  def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authenticate(token) {
+  override def putTransaction(token: String, transaction: Transaction): TwitterFuture[Boolean] = authenticate(token) {
     val transactionDB = environment.beginTransaction(null, null)
     val result = matchTransactionToPut(transaction, transactionDB)
     if (result) transactionDB.commit() else transactionDB.abort()
@@ -90,22 +91,30 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
     isOkay
   }
 
-  def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] =
+
+  private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
+    txn.timestamp <= Instant.now().getEpochSecond
+
+  override def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): TwitterFuture[Seq[Transaction]] =
     authenticate(token) {
       import scala.collection.JavaConverters._
-      val streamObj = getStream(stream)
+      val streamObj = getStreamDatabaseObject(stream)
       val transactionDB = environment.beginTransaction(null, null)
-      val entitiesProducetTxns = producerPrimaryIndex.entities(
+      val entitiesProducerTxns = producerPrimaryIndex.entities(
           transactionDB,
-          new ProducerTransactionKey(streamObj.streamNameToLong, partition, Long.MinValue), false,
-          new ProducerTransactionKey(streamObj.streamNameToLong, partition, Long.MaxValue), false,
+          new ProducerTransactionKey(streamObj.streamNameToLong, partition, from), true,
+          new ProducerTransactionKey(streamObj.streamNameToLong, partition, to), true,
           new CursorConfig().setReadCommitted(true)
       )
+      val producerTransactions = entitiesProducerTxns.iterator().asScala.filterNot(doesProducerTransactionExpired).toArray
 
-      val producerTransactions = entitiesProducetTxns.iterator().asScala.toArray.map(txn => ProducerTransaction(streamObj.name,txn.partition,txn.transactionID,txn.state,txn.quantity,txn.timestamp))
-      entitiesProducetTxns.close()
-      transactionDB.commitNoSync()
-      producerTransactions.map(txn => Transaction(Some(txn), None))
+      entitiesProducerTxns.close()
+      transactionDB.commit()
+
+      producerTransactions.map {txn =>
+        val producerTxn = ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.timestamp)
+        Transaction(Some(producerTxn), None)
+      }
     }
 
   private val transiteTxnsToInvalidState = new Runnable {
@@ -115,17 +124,18 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
       import scala.collection.JavaConversions._
       val entities = producerSecondaryIndexState.subIndex(TransactionStates.Opened.getValue()).entities(transactionDB, new CursorConfig().setReadUncommitted(true))
-      entities.iterator().toArray foreach{txn =>
-        logger.log(Level.INFO, s"${txn.toString} transit it's state to Invalid!")
-        val newInvalidTxn = new ProducerTransaction(txn.transactionID, TransactionStates.Invalid, txn.stream.toLong, txn.timestamp, txn.quantity, txn.partition)
-        producerPrimaryIndex.put(transactionDB, newInvalidTxn)
+      entities.iterator().sliding(configProperties.ServerConfig.transactionDataCleanAmount,configProperties.ServerConfig.transactionDataCleanAmount).foreach { txns =>
+        txns.filter(doesProducerTransactionExpired) foreach { txn =>
+          logger.log(Level.INFO, s"${txn.toString} transit it's state to Invalid!")
+          val newInvalidTxn = new ProducerTransaction(txn.transactionID, TransactionStates.Invalid, txn.stream.toLong, txn.timestamp, txn.quantity, txn.partition)
+          producerPrimaryIndex.put(transactionDB, newInvalidTxn)
+        }
       }
-
       entities.close()
       transactionDB.commit()
     }
   }
-  Executors.newSingleThreadScheduledExecutor().scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
+  Executors.newSingleThreadScheduledExecutor().scheduleWithFixedDelay(transiteTxnsToInvalidState, 0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 object TransactionMetaServiceImpl {
@@ -140,6 +150,7 @@ object TransactionMetaServiceImpl {
     .setTransactional(true)
     .setTxnTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
     .setLockTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
+    .setConfigParam("je.log.fileMax", configProperties.ServerConfig.transactionServerLogFileMax)
 
   val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
   environmentConfig.setDurabilityVoid(defaultDurability)
@@ -155,6 +166,8 @@ object TransactionMetaServiceImpl {
 
   val producerPrimaryIndex = entityStore.getPrimaryIndex(classOf[ProducerTransactionKey], classOf[ProducerTransaction])
   val producerSecondaryIndexState = entityStore.getSecondaryIndex(producerPrimaryIndex, classOf[Int], DB.TransactionMetaProducerSecondaryIndexState)
+
+
 
   def close(): Unit = {
     entityStore.close()

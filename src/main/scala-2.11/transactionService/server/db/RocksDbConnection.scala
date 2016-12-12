@@ -10,7 +10,7 @@ class RocksDbConnection(name: String, ttl: Int = -1) extends Closeable {
 
   private lazy val client =  {
     val path = transactionService.io.FileUtils.createDirectory(s"${RocksDbConnection.rocksDBStoragesPath}/$name").getAbsolutePath
-    TtlDB.open(new Options().setCreateIfMissing(true).setBytesPerSync(8000000), path, ttl, false)
+    TtlDB.open(new Options().setCreateIfMissing(true), path, ttl, false)
   }
 
 

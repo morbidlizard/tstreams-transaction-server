@@ -3,7 +3,6 @@ package transactionService.server.сonsumerService
 
 import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.twitter.util.{Future => TwitterFuture}
-import transactionService.Context
 import transactionService.server.сonsumerService.ConsumerServiceImpl._
 import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.rpc.ConsumerService
@@ -14,18 +13,18 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
   with Authenticable
   with CheckpointTTL
 {
-  def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
+  override def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     authenticate(token) {
-      val streamNameToLong = getStream(name).streamNameToLong
+      val streamNameToLong = getStreamDatabaseObject(name).streamNameToLong
       Option(consumerPrimaryIndex.get(new ConsumerKey(name, streamNameToLong, partition))) match {
         case Some(consumer) => consumer.transactionID
         case None => -1L
       }
     }
 
-  def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =
+  override def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =
     authenticate(token) {
-      val streamNameToLong = getStream(name).streamNameToLong
+      val streamNameToLong = getStreamDatabaseObject(name).streamNameToLong
       consumerPrimaryIndex.put(new ConsumerTransaction(name, streamNameToLong, partition, transaction))
       true
     }

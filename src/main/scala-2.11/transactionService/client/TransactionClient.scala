@@ -2,17 +2,40 @@ package transactionService.client
 
 import java.nio.ByteBuffer
 
-import com.twitter.util.{Closable, Duration, Time, Future => TwitterFuture}
-import com.twitter.finagle.Thrift
+import com.twitter.util.{Future => TwitterFuture}
+import com.twitter.finagle.{Resolver, Thrift}
+import configProperties.ClientConfig._
+import filter.Filter
 import transactionService.rpc.{Stream, Transaction, TransactionService}
 
-class TransactionClient(serverIPAddress: String) extends TransactionService[TwitterFuture] with Closable {
+class TransactionClient(serverIPAddress: String) extends TransactionService[TwitterFuture] {
   private val client = Thrift.client
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual
-    .newClient(serverIPAddress)
 
-  private val request = new TransactionService.FinagledClient(client.toService)
+
+  private def getMasterFilter[Req, Rep] = Filter
+    .filter[Req, Rep](zkTimeoutConnection, zkTimeoutBetweenRetries, Filter.retryConditionToConnectToMaster)
+
+  private def getInterface = {
+    val (name, label) = Resolver.evalLabeled(serverIPAddress)
+    val interface = client.newServiceIface[TransactionService.ServiceIface](name, label)
+    interface.copy(
+      putStream = getMasterFilter andThen interface.putStream,
+      doesStreamExist = getMasterFilter andThen interface.doesStreamExist,
+      getStream = getMasterFilter andThen interface.getStream,
+      delStream = getMasterFilter andThen interface.delStream,
+      putTransaction = getMasterFilter andThen interface.putTransaction,
+      putTransactions = getMasterFilter andThen interface.putTransactions,
+      scanTransactions = getMasterFilter andThen interface.scanTransactions,
+      putTransactionData = getMasterFilter andThen interface.putTransactionData,
+      getTransactionData = getMasterFilter andThen interface.getTransactionData,
+      setConsumerState = getMasterFilter andThen interface.setConsumerState,
+      getConsumerState = getMasterFilter andThen interface.getConsumerState
+    )
+  }
+
+  private val request = Thrift.client.newMethodIface(getInterface)
 
   //Stream API
   override def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] = {
@@ -29,7 +52,7 @@ class TransactionClient(serverIPAddress: String) extends TransactionService[Twit
   override def putTransactions(token: String, transactions: Seq[Transaction]): TwitterFuture[Boolean] = {
     request.putTransactions(token, transactions)
   }
-  override def scanTransactions(token: String, stream: String, partition: Int): TwitterFuture[Seq[Transaction]] = request.scanTransactions(token, stream, partition)
+  override def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): TwitterFuture[Seq[Transaction]] = request.scanTransactions(token, stream, partition, from, to)
 
   //TransactionData API
   override def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
@@ -42,7 +65,4 @@ class TransactionClient(serverIPAddress: String) extends TransactionService[Twit
     request.setConsumerState(token,name,stream,partition,transaction)
   override def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     request.getConsumerState(token,name,stream,partition)
-
-  override def close(deadline: Time): TwitterFuture[Unit]  = client.close(deadline)
-  override def close(after: Duration): TwitterFuture[Unit] = client.close(after)
 }

@@ -14,6 +14,8 @@ object ServerConfig {
 
   val transactionServerReplicationGroup = config.readProperty[String]("transactionServer.replication.group")
 
+  val transactionServerLogFileMax = config.readProperty[String]("transactionServer.log.fileMax")
+
   val zkEndpoints = config.readProperty[String]("zk.endpoints")
 
   val zkTimeoutSession = config.readProperty[Int]("zk.timeout.session")
@@ -33,6 +35,8 @@ object ServerConfig {
   val authTimeoutBetweenRetries = config.readProperty[Int]("auth.timeout.betweenRetries")
 
   val transactionTimeoutCleanOpened = config.readProperty[Int]("transaction.timeout.clean.opened(sec)")
+
+  val transactionDataCleanAmount = config.readProperty[Int]("transaction.data.clean.amount")
 
   val transactionDataTtlAdd = config.readProperty[Int]("transaction.data.ttl.add")
 }

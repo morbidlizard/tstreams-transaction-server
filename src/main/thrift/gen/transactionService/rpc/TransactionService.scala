@@ -52,7 +52,7 @@ trait TransactionService[+MM[_]] extends ThriftService {
   
   def putTransactions(token: String, transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): MM[Boolean]
   
-  def scanTransactions(token: String, stream: String, partition: Int): MM[Seq[transactionService.rpc.Transaction]]
+  def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): MM[Seq[transactionService.rpc.Transaction]]
   
   def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): MM[Boolean]
   
@@ -148,8 +148,8 @@ object TransactionService { self =>
       __putTransactions_service(self.PutTransactions.Args(token, transactions))
     private[this] val __scanTransactions_service =
       ThriftServiceIface.resultFilter(self.ScanTransactions) andThen serviceIface.scanTransactions
-    def scanTransactions(token: String, stream: String, partition: Int): Future[Seq[transactionService.rpc.Transaction]] =
-      __scanTransactions_service(self.ScanTransactions.Args(token, stream, partition))
+    def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]] =
+      __scanTransactions_service(self.ScanTransactions.Args(token, stream, partition, from, to))
     private[this] val __putTransactionData_service =
       ThriftServiceIface.resultFilter(self.PutTransactionData) andThen serviceIface.putTransactionData
     def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): Future[Boolean] =
@@ -3162,6 +3162,10 @@ object TransactionService { self =>
       val StreamFieldManifest = implicitly[Manifest[String]]
       val PartitionField = new TField("partition", TType.I32, 3)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
+      val FromField = new TField("from", TType.I64, 4)
+      val FromFieldManifest = implicitly[Manifest[Long]]
+      val ToField = new TField("to", TType.I64, 5)
+      val ToFieldManifest = implicitly[Manifest[Long]]
     
       /**
        * Field information in declaration order.
@@ -3199,6 +3203,28 @@ object TransactionService { self =>
           immutable$Map.empty[String, String],
           immutable$Map.empty[String, String],
           None
+        ),
+        new ThriftStructFieldInfo(
+          FromField,
+          false,
+          false,
+          FromFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          ToField,
+          false,
+          false,
+          ToFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
         )
       )
     
@@ -3227,6 +3253,16 @@ object TransactionService { self =>
             {
               val field = original.partition
               field
+            },
+          from =
+            {
+              val field = original.from
+              field
+            },
+          to =
+            {
+              val field = original.to
+              field
             }
         )
     
@@ -3238,6 +3274,8 @@ object TransactionService { self =>
         var token: String = null
         var stream: String = null
         var partition: Int = 0
+        var from: Long = 0L
+        var to: Long = 0L
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -3287,6 +3325,32 @@ object TransactionService { self =>
                       )
                     )
                 }
+              case 4 =>
+                _field.`type` match {
+                  case TType.I64 =>
+                    from = readFromValue(_iprot)
+                  case _actualType =>
+                    val _expectedType = TType.I64
+                    throw new TProtocolException(
+                      "Received wrong type for field 'from' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case 5 =>
+                _field.`type` match {
+                  case TType.I64 =>
+                    to = readToValue(_iprot)
+                  case _actualType =>
+                    val _expectedType = TType.I64
+                    throw new TProtocolException(
+                      "Received wrong type for field 'to' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
               case _ =>
                 if (_passthroughFields == null)
                   _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
@@ -3301,6 +3365,8 @@ object TransactionService { self =>
           token,
           stream,
           partition,
+          from,
+          to,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -3311,15 +3377,19 @@ object TransactionService { self =>
       def apply(
         token: String,
         stream: String,
-        partition: Int
+        partition: Int,
+        from: Long,
+        to: Long
       ): Args =
         new Args(
           token,
           stream,
-          partition
+          partition,
+          from,
+          to
         )
     
-      def unapply(_item: Args): _root_.scala.Option[scala.Product3[String, String, Int]] = _root_.scala.Some(_item)
+      def unapply(_item: Args): _root_.scala.Option[scala.Product5[String, String, Int, Long, Long]] = _root_.scala.Some(_item)
     
     
       @inline private def readTokenValue(_iprot: TProtocol): String = {
@@ -3364,6 +3434,34 @@ object TransactionService { self =>
         _oprot.writeI32(partition_item)
       }
     
+      @inline private def readFromValue(_iprot: TProtocol): Long = {
+        _iprot.readI64()
+      }
+    
+      @inline private def writeFromField(from_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(FromField)
+        writeFromValue(from_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeFromValue(from_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeI64(from_item)
+      }
+    
+      @inline private def readToValue(_iprot: TProtocol): Long = {
+        _iprot.readI64()
+      }
+    
+      @inline private def writeToField(to_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(ToField)
+        writeToValue(to_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeToValue(to_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeI64(to_item)
+      }
+    
     
     }
     
@@ -3371,9 +3469,11 @@ object TransactionService { self =>
         val token: String,
         val stream: String,
         val partition: Int,
+        val from: Long,
+        val to: Long,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with scala.Product3[String, String, Int]
+      with scala.Product5[String, String, Int, Long, Long]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
@@ -3381,17 +3481,23 @@ object TransactionService { self =>
       def this(
         token: String,
         stream: String,
-        partition: Int
+        partition: Int,
+        from: Long,
+        to: Long
       ) = this(
         token,
         stream,
         partition,
+        from,
+        to,
         Map.empty
       )
     
       def _1 = token
       def _2 = stream
       def _3 = partition
+      def _4 = from
+      def _5 = to
     
     
     
@@ -3401,6 +3507,8 @@ object TransactionService { self =>
         if (token ne null) writeTokenField(token, _oprot)
         if (stream ne null) writeStreamField(stream, _oprot)
         writePartitionField(partition, _oprot)
+        writeFromField(from, _oprot)
+        writeToField(to, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -3412,12 +3520,16 @@ object TransactionService { self =>
         token: String = this.token,
         stream: String = this.stream,
         partition: Int = this.partition,
+        from: Long = this.from,
+        to: Long = this.to,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
           token,
           stream,
           partition,
+          from,
+          to,
           _passthroughFields
         )
     
@@ -3437,12 +3549,14 @@ object TransactionService { self =>
       override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
     
     
-      override def productArity: Int = 3
+      override def productArity: Int = 5
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.token
         case 1 => this.stream
         case 2 => this.partition
+        case 3 => this.from
+        case 4 => this.to
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -6370,7 +6484,7 @@ object TransactionService { self =>
     
     def putTransactions(token: String, transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): Future[Boolean]
     
-    def scanTransactions(token: String, stream: String, partition: Int): Future[Seq[transactionService.rpc.Transaction]]
+    def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]]
     
     def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): Future[Boolean]
     

@@ -1,8 +1,9 @@
 package `implicit`
 
+import java.lang.management.ManagementFactory
 import java.nio.ByteBuffer
 
-import com.twitter.util.{Future =>  TwitterFuture}
+import com.twitter.util.{Future => TwitterFuture}
 
 import scala.language.implicitConversions
 

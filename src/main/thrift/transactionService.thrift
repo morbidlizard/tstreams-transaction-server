@@ -60,7 +60,7 @@ service TransactionMetaService {
 
    bool putTransactions(1: string token, 2: list<Transaction> transactions),
 
-   list<Transaction> scanTransactions(1: string token, 2: StreamType stream, 3: PartitionType partition),
+   list<Transaction> scanTransactions(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: i64 from, 5: i64 to),
 
 }
 
@@ -96,7 +96,7 @@ service TransactionService {
 
   bool putTransactions(1: string token, 2: list<Transaction> transactions),
 
-  list<Transaction> scanTransactions(1: string token, 2: StreamType stream, 3: PartitionType partition),
+  list<Transaction> scanTransactions(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: i64 from, 5: i64 to),
 
   bool putTransactionData(1: string token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: list<binary> data, 6: i32 from),
 

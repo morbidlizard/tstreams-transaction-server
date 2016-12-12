@@ -228,9 +228,9 @@ class TransactionMetaService$FinagleClient(
     val FailuresScope = scopedStats.scope("scanTransactions").scope("failures")
   }
   
-  def scanTransactions(token: String, stream: String, partition: Int): Future[Seq[transactionService.rpc.Transaction]] = {
+  def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]] = {
     __stats_scanTransactions.RequestsCounter.incr()
-    val inputArgs = ScanTransactions.Args(token, stream, partition)
+    val inputArgs = ScanTransactions.Args(token, stream, partition, from, to)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Seq[transactionService.rpc.Transaction]] =
       response => {
         val decodeResult: _root_.com.twitter.util.Try[ScanTransactions.Result] =

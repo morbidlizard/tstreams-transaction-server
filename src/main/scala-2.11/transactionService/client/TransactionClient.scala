@@ -2,10 +2,8 @@ package transactionService.client
 
 import java.nio.ByteBuffer
 
-import authService.rpc.AuthService
 import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.finagle.{Resolver, Thrift}
-import configProperties.ClientConfig._
 import filter.Filter
 import transactionService.rpc.{Stream, Transaction, TransactionService}
 

@@ -505,4 +505,72 @@ class TransactionService$FinagleService(
       case e: Exception => Future.exception(e)
     }
   })
+  private[this] object __stats_authenticate {
+    val RequestsCounter = scopedStats.scope("authenticate").counter("requests")
+    val SuccessCounter = scopedStats.scope("authenticate").counter("success")
+    val FailuresCounter = scopedStats.scope("authenticate").counter("failures")
+    val FailuresScope = scopedStats.scope("authenticate").scope("failures")
+  }
+  addFunction("authenticate", { (iprot: TProtocol, seqid: Int) =>
+    try {
+      __stats_authenticate.RequestsCounter.incr()
+      val args = Authenticate.Args.decode(iprot)
+      iprot.readMessageEnd()
+      (try {
+        iface.authenticate(args.login, args.password)
+      } catch {
+        case e: Exception => Future.exception(e)
+      }).flatMap { value: String =>
+        reply("authenticate", seqid, Authenticate.Result(success = Some(value)))
+      }.rescue {
+        case e => Future.exception(e)
+      }.respond {
+        case Return(_) =>
+          __stats_authenticate.SuccessCounter.incr()
+        case Throw(ex) =>
+          __stats_authenticate.FailuresCounter.incr()
+          __stats_authenticate.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
+      }
+    } catch {
+      case e: TProtocolException => {
+        iprot.readMessageEnd()
+        exception("authenticate", seqid, TApplicationException.PROTOCOL_ERROR, e.getMessage)
+      }
+      case e: Exception => Future.exception(e)
+    }
+  })
+  private[this] object __stats_isValid {
+    val RequestsCounter = scopedStats.scope("isValid").counter("requests")
+    val SuccessCounter = scopedStats.scope("isValid").counter("success")
+    val FailuresCounter = scopedStats.scope("isValid").counter("failures")
+    val FailuresScope = scopedStats.scope("isValid").scope("failures")
+  }
+  addFunction("isValid", { (iprot: TProtocol, seqid: Int) =>
+    try {
+      __stats_isValid.RequestsCounter.incr()
+      val args = IsValid.Args.decode(iprot)
+      iprot.readMessageEnd()
+      (try {
+        iface.isValid(args.token)
+      } catch {
+        case e: Exception => Future.exception(e)
+      }).flatMap { value: Boolean =>
+        reply("isValid", seqid, IsValid.Result(success = Some(value)))
+      }.rescue {
+        case e => Future.exception(e)
+      }.respond {
+        case Return(_) =>
+          __stats_isValid.SuccessCounter.incr()
+        case Throw(ex) =>
+          __stats_isValid.FailuresCounter.incr()
+          __stats_isValid.FailuresScope.counter(Throwables.mkString(ex): _*).incr()
+      }
+    } catch {
+      case e: TProtocolException => {
+        iprot.readMessageEnd()
+        exception("isValid", seqid, TApplicationException.PROTOCOL_ERROR, e.getMessage)
+      }
+      case e: Exception => Future.exception(e)
+    }
+  })
 }

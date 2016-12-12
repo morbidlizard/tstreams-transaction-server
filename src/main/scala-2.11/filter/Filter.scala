@@ -19,22 +19,7 @@ object Filter {
     new RetryExceptionsFilter[Req, Rep](retryPolicy, shared.SharedTimer.highResTimer)
   }
 
-  val retryConditionToConnect: PartialFunction[Try[Nothing], Boolean] = {
-    case Throw(error) => error match {
-      case e: ServiceTimeoutException =>
-        Logger.get().log(Level.INFO, LogMessage.tryingToConnectToAuthServer)
-        true
-      case e: com.twitter.finagle.ChannelWriteException =>
-        Logger.get().log(Level.INFO, LogMessage.tryingToConnectToAuthServer)
-        true
-      case e =>
-        Logger.get().log(Level.ERROR, e.getMessage)
-        false
-    }
-    case _ => false
-  }
-
-
+  
   val retryConditionToConnectToMaster: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
       case e: ServiceTimeoutException =>

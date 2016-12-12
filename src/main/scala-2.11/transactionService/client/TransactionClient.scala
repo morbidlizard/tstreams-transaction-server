@@ -2,36 +2,38 @@ package transactionService.client
 
 import java.nio.ByteBuffer
 
+import authService.rpc.AuthService
 import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.finagle.{Resolver, Thrift}
 import configProperties.ClientConfig._
 import filter.Filter
 import transactionService.rpc.{Stream, Transaction, TransactionService}
 
-class TransactionClient(serverIPAddress: String) extends TransactionService[TwitterFuture] {
+class TransactionClient(serverIPAddress: String, authTimeoutConnection: Int, authTimeoutExponentialBetweenRetries: Int) extends TransactionService[TwitterFuture] {
   private val client = Thrift.client
     .withSessionQualifier.noFailFast
     .withSessionQualifier.noFailureAccrual
 
-
-  private def getMasterFilter[Req, Rep] = Filter
-    .filter[Req, Rep](zkTimeoutConnection, zkTimeoutBetweenRetries, Filter.retryConditionToConnectToMaster)
+  private def timeoutFilter[Req, Rep] = Filter
+    .filter[Req, Rep](authTimeoutConnection, authTimeoutExponentialBetweenRetries, Filter.retryConditionToConnectToMaster)
 
   private def getInterface = {
     val (name, label) = Resolver.evalLabeled(serverIPAddress)
     val interface = client.newServiceIface[TransactionService.ServiceIface](name, label)
     interface.copy(
-      putStream = getMasterFilter andThen interface.putStream,
-      doesStreamExist = getMasterFilter andThen interface.doesStreamExist,
-      getStream = getMasterFilter andThen interface.getStream,
-      delStream = getMasterFilter andThen interface.delStream,
-      putTransaction = getMasterFilter andThen interface.putTransaction,
-      putTransactions = getMasterFilter andThen interface.putTransactions,
-      scanTransactions = getMasterFilter andThen interface.scanTransactions,
-      putTransactionData = getMasterFilter andThen interface.putTransactionData,
-      getTransactionData = getMasterFilter andThen interface.getTransactionData,
-      setConsumerState = getMasterFilter andThen interface.setConsumerState,
-      getConsumerState = getMasterFilter andThen interface.getConsumerState
+      putStream = timeoutFilter andThen interface.putStream,
+      doesStreamExist = timeoutFilter andThen interface.doesStreamExist,
+      getStream = timeoutFilter andThen interface.getStream,
+      delStream = timeoutFilter andThen interface.delStream,
+      putTransaction = timeoutFilter andThen interface.putTransaction,
+      putTransactions = timeoutFilter andThen interface.putTransactions,
+      scanTransactions = timeoutFilter andThen interface.scanTransactions,
+      putTransactionData = timeoutFilter andThen interface.putTransactionData,
+      getTransactionData = timeoutFilter andThen interface.getTransactionData,
+      setConsumerState = timeoutFilter andThen interface.setConsumerState,
+      getConsumerState = timeoutFilter andThen interface.getConsumerState,
+      authenticate = timeoutFilter andThen interface.authenticate,
+      isValid = timeoutFilter andThen interface.isValid
     )
   }
 
@@ -65,4 +67,10 @@ class TransactionClient(serverIPAddress: String) extends TransactionService[Twit
     request.setConsumerState(token,name,stream,partition,transaction)
   override def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     request.getConsumerState(token,name,stream,partition)
+
+  //Auth API
+  override def isValid(token: String): TwitterFuture[Boolean] =
+    request.isValid(token)
+  override def authenticate(login: String, password: String): TwitterFuture[String] =
+    request.authenticate(login, password)
 }

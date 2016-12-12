@@ -1,8 +1,6 @@
 package transactionZookeeperService
 
-import java.util.concurrent.Executors
 
-import authService.AuthClient
 import com.twitter.finagle.{ListeningServer, Thrift}
 import com.twitter.util.{Await, Closable, Time, Future => TwitterFuture}
 import org.apache.curator.retry.RetryNTimes

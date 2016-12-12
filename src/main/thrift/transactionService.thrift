@@ -82,6 +82,14 @@ service ConsumerService {
 }
 
 
+service authService {
+
+  string authenticate(1: string login, 2: string password),
+
+  bool isValid(1: string token)
+}
+
+
 service TransactionService {
 
   bool putStream(1: string token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl),
@@ -104,5 +112,9 @@ service TransactionService {
 
   bool setConsumerState(1: string token, 2: string name, 3: StreamType stream, 4: PartitionType partition, 5: transactionIDType transaction),
 
-  i64 getConsumerState(1: string token, 2: string name, 3: StreamType stream, 4: PartitionType partition)
+  i64 getConsumerState(1: string token, 2: string name, 3: StreamType stream, 4: PartitionType partition),
+
+  string authenticate(1: string login, 2: string password),
+
+  bool isValid(1: string token)
 }

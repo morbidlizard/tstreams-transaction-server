@@ -4,7 +4,6 @@ package transactionZookeeperService
 import java.time.Instant
 import java.util.concurrent.Executors
 
-import authService.AuthClient
 import com.twitter.finagle.Service
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util.{Await, FuturePool, Throw, Try, Future => TwitterFuture}
@@ -25,10 +24,7 @@ class TransactionZooKeeperClient {
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
   zKLeaderClient.start()
 
-  private val clientAuth = new AuthClient(authAddress, authTimeoutConnection, authTimeoutBetweenRetries)
   @volatile private var token: String = _
-  clientAuth.authenticate(login, password).map(newToken => token = newToken)
-
   private val retryConditionTokenOrLock: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
       case e =>
@@ -38,7 +34,7 @@ class TransactionZooKeeperClient {
           messageToParse.contains(exception.Throwables.tokenInvalidExceptionMessage) ||
           messageToParse.contains(exception.Throwables.lockoutTransactionExceptionMessage)
         ) {
-          clientAuth.authenticate(login, password).map(newToken => token = newToken)
+          getClientTransaction.authenticate(login, password).map(newToken => token = newToken)
           true
         } else false
     }
@@ -52,7 +48,7 @@ class TransactionZooKeeperClient {
     if (AddressToTransactionServiceServer.containsKey(master))
       AddressToTransactionServiceServer.get(master)
     else {
-      val newClient = new TransactionClient(master)
+      val newClient = new TransactionClient(master,authTimeoutConnection, authTimeoutBetweenRetries)
       if (AddressToTransactionServiceServer.putIfAbsent(master, newClient) == null)
         newClient else AddressToTransactionServiceServer.get(master)
     }

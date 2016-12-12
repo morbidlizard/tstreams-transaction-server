@@ -1,6 +1,5 @@
 package transactionService.server
 
-import authService.AuthClient
 import authService.impl.AuthServiceImpl
 
 trait Authenticable extends AuthServiceImpl{

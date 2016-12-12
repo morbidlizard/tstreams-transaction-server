@@ -26,8 +26,6 @@ object ClientConfig {
 
   val zkPrefix = config.readProperty[String]("zk.prefix")
 
-  val authAddress = config.readProperty[String]("auth.address")
-
   val authTimeoutConnection = config.readProperty[Int]("auth.timeout.connection")
 
   val authTimeoutBetweenRetries = config.readProperty[Int]("auth.timeout.betweenRetries")

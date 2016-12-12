@@ -24,4 +24,5 @@ class Context(threadNumber: Int) {
 
 object Context {
   def apply(threadNumber: Int): Context = new Context(threadNumber)
+  val futurePool = FuturePool.interruptibleUnboundedPool
 }

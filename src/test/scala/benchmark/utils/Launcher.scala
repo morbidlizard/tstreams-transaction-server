@@ -6,7 +6,6 @@ trait Launcher extends Installer {
 
   def launch() = {
     clearDB()
-    startAuthServer()
     startTransactionServer()
     createStream(streamName, clients)
     launchClients()

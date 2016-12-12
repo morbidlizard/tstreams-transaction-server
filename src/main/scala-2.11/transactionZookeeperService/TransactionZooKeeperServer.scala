@@ -10,13 +10,9 @@ import transactionService.server.TransactionServer
 import zooKeeper.ZKLeaderServer
 
 class TransactionZooKeeperServer
-  extends TransactionServer({
-    import configProperties.ServerConfig._
-    new AuthClient(authAddress, authTimeoutConnection, authTimeoutBetweenRetries)
-  }, configProperties.ServerConfig.transactionDataTtlAdd) with Closable {
+  extends TransactionServer(configProperties.ServerConfig.transactionDataTtlAdd) with Closable {
 
   import configProperties.ServerConfig._
-
 
   val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)

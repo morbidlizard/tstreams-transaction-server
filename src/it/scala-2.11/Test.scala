@@ -2,7 +2,6 @@ import java.io.File
 import java.time.Instant
 import java.util.concurrent.atomic.LongAdder
 
-import authService.AuthServer
 import com.twitter.util.{Await, Closable, Time}
 import configProperties.DB
 import org.apache.commons.io.FileUtils
@@ -14,19 +13,16 @@ import transactionZookeeperService.{TransactionZooKeeperClient, TransactionZooKe
 class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   var client: TransactionZooKeeperClient = _
   var transactionServer: TransactionZooKeeperServer = _
-  var authServer: AuthServer = _
 
   override def beforeEach(): Unit = {
     client = new TransactionZooKeeperClient
     transactionServer = new TransactionZooKeeperServer
-    authServer = new AuthServer
 
     transactionServer.start()
-    authServer.start()
   }
 
   override def afterEach() {
-    Await.result(Closable.all(transactionServer, authServer).close())
+    Await.result(Closable.all(transactionServer).close())
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
@@ -88,8 +84,6 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val stream = getRandomStream
     Await.result(client.putStream(stream))
 
-    authServer.close()
-
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
@@ -106,17 +100,12 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val stream = getRandomStream
     Await.result(client.putStream(stream))
 
-    authServer.close()
-
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     Thread.sleep(configProperties.ClientConfig.authTimeoutConnection*3/5)
-
-    authServer = new AuthServer
-    authServer.start()
 
     Await.result(resultInFuture) shouldBe true
   }

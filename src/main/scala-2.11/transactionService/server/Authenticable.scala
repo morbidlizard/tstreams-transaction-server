@@ -1,11 +1,8 @@
 package transactionService.server
 
 import authService.AuthClient
-import com.twitter.util.{Future => TwitterFuture}
-import transactionService.Context
+import authService.impl.AuthServiceImpl
 
-
-trait Authenticable {
-  val authClient: AuthClient
-  def authenticate[A](token: String)(body: => A) = authClient.isValid(token) flatMap(_ => Context.futurePool(body))
+trait Authenticable extends AuthServiceImpl{
+  def authenticate[A](token: String)(body: => A) = isValid(token) map (_ => body)
 }

@@ -27,21 +27,19 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
   private val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
   private def getStorage(stream: String, partition: Int, ttl: Int) = {
     val key = StorageName(stream, partition)
-    val client = new RocksDbConnection(key.toString, calculateTTL(ttl))
-    Option(rocksDBStorageToStream.putIfAbsent(key, client)) match {
-      case Some(existingClient) => existingClient
-      case None => client
-    }
+    rocksDBStorageToStream.computeIfAbsent(key, new java.util.function.Function[StorageName, RocksDbConnection]{
+      override def apply(t: StorageName): RocksDbConnection = new RocksDbConnection(key.toString, calculateTTL(ttl))
+    })
   }
 
   override def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
     authenticate(token) {
       val streamObj = getStreamDatabaseObject(stream)
-      val rocksDB = getStorage(stream, partition, streamObj.ttl)
+      val rocksDB = getStorage(stream, partition, streamObj.stream.ttl)
       val batch = rocksDB.newBatch
 
       val rangeDataToSave = from until (from + data.length)
-      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(streamObj.streamNameToLong, partition, transaction), seqId).toBinary)
+      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(streamObj.key.streamNameToLong, partition, transaction), seqId).toBinary)
       (keys zip data) foreach { case (key, datum) =>
         val sizeOfSlicedData = datum.limit() - datum.position()
         val bytes = new Array[Byte](sizeOfSlicedData)
@@ -56,10 +54,10 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
   override def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
     authenticate(token) {
       val streamObj = getStreamDatabaseObject(stream)
-      val rocksDB = getStorage(stream, partition, streamObj.ttl)
+      val rocksDB = getStorage(stream, partition, streamObj.stream.ttl)
 
-      val fromSeqId = KeyDataSeq(Key(streamObj.streamNameToLong, partition, transaction), from).toBinary
-      val toSeqId = KeyDataSeq(Key(streamObj.streamNameToLong, partition, transaction), to).toBinary
+      val fromSeqId = KeyDataSeq(Key(streamObj.key.streamNameToLong, partition, transaction), from).toBinary
+      val toSeqId = KeyDataSeq(Key(streamObj.key.streamNameToLong, partition, transaction), to).toBinary
 
       val iterator = rocksDB.iterator
       iterator.seek(fromSeqId)

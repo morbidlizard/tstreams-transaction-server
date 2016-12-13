@@ -45,13 +45,9 @@ class TransactionZooKeeperClient {
   private val AddressToTransactionServiceServer = new java.util.concurrent.ConcurrentHashMap[String, TransactionClient]()
   private def getClientTransaction = {
     val master = zKLeaderClient.master.get
-    if (AddressToTransactionServiceServer.containsKey(master))
-      AddressToTransactionServiceServer.get(master)
-    else {
-      val newClient = new TransactionClient(master,authTimeoutConnection, authTimeoutBetweenRetries)
-      if (AddressToTransactionServiceServer.putIfAbsent(master, newClient) == null)
-        newClient else AddressToTransactionServiceServer.get(master)
-    }
+    AddressToTransactionServiceServer.computeIfAbsent(master, new java.util.function.Function[String, TransactionClient]{
+      override def apply(t: String): TransactionClient = new TransactionClient(master, authTimeoutConnection, authTimeoutBetweenRetries)
+    })
   }
 
   private def getMasterFilter[Req, Rep] = Filter
@@ -89,6 +85,17 @@ class TransactionZooKeeperClient {
       override def apply(request: (TransactionClient, String)): TwitterFuture[Boolean] = {
         val (client, stream) = request
         client.delStream(token, stream)
+      }
+    }
+    val requestChain = retryFilterToken.andThen(streamService)
+    zkService().flatMap(client => requestChain(client, stream))
+  }
+
+  def getStream(stream: String): TwitterFuture[transactionService.rpc.Stream] = {
+    val streamService = new Service[(TransactionClient, String), transactionService.rpc.Stream] {
+      override def apply(request: (TransactionClient, String)): TwitterFuture[transactionService.rpc.Stream] = {
+        val (client, stream) = request
+        client.getStream(token, stream)
       }
     }
     val requestChain = retryFilterToken.andThen(streamService)

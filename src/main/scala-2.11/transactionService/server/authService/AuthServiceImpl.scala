@@ -1,4 +1,4 @@
-package authService.impl
+package transactionService.server.authService
 
 import authService.rpc.AuthService
 import com.twitter.util.{Future => TwitterFuture}

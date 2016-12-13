@@ -1,7 +1,7 @@
 package transactionService.server.сonsumerService
 
 
-import com.sleepycat.persist.{EntityStore, StoreConfig}
+import com.sleepycat.je._
 import com.twitter.util.{Future => TwitterFuture}
 import transactionService.server.сonsumerService.ConsumerServiceImpl._
 import transactionService.server.{Authenticable, CheckpointTTL}
@@ -15,35 +15,40 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
 {
   override def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     authenticate(token) {
+      val transactionDB = environment.beginTransaction(null, null)
       val streamNameToLong = getStreamDatabaseObject(name).streamNameToLong
-      Option(consumerPrimaryIndex.get(new ConsumerKey(name, streamNameToLong, partition))) match {
-        case Some(consumer) => consumer.transactionID
-        case None => -1L
-      }
+      val keyEntry = Key(name, streamNameToLong, partition).toDatabaseEntry
+      val consumerTransactionEntry = new DatabaseEntry()
+      val result: Long = if (database.get(transactionDB,keyEntry, consumerTransactionEntry,LockMode.DEFAULT) == OperationStatus.SUCCESS)
+        ConsumerTransaction.entryToObject(consumerTransactionEntry).transactionId else -1L
+      transactionDB.commit()
+      result
     }
 
   override def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =
     authenticate(token) {
+      val transactionDB = environment.beginTransaction(null, null)
       val streamNameToLong = getStreamDatabaseObject(name).streamNameToLong
-      consumerPrimaryIndex.put(new ConsumerTransaction(name, streamNameToLong, partition, transaction))
-      true
+      val result = ConsumerTransactionKey(Key(name,streamNameToLong,partition), ConsumerTransaction(transaction))
+        .put(database,transactionDB,Put.OVERWRITE,new WriteOptions()) != null
+      if (result) transactionDB.commit() else transactionDB.abort()
+      result
     }
 }
 
 object ConsumerServiceImpl {
-  val storeName = configProperties.DB.ConsumerStoreName
 
-  val directory   =  TransactionMetaServiceImpl.directory
-  val storeConfig = new StoreConfig()
-    .setAllowCreate(true)
-    .setTransactional(true)
   val environment = TransactionMetaServiceImpl.environment
-  val entityStore = new EntityStore(environment, storeName, storeConfig)
-
-  val consumerPrimaryIndex = entityStore.getPrimaryIndex(classOf[ConsumerKey], classOf[ConsumerTransaction])
+  val database = {
+    val dbConfig = new DatabaseConfig()
+      .setAllowCreate(true)
+      .setTransactional(true)
+    val storeName = configProperties.DB.ConsumerStoreName
+    environment.openDatabase(null, storeName, dbConfig)
+  }
 
   def close(): Unit = {
-    entityStore.close()
+    database.close()
     environment.close()
   }
 }

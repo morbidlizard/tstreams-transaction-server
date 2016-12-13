@@ -1,6 +1,6 @@
 package transactionService.server
 
-import authService.impl.AuthServiceImpl
+import transactionService.server.authService.AuthServiceImpl
 import exception.Throwables.tokenInvalidException
 import com.twitter.util.{Future => TwitterFuture}
 

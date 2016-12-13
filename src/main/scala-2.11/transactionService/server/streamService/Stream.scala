@@ -1,26 +1,40 @@
 package transactionService.server.streamService
 
-import com.sleepycat.persist.model.{Entity, PrimaryKey, Relationship, SecondaryKey}
+import com.sleepycat.bind.tuple.TupleBinding
+import com.sleepycat.bind.tuple.TupleInput
+import com.sleepycat.bind.tuple.TupleOutput
+import com.sleepycat.je.DatabaseEntry
+import Stream.objectToEntry
 
-@Entity class Stream extends transactionService.rpc.Stream {
-  @PrimaryKey private var nameDB: String = _
-  @SecondaryKey(relate = Relationship.ONE_TO_ONE) private var StreamNameToLongDB: java.lang.Long = _
-  private var partitionsDB: Int = _
-  private var descriptionDB: String = _
-  private var ttlDB: Int   = _
+case class Stream(name: String, partitions: Int, description: Option[String], ttl: Int)
+  extends transactionService.rpc.Stream
+{
+  def toDatabaseEntry: DatabaseEntry = {
+    val databaseEntry = new DatabaseEntry()
+    objectToEntry(this, databaseEntry)
+    databaseEntry
+  }
+}
 
-  override def partitions: Int = partitionsDB
-  override def description: Option[String] = Option(descriptionDB)
-  override def name: String = nameDB
-  override def ttl: Int = ttlDB
-  def streamNameToLong: java.lang.Long = StreamNameToLongDB
-
-  def this(name: String, partitions:Int, description: Option[String], ttl: Int, streamNameToLong: java.lang.Long) = {
-    this()
-    nameDB = name
-    partitionsDB = partitions
-    ttlDB = ttl
-    description foreach (str => descriptionDB = str)
-    StreamNameToLongDB = streamNameToLong
+object Stream extends TupleBinding[Stream]
+{
+  override def entryToObject(input: TupleInput): Stream = {
+    val partitions       = input.readInt()
+    val ttl              = input.readInt()
+    val name             = input.readString()
+    val description      = input.readString() match {
+      case "" => None
+      case str => Some(str)
+    }
+    Stream(name, partitions, description, ttl)
+  }
+  override def objectToEntry(stream: Stream, output: TupleOutput): Unit = {
+    output.writeInt(stream.partitions)
+    output.writeInt(stream.ttl)
+    output.writeChars(stream.name)
+    stream.description match {
+      case Some(description) => output.writeChars(description)
+      case None => output.writeChars("")
+    }
   }
 }

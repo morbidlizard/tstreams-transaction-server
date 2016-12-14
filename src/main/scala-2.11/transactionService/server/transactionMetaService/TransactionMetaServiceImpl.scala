@@ -4,6 +4,7 @@ package transactionService.server.transactionMetaService
 import java.time.Instant
 import java.util.concurrent.TimeUnit._
 
+import com.google.common.primitives.UnsignedBytes
 import com.sleepycat.je.{Transaction => _, _}
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util.{Future => TwitterFuture}
@@ -11,6 +12,8 @@ import transactionService.rpc.TransactionStates.Checkpointed
 import transactionService.rpc._
 import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
 import transactionService.server.{Authenticable, CheckpointTTL}
+
+import scala.collection.mutable.ArrayBuffer
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
@@ -86,33 +89,52 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
     txn.timestamp <= Instant.now().getEpochSecond
 
+
+
   override def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): TwitterFuture[Seq[Transaction]] =
-    authenticate(token) { ???
-//      import scala.collection.JavaConverters._
-//      val streamObj = getStreamDatabaseObject(stream)
-//      val transactionDB = environment.beginTransaction(null, null)
-//
-//      val keyToStart = new Key(streamObj.streamNameToLong, partition, from).toDatabaseEntry
-//      val firstTxn = new DatabaseEntry()
-//      val cursorStartingAtTheKey = database.openCursor(transactionDB, CursorConfig.DEFAULT).getSearchKey(
-//        keyToStart,
-//        firstTxn,
-//        LockMode.READ_COMMITTED
-//      )
-//
-//      cursorStartingAtTheKey.
-//
-//
-//      entitiesProducerTxns
-//      val producerTransactions = entitiesProducerTxns.().asScala.filterNot(doesProducerTransactionExpired).toArray
-//
-//      entitiesProducerTxns.close()
-//      transactionDB.commit()
-//
-//      producerTransactions.map {txn =>
-//        val producerTxn = ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.timestamp)
-//        Transaction(Some(producerTxn), None)
-//      }
+    authenticate(token) {
+      val lockMode = LockMode.DEFAULT
+      val streamObj = getStreamDatabaseObject(stream)
+      val transactionDB = environment.beginTransaction(null, null)
+      val cursor = database.openCursor(transactionDB, CursorConfig.DEFAULT)
+
+
+      def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
+        val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.timestamp)
+        Transaction(Some(producerTxn), None)
+      }
+
+      def moveCursorToKey: Option[ProducerTransactionKey] = {
+        val keyFrom = new Key(streamObj.streamNameToLong, partition, from)
+        val keyFound = keyFrom.toDatabaseEntry
+        val dataFound = new DatabaseEntry()
+        if (cursor.getSearchKey(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS)
+          Some(new ProducerTransactionKey(keyFrom, ProducerTransaction.entryToObject(dataFound))) else None
+      }
+
+      moveCursorToKey match {
+        case None =>
+          cursor.close()
+          transactionDB.commit()
+          Array[Transaction]()
+
+        case Some(producerTransactionKey) =>
+          val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
+          val keyTo = new Key(streamObj.streamNameToLong, partition, to).toDatabaseEntry.getData
+          val keyFound  = new DatabaseEntry()
+          val dataFound = new DatabaseEntry()
+          val comparator = UnsignedBytes.lexicographicalComparator
+          while (
+            cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS &&
+              (comparator.compare(keyFound.getData, keyTo) <= 0)
+          )
+          {txns += new ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransaction.entryToObject(dataFound))}
+
+          cursor.close()
+          transactionDB.commit()
+
+          txns map producerTransactionToTransaction
+      }
     }
 
 //  private val transiteTxnsToInvalidState = new Runnable {

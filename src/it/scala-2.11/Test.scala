@@ -41,7 +41,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     override val transactionID: Long = rand.nextLong()
     override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1)
     override val stream: String = streamObj.name
-    override val timestamp: Long = Long.MaxValue
+    override val keepAliveTTL: Long = Long.MaxValue
     override val quantity: Int = -1
     override val partition: Int = streamObj.partitions
   }

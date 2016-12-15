@@ -1,5 +1,6 @@
 package benchmark.utils
 
+import com.twitter.util.Time
 import transactionService.rpc.{ProducerTransaction, TransactionStates}
 
 import scala.collection.immutable.IndexedSeq
@@ -19,7 +20,7 @@ trait TransactionCreator {
 
       override val stream: String = streamName
 
-      override val timestamp: Long = 120
+      override val keepAliveTTL: Long = Time.epoch.inNanoseconds
 
       override val quantity: Int = -1
 
@@ -35,7 +36,7 @@ trait TransactionCreator {
 
       override val stream: String = streamName
 
-      override val timestamp: Long = 120
+      override val keepAliveTTL: Long = Time.epoch.inNanoseconds
 
       override val quantity: Int = -1
 

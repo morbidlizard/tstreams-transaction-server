@@ -520,7 +520,7 @@ class TransactionService$FinagleService(
         iface.authenticate(args.login, args.password)
       } catch {
         case e: Exception => Future.exception(e)
-      }).flatMap { value: String =>
+      }).flatMap { value: Int =>
         reply("authenticate", seqid, Authenticate.Result(success = Some(value)))
       }.rescue {
         case e => Future.exception(e)

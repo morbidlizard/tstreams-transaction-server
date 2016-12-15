@@ -1,29 +1,24 @@
 package transactionService.server.authService
 
-import authService.rpc.AuthService
 import com.twitter.util.{Future => TwitterFuture}
 import com.google.common.cache.CacheBuilder
-import shared.FNV
+import transactionService.rpc.AuthService
 
 
 trait AuthServiceImpl extends AuthService[TwitterFuture] {
 
+  val random = scala.util.Random
   val usersToken = CacheBuilder.newBuilder()
     .maximumSize(configProperties.AuthConfig.authTokenActiveMax)
     .expireAfterAccess(configProperties.AuthConfig.authTokenTimeExpiration, java.util.concurrent.TimeUnit.SECONDS)
-    .build[String,(String,String)]()
+    .build[java.lang.Integer, (String,String)]()
 
 
-  override def authenticate(login: String, password: String): TwitterFuture[String] = TwitterFuture {
-    val token = FNV.hash32a(s"$login$password".getBytes).toString
+  override def authenticate(login: String, password: String): TwitterFuture[Int] = TwitterFuture {
+    val token = random.nextInt()
     usersToken.put(token, (login, password))
     token
   }
 
-  override def isValid(token: String): TwitterFuture[Boolean] = TwitterFuture {
-    if (token == null) false
-    else {
-      usersToken.getIfPresent(token) != null
-    }
-  }
+  override def isValid(token: Int): TwitterFuture[Boolean] = TwitterFuture(usersToken.getIfPresent(token) != null)
 }

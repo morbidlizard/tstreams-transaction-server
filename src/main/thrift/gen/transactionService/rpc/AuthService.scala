@@ -40,9 +40,9 @@ import scala.language.higherKinds
 @javax.annotation.Generated(value = Array("com.twitter.scrooge.Compiler"))
 trait AuthService[+MM[_]] extends ThriftService {
   
-  def authenticate(login: String, password: String): MM[String]
+  def authenticate(login: String, password: String): MM[Int]
   
-  def isValid(token: String): MM[Boolean]
+  def isValid(token: Int): MM[Boolean]
 }
 
 
@@ -79,11 +79,11 @@ object AuthService { self =>
     extends AuthService[Future] {
     private[this] val __authenticate_service =
       ThriftServiceIface.resultFilter(self.Authenticate) andThen serviceIface.authenticate
-    def authenticate(login: String, password: String): Future[String] =
+    def authenticate(login: String, password: String): Future[Int] =
       __authenticate_service(self.Authenticate.Args(login, password))
     private[this] val __isValid_service =
       ThriftServiceIface.resultFilter(self.IsValid) andThen serviceIface.isValid
-    def isValid(token: String): Future[Boolean] =
+    def isValid(token: Int): Future[Boolean] =
       __isValid_service(self.IsValid.Args(token))
   }
 
@@ -336,13 +336,13 @@ object AuthService { self =>
       def _codec: ThriftStructCodec3[Args] = Args
     }
 
-    type SuccessType = String
+    type SuccessType = Int
     
     object Result extends ThriftStructCodec3[Result] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("authenticate_result")
-      val SuccessField = new TField("success", TType.STRING, 0)
-      val SuccessFieldManifest = implicitly[Manifest[String]]
+      val SuccessField = new TField("success", TType.I32, 0)
+      val SuccessFieldManifest = implicitly[Manifest[Int]]
     
       /**
        * Field information in declaration order.
@@ -386,7 +386,7 @@ object AuthService { self =>
       }
     
       override def decode(_iprot: TProtocol): Result = {
-        var success: _root_.scala.Option[String] = _root_.scala.None
+        var success: _root_.scala.Option[Int] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -399,10 +399,10 @@ object AuthService { self =>
             _field.id match {
               case 0 =>
                 _field.`type` match {
-                  case TType.STRING =>
+                  case TType.I32 =>
                     success = _root_.scala.Some(readSuccessValue(_iprot))
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
                       "Received wrong type for field 'success' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
@@ -430,43 +430,43 @@ object AuthService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[String] = _root_.scala.None
+        success: _root_.scala.Option[Int] = _root_.scala.None
       ): Result =
         new Result(
           success
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Option[String]] = _root_.scala.Some(_item.success)
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Option[Int]] = _root_.scala.Some(_item.success)
     
     
-      @inline private def readSuccessValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readSuccessValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeSuccessField(success_item: String, _oprot: TProtocol): Unit = {
+      @inline private def writeSuccessField(success_item: Int, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(SuccessField)
         writeSuccessValue(success_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeSuccessValue(success_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(success_item)
+      @inline private def writeSuccessValue(success_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(success_item)
       }
     
     
     }
     
     class Result(
-        val success: _root_.scala.Option[String],
+        val success: _root_.scala.Option[Int],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
-      extends ThriftResponse[String] with ThriftStruct
-      with scala.Product1[Option[String]]
+      extends ThriftResponse[Int] with ThriftStruct
+      with scala.Product1[Option[Int]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[String] = _root_.scala.None
+        success: _root_.scala.Option[Int] = _root_.scala.None
       ) = this(
         success,
         Map.empty
@@ -474,7 +474,7 @@ object AuthService { self =>
     
       def _1 = success
     
-      def successField: Option[String] = success
+      def successField: Option[Int] = success
       def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq()
     
     
@@ -490,7 +490,7 @@ object AuthService { self =>
       }
     
       def copy(
-        success: _root_.scala.Option[String] = this.success,
+        success: _root_.scala.Option[Int] = this.success,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
@@ -526,7 +526,7 @@ object AuthService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[String]]
+    type FunctionType = Function1[Args,Future[Int]]
     type ServiceType = com.twitter.finagle.Service[Args, Result]
 
     private[this] val toResult = (res: SuccessType) => Result(Some(res))
@@ -560,8 +560,8 @@ object AuthService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("isValid_args")
-      val TokenField = new TField("token", TType.STRING, 1)
-      val TokenFieldManifest = implicitly[Manifest[String]]
+      val TokenField = new TField("token", TType.I32, 1)
+      val TokenFieldManifest = implicitly[Manifest[Int]]
     
       /**
        * Field information in declaration order.
@@ -603,7 +603,7 @@ object AuthService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var token: String = null
+        var token: Int = 0
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -616,10 +616,10 @@ object AuthService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
+                  case TType.I32 =>
                     token = readTokenValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
                       "Received wrong type for field 'token' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
@@ -647,43 +647,43 @@ object AuthService { self =>
       }
     
       def apply(
-        token: String
+        token: Int
       ): Args =
         new Args(
           token
         )
     
-      def unapply(_item: Args): _root_.scala.Option[String] = _root_.scala.Some(_item.token)
+      def unapply(_item: Args): _root_.scala.Option[Int] = _root_.scala.Some(_item.token)
     
     
-      @inline private def readTokenValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readTokenValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeTokenField(token_item: String, _oprot: TProtocol): Unit = {
+      @inline private def writeTokenField(token_item: Int, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(TokenField)
         writeTokenValue(token_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeTokenValue(token_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(token_item)
+      @inline private def writeTokenValue(token_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(token_item)
       }
     
     
     }
     
     class Args(
-        val token: String,
+        val token: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with scala.Product1[String]
+      with scala.Product1[Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        token: String
+        token: Int
       ) = this(
         token,
         Map.empty
@@ -696,7 +696,7 @@ object AuthService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (token ne null) writeTokenField(token, _oprot)
+        writeTokenField(token, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -705,7 +705,7 @@ object AuthService { self =>
       }
     
       def copy(
-        token: String = this.token,
+        token: Int = this.token,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
@@ -963,9 +963,9 @@ object AuthService { self =>
 
   trait FutureIface extends AuthService[Future] {
     
-    def authenticate(login: String, password: String): Future[String]
+    def authenticate(login: String, password: String): Future[Int]
     
-    def isValid(token: String): Future[Boolean]
+    def isValid(token: Int): Future[Boolean]
   }
 
   class FinagledClient(

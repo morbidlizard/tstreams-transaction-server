@@ -40,9 +40,9 @@ import scala.language.higherKinds
 @javax.annotation.Generated(value = Array("com.twitter.scrooge.Compiler"))
 trait ConsumerService[+MM[_]] extends ThriftService {
   
-  def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): MM[Boolean]
+  def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): MM[Boolean]
   
-  def getConsumerState(token: String, name: String, stream: String, partition: Int): MM[Long]
+  def getConsumerState(token: Int, name: String, stream: String, partition: Int): MM[Long]
 }
 
 
@@ -79,11 +79,11 @@ object ConsumerService { self =>
     extends ConsumerService[Future] {
     private[this] val __setConsumerState_service =
       ThriftServiceIface.resultFilter(self.SetConsumerState) andThen serviceIface.setConsumerState
-    def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean] =
+    def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean] =
       __setConsumerState_service(self.SetConsumerState.Args(token, name, stream, partition, transaction))
     private[this] val __getConsumerState_service =
       ThriftServiceIface.resultFilter(self.GetConsumerState) andThen serviceIface.getConsumerState
-    def getConsumerState(token: String, name: String, stream: String, partition: Int): Future[Long] =
+    def getConsumerState(token: Int, name: String, stream: String, partition: Int): Future[Long] =
       __getConsumerState_service(self.GetConsumerState.Args(token, name, stream, partition))
   }
 
@@ -98,8 +98,8 @@ object ConsumerService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("setConsumerState_args")
-      val TokenField = new TField("token", TType.STRING, 1)
-      val TokenFieldManifest = implicitly[Manifest[String]]
+      val TokenField = new TField("token", TType.I32, 1)
+      val TokenFieldManifest = implicitly[Manifest[Int]]
       val NameField = new TField("name", TType.STRING, 2)
       val NameFieldManifest = implicitly[Manifest[String]]
       val StreamField = new TField("stream", TType.STRING, 3)
@@ -213,7 +213,7 @@ object ConsumerService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var token: String = null
+        var token: Int = 0
         var name: String = null
         var stream: String = null
         var partition: Int = 0
@@ -230,10 +230,10 @@ object ConsumerService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
+                  case TType.I32 =>
                     token = readTokenValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
                       "Received wrong type for field 'token' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
@@ -317,7 +317,7 @@ object ConsumerService { self =>
       }
     
       def apply(
-        token: String,
+        token: Int,
         name: String,
         stream: String,
         partition: Int,
@@ -331,21 +331,21 @@ object ConsumerService { self =>
           transaction
         )
     
-      def unapply(_item: Args): _root_.scala.Option[scala.Product5[String, String, String, Int, Long]] = _root_.scala.Some(_item)
+      def unapply(_item: Args): _root_.scala.Option[scala.Product5[Int, String, String, Int, Long]] = _root_.scala.Some(_item)
     
     
-      @inline private def readTokenValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readTokenValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeTokenField(token_item: String, _oprot: TProtocol): Unit = {
+      @inline private def writeTokenField(token_item: Int, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(TokenField)
         writeTokenValue(token_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeTokenValue(token_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(token_item)
+      @inline private def writeTokenValue(token_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(token_item)
       }
     
       @inline private def readNameValue(_iprot: TProtocol): String = {
@@ -408,20 +408,20 @@ object ConsumerService { self =>
     }
     
     class Args(
-        val token: String,
+        val token: Int,
         val name: String,
         val stream: String,
         val partition: Int,
         val transaction: Long,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with scala.Product5[String, String, String, Int, Long]
+      with scala.Product5[Int, String, String, Int, Long]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        token: String,
+        token: Int,
         name: String,
         stream: String,
         partition: Int,
@@ -446,7 +446,7 @@ object ConsumerService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (token ne null) writeTokenField(token, _oprot)
+        writeTokenField(token, _oprot)
         if (name ne null) writeNameField(name, _oprot)
         if (stream ne null) writeStreamField(stream, _oprot)
         writePartitionField(partition, _oprot)
@@ -459,7 +459,7 @@ object ConsumerService { self =>
       }
     
       def copy(
-        token: String = this.token,
+        token: Int = this.token,
         name: String = this.name,
         stream: String = this.stream,
         partition: Int = this.partition,
@@ -731,8 +731,8 @@ object ConsumerService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("getConsumerState_args")
-      val TokenField = new TField("token", TType.STRING, 1)
-      val TokenFieldManifest = implicitly[Manifest[String]]
+      val TokenField = new TField("token", TType.I32, 1)
+      val TokenFieldManifest = implicitly[Manifest[Int]]
       val NameField = new TField("name", TType.STRING, 2)
       val NameFieldManifest = implicitly[Manifest[String]]
       val StreamField = new TField("stream", TType.STRING, 3)
@@ -828,7 +828,7 @@ object ConsumerService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var token: String = null
+        var token: Int = 0
         var name: String = null
         var stream: String = null
         var partition: Int = 0
@@ -844,10 +844,10 @@ object ConsumerService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
+                  case TType.I32 =>
                     token = readTokenValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
                       "Received wrong type for field 'token' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
@@ -917,7 +917,7 @@ object ConsumerService { self =>
       }
     
       def apply(
-        token: String,
+        token: Int,
         name: String,
         stream: String,
         partition: Int
@@ -929,21 +929,21 @@ object ConsumerService { self =>
           partition
         )
     
-      def unapply(_item: Args): _root_.scala.Option[scala.Product4[String, String, String, Int]] = _root_.scala.Some(_item)
+      def unapply(_item: Args): _root_.scala.Option[scala.Product4[Int, String, String, Int]] = _root_.scala.Some(_item)
     
     
-      @inline private def readTokenValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readTokenValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeTokenField(token_item: String, _oprot: TProtocol): Unit = {
+      @inline private def writeTokenField(token_item: Int, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(TokenField)
         writeTokenValue(token_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeTokenValue(token_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(token_item)
+      @inline private def writeTokenValue(token_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(token_item)
       }
     
       @inline private def readNameValue(_iprot: TProtocol): String = {
@@ -992,19 +992,19 @@ object ConsumerService { self =>
     }
     
     class Args(
-        val token: String,
+        val token: Int,
         val name: String,
         val stream: String,
         val partition: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with scala.Product4[String, String, String, Int]
+      with scala.Product4[Int, String, String, Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        token: String,
+        token: Int,
         name: String,
         stream: String,
         partition: Int
@@ -1026,7 +1026,7 @@ object ConsumerService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (token ne null) writeTokenField(token, _oprot)
+        writeTokenField(token, _oprot)
         if (name ne null) writeNameField(name, _oprot)
         if (stream ne null) writeStreamField(stream, _oprot)
         writePartitionField(partition, _oprot)
@@ -1038,7 +1038,7 @@ object ConsumerService { self =>
       }
     
       def copy(
-        token: String = this.token,
+        token: Int = this.token,
         name: String = this.name,
         stream: String = this.stream,
         partition: Int = this.partition,
@@ -1305,9 +1305,9 @@ object ConsumerService { self =>
 
   trait FutureIface extends ConsumerService[Future] {
     
-    def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean]
+    def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean]
     
-    def getConsumerState(token: String, name: String, stream: String, partition: Int): Future[Long]
+    def getConsumerState(token: Int, name: String, stream: String, partition: Int): Future[Long]
   }
 
   class FinagledClient(

@@ -108,10 +108,10 @@ class AuthService$FinagleClient(
     val FailuresScope = scopedStats.scope("authenticate").scope("failures")
   }
   
-  def authenticate(login: String, password: String): Future[String] = {
+  def authenticate(login: String, password: String): Future[Int] = {
     __stats_authenticate.RequestsCounter.incr()
     val inputArgs = Authenticate.Args(login, password)
-    val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[String] =
+    val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Int] =
       response => {
         val decodeResult: _root_.com.twitter.util.Try[Authenticate.Result] =
           _root_.com.twitter.util.Try {
@@ -120,7 +120,7 @@ class AuthService$FinagleClient(
   
         decodeResult match {
           case t@_root_.com.twitter.util.Throw(_) =>
-            t.cast[String]
+            t.cast[Int]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
               null
@@ -134,7 +134,7 @@ class AuthService$FinagleClient(
         }
       }
   
-    val serdeCtx = new _root_.com.twitter.finagle.thrift.DeserializeCtx[String](inputArgs, replyDeserializer)
+    val serdeCtx = new _root_.com.twitter.finagle.thrift.DeserializeCtx[Int](inputArgs, replyDeserializer)
     _root_.com.twitter.finagle.context.Contexts.local.let(
       _root_.com.twitter.finagle.thrift.DeserializeCtx.Key,
       serdeCtx
@@ -168,7 +168,7 @@ class AuthService$FinagleClient(
     val FailuresScope = scopedStats.scope("isValid").scope("failures")
   }
   
-  def isValid(token: String): Future[Boolean] = {
+  def isValid(token: Int): Future[Boolean] = {
     __stats_isValid.RequestsCounter.incr()
     val inputArgs = IsValid.Args(token)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =

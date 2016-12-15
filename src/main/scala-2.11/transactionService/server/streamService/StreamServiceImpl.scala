@@ -28,7 +28,7 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
     }
 
 
-  override def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
+  override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
     authenticate(token) {
       val newStream = Stream(stream, partitions, description, ttl)
       val newKey    = Key(FNV.hash64a(stream.getBytes()).toLong)
@@ -37,14 +37,14 @@ trait StreamServiceImpl extends StreamService[TwitterFuture]
       database.putNoOverwrite(null, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
     }
 
-  override def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
+  override def doesStreamExist(token: Int, stream: String): TwitterFuture[Boolean] =
     authenticate(token) (scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)
 
-  override def getStream(token: String, stream: String): TwitterFuture[Stream] =
+  override def getStream(token: Int, stream: String): TwitterFuture[Stream] =
     authenticate(token) (getStreamDatabaseObject(stream).stream)
 
 
-  override def delStream(token: String, stream: String): TwitterFuture[Boolean] =
+  override def delStream(token: Int, stream: String): TwitterFuture[Boolean] =
     authenticate(token) {
       val key = Key(FNV.hash64a(stream.getBytes()).toLong)
       streamTTL.remove(stream)

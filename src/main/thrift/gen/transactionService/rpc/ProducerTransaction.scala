@@ -43,8 +43,8 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
   val StateFieldManifest = implicitly[Manifest[transactionService.rpc.TransactionStates]]
   val QuantityField = new TField("quantity", TType.I32, 5)
   val QuantityFieldManifest = implicitly[Manifest[Int]]
-  val TimestampField = new TField("timestamp", TType.I64, 6)
-  val TimestampFieldManifest = implicitly[Manifest[Long]]
+  val KeepAliveTTLField = new TField("keepAliveTTL", TType.I64, 6)
+  val KeepAliveTTLFieldManifest = implicitly[Manifest[Long]]
 
   /**
    * Field information in declaration order.
@@ -106,10 +106,10 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       None
     ),
     new ThriftStructFieldInfo(
-      TimestampField,
+      KeepAliveTTLField,
       false,
       true,
-      TimestampFieldManifest,
+      KeepAliveTTLFieldManifest,
       _root_.scala.None,
       _root_.scala.None,
       immutable$Map.empty[String, String],
@@ -156,9 +156,9 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
           val field = original.quantity
           field
         },
-      timestamp =
+      keepAliveTTL =
         {
-          val field = original.timestamp
+          val field = original.keepAliveTTL
           field
         }
     )
@@ -179,8 +179,8 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     var _got_state = false
     var quantity: Int = 0
     var _got_quantity = false
-    var timestamp: Long = 0L
-    var _got_timestamp = false
+    var keepAliveTTL: Long = 0L
+    var _got_keepAliveTTL = false
 
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
@@ -272,12 +272,12 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
             _field.`type` match {
               case TType.I64 =>
     
-                timestamp = readTimestampValue(_iprot)
-                _got_timestamp = true
+                keepAliveTTL = readKeepAliveTTLValue(_iprot)
+                _got_keepAliveTTL = true
               case _actualType =>
                 val _expectedType = TType.I64
                 throw new TProtocolException(
-                  "Received wrong type for field 'timestamp' (expected=%s, actual=%s).".format(
+                  "Received wrong type for field 'keepAliveTTL' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -298,7 +298,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     if (!_got_transactionID) throw new TProtocolException("Required field 'transactionID' was not found in serialized data for struct ProducerTransaction")
     if (!_got_state) throw new TProtocolException("Required field 'state' was not found in serialized data for struct ProducerTransaction")
     if (!_got_quantity) throw new TProtocolException("Required field 'quantity' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_timestamp) throw new TProtocolException("Required field 'timestamp' was not found in serialized data for struct ProducerTransaction")
+    if (!_got_keepAliveTTL) throw new TProtocolException("Required field 'keepAliveTTL' was not found in serialized data for struct ProducerTransaction")
     new LazyImmutable(
       _iprot,
       _iprot.buffer,
@@ -309,7 +309,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       transactionID,
       state,
       quantity,
-      timestamp,
+      keepAliveTTL,
       if (_passthroughFields == null)
         NoPassthroughFields
       else
@@ -334,8 +334,8 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     var _got_state = false
     var quantity: Int = 0
     var _got_quantity = false
-    var timestamp: Long = 0L
-    var _got_timestamp = false
+    var keepAliveTTL: Long = 0L
+    var _got_keepAliveTTL = false
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
 
@@ -419,12 +419,12 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
           case 6 =>
             _field.`type` match {
               case TType.I64 =>
-                timestamp = readTimestampValue(_iprot)
-                _got_timestamp = true
+                keepAliveTTL = readKeepAliveTTLValue(_iprot)
+                _got_keepAliveTTL = true
               case _actualType =>
                 val _expectedType = TType.I64
                 throw new TProtocolException(
-                  "Received wrong type for field 'timestamp' (expected=%s, actual=%s).".format(
+                  "Received wrong type for field 'keepAliveTTL' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -445,14 +445,14 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     if (!_got_transactionID) throw new TProtocolException("Required field 'transactionID' was not found in serialized data for struct ProducerTransaction")
     if (!_got_state) throw new TProtocolException("Required field 'state' was not found in serialized data for struct ProducerTransaction")
     if (!_got_quantity) throw new TProtocolException("Required field 'quantity' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_timestamp) throw new TProtocolException("Required field 'timestamp' was not found in serialized data for struct ProducerTransaction")
+    if (!_got_keepAliveTTL) throw new TProtocolException("Required field 'keepAliveTTL' was not found in serialized data for struct ProducerTransaction")
     new Immutable(
       stream,
       partition,
       transactionID,
       state,
       quantity,
-      timestamp,
+      keepAliveTTL,
       if (_passthroughFields == null)
         NoPassthroughFields
       else
@@ -466,7 +466,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     transactionID: Long,
     state: transactionService.rpc.TransactionStates,
     quantity: Int,
-    timestamp: Long
+    keepAliveTTL: Long
   ): ProducerTransaction =
     new Immutable(
       stream,
@@ -474,7 +474,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       transactionID,
       state,
       quantity,
-      timestamp
+      keepAliveTTL
     )
 
   def unapply(_item: ProducerTransaction): _root_.scala.Option[scala.Product6[String, Int, Long, transactionService.rpc.TransactionStates, Int, Long]] = _root_.scala.Some(_item)
@@ -550,18 +550,18 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     _oprot.writeI32(quantity_item)
   }
 
-  @inline private def readTimestampValue(_iprot: TProtocol): Long = {
+  @inline private def readKeepAliveTTLValue(_iprot: TProtocol): Long = {
     _iprot.readI64()
   }
 
-  @inline private def writeTimestampField(timestamp_item: Long, _oprot: TProtocol): Unit = {
-    _oprot.writeFieldBegin(TimestampField)
-    writeTimestampValue(timestamp_item, _oprot)
+  @inline private def writeKeepAliveTTLField(keepAliveTTL_item: Long, _oprot: TProtocol): Unit = {
+    _oprot.writeFieldBegin(KeepAliveTTLField)
+    writeKeepAliveTTLValue(keepAliveTTL_item, _oprot)
     _oprot.writeFieldEnd()
   }
 
-  @inline private def writeTimestampValue(timestamp_item: Long, _oprot: TProtocol): Unit = {
-    _oprot.writeI64(timestamp_item)
+  @inline private def writeKeepAliveTTLValue(keepAliveTTL_item: Long, _oprot: TProtocol): Unit = {
+    _oprot.writeI64(keepAliveTTL_item)
   }
 
 
@@ -582,7 +582,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       val transactionID: Long,
       val state: transactionService.rpc.TransactionStates,
       val quantity: Int,
-      val timestamp: Long,
+      val keepAliveTTL: Long,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends ProducerTransaction {
     def this(
@@ -591,14 +591,14 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       transactionID: Long,
       state: transactionService.rpc.TransactionStates,
       quantity: Int,
-      timestamp: Long
+      keepAliveTTL: Long
     ) = this(
       stream,
       partition,
       transactionID,
       state,
       quantity,
-      timestamp,
+      keepAliveTTL,
       Map.empty
     )
   }
@@ -617,7 +617,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       val transactionID: Long,
       val state: transactionService.rpc.TransactionStates,
       val quantity: Int,
-      val timestamp: Long,
+      val keepAliveTTL: Long,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends ProducerTransaction {
 
@@ -661,7 +661,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     override def transactionID: Long = _underlying_ProducerTransaction.transactionID
     override def state: transactionService.rpc.TransactionStates = _underlying_ProducerTransaction.state
     override def quantity: Int = _underlying_ProducerTransaction.quantity
-    override def timestamp: Long = _underlying_ProducerTransaction.timestamp
+    override def keepAliveTTL: Long = _underlying_ProducerTransaction.keepAliveTTL
     override def _passthroughFields = _underlying_ProducerTransaction._passthroughFields
   }
 }
@@ -679,7 +679,7 @@ trait ProducerTransaction
   def transactionID: Long
   def state: transactionService.rpc.TransactionStates
   def quantity: Int
-  def timestamp: Long
+  def keepAliveTTL: Long
 
   def _passthroughFields: immutable$Map[Short, TFieldBlob] = immutable$Map.empty
 
@@ -688,7 +688,7 @@ trait ProducerTransaction
   def _3 = transactionID
   def _4 = state
   def _5 = quantity
-  def _6 = timestamp
+  def _6 = keepAliveTTL
 
 
   /**
@@ -741,8 +741,8 @@ trait ProducerTransaction
               }
             case 6 =>
               if (true) {
-                writeTimestampValue(timestamp, _oprot)
-                _root_.scala.Some(ProducerTransaction.TimestampField)
+                writeKeepAliveTTLValue(keepAliveTTL, _oprot)
+                _root_.scala.Some(ProducerTransaction.KeepAliveTTLField)
               } else {
                 _root_.scala.None
               }
@@ -777,7 +777,7 @@ trait ProducerTransaction
     var transactionID: Long = this.transactionID
     var state: transactionService.rpc.TransactionStates = this.state
     var quantity: Int = this.quantity
-    var timestamp: Long = this.timestamp
+    var keepAliveTTL: Long = this.keepAliveTTL
     var _passthroughFields = this._passthroughFields
     _blob.id match {
       case 1 =>
@@ -791,7 +791,7 @@ trait ProducerTransaction
       case 5 =>
         quantity = readQuantityValue(_blob.read)
       case 6 =>
-        timestamp = readTimestampValue(_blob.read)
+        keepAliveTTL = readKeepAliveTTLValue(_blob.read)
       case _ => _passthroughFields += (_blob.id -> _blob)
     }
     new Immutable(
@@ -800,7 +800,7 @@ trait ProducerTransaction
       transactionID,
       state,
       quantity,
-      timestamp,
+      keepAliveTTL,
       _passthroughFields
     )
   }
@@ -816,7 +816,7 @@ trait ProducerTransaction
     var transactionID: Long = this.transactionID
     var state: transactionService.rpc.TransactionStates = this.state
     var quantity: Int = this.quantity
-    var timestamp: Long = this.timestamp
+    var keepAliveTTL: Long = this.keepAliveTTL
 
     _fieldId match {
       case 1 =>
@@ -830,7 +830,7 @@ trait ProducerTransaction
       case 5 =>
         quantity = 0
       case 6 =>
-        timestamp = 0L
+        keepAliveTTL = 0L
       case _ =>
     }
     new Immutable(
@@ -839,7 +839,7 @@ trait ProducerTransaction
       transactionID,
       state,
       quantity,
-      timestamp,
+      keepAliveTTL,
       _passthroughFields - _fieldId
     )
   }
@@ -859,7 +859,7 @@ trait ProducerTransaction
 
   def unsetQuantity: ProducerTransaction = unsetField(5)
 
-  def unsetTimestamp: ProducerTransaction = unsetField(6)
+  def unsetKeepAliveTTL: ProducerTransaction = unsetField(6)
 
 
   override def write(_oprot: TProtocol): Unit = {
@@ -870,7 +870,7 @@ trait ProducerTransaction
     writeTransactionIDField(transactionID, _oprot)
     if (state ne null) writeStateField(state, _oprot)
     writeQuantityField(quantity, _oprot)
-    writeTimestampField(timestamp, _oprot)
+    writeKeepAliveTTLField(keepAliveTTL, _oprot)
     if (_passthroughFields.nonEmpty) {
       _passthroughFields.values.foreach { _.write(_oprot) }
     }
@@ -884,7 +884,7 @@ trait ProducerTransaction
     transactionID: Long = this.transactionID,
     state: transactionService.rpc.TransactionStates = this.state,
     quantity: Int = this.quantity,
-    timestamp: Long = this.timestamp,
+    keepAliveTTL: Long = this.keepAliveTTL,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
   ): ProducerTransaction =
     new Immutable(
@@ -893,7 +893,7 @@ trait ProducerTransaction
       transactionID,
       state,
       quantity,
-      timestamp,
+      keepAliveTTL,
       _passthroughFields
     )
 
@@ -921,7 +921,7 @@ trait ProducerTransaction
     case 2 => this.transactionID
     case 3 => this.state
     case 4 => this.quantity
-    case 5 => this.timestamp
+    case 5 => this.keepAliveTTL
     case _ => throw new IndexOutOfBoundsException(n.toString)
   }
 

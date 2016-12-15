@@ -108,7 +108,7 @@ class ConsumerService$FinagleClient(
     val FailuresScope = scopedStats.scope("setConsumerState").scope("failures")
   }
   
-  def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean] = {
+  def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean] = {
     __stats_setConsumerState.RequestsCounter.incr()
     val inputArgs = SetConsumerState.Args(token, name, stream, partition, transaction)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -168,7 +168,7 @@ class ConsumerService$FinagleClient(
     val FailuresScope = scopedStats.scope("getConsumerState").scope("failures")
   }
   
-  def getConsumerState(token: String, name: String, stream: String, partition: Int): Future[Long] = {
+  def getConsumerState(token: Int, name: String, stream: String, partition: Int): Future[Long] = {
     __stats_getConsumerState.RequestsCounter.incr()
     val inputArgs = GetConsumerState.Args(token, name, stream, partition)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Long] =

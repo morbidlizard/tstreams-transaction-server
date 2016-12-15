@@ -31,4 +31,6 @@ object ServerConfig {
   val transactionDataCleanAmount = config.readProperty[Int]("transaction.data.clean.amount")
 
   val transactionDataTtlAdd = config.readProperty[Int]("transaction.data.ttl.add")
+
+  val transactionMetadataTtlAdd = config.readProperty[Int]("transaction.metadata.ttl.add")
 }

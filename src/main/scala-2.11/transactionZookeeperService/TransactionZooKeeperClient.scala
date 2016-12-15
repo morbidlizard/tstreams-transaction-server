@@ -24,7 +24,7 @@ class TransactionZooKeeperClient {
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
   zKLeaderClient.start()
 
-  @volatile private var token: String = _
+  @volatile private var token: Int = _
   private val retryConditionTokenOrLock: PartialFunction[Try[Nothing], Boolean] = {
     case Throw(error) => error match {
       case e =>
@@ -265,7 +265,7 @@ object TransactionZooKeeperClient extends App {
 
     override val stream: String = "1"
 
-    override val timestamp: Long =  Instant.now().getEpochSecond
+    override val keepAliveTTL: Long =  Instant.now().getEpochSecond
 
     override val quantity: Int = -1
 

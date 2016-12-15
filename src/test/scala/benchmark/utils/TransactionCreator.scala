@@ -20,7 +20,7 @@ trait TransactionCreator {
 
       override val stream: String = streamName
 
-      override val timestamp: Long = Time.epoch.inNanoseconds
+      override val keepAliveTTL: Long = Time.epoch.inNanoseconds
 
       override val quantity: Int = -1
 
@@ -36,7 +36,7 @@ trait TransactionCreator {
 
       override val stream: String = streamName
 
-      override val timestamp: Long = Time.epoch.inNanoseconds
+      override val keepAliveTTL: Long = Time.epoch.inNanoseconds
 
       override val quantity: Int = -1
 

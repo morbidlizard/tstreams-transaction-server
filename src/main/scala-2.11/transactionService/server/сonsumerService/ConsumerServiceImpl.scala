@@ -13,7 +13,7 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
   with Authenticable
   with CheckpointTTL
 {
-  override def getConsumerState(token: String, name: String, stream: String, partition: Int): TwitterFuture[Long] =
+  override def getConsumerState(token: Int, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     authenticate(token) {
       val transactionDB = environment.beginTransaction(null, null)
       val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong
@@ -25,7 +25,7 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
       result
     }
 
-  override def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =
+  override def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =
     authenticate(token) {
       val transactionDB = environment.beginTransaction(null, null)
       val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong

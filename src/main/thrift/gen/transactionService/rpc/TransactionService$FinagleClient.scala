@@ -108,7 +108,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("putStream").scope("failures")
   }
   
-  def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean] = {
+  def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean] = {
     __stats_putStream.RequestsCounter.incr()
     val inputArgs = PutStream.Args(token, stream, partitions, description, ttl)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -168,7 +168,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("doesStreamExist").scope("failures")
   }
   
-  def doesStreamExist(token: String, stream: String): Future[Boolean] = {
+  def doesStreamExist(token: Int, stream: String): Future[Boolean] = {
     __stats_doesStreamExist.RequestsCounter.incr()
     val inputArgs = DoesStreamExist.Args(token, stream)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -228,7 +228,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("getStream").scope("failures")
   }
   
-  def getStream(token: String, stream: String): Future[transactionService.rpc.Stream] = {
+  def getStream(token: Int, stream: String): Future[transactionService.rpc.Stream] = {
     __stats_getStream.RequestsCounter.incr()
     val inputArgs = GetStream.Args(token, stream)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[transactionService.rpc.Stream] =
@@ -288,7 +288,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("delStream").scope("failures")
   }
   
-  def delStream(token: String, stream: String): Future[Boolean] = {
+  def delStream(token: Int, stream: String): Future[Boolean] = {
     __stats_delStream.RequestsCounter.incr()
     val inputArgs = DelStream.Args(token, stream)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -348,7 +348,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("putTransaction").scope("failures")
   }
   
-  def putTransaction(token: String, transaction: transactionService.rpc.Transaction): Future[Boolean] = {
+  def putTransaction(token: Int, transaction: transactionService.rpc.Transaction): Future[Boolean] = {
     __stats_putTransaction.RequestsCounter.incr()
     val inputArgs = PutTransaction.Args(token, transaction)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -408,7 +408,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("putTransactions").scope("failures")
   }
   
-  def putTransactions(token: String, transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): Future[Boolean] = {
+  def putTransactions(token: Int, transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): Future[Boolean] = {
     __stats_putTransactions.RequestsCounter.incr()
     val inputArgs = PutTransactions.Args(token, transactions)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -468,7 +468,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("scanTransactions").scope("failures")
   }
   
-  def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]] = {
+  def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]] = {
     __stats_scanTransactions.RequestsCounter.incr()
     val inputArgs = ScanTransactions.Args(token, stream, partition, from, to)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Seq[transactionService.rpc.Transaction]] =
@@ -528,7 +528,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("putTransactionData").scope("failures")
   }
   
-  def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): Future[Boolean] = {
+  def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): Future[Boolean] = {
     __stats_putTransactionData.RequestsCounter.incr()
     val inputArgs = PutTransactionData.Args(token, stream, partition, transaction, data, from)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -588,7 +588,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("getTransactionData").scope("failures")
   }
   
-  def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]] = {
+  def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]] = {
     __stats_getTransactionData.RequestsCounter.incr()
     val inputArgs = GetTransactionData.Args(token, stream, partition, transaction, from, to)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Seq[ByteBuffer]] =
@@ -648,7 +648,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("setConsumerState").scope("failures")
   }
   
-  def setConsumerState(token: String, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean] = {
+  def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean] = {
     __stats_setConsumerState.RequestsCounter.incr()
     val inputArgs = SetConsumerState.Args(token, name, stream, partition, transaction)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -708,7 +708,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("getConsumerState").scope("failures")
   }
   
-  def getConsumerState(token: String, name: String, stream: String, partition: Int): Future[Long] = {
+  def getConsumerState(token: Int, name: String, stream: String, partition: Int): Future[Long] = {
     __stats_getConsumerState.RequestsCounter.incr()
     val inputArgs = GetConsumerState.Args(token, name, stream, partition)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Long] =
@@ -768,10 +768,10 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("authenticate").scope("failures")
   }
   
-  def authenticate(login: String, password: String): Future[String] = {
+  def authenticate(login: String, password: String): Future[Int] = {
     __stats_authenticate.RequestsCounter.incr()
     val inputArgs = Authenticate.Args(login, password)
-    val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[String] =
+    val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Int] =
       response => {
         val decodeResult: _root_.com.twitter.util.Try[Authenticate.Result] =
           _root_.com.twitter.util.Try {
@@ -780,7 +780,7 @@ class TransactionService$FinagleClient(
   
         decodeResult match {
           case t@_root_.com.twitter.util.Throw(_) =>
-            t.cast[String]
+            t.cast[Int]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
               null
@@ -794,7 +794,7 @@ class TransactionService$FinagleClient(
         }
       }
   
-    val serdeCtx = new _root_.com.twitter.finagle.thrift.DeserializeCtx[String](inputArgs, replyDeserializer)
+    val serdeCtx = new _root_.com.twitter.finagle.thrift.DeserializeCtx[Int](inputArgs, replyDeserializer)
     _root_.com.twitter.finagle.context.Contexts.local.let(
       _root_.com.twitter.finagle.thrift.DeserializeCtx.Key,
       serdeCtx
@@ -828,7 +828,7 @@ class TransactionService$FinagleClient(
     val FailuresScope = scopedStats.scope("isValid").scope("failures")
   }
   
-  def isValid(token: String): Future[Boolean] = {
+  def isValid(token: Int): Future[Boolean] = {
     __stats_isValid.RequestsCounter.incr()
     val inputArgs = IsValid.Args(token)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =

@@ -32,7 +32,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     })
   }
 
-  override def putTransactionData(token: String, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
+  override def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): TwitterFuture[Boolean] =
     authenticate(token) {
       val streamObj = getStreamDatabaseObject(stream)
       val rocksDB = getStorage(stream, partition, streamObj.stream.ttl)
@@ -51,7 +51,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
     }
 
 
-  override def getTransactionData(token: String, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
+  override def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): TwitterFuture[Seq[ByteBuffer]] =
     authenticate(token) {
       val streamObj = getStreamDatabaseObject(stream)
       val rocksDB = getStorage(stream, partition, streamObj.stream.ttl)

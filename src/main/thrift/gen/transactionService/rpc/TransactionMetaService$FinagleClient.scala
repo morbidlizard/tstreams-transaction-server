@@ -108,7 +108,7 @@ class TransactionMetaService$FinagleClient(
     val FailuresScope = scopedStats.scope("putTransaction").scope("failures")
   }
   
-  def putTransaction(token: String, transaction: transactionService.rpc.Transaction): Future[Boolean] = {
+  def putTransaction(token: Int, transaction: transactionService.rpc.Transaction): Future[Boolean] = {
     __stats_putTransaction.RequestsCounter.incr()
     val inputArgs = PutTransaction.Args(token, transaction)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -168,7 +168,7 @@ class TransactionMetaService$FinagleClient(
     val FailuresScope = scopedStats.scope("putTransactions").scope("failures")
   }
   
-  def putTransactions(token: String, transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): Future[Boolean] = {
+  def putTransactions(token: Int, transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): Future[Boolean] = {
     __stats_putTransactions.RequestsCounter.incr()
     val inputArgs = PutTransactions.Args(token, transactions)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -228,7 +228,7 @@ class TransactionMetaService$FinagleClient(
     val FailuresScope = scopedStats.scope("scanTransactions").scope("failures")
   }
   
-  def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]] = {
+  def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]] = {
     __stats_scanTransactions.RequestsCounter.incr()
     val inputArgs = ScanTransactions.Args(token, stream, partition, from, to)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Seq[transactionService.rpc.Transaction]] =

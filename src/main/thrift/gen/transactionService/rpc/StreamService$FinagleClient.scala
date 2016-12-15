@@ -108,7 +108,7 @@ class StreamService$FinagleClient(
     val FailuresScope = scopedStats.scope("putStream").scope("failures")
   }
   
-  def putStream(token: String, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean] = {
+  def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean] = {
     __stats_putStream.RequestsCounter.incr()
     val inputArgs = PutStream.Args(token, stream, partitions, description, ttl)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -168,7 +168,7 @@ class StreamService$FinagleClient(
     val FailuresScope = scopedStats.scope("doesStreamExist").scope("failures")
   }
   
-  def doesStreamExist(token: String, stream: String): Future[Boolean] = {
+  def doesStreamExist(token: Int, stream: String): Future[Boolean] = {
     __stats_doesStreamExist.RequestsCounter.incr()
     val inputArgs = DoesStreamExist.Args(token, stream)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =
@@ -228,7 +228,7 @@ class StreamService$FinagleClient(
     val FailuresScope = scopedStats.scope("getStream").scope("failures")
   }
   
-  def getStream(token: String, stream: String): Future[transactionService.rpc.Stream] = {
+  def getStream(token: Int, stream: String): Future[transactionService.rpc.Stream] = {
     __stats_getStream.RequestsCounter.incr()
     val inputArgs = GetStream.Args(token, stream)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[transactionService.rpc.Stream] =
@@ -288,7 +288,7 @@ class StreamService$FinagleClient(
     val FailuresScope = scopedStats.scope("delStream").scope("failures")
   }
   
-  def delStream(token: String, stream: String): Future[Boolean] = {
+  def delStream(token: Int, stream: String): Future[Boolean] = {
     __stats_delStream.RequestsCounter.incr()
     val inputArgs = DelStream.Args(token, stream)
     val replyDeserializer: Array[Byte] => _root_.com.twitter.util.Try[Boolean] =

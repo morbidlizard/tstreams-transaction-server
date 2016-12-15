@@ -214,16 +214,16 @@ object TransactionMetaServiceImpl {
     environment.openDatabase(null, storeName, dbConfig)
   }
 
-  val secondaryDatabase = {
-    val secondaryDatabaseName = "stateIndex"
-    val secondaryDatabaseConfig = new SecondaryConfig()
-    secondaryDatabaseConfig.setKeyCreator(ProducerTransactionStateIndex)
-    secondaryDatabaseConfig.setAllowCreate(true)
-    secondaryDatabaseConfig.setAllowPopulate(true)
-    secondaryDatabaseConfig.setTransactional(true)
-    secondaryDatabaseConfig.setSortedDuplicates(true)
-    environment.openSecondaryDatabase(null, secondaryDatabaseName, database, secondaryDatabaseConfig)
-  }
+//  val secondaryDatabase = {
+//    val secondaryDatabaseName = "stateIndex"
+//    val secondaryDatabaseConfig = new SecondaryConfig()
+//    secondaryDatabaseConfig.setKeyCreator(ProducerTransactionStateIndex)
+//    secondaryDatabaseConfig.setAllowCreate(true)
+//    secondaryDatabaseConfig.setAllowPopulate(true)
+//    secondaryDatabaseConfig.setTransactional(true)
+//    secondaryDatabaseConfig.setSortedDuplicates(true)
+//    environment.openSecondaryDatabase(null, secondaryDatabaseName, database, secondaryDatabaseConfig)
+//  }
 
   def close(): Unit = {
     database.close()

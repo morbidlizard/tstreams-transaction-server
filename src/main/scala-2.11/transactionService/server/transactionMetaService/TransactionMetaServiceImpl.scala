@@ -139,39 +139,39 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
       }
     }
 
-  private val transiteTxnsToInvalidState = new Runnable {
-    override def run(): Unit = {
-      import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
-      val transactionDB = environment.beginTransaction(null, null)
-      val cursor = secondaryDatabase.openCursor(transactionDB, CursorConfig.DEFAULT)
-
-      val keyFound  = new DatabaseEntry(java.nio.ByteBuffer.allocate(4).putInt(TransactionStates.Opened.value ^ 0x80000000).array())
-      val dataFound = new DatabaseEntry()
-      val pkKeyFound = new DatabaseEntry()
-
-      if (cursor.getSearchKey(keyFound, pkKeyFound ,dataFound, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
-        val txn = ProducerTransaction.entryToObject(dataFound)
-        if (doesProducerTransactionExpired(txn)) {
-          val newTxn = transactionService.server.transactionMetaService.ProducerTransaction(TransactionStates.Invalid, txn.quantity, txn.timestamp)
-            .toDatabaseEntry
-          database.put(transactionDB, pkKeyFound, newTxn)
-          logger.log(Level.INFO, s"${newTxn.toString} transit it's state to Invalid!")
-        }
-
-        while (cursor.getNextDup(keyFound, pkKeyFound, dataFound, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
-          val txn = ProducerTransaction.entryToObject(dataFound)
-          if (doesProducerTransactionExpired(txn)) {
-            val newTxn = transactionService.server.transactionMetaService.ProducerTransaction(TransactionStates.Invalid, txn.quantity, txn.timestamp)
-              .toDatabaseEntry
-            database.put(transactionDB, pkKeyFound, newTxn)
-            logger.log(Level.INFO, s"${newTxn.toString} transit it's state to Invalid!")
-         }
-        }
-      }
-
-      cursor.close()
-      transactionDB.commit()
-
+//  private val transiteTxnsToInvalidState = new Runnable {
+//    override def run(): Unit = {
+//      import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
+//      val transactionDB = environment.beginTransaction(null, null)
+//      val cursor = secondaryDatabase.openCursor(transactionDB, CursorConfig.DEFAULT)
+//
+//      val keyFound  = new DatabaseEntry(java.nio.ByteBuffer.allocate(4).putInt(TransactionStates.Opened.value ^ 0x80000000).array())
+//      val dataFound = new DatabaseEntry()
+//      val pkKeyFound = new DatabaseEntry()
+//
+//      if (cursor.getSearchKey(keyFound, pkKeyFound ,dataFound, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+//        val txn = ProducerTransaction.entryToObject(dataFound)
+//        if (doesProducerTransactionExpired(txn)) {
+//          val newTxn = transactionService.server.transactionMetaService.ProducerTransaction(TransactionStates.Invalid, txn.quantity, txn.timestamp)
+//            .toDatabaseEntry
+//          database.put(transactionDB, pkKeyFound, newTxn)
+//          logger.log(Level.INFO, s"${newTxn.toString} transit it's state to Invalid!")
+//        }
+//
+//        while (cursor.getNextDup(keyFound, pkKeyFound, dataFound, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+//          val txn = ProducerTransaction.entryToObject(dataFound)
+//          if (doesProducerTransactionExpired(txn)) {
+//            val newTxn = transactionService.server.transactionMetaService.ProducerTransaction(TransactionStates.Invalid, txn.quantity, txn.timestamp)
+//              .toDatabaseEntry
+//            database.put(transactionDB, pkKeyFound, newTxn)
+//            logger.log(Level.INFO, s"${newTxn.toString} transit it's state to Invalid!")
+//         }
+//        }
+//      }
+//
+//      cursor.close()
+//      transactionDB.commit()
+//
 //      import scala.collection.JavaConversions._
 //      val entities = producerSecondaryIndexState.subIndex(TransactionStates.Opened.getValue()).entities(transactionDB, new CursorConfig().setReadUncommitted(true))
 //      entities.iterator().sliding(configProperties.ServerConfig.transactionDataCleanAmount,configProperties.ServerConfig.transactionDataCleanAmount).foreach { txns =>
@@ -183,8 +183,8 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 //      }
 //      entities.close()
 //      transactionDB.commit()
-    }
-  }
+//    }
+//  }
 //  Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build()).scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
 }
 

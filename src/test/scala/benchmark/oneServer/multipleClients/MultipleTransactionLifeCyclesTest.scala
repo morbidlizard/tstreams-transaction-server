@@ -1,13 +1,13 @@
 package benchmark.oneServer.multipleClients
 
-import benchmark.utils.Launcher
+import benchmark.utils.{Installer, Launcher}
 import benchmark.utils.writer.TransactionLifeCycleWriter
 
 import scala.collection.mutable.ArrayBuffer
 
 object MultipleTransactionLifeCyclesTest extends Launcher {
   override val streamName = "stream"
-  override val clients = 16
+  override val clients = 4
   private val txnCount = 1000000
   private val dataSize = 1
   private val clientThreads = ArrayBuffer[Thread]()
@@ -30,5 +30,19 @@ object MultipleTransactionLifeCyclesTest extends Launcher {
     })
     clientThreads.foreach(_.start())
     clientThreads.foreach(_.join())
+  }
+}
+
+object MultipleTransactionLifeCyclesClient extends Installer {
+  private val rand = new scala.util.Random()
+  private val txnCount = 1000000
+  private val dataSize = 1
+  private val streamName = "stream"
+
+  def main(args: Array[String]) {
+    val partition = args(0).toInt
+    val filename = rand.nextInt(100) + s"_${txnCount}TransactionLifeCycleWriterOSMC.csv"
+    new TransactionLifeCycleWriter(streamName, partition).run(txnCount, dataSize, filename)
+    System.exit(0)
   }
 }

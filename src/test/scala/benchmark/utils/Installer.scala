@@ -15,7 +15,6 @@ trait Installer {
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
   }
 
-
   def startTransactionServer() = {
     new Thread(new Runnable {
       LogManager.getLogManager.reset()

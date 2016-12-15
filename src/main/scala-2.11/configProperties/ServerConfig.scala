@@ -14,8 +14,6 @@ object ServerConfig {
 
   val transactionServerReplicationGroup = config.readProperty[String]("transactionServer.replication.group")
 
-  val transactionServerLogFileMax = config.readProperty[String]("transactionServer.log.fileMax")
-
   val zkEndpoints = config.readProperty[String]("zk.endpoints")
 
   val zkTimeoutSession = config.readProperty[Int]("zk.timeout.session")

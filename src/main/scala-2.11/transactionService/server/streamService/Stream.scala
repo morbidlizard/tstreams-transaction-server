@@ -23,7 +23,7 @@ object Stream extends TupleBinding[Stream]
     val ttl              = input.readInt()
     val name             = input.readString()
     val description      = input.readString() match {
-      case "" => None
+      case null => None
       case str => Some(str)
     }
     Stream(name, partitions, description, ttl)
@@ -31,10 +31,10 @@ object Stream extends TupleBinding[Stream]
   override def objectToEntry(stream: Stream, output: TupleOutput): Unit = {
     output.writeInt(stream.partitions)
     output.writeInt(stream.ttl)
-    output.writeChars(stream.name)
+    output.writeString(stream.name)
     stream.description match {
-      case Some(description) => output.writeChars(description)
-      case None => output.writeChars("")
+      case Some(description) => output.writeString(description)
+      case None => output.writeString(null: String)
     }
   }
 }

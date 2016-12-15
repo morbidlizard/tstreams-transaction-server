@@ -10,6 +10,7 @@ val sroogeGenOutput = "src/main/thrift/gen"
 ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile <<= baseDirectory {
   base => base / sroogeGenOutput
 }
+
 unmanagedSourceDirectories in Compile += baseDirectory.value / "src/main/resources"
 managedSourceDirectories in Compile += baseDirectory.value / sroogeGenOutput
 managedSourceDirectories in Test += baseDirectory.value / "src" / "it"

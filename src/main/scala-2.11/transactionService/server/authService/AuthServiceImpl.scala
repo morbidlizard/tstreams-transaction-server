@@ -10,8 +10,7 @@ trait AuthServiceImpl extends AuthService[TwitterFuture] {
 
   val usersToken = CacheBuilder.newBuilder()
     .maximumSize(configProperties.AuthConfig.authTokenActiveMax)
-    .expireAfterWrite(configProperties.AuthConfig.authTokenTimeExpiration, java.util.concurrent.TimeUnit.SECONDS)
-    .softValues()
+    .expireAfterAccess(configProperties.AuthConfig.authTokenTimeExpiration, java.util.concurrent.TimeUnit.SECONDS)
     .build[String,(String,String)]()
 
 
@@ -23,6 +22,8 @@ trait AuthServiceImpl extends AuthService[TwitterFuture] {
 
   override def isValid(token: String): TwitterFuture[Boolean] = TwitterFuture {
     if (token == null) false
-    else usersToken.getIfPresent(token) != null
+    else {
+      usersToken.getIfPresent(token) != null
+    }
   }
 }

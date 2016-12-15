@@ -22,7 +22,7 @@ object Key extends TupleBinding[Key] {
   }
 
   override def objectToEntry(key: Key, output: TupleOutput): Unit = {
-    output.writeChars(key.name)
+    output.writeString(key.name)
     output.writeLong(key.stream)
     output.writeInt(key.partition)
   }

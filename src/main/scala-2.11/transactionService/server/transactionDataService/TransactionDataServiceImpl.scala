@@ -63,7 +63,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
       iterator.seek(fromSeqId)
 
       val data = new ArrayBuffer[ByteBuffer](to - from)
-      while (iterator.isValid && ByteArray.lteq(iterator.key(), toSeqId)) {
+      while (iterator.isValid && ByteArray.compare(iterator.key(), toSeqId) <= 0) {
         data += java.nio.ByteBuffer.wrap(iterator.value())
         iterator.next()
       }

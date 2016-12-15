@@ -3,6 +3,7 @@ package `implicit`
 import java.lang.management.ManagementFactory
 import java.nio.ByteBuffer
 
+import com.google.common.primitives.UnsignedBytes
 import com.twitter.util.{Future => TwitterFuture}
 
 import scala.language.implicitConversions
@@ -25,25 +26,5 @@ object Implicits {
     bytes
   }
 
-
-  implicit object ByteArray extends ByteArrayOrdering
-  trait ByteArrayOrdering extends Ordering[Array[Byte]] {
-    override def compare(a: Array[Byte], b: Array[Byte]): Int = (a, b) match {
-      case (null, null) => 0
-      case (_, null) => 1
-      case (null, _) => -1
-      case _ => {
-        val L = math.min(a.length, b.length)
-        var i = 0
-        while (i < L) {
-          if (a(i) < b(i)) return -1
-          else if (b(i) < a(i)) return 1
-          i += 1
-        }
-        if (L < b.length) -1
-        else if (L < a.length) 1
-        else 0
-      }
-    }
-  }
+  val ByteArray = UnsignedBytes.lexicographicalComparator()
 }

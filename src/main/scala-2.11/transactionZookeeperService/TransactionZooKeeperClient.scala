@@ -258,7 +258,7 @@ object TransactionZooKeeperClient extends App {
 
   val rand = scala.util.Random
 
-  val producerTransactions = (0 to 100000).map(_ => new ProducerTransaction {
+  val producerTransactions = (0 to 1000).map(_ => new ProducerTransaction {
     override val transactionID: Long = rand.nextLong()
 
     override val state: TransactionStates = TransactionStates.Opened
@@ -272,7 +272,7 @@ object TransactionZooKeeperClient extends App {
     override val partition: Int = rand.nextInt(10000)
   })
 
-  val consumerTransactions = (0 to 10).map(_ => new ConsumerTransaction {
+  val consumerTransactions = (0 to 5).map(_ => new ConsumerTransaction {
     override def transactionID: Long = scala.util.Random.nextLong()
 
     override def name: String = rand.nextInt(10000).toString

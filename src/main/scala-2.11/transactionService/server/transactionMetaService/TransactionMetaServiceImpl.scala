@@ -2,8 +2,11 @@ package transactionService.server.transactionMetaService
 
 
 import java.time.Instant
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit._
 
+import com.google.common.primitives.UnsignedBytes
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
 import com.twitter.logging.{Level, Logger}
 import com.twitter.util.{Future => TwitterFuture}
@@ -11,6 +14,8 @@ import transactionService.rpc.TransactionStates.Checkpointed
 import transactionService.rpc._
 import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
 import transactionService.server.{Authenticable, CheckpointTTL}
+
+import scala.collection.mutable.ArrayBuffer
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
@@ -86,39 +91,86 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
     txn.timestamp <= Instant.now().getEpochSecond
 
+  private def doesProducerTransactionExpired(txn: transactionService.server.transactionMetaService.ProducerTransaction): Boolean =
+    txn.timestamp <= Instant.now().getEpochSecond
+
+  private val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: String, stream: String, partition: Int, from: Long, to: Long): TwitterFuture[Seq[Transaction]] =
-    authenticate(token) { ???
-//      import scala.collection.JavaConverters._
-//      val streamObj = getStreamDatabaseObject(stream)
-//      val transactionDB = environment.beginTransaction(null, null)
-//
-//      val keyToStart = new Key(streamObj.streamNameToLong, partition, from).toDatabaseEntry
-//      val firstTxn = new DatabaseEntry()
-//      val cursorStartingAtTheKey = database.openCursor(transactionDB, CursorConfig.DEFAULT).getSearchKey(
-//        keyToStart,
-//        firstTxn,
-//        LockMode.READ_COMMITTED
-//      )
-//
-//      cursorStartingAtTheKey.
-//
-//
-//      entitiesProducerTxns
-//      val producerTransactions = entitiesProducerTxns.().asScala.filterNot(doesProducerTransactionExpired).toArray
-//
-//      entitiesProducerTxns.close()
-//      transactionDB.commit()
-//
-//      producerTransactions.map {txn =>
-//        val producerTxn = ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.timestamp)
-//        Transaction(Some(producerTxn), None)
-//      }
+    authenticate(token) {
+      val lockMode = LockMode.DEFAULT
+      val streamObj = getStreamDatabaseObject(stream)
+      val transactionDB = environment.beginTransaction(null, null)
+      val cursor = database.openCursor(transactionDB, CursorConfig.DEFAULT)
+
+      def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
+        val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.timestamp)
+        Transaction(Some(producerTxn), None)
+      }
+
+      def moveCursorToKey: Option[ProducerTransactionKey] = {
+        val keyFrom = new Key(streamObj.streamNameToLong, partition, from)
+        val keyFound = keyFrom.toDatabaseEntry
+        val dataFound = new DatabaseEntry()
+        if (cursor.getSearchKey(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS)
+          Some(new ProducerTransactionKey(keyFrom, ProducerTransaction.entryToObject(dataFound))) else None
+      }
+
+      moveCursorToKey match {
+        case None =>
+          cursor.close()
+          transactionDB.commit()
+          Array[Transaction]()
+
+        case Some(producerTransactionKey) =>
+          val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
+          val keyTo = new Key(streamObj.streamNameToLong, partition, to).toDatabaseEntry.getData
+          val keyFound  = new DatabaseEntry()
+          val dataFound = new DatabaseEntry()
+          while (
+            cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS &&
+              (comparator.compare(keyFound.getData, keyTo) <= 0)
+          )
+          {txns += ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransaction.entryToObject(dataFound))}
+
+          cursor.close()
+          transactionDB.commit()
+
+          txns filterNot doesProducerTransactionExpired map producerTransactionToTransaction
+      }
     }
 
 //  private val transiteTxnsToInvalidState = new Runnable {
 //    override def run(): Unit = {
 //      import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
 //      val transactionDB = environment.beginTransaction(null, null)
+//      val cursor = secondaryDatabase.openCursor(transactionDB, CursorConfig.DEFAULT)
+//
+//      val keyFound  = new DatabaseEntry(java.nio.ByteBuffer.allocate(4).putInt(TransactionStates.Opened.value ^ 0x80000000).array())
+//      val dataFound = new DatabaseEntry()
+//      val pkKeyFound = new DatabaseEntry()
+//
+//      if (cursor.getSearchKey(keyFound, pkKeyFound ,dataFound, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+//        val txn = ProducerTransaction.entryToObject(dataFound)
+//        if (doesProducerTransactionExpired(txn)) {
+//          val newTxn = transactionService.server.transactionMetaService.ProducerTransaction(TransactionStates.Invalid, txn.quantity, txn.timestamp)
+//            .toDatabaseEntry
+//          database.put(transactionDB, pkKeyFound, newTxn)
+//          logger.log(Level.INFO, s"${newTxn.toString} transit it's state to Invalid!")
+//        }
+//
+//        while (cursor.getNextDup(keyFound, pkKeyFound, dataFound, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+//          val txn = ProducerTransaction.entryToObject(dataFound)
+//          if (doesProducerTransactionExpired(txn)) {
+//            val newTxn = transactionService.server.transactionMetaService.ProducerTransaction(TransactionStates.Invalid, txn.quantity, txn.timestamp)
+//              .toDatabaseEntry
+//            database.put(transactionDB, pkKeyFound, newTxn)
+//            logger.log(Level.INFO, s"${newTxn.toString} transit it's state to Invalid!")
+//         }
+//        }
+//      }
+//
+//      cursor.close()
+//      transactionDB.commit()
 //
 //      import scala.collection.JavaConversions._
 //      val entities = producerSecondaryIndexState.subIndex(TransactionStates.Opened.getValue()).entities(transactionDB, new CursorConfig().setReadUncommitted(true))
@@ -146,7 +198,6 @@ object TransactionMetaServiceImpl {
       .setTransactional(true)
       .setTxnTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
       .setLockTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
-      .setConfigParam("je.log.fileMax", configProperties.ServerConfig.transactionServerLogFileMax)
 
     val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
     environmentConfig.setDurabilityVoid(defaultDurability)
@@ -158,9 +209,21 @@ object TransactionMetaServiceImpl {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
+      .setSortedDuplicates(false)
     val storeName = DB.TransactionMetaStoreName
     environment.openDatabase(null, storeName, dbConfig)
   }
+
+//  val secondaryDatabase = {
+//    val secondaryDatabaseName = "stateIndex"
+//    val secondaryDatabaseConfig = new SecondaryConfig()
+//    secondaryDatabaseConfig.setKeyCreator(ProducerTransactionStateIndex)
+//    secondaryDatabaseConfig.setAllowCreate(true)
+//    secondaryDatabaseConfig.setAllowPopulate(true)
+//    secondaryDatabaseConfig.setTransactional(true)
+//    secondaryDatabaseConfig.setSortedDuplicates(true)
+//    environment.openSecondaryDatabase(null, secondaryDatabaseName, database, secondaryDatabaseConfig)
+//  }
 
   def close(): Unit = {
     database.close()

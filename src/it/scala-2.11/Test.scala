@@ -87,11 +87,10 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
-
-    assertThrows[org.apache.thrift.TApplicationException] {
+    transactionServer.close()
+    assertThrows[com.twitter.finagle.ChannelWriteException] {
       Await.result(resultInFuture)
     }
   }
@@ -135,7 +134,6 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
-
 
     Await.result(client.putTransactions(producerTransactions, consumerTransactions))
 

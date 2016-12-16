@@ -39,7 +39,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 //    }
 //  }
 
-  private val producerTransactionsContext = transactionService.Context.producerTransactionsContext.getContext
+  val producerTransactionsContext = transactionService.Context.producerTransactionsContext.getContext
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction) = {
     import transactionService.rpc.TransactionStates._
     val streamObj = getStreamDatabaseObject(txn.stream)
@@ -47,32 +47,23 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 
 
 
-    txn.state match {
+    producerTransactionsContext(txn.state match {
       case Opened =>
-        producerTransactionsContext(
           (producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null) &&
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
-        )
-
       case Updated =>
-        producerTransactionsContext(producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null)
-          .map(_ == true)
+        producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null
 
       case Invalid =>
-        producerTransactionsContext(
           (producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null) &&
             (producerTransaction.delete(producerTransactionsDatabase, databaseTxn) != null)
-        )
 
       case Checkpointed =>
         val writeOptions = new WriteOptions().setTTL(checkTTL(streamObj.ttl), HOURS)
-        producerTransactionsContext(
           (producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null) &&
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType, writeOptions) != null)
-        )
-
-      case _ => TwitterFuture.value(false)
-    }
+      case _ => false
+    })
   }
 
 
@@ -127,10 +118,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   private val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): TwitterFuture[Seq[Transaction]] =
     authenticate(token) {
-      val lockMode = LockMode.DEFAULT
+      val lockMode = LockMode.READ_UNCOMMITTED
       val streamObj = getStreamDatabaseObject(stream)
       val transactionDB = environment.beginTransaction(null, null)
-      val cursor = producerTransactionsDatabase.openCursor(transactionDB, CursorConfig.DEFAULT)
+      val cursor = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
         val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.keepAliveTTL)
@@ -172,41 +163,43 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
       }
     }
 
-//  private val transiteTxnsToInvalidState = new Runnable {
-//    val cleanAmountPerDatabaseTransaction = configProperties.ServerConfig.transactionDataCleanAmount
-//    val lockMode = LockMode.READ_UNCOMMITTED
-//    override def run(): Unit = {
-//      val transactionDB = environment.beginTransaction(null, null)
-//      val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
-//      val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
-//
-//      def deleteExpiredTransactions(cursor: Cursor): Boolean = {
-//        val keyFound = new DatabaseEntry()
-//        val dataFound = new DatabaseEntry()
-//        if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
-//          val producerTransaction = ProducerTransaction.entryToObject(dataFound)
-//          if (doesProducerTransactionExpired(producerTransaction)) {
-//            cursor.delete() == OperationStatus.SUCCESS
-//          } else false
-//        } else false
-//      }
-//
-//      @tailrec
-//      def repeat(counter: Int, cursor: Cursor): Unit = {
-//        if (counter > 0 && deleteExpiredTransactions(cursor)) repeat(counter - 1, cursor)
-//      }
-//
-//      TwitterFuture.collect(
-//        Seq(
-//          TwitterFuture(repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions))
-//            .map(_ =>  cursorProducerTransactions.close()),
-//          TwitterFuture(repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened))
-//            .map(_ =>  cursorProducerTransactionsOpened.close())
-//        )
-//      ).map(_ => transactionDB.commit())
-//    }
-//  }
-//  Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build()).scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
+  private val transiteTxnsToInvalidState = new Runnable {
+    val cleanAmountPerDatabaseTransaction = configProperties.ServerConfig.transactionDataCleanAmount
+    val lockMode = LockMode.READ_UNCOMMITTED_ALL
+    override def run(): Unit = {
+      val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
+      val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
+      val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
+
+      def deleteExpiredTransactions(cursor: Cursor): TwitterFuture[Boolean] = {
+        val keyFound = new DatabaseEntry()
+        val dataFound = new DatabaseEntry()
+        if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
+          val producerTransaction = ProducerTransaction.entryToObject(dataFound)
+          if (doesProducerTransactionExpired(producerTransaction)) {
+            producerTransactionsContext(cursor.delete() == OperationStatus.SUCCESS)
+          } else TwitterFuture.value(false)
+        } else TwitterFuture.value(false)
+      }
+
+
+      def repeat(counter: Int, cursor: Cursor): TwitterFuture[Unit] = {
+        deleteExpiredTransactions(cursor) map (isExpired =>
+          if (counter > 0 && isExpired) repeat(counter - 1, cursor)
+          )
+      }
+
+      TwitterFuture.collect(
+        Seq(
+          repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions)
+            .map(_ =>  cursorProducerTransactions.close()),
+          repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
+            .map(_ =>  cursorProducerTransactionsOpened.close())
+        )
+      ).map(_ => transactionDB.commit())
+    }
+  }
+  Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build()).scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 object TransactionMetaServiceImpl {

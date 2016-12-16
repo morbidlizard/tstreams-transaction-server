@@ -13,6 +13,8 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
   with Authenticable
   with CheckpointTTL
 {
+
+  private val producerTransactionsContext = transactionService.Context.producerTransactionsContext.getContext
   override def getConsumerState(token: Int, name: String, stream: String, partition: Int): TwitterFuture[Long] =
     authenticate(token) {
       val transactionDB = environment.beginTransaction(null, null)
@@ -26,13 +28,15 @@ trait ConsumerServiceImpl extends ConsumerService[TwitterFuture]
     }
 
   override def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): TwitterFuture[Boolean] =
-    authenticate(token) {
+    authenticateFutureBody(token) {
       val transactionDB = environment.beginTransaction(null, null)
       val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong
-      val result = ConsumerTransactionKey(Key(name,streamNameToLong,partition), ConsumerTransaction(transaction))
-        .put(database,transactionDB,Put.OVERWRITE,new WriteOptions()) != null
-      if (result) transactionDB.commit() else transactionDB.abort()
-      result
+      val result = producerTransactionsContext(ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransaction(transaction))
+        .put(database, transactionDB, Put.OVERWRITE, new WriteOptions()) != null)
+      result map { isOkay =>
+        if (isOkay) transactionDB.commit() else transactionDB.abort()
+        isOkay
+      }
     }
 }
 

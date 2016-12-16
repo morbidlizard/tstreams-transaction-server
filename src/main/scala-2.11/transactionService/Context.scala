@@ -15,13 +15,15 @@ class Context(threadNumber: Int) {
 
   def getContext(value: Long): ExecutorServiceFuturePool = contexts((value % threadNumber).toInt)
 
-  def getContext(stream: Int, partition: Int): ExecutorServiceFuturePool = {
-    def negativeIntToPositive(value: Int) = if (value < 0) -value else value
-
-    getContext(ByteBuffer.allocate(8).putInt(negativeIntToPositive(stream)).putInt(negativeIntToPositive(partition)).getLong(0))
-  }
+  def getContext = contexts(0)
 }
+
 
 object Context {
   def apply(threadNumber: Int): Context = new Context(threadNumber)
+  val producerTransactionsWithOpenedStateContext = Context(1)
+  val producerTransactionsContext = Context(1)
 }
+
+
+

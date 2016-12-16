@@ -39,31 +39,45 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
 //    }
 //  }
 
+  private val producerTransactionsContext = transactionService.Context.producerTransactionsContext.getContext
+  private val producerTransactionsWithOpenedStateContext = transactionService.Context.producerTransactionsWithOpenedStateContext.getContext
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction) = {
     import transactionService.rpc.TransactionStates._
     val streamObj = getStreamDatabaseObject(txn.stream)
     val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
 
+
     txn.state match {
       case Opened =>
-        (producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null) &&
-          (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
+        TwitterFuture.collect(
+          Seq(
+            producerTransactionsWithOpenedStateContext(producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null),
+            producerTransactionsContext(producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
+          )
+        ).map(_.forall(_ == true))
 
       case Updated =>
-        producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null
-        true
+        producerTransactionsWithOpenedStateContext(producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null)
+          .map(_ == true)
 
       case Invalid =>
-        (producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null) &&
-          (producerTransaction.delete(producerTransactionsDatabase, databaseTxn) != null)
-        true
+        TwitterFuture.collect(
+          Seq(
+            producerTransactionsWithOpenedStateContext(producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null),
+            producerTransactionsContext(producerTransaction.delete(producerTransactionsDatabase, databaseTxn) != null)
+          )
+        ).map(_.forall(_ == true))
 
       case Checkpointed =>
         val writeOptions = new WriteOptions().setTTL(checkTTL(streamObj.ttl), HOURS)
-        (producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null) &&
-          (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType, writeOptions) != null)
+        TwitterFuture.collect(
+          Seq(
+            producerTransactionsWithOpenedStateContext(producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null),
+            producerTransactionsContext(producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType, writeOptions) != null)
+          )
+        ).map(_.forall(_ == true))
 
-      case _ => false
+      case _ => TwitterFuture.value(false)
     }
   }
 
@@ -71,13 +85,13 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
     import transactionService.server.сonsumerService._
     val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
-    val isNotExist = ConsumerTransactionKey.apply(txn,streamNameToLong).put(producerTransactionsDatabase,databaseTxn, putType, new WriteOptions()) != null
+    val isNotExist = producerTransactionsContext(ConsumerTransactionKey.apply(txn,streamNameToLong).put(producerTransactionsDatabase,databaseTxn, putType, new WriteOptions()) != null)
 
     //logAboutTransactionExistence(isNotExist, txn.toString)
     isNotExist
   }
 
-  private def putNoTransaction = false
+  private def putNoTransaction = TwitterFuture.value(false)
 
   private def matchTransactionToPut(transaction: Transaction, transactionDB: com.sleepycat.je.Transaction) =
     (transaction.producerTransaction, transaction.consumerTransaction) match {
@@ -87,22 +101,26 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
     }
 
 
-  override def putTransaction(token: Int, transaction: Transaction): TwitterFuture[Boolean] = authenticate(token) {
-    val transactionDB = environment.beginTransaction(null, null)
+  override def putTransaction(token: Int, transaction: Transaction): TwitterFuture[Boolean] = authenticateFutureBody(token) {
+    val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
     val result = matchTransactionToPut(transaction, transactionDB)
-    if (result) transactionDB.commit() else transactionDB.abort()
-    result
+    result map {isOkay =>
+      if (isOkay) transactionDB.commit() else transactionDB.abort()
+      isOkay
+    }
   }
 
 
-  override def putTransactions(token: Int, transactions: Seq[Transaction]): TwitterFuture[Boolean] = authenticate(token) {
-    val transactionDB = environment.beginTransaction(null, null)
-    val result = transactions map { transaction =>
+  override def putTransactions(token: Int, transactions: Seq[Transaction]): TwitterFuture[Boolean] = authenticateFutureBody(token) {
+    val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
+    val result = TwitterFuture.collect(transactions map { transaction =>
       matchTransactionToPut(transaction, transactionDB)
+    })
+    result map {operationStatuses =>
+      val isOkay = operationStatuses.forall(_ == true)
+      if (isOkay) transactionDB.commit() else transactionDB.abort()
+      isOkay
     }
-    val isOkay = result.forall(_ == true)
-    if (isOkay) transactionDB.commit() else transactionDB.abort()
-    isOkay
   }
 
 

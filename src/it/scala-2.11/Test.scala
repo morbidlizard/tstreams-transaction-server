@@ -147,12 +147,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to))
 
     val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
-
-    res foreach println
-
-    println
-
-    producerTransactions.sortBy(_.transactionID) foreach println
+    
     res should contain theSameElementsAs txns
   }
 

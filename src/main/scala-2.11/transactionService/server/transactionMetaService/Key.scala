@@ -18,13 +18,13 @@ object Key extends TupleBinding[Key] {
     val stream = input.readLong()
     val partition = input.readInt()
     val transactionID = input.readLong()
-    Key(stream, partition, transactionID)
+    Key(long2Long(stream), int2Integer(partition), long2Long(transactionID))
   }
 
   override def objectToEntry(key: Key, output: TupleOutput): Unit = {
-    output.writeLong(key.stream)
-    output.writeInt(key.partition)
-    output.writeLong(key.transactionID)
+    output.writeLong(Long2long(key.stream))
+    output.writeInt(Integer2int(key.partition))
+    output.writeLong(Long2long(key.transactionID))
   }
 }
 

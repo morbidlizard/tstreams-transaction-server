@@ -22,7 +22,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   }
 
   override def afterEach() {
-    Await.result(Closable.all(transactionServer).close())
+    Await.result(transactionServer.close())
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
@@ -38,8 +38,8 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
 
   private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
-    override val transactionID: Long = rand.nextLong()
-    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1)
+    override val transactionID: Long = System.nanoTime()
+    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
     override val stream: String = streamObj.name
     override val keepAliveTTL: Long = Long.MaxValue
     override val quantity: Int = -1
@@ -132,13 +132,19 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val stream = getRandomStream
     Await.result(client.putStream(stream))
 
-    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val producerTransactions = Array.fill(15)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-    Await.result(client.putTransactions(producerTransactions, consumerTransactions))
+    Await.result(client.putTransactions(producerTransactions, Seq()))
 
     val (from, to) = (producerTransactions.minBy(_.transactionID).transactionID, producerTransactions.maxBy(_.transactionID).transactionID)
-    Await.result(client.scanTransactions(stream.name, stream.partitions, from, to)) should contain theSameElementsAs producerTransactions
+
+    val producerTransactionsByState = producerTransactions.groupBy(_.state)
+    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to))
+
+    val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
+
+    res should contain theSameElementsAs txns
   }
 
   "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {

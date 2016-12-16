@@ -43,6 +43,7 @@ object ConsumerServiceImpl {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
+      .setSortedDuplicates(false)
     val storeName = configProperties.DB.ConsumerStoreName
     environment.openDatabase(null, storeName, dbConfig)
   }

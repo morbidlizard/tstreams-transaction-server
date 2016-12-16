@@ -137,13 +137,22 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     Await.result(client.putTransactions(producerTransactions, Seq()))
 
-    val (from, to) = (producerTransactions.minBy(_.transactionID).transactionID, producerTransactions.maxBy(_.transactionID).transactionID)
+    val statesAllowed = Array(TransactionStates.Opened,TransactionStates.Checkpointed)
+    val (from, to) = (
+      producerTransactions.filter(txn => statesAllowed.contains(txn.state)).minBy(_.transactionID).transactionID,
+      producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
+      )
 
     val producerTransactionsByState = producerTransactions.groupBy(_.state)
     val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to))
 
     val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
 
+    res foreach println
+
+    println
+
+    producerTransactions.sortBy(_.transactionID) foreach println
     res should contain theSameElementsAs txns
   }
 

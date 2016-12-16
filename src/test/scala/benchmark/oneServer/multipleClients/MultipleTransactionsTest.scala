@@ -65,18 +65,21 @@ object Main {
     dbConf.setTransactional(true)
 
     val myDb = env.openDatabase(null, "db", dbConf)
+    val myDbOpen = env.openDatabase(null, "db_open", dbConf)
 
     val txnConf = new TransactionConfig()
-    txnConf.setDurability(Durability.COMMIT_NO_SYNC)
+   // txnConf.setDurability(Durability.COMMIT_NO_SYNC)
 
     val begin = System.currentTimeMillis()
     (0 until 1000000).foreach(itm => {
-      val k = new DatabaseEntry(ByteBuffer.allocate(32).putLong(itm).putInt(1).putLong(itm).array())
-      val v = new DatabaseEntry(ByteBuffer.allocate(16).putLong(itm).putInt(1).array())
-      val v1 = new DatabaseEntry()
+      val k = new DatabaseEntry(ByteBuffer.allocate(32).putLong(itm).array())
+      val v = new DatabaseEntry(ByteBuffer.allocate(16).putLong(itm).array())
+      val k1 = new DatabaseEntry(ByteBuffer.allocate(32).putLong(itm).array())
+      val v1 = new DatabaseEntry(ByteBuffer.allocate(16).putInt(1).array())
 
       val txn = env.beginTransaction(null, txnConf)
       myDb.put(txn, k, v)
+      myDbOpen.put(txn, k1, v1)
       txn.commit()
 //
 //      myDb.get(null, k, v1, LockMode.DEFAULT)
@@ -86,6 +89,7 @@ object Main {
     println(end - begin)
 
     myDb.close()
+    myDbOpen.close()
     env.close()
   }
 }

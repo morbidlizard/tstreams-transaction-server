@@ -14,7 +14,7 @@ trait TransactionCreator {
 
   def createTransaction(streamName: String, _partition: Int, _type: TransactionStates): ProducerTransaction = {
     new ProducerTransaction {
-      override val transactionID: Long = System.currentTimeMillis()
+      override val transactionID: Long = System.nanoTime()
 
       override val state: TransactionStates = _type
 
@@ -45,6 +45,6 @@ trait TransactionCreator {
   }
 
   def createTransactionData(count: Int): IndexedSeq[Array[Byte]] = {
-    (0 until count) map (_ => new Array[Byte](1024))
+    (0 until count) map (_ => new Array[Byte](4))
   }
 }

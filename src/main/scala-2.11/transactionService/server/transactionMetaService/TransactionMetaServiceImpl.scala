@@ -46,35 +46,30 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
     val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
 
 
+
     txn.state match {
       case Opened =>
-        TwitterFuture.collect(
-          Seq(
-            producerTransactionsContext(producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null),
-            producerTransactionsContext(producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
-          )
-        ).map(_.forall(_ == true))
+        producerTransactionsContext(
+          (producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null) &&
+            (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
+        )
 
       case Updated =>
         producerTransactionsContext(producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null)
           .map(_ == true)
 
       case Invalid =>
-        TwitterFuture.collect(
-          Seq(
-            producerTransactionsContext(producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null),
-            producerTransactionsContext(producerTransaction.delete(producerTransactionsDatabase, databaseTxn) != null)
-          )
-        ).map(_.forall(_ == true))
+        producerTransactionsContext(
+          (producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null) &&
+            (producerTransaction.delete(producerTransactionsDatabase, databaseTxn) != null)
+        )
 
       case Checkpointed =>
         val writeOptions = new WriteOptions().setTTL(checkTTL(streamObj.ttl), HOURS)
-        TwitterFuture.collect(
-          Seq(
-            producerTransactionsContext(producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null),
-            producerTransactionsContext(producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType, writeOptions) != null)
-          )
-        ).map(_.forall(_ == true))
+        producerTransactionsContext(
+          (producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null) &&
+            (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType, writeOptions) != null)
+        )
 
       case _ => TwitterFuture.value(false)
     }

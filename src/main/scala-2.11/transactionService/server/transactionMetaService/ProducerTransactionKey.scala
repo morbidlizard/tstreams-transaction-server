@@ -19,7 +19,7 @@ case class ProducerTransactionKey(key: Key, producerTransaction: ProducerTransac
 object ProducerTransactionKey {
   def apply(txn: transactionService.rpc.ProducerTransaction, streamNameToLong: java.lang.Long): ProducerTransactionKey = {
     val key = Key(streamNameToLong, txn.partition, txn.transactionID)
-    val producerTransaction = ProducerTransaction(txn.state,txn.quantity,txn.keepAliveTTL)
+    val producerTransaction = ProducerTransaction(txn.state, txn.quantity, txn.keepAliveTTL)
     ProducerTransactionKey(key, producerTransaction)
   }
 }

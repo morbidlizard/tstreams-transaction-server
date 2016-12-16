@@ -11,7 +11,6 @@ case class ProducerTransaction(state: TransactionStates, quantity: java.lang.Int
     objectToEntry(this, databaseEntry)
     databaseEntry
   }
-
 }
 
 object ProducerTransaction extends TupleBinding[ProducerTransaction]
@@ -20,11 +19,11 @@ object ProducerTransaction extends TupleBinding[ProducerTransaction]
     val state  = TransactionStates(input.readInt())
     val quantity = input.readInt()
     val timestamp = input.readLong()
-    ProducerTransaction(state, quantity, timestamp)
+    ProducerTransaction(state, int2Integer(quantity), long2Long(timestamp))
   }
   override def objectToEntry(producerTransaction: ProducerTransaction, output: TupleOutput): Unit = {
     output.writeInt(producerTransaction.state.value)
-    output.writeInt(producerTransaction.quantity)
-    output.writeLong(producerTransaction.keepAliveTTL)
+    output.writeInt(Integer2int(producerTransaction.quantity))
+    output.writeLong(Long2long(producerTransaction.keepAliveTTL))
   }
 }

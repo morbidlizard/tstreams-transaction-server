@@ -9,7 +9,7 @@ import com.twitter.util.{ExecutorServiceFuturePool, FuturePool}
 class Context(threadNumber: Int) {
   require(threadNumber > 0)
 
-  private def newExecutionContext: ExecutorServiceFuturePool = FuturePool.interruptible(Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("Context-%d").build()))
+  private def newExecutionContext: ExecutorServiceFuturePool = FuturePool(Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("Context-%d").build()))
 
   val contexts = Array.fill(threadNumber)(newExecutionContext)
 
@@ -21,7 +21,6 @@ class Context(threadNumber: Int) {
 
 object Context {
   def apply(threadNumber: Int): Context = new Context(threadNumber)
-  val producerTransactionsWithOpenedStateContext = Context(1)
   val producerTransactionsContext = Context(1)
 }
 

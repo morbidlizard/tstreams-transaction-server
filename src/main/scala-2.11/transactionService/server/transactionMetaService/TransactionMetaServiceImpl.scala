@@ -14,7 +14,6 @@ import transactionService.rpc._
 import transactionService.server.transactionMetaService.TransactionMetaServiceImpl._
 import transactionService.server.{Authenticable, CheckpointTTL}
 
-import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -174,6 +173,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[TwitterFuture]
       def deleteExpiredTransactions(cursor: Cursor): TwitterFuture[Boolean] = {
         val keyFound = new DatabaseEntry()
         val dataFound = new DatabaseEntry()
+
         if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
           val producerTransaction = ProducerTransaction.entryToObject(dataFound)
           if (doesProducerTransactionExpired(producerTransaction)) {
@@ -210,8 +210,10 @@ object TransactionMetaServiceImpl {
     val environmentConfig = new EnvironmentConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-      .setTxnTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
-      .setLockTimeout(DB.TransactionMetaMaxTimeout, DB.TransactionMetaTimeUnit)
+
+    configProperties.ServerConfig.berkeleyDBJEproperties foreach {
+      case (name, value) => environmentConfig.setConfigParam(name,value)
+    }
 
     val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
     environmentConfig.setDurabilityVoid(defaultDurability)

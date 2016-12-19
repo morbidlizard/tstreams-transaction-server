@@ -1,7 +1,7 @@
 package configProperties
 
 object DB {
-  val PathToDatabases = "/tmp"
+  val PathToDatabases = configProperties.ServerConfig.dbPath
 
   val StreamDirName   = "stream"
   val StreamStoreName = "StreamStore"
@@ -12,9 +12,6 @@ object DB {
 
   val TransactionMetaStoreName = "TransactionStore"
   val TransactionMetaOpenStoreName = "TransactionOpenStore"
-
-  val TransactionMetaTimeUnit  = java.util.concurrent.TimeUnit.SECONDS
-  val TransactionMetaMaxTimeout = 10L
 
   val ConsumerStoreName = "ConsumerStore"
 }

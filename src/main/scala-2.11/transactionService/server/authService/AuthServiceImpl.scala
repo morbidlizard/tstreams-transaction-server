@@ -9,8 +9,8 @@ trait AuthServiceImpl extends AuthService[TwitterFuture] {
 
   val random = scala.util.Random
   val usersToken = CacheBuilder.newBuilder()
-    .maximumSize(configProperties.AuthConfig.authTokenActiveMax)
-    .expireAfterAccess(configProperties.AuthConfig.authTokenTimeExpiration, java.util.concurrent.TimeUnit.SECONDS)
+    .maximumSize(configProperties.ServerConfig.authTokenActiveMax)
+    .expireAfterAccess(configProperties.ServerConfig.authTokenTimeExpiration, java.util.concurrent.TimeUnit.SECONDS)
     .build[java.lang.Integer, (String,String)]()
 
 

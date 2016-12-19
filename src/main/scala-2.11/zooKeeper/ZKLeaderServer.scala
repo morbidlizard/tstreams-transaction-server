@@ -26,7 +26,7 @@ class ZKLeaderServer(endpoints: String, sessionTimeoutMillis: Int, connectionTim
 
   override def close(): Unit = client.close()
 
-  Runtime.getRuntime.addShutdownHook(new Thread {
-    override def run() = close()
-  })
+//  Runtime.getRuntime.addShutdownHook(new Thread {
+//    override def run() = close()
+//  })
 }

@@ -3,8 +3,7 @@ package configProperties
 import configProperties.Config._
 
 object ServerConfig {
-
-  private val config = new Config("src/main/resources/serverProperties.properties")
+  val config = new Config("src/main/resources/serverProperties.properties")
 
   val transactionServerAddress = config.readProperty[String]("transactionServer.address")
 
@@ -13,6 +12,10 @@ object ServerConfig {
   val transactionServerReplicationName = config.readProperty[String]("transactionServer.replication.name")
 
   val transactionServerReplicationGroup = config.readProperty[String]("transactionServer.replication.group")
+
+  val authTokenTimeExpiration = config.readProperty[Long]("auth.token.time.expiration")
+
+  val authTokenActiveMax = config.readProperty[Int]("auth.token.active.max")
 
   val zkEndpoints = config.readProperty[String]("zk.endpoints")
 
@@ -33,4 +36,8 @@ object ServerConfig {
   val transactionDataTtlAdd = config.readProperty[Int]("transaction.data.ttl.add")
 
   val transactionMetadataTtlAdd = config.readProperty[Int]("transaction.metadata.ttl.add")
+
+  val dbPath = config.readProperty[String]("db.path")
+
+  val berkeleyDBJEproperties = config.getAllProperties("je.")
 }

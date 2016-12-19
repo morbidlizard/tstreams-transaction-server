@@ -1,4 +1,4 @@
-package transactionService.server.db
+package transactionService.server.db.rocks
 
 import java.io.Closeable
 
@@ -7,7 +7,6 @@ import org.rocksdb._
 
 class RocksDbConnection(name: String, ttl: Int = -1) extends Closeable {
   RocksDB.loadLibrary()
-
   private lazy val client =  {
     val path = transactionService.io.FileUtils.createDirectory(s"${RocksDbConnection.rocksDBStoragesPath}/$name").getAbsolutePath
     TtlDB.open(new Options().setCreateIfMissing(true), path, ttl, false)

@@ -5,9 +5,9 @@ import java.util.concurrent.TimeUnit
 
 import com.twitter.util.{Future => TwitterFuture}
 import transactionService.server.{Authenticable, CheckpointTTL}
-import transactionService.server.db.RocksDbConnection
 import `implicit`.Implicits._
 import transactionService.rpc.TransactionDataService
+import transactionService.server.db.rocks.RocksDbConnection
 
 import scala.collection.mutable.ArrayBuffer
 

@@ -21,6 +21,7 @@ class ZKLeaderClient(endpoints: String, sessionTimeoutMillis: Int, connectionTim
       .build()
 
     connection.start()
+    connection.blockUntilConnected()
     connection
   }
 

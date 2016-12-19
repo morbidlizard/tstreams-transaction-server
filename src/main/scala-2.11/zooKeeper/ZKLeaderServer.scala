@@ -1,7 +1,6 @@
 package zooKeeper
 
 import java.io.Closeable
-import java.util.concurrent.TimeUnit
 
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
@@ -18,6 +17,7 @@ class ZKLeaderServer(endpoints: String, sessionTimeoutMillis: Int, connectionTim
       .build()
 
     connection.start()
+    connection.blockUntilConnected()
     connection
   }
   scala.util.Try(client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(prefix, Array[Byte](0)))

@@ -17,7 +17,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
 object MultipleClients {
-  private val clients = 100
+  private val clients = 1
   private val clientThreads = ArrayBuffer[Thread]()
 
   def main(args: Array[String]): Unit = {
@@ -54,7 +54,7 @@ class TcpClientExample {
       val txn = Txn(Some(producerTxn), None)
 
       client.get(txn)
-      //println(client.get(txn))
+//      if (i % 10000 == 0) println(client.get(txn))
       i += 1
     }
     val t1 = System.currentTimeMillis()
@@ -71,8 +71,6 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel._
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioSocketChannel
-import io.netty.util.ResourceLeakDetector
-import io.netty.util.ResourceLeakDetector.Level
 
 
 class TcpClient(options: TcpClientOptions) {
@@ -95,7 +93,6 @@ class TcpClient(options: TcpClientOptions) {
   }
 
   private def createChannel() = {
-    ResourceLeakDetector.setLevel(Level.ADVANCED)
     bootstrap.group(workerGroup)
       .channel(classOf[NioSocketChannel])
       .handler(new TcpClientChannelInitializer(out))
@@ -158,7 +155,7 @@ class LeaderLatch(zkServers: Set[String], masterNode: String, id: String = "") {
   private var isStarted = false
 
   private def createCuratorClient() = {
-    val curatorClient = CuratorFrameworkFactory.newClient(servers, new ExponentialBackoffRetry(1000, 3))
+    val curatorClient = CuratorFrameworkFactory.newClient(servers, 5000, 5000, new ExponentialBackoffRetry(1000, 3))
     curatorClient.start()
     curatorClient.getZookeeperClient.blockUntilConnectedOrTimedOut()
     curatorClient

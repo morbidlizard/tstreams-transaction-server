@@ -13,8 +13,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.codec.MessageToByteEncoder
 import io.netty.handler.codec.bytes.ByteArrayDecoder
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
-import io.netty.util.ResourceLeakDetector.Level
-import io.netty.util.{ReferenceCountUtil, ResourceLeakDetector}
+import io.netty.util.ReferenceCountUtil
 import org.apache.log4j.Logger
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TMemoryInputTransport
@@ -53,7 +52,6 @@ class TcpServer(zkServers: String, prefix: String, host: String, port: Int) {
     val workerGroup = new NioEventLoopGroup()
     try {
       val bootstrapServer = new ServerBootstrap()
-      ResourceLeakDetector.setLevel(Level.ADVANCED)
       bootstrapServer.group(bossGroup, workerGroup)
         .channel(classOf[NioServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))

@@ -1,10 +1,9 @@
 package benchmark
 
 import java.io.IOException
-import java.util.concurrent.ArrayBlockingQueue
 
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, PooledByteBufAllocator}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.channel.nio.NioEventLoopGroup
@@ -21,7 +20,7 @@ import test.Txn
 
 object Server extends App {
   val logger = Logger.getLogger(getClass)
-  val zkServers = "192.168.1.192:2181"
+  val zkServers = "176.120.25.19:2181"
   val host = "localhost"
   val port = 8888
   val prefix = "/zk_test/global"
@@ -41,7 +40,6 @@ class TcpServer(zkServers: String, prefix: String, host: String, port: Int) {
   private val retryPeriod = 5000
   private val masterNode = prefix + "/master"
   private val address = host + ":" + port
-  private val out = new ArrayBlockingQueue[(ChannelHandlerContext, Array[Byte])](1000)
 
   def launch() = {
     val leader = new LeaderLatch(Set(zkServers), masterNode, address)
@@ -52,28 +50,11 @@ class TcpServer(zkServers: String, prefix: String, host: String, port: Int) {
     val workerGroup = new NioEventLoopGroup()
     try {
       val bootstrapServer = new ServerBootstrap()
+      bootstrapServer.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
       bootstrapServer.group(bossGroup, workerGroup)
         .channel(classOf[NioServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new TcpServerChannelInitializer(out))
-
-
-      new Thread(new Runnable {
-        override def run() = {
-          while (true) {
-            val answer = out.take()
-            val txn = decode(answer._2)
-            answer._1.writeAndFlush(txn._1.isDefined && txn._2.isEmpty)
-          }
-        }
-
-        def decode(bytes: Array[Byte]): Txn = {
-          val protocolFactory = new TBinaryProtocol.Factory
-          val buffer = new TMemoryInputTransport(bytes)
-          val proto = protocolFactory.getProtocol(buffer)
-          Txn.decode(proto)
-        }
-      }).start()
+        .childHandler(new TcpServerChannelInitializer())
 
       val channel = bootstrapServer.bind(host, port).sync().channel()
       channel.closeFuture().sync()
@@ -85,7 +66,7 @@ class TcpServer(zkServers: String, prefix: String, host: String, port: Int) {
   }
 }
 
-class TcpServerChannelInitializer(out: ArrayBlockingQueue[(ChannelHandlerContext, Array[Byte])]) extends ChannelInitializer[SocketChannel] {
+class TcpServerChannelInitializer() extends ChannelInitializer[SocketChannel] {
 
   def initChannel(channel: SocketChannel) = {
     channel.config().setTcpNoDelay(true)
@@ -97,7 +78,7 @@ class TcpServerChannelInitializer(out: ArrayBlockingQueue[(ChannelHandlerContext
 
     pipeline.addLast("encoder", new BooleanEncoder())
     pipeline.addLast("decoder", new ByteArrayDecoder())
-    pipeline.addLast("handler", new TransactionGenerator(out))
+    pipeline.addLast("handler", new TransactionGenerator())
     pipeline.addLast()
   }
 }
@@ -109,15 +90,23 @@ class BooleanEncoder extends MessageToByteEncoder[Boolean] {
 }
 
 @Sharable
-class TransactionGenerator(out: ArrayBlockingQueue[(ChannelHandlerContext, Array[Byte])]) extends ChannelInboundHandlerAdapter {
+class TransactionGenerator() extends ChannelInboundHandlerAdapter {
 
   override def channelRead(ctx: ChannelHandlerContext, msg: Any) = {
     try {
       val serializedTxn = msg.asInstanceOf[Array[Byte]]
-      out.offer((ctx, serializedTxn))
+      val txn = decode(serializedTxn)
+      ctx.writeAndFlush(txn._1.isDefined && txn._2.isEmpty)
     } finally {
       ReferenceCountUtil.release(msg)
     }
+  }
+
+  def decode(bytes: Array[Byte]): Txn = {
+    val protocolFactory = new TBinaryProtocol.Factory
+    val buffer = new TMemoryInputTransport(bytes)
+    val proto = protocolFactory.getProtocol(buffer)
+    Txn.decode(proto)
   }
 
   /**

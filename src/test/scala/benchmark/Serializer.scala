@@ -1,5 +1,6 @@
 package benchmark
 
+import io.netty.buffer.PooledByteBufAllocator
 import io.netty.channel.Channel
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.socket.SocketChannel
@@ -17,7 +18,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
 object MultipleClients {
-  private val clients = 1
+  private val clients = 150
   private val clientThreads = ArrayBuffer[Thread]()
 
   def main(args: Array[String]): Unit = {
@@ -35,7 +36,7 @@ object MultipleClients {
 }
 
 class TcpClientExample {
-  val zkServers = Array("192.168.1.192:2181")
+  val zkServers = Array("176.120.25.19:2181")
   val prefix = "/zk_test/global"
 
   val options = new TcpClientOptions()
@@ -50,11 +51,12 @@ class TcpClientExample {
     while (i <= 1000000) {
       //while (consoleReader.readLine() != null) {
       //logger.debug("send request")
+
       val producerTxn = ProducerTxn("stream", 1, System.nanoTime(), States.Opened, 1, 1000L)
       val txn = Txn(Some(producerTxn), None)
-
       client.get(txn)
-//      if (i % 10000 == 0) println(client.get(txn))
+      //      if (i % 10000 == 0) println(client.get(txn))
+      //      else client.get(txn)
       i += 1
     }
     val t1 = System.currentTimeMillis()
@@ -77,7 +79,7 @@ class TcpClient(options: TcpClientOptions) {
   private val out = new ArrayBlockingQueue[Boolean](1)
   private var channel: Channel = null
   private val workerGroup = new NioEventLoopGroup()
-  private val bootstrap = new Bootstrap()
+  private val bootstrap = new Bootstrap().option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
   private val (host, port) = getMasterAddress()
   private val protocolFactory = new TBinaryProtocol.Factory
 

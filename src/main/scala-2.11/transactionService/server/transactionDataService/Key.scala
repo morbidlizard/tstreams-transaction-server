@@ -2,11 +2,11 @@ package transactionService.server.transactionDataService
 
 import `implicit`.Implicits._
 
-case class Key(stream: java.lang.Long, partition: Int, transaction: Long) {
-  def toBinary: Array[Byte] =
-    longToByteArray(stream) ++
-      longToByteArray(transaction) ++
-      intToByteArray(partition)
+case class Key(transaction: Long) extends AnyVal {
+  def toBinary: Array[Byte] = longToByteArray(transaction)
+  override def toString: String = s"$transaction"
+}
 
-  override def toString: String = s"$stream $partition $transaction"
+object Key {
+  val size = 8
 }

@@ -116,15 +116,13 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val txn = getRandomProducerTransaction(stream)
     Await.result(client.putTransaction(txn))
 
-    val data = Array.fill(50)(rand.nextString(10).getBytes)
+    val amount = 5000
+    val data = Array.fill(amount)(rand.nextString(10).getBytes)
 
+    val resultInFuture = Await.result(client.putTransactionData(txn, data, 0))
+    resultInFuture shouldBe true
 
-    val resultInFuture = client.putTransactionData(txn, data, 0)
-
-    Await.result(resultInFuture) shouldBe true
-
-    val dataFromDatabase = Await.result(client.getTransactionData(txn,0, 50))
-
+    val dataFromDatabase = Await.result(client.getTransactionData(txn,0, amount))
     data should contain theSameElementsAs dataFromDatabase
   }
 

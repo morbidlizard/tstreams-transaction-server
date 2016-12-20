@@ -21,7 +21,7 @@ import test.Txn
 object Server extends App {
   val logger = Logger.getLogger(getClass)
   val zkServers = "176.120.25.19:2181"
-  val host = "localhost"
+  val host = "192.168.1.192"
   val port = 8888
   val prefix = "/zk_test/global"
 

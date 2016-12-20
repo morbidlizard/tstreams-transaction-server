@@ -39,7 +39,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
       val batch = rocksDB.newBatch
 
       val rangeDataToSave = from until (from + data.length)
-      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(streamObj.key.streamNameToLong, partition, transaction), seqId).toBinary)
+      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(transaction), seqId).toBinary)
       (keys zip data) foreach { case (key, datum) =>
         val sizeOfSlicedData = datum.limit() - datum.position()
         val bytes = new Array[Byte](sizeOfSlicedData)
@@ -47,6 +47,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
         batch.put(key, bytes)
       }
       val result = batch.write()
+
       result
     }
 
@@ -56,8 +57,8 @@ trait TransactionDataServiceImpl extends TransactionDataService[TwitterFuture]
       val streamObj = getStreamDatabaseObject(stream)
       val rocksDB = getStorage(stream, partition, streamObj.stream.ttl)
 
-      val fromSeqId = KeyDataSeq(Key(streamObj.key.streamNameToLong, partition, transaction), from).toBinary
-      val toSeqId = KeyDataSeq(Key(streamObj.key.streamNameToLong, partition, transaction), to).toBinary
+      val fromSeqId = KeyDataSeq(Key(transaction), from).toBinary
+      val toSeqId = KeyDataSeq(Key(transaction), to).toBinary
 
       val iterator = rocksDB.iterator
       iterator.seek(fromSeqId)

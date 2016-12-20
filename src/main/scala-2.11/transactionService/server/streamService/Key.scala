@@ -4,7 +4,7 @@ import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import Key.objectToEntry
 import com.sleepycat.je.DatabaseEntry
 
-case class Key(streamNameToLong: java.lang.Long) {
+case class Key(streamNameToLong: java.lang.Long) extends AnyVal {
   def toDatabaseEntry: DatabaseEntry = {
     val databaseEntry = new DatabaseEntry()
     objectToEntry(this, databaseEntry)

@@ -18,7 +18,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
 object MultipleClients {
-  private val clients = 150
+  private val clients = 100
   private val clientThreads = ArrayBuffer[Thread]()
 
   def main(args: Array[String]): Unit = {
@@ -37,7 +37,7 @@ object MultipleClients {
 
 class TcpClientExample {
   val zkServers = Array("176.120.25.19:2181")
-  val prefix = "/zk_test/global"
+  val prefix = "/zk_test/global/tmp"
 
   val options = new TcpClientOptions()
     .setZkServers(zkServers)
@@ -55,8 +55,14 @@ class TcpClientExample {
       val producerTxn = ProducerTxn("stream", 1, System.nanoTime(), States.Opened, 1, 1000L)
       val txn = Txn(Some(producerTxn), None)
       client.get(txn)
-      //      if (i % 10000 == 0) println(client.get(txn))
-      //      else client.get(txn)
+      val data = ProducerTxn("stream", 1, System.nanoTime(), States.Invalid, 1, 1000L)
+      val datatxn = Txn(Some(data), None)
+      client.put(datatxn)
+      val checkpointedProducerTxn = ProducerTxn("stream", 1, producerTxn._3, States.Checkpointed, 1, 1000L)
+      val checkpointedTxn = Txn(Some(checkpointedProducerTxn), None)
+      client.get(checkpointedTxn)
+//      if (i % 10000 == 0) println(client.get(txn))
+//      else client.get(txn)
       i += 1
     }
     val t1 = System.currentTimeMillis()
@@ -109,8 +115,15 @@ class TcpClient(options: TcpClientOptions) {
     answer
   }
 
+  def put(txn: Txn) = {
+    channel.writeAndFlush(encode(txn))
+    val answer = out.take()
+
+    answer
+  }
+
   private def encode(txn: Txn): Array[Byte] = {
-    val buffer = new TMemoryBuffer(1024)
+    val buffer = new TMemoryBuffer(64)
     val proto = protocolFactory.getProtocol(buffer)
     Txn.encode(txn, proto)
 

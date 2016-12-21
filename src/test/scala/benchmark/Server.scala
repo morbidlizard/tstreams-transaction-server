@@ -1,7 +1,9 @@
 package benchmark
 
-import java.io.IOException
+import java.io.{File, IOException}
+import java.nio.ByteBuffer
 
+import com.sleepycat.je._
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.buffer.{ByteBuf, PooledByteBufAllocator}
 import io.netty.channel.ChannelHandler.Sharable
@@ -16,14 +18,14 @@ import io.netty.util.ReferenceCountUtil
 import org.apache.log4j.Logger
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TMemoryInputTransport
-import test.Txn
+import test.{States, Txn}
 
 object Server extends App {
   val logger = Logger.getLogger(getClass)
   val zkServers = "176.120.25.19:2181"
   val host = "192.168.1.192"
   val port = 8888
-  val prefix = "/zk_test/global"
+  val prefix = "/zk_test/global/tmp"
 
   try {
     val server = new TcpServer(zkServers, prefix, host, port)
@@ -46,6 +48,21 @@ class TcpServer(zkServers: String, prefix: String, host: String, port: Int) {
     leader.start()
     leader.takeLeadership(retryPeriod)
     logger.info(s"Launch a tcp server on: '$address'\n")
+    val envConf = new EnvironmentConfig()
+    envConf.setAllowCreate(true)
+    envConf.setDurability(Durability.COMMIT_NO_SYNC)
+    envConf.setTransactional(true)
+    envConf.setConfigParam("je.log.fileMax", "100000000")
+
+    val env: Environment = new Environment(new File("/tmp/test/"), envConf)
+
+    val dbConf = new DatabaseConfig()
+    dbConf.setAllowCreate(true)
+    dbConf.setTransactional(true)
+
+    val myDb: Database = env.openDatabase(null, "db", dbConf)
+    val myDbOpen = env.openDatabase(null, "db_open", dbConf)
+
     val bossGroup: EventLoopGroup = new NioEventLoopGroup(1)
     val workerGroup = new NioEventLoopGroup()
     try {
@@ -54,11 +71,15 @@ class TcpServer(zkServers: String, prefix: String, host: String, port: Int) {
       bootstrapServer.group(bossGroup, workerGroup)
         .channel(classOf[NioServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new TcpServerChannelInitializer())
+        .childHandler(new TcpServerChannelInitializer(env, myDb))
 
       val channel = bootstrapServer.bind(host, port).sync().channel()
       channel.closeFuture().sync()
     } finally {
+
+      myDb.close()
+      myDbOpen.close()
+      env.close()
       leader.close()
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
@@ -66,7 +87,7 @@ class TcpServer(zkServers: String, prefix: String, host: String, port: Int) {
   }
 }
 
-class TcpServerChannelInitializer() extends ChannelInitializer[SocketChannel] {
+class TcpServerChannelInitializer(env: Environment, myDb: Database) extends ChannelInitializer[SocketChannel] {
 
   def initChannel(channel: SocketChannel) = {
     channel.config().setTcpNoDelay(true)
@@ -78,7 +99,7 @@ class TcpServerChannelInitializer() extends ChannelInitializer[SocketChannel] {
 
     pipeline.addLast("encoder", new BooleanEncoder())
     pipeline.addLast("decoder", new ByteArrayDecoder())
-    pipeline.addLast("handler", new TransactionGenerator())
+    pipeline.addLast("handler", new TransactionGenerator(env, myDb))
     pipeline.addLast()
   }
 }
@@ -90,13 +111,21 @@ class BooleanEncoder extends MessageToByteEncoder[Boolean] {
 }
 
 @Sharable
-class TransactionGenerator() extends ChannelInboundHandlerAdapter {
+class TransactionGenerator(env: Environment, myDb: Database) extends ChannelInboundHandlerAdapter {
 
   override def channelRead(ctx: ChannelHandlerContext, msg: Any) = {
     try {
       val serializedTxn = msg.asInstanceOf[Array[Byte]]
-      val txn = decode(serializedTxn)
-      ctx.writeAndFlush(txn._1.isDefined && txn._2.isEmpty)
+      val txn = decode(serializedTxn)._1.get
+
+      if (txn._4 != States.Invalid) {
+        val k = new DatabaseEntry(ByteBuffer.allocate(32).put(txn._1.getBytes).putInt(txn._2).putLong(txn._3).array())
+        val v = new DatabaseEntry(ByteBuffer.allocate(16).putInt(txn._4.getValue()).putInt(txn._5).putLong(txn._6).array())
+        val transaction = env.beginTransaction(null, null)
+        val status = myDb.put(transaction, k, v)
+        transaction.commit()
+        ctx.writeAndFlush(status == OperationStatus.SUCCESS)
+      } else ctx.writeAndFlush(true)
     } finally {
       ReferenceCountUtil.release(msg)
     }

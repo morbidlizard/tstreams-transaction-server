@@ -7,7 +7,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object MultipleTransactionsTest extends Launcher {
   override val streamName = "stream"
-  override val clients = 16
+  override val clients = 1
   private val txnCount = 1000000
   private val rand = new scala.util.Random()
   private val clientThreads = ArrayBuffer[Thread]()

@@ -1,12 +1,14 @@
-package netty
+package netty.client
 
+import configProperties.ServerConfig.{transactionServerListen, transactionServerPort}
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{ChannelInitializer, ChannelOption}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioSocketChannel
-import configProperties.ServerConfig.{transactionServerListen, transactionServerPort}
+import io.netty.channel.{ChannelInitializer, ChannelOption}
 import io.netty.handler.codec.bytes.ByteArrayEncoder
+import netty.{Descriptors, Message}
+import transactionService.rpc.TransactionService
 
 object Client extends App {
   val workerGroup = new NioEventLoopGroup()
@@ -26,8 +28,13 @@ object Client extends App {
     f.channel()
   }
 
-  (1019 to 4096 by 1019) foreach { size =>
-    val message = Message(size, Descriptor.PutStream, Array.fill(size)(Byte.MaxValue)).toByteArray
+  val rand = scala.util.Random
+
+  (0 to 10) foreach { _ =>
+    val bytes = Descriptors.PutStream
+      .encodeRequest(TransactionService.PutStream.Args(rand.nextInt(1000),"asd", rand.nextInt(1000), Some("asdas"),rand.nextInt(1000)))
+    val size = bytes.length
+    val message = Message(size, bytes).toByteArray
     channel.writeAndFlush(message)
   }
 

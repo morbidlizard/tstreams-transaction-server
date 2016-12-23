@@ -1,7 +1,8 @@
-package netty
+package netty.server
 
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.socket.SocketChannel
+import netty.MessageDecoder
 
 
 class ServerInitializer extends ChannelInitializer[SocketChannel] {

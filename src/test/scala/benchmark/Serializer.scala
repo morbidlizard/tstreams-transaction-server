@@ -109,8 +109,20 @@ class TcpClient(options: TcpClientOptions) {
     answer
   }
 
+//  protected def encodeRequest(name: String, args: ThriftStruct): ThriftClientRequest = {
+//    val buf = new TMemoryBuffer(512)
+//    val oprot = protocolFactory.getProtocol(buf)
+//
+//    oprot.writeMessageBegin(new TMessage(name, TMessageType.CALL, 0))
+//    args.write(oprot)
+//    oprot.writeMessageEnd()
+//
+//    val bytes = Arrays.copyOfRange(buf.getArray, 0, buf.length)
+//    new ThriftClientRequest(bytes, false)
+//  }
+
   private def encode(txn: Txn): Array[Byte] = {
-    val buffer = new TMemoryBuffer(1024)
+    val buffer = new TMemoryBuffer(512)
     val proto = protocolFactory.getProtocol(buffer)
     Txn.encode(txn, proto)
 

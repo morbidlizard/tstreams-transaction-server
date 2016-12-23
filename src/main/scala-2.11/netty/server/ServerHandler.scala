@@ -1,10 +1,11 @@
-package netty
+package netty.server
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import netty.{Descriptors, Message}
 
 class ServerHandler extends SimpleChannelInboundHandler[Message] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
-    println(msg)
+    println(Descriptors.PutStream.decodeRequest(msg.body))
     ctx.writeAndFlush(msg)
   }
 

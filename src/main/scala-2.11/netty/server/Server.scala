@@ -1,11 +1,10 @@
-package netty
+package netty.server
 
-import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.channel.socket.SocketChannel
-import io.netty.channel.socket.nio.NioServerSocketChannel
-import io.netty.channel._
 import configProperties.ServerConfig.{transactionServerListen, transactionServerPort}
+import io.netty.bootstrap.ServerBootstrap
+import io.netty.channel._
+import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 
 class Server {

@@ -2,6 +2,7 @@ package benchmark
 
 import java.io.IOException
 
+import com.twitter.logging.Logger
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.buffer.{ByteBuf, PooledByteBufAllocator}
 import io.netty.channel.ChannelHandler.Sharable
@@ -13,13 +14,12 @@ import io.netty.handler.codec.MessageToByteEncoder
 import io.netty.handler.codec.bytes.ByteArrayDecoder
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import io.netty.util.ReferenceCountUtil
-import org.apache.log4j.Logger
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TMemoryInputTransport
 import test.Txn
 
 object Server extends App {
-  val logger = Logger.getLogger(getClass)
+  val logger = Logger.get(getClass)
   val zkServers = "176.120.25.19:2181"
   val host = "192.168.1.192"
   val port = 8888
@@ -36,7 +36,7 @@ object Server extends App {
 
 
 class TcpServer(zkServers: String, prefix: String, host: String, port: Int) {
-  private val logger = Logger.getLogger(getClass)
+  private val logger = Logger.get(getClass)
   private val retryPeriod = 5000
   private val masterNode = prefix + "/master"
   private val address = host + ":" + port

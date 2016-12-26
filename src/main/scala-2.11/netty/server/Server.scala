@@ -1,13 +1,19 @@
 package netty.server
 
-import configProperties.ServerConfig.{transactionServerListen, transactionServerPort}
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
+import org.apache.curator.retry.RetryNTimes
+import transactionService.rpc.TransactionService
+import zooKeeper.ZKLeaderServer
 
-class Server {
+class Server extends TransactionServer{
+  import configProperties.ServerConfig._
+  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
+    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
+  zk.putData(transactionServerAddress.getBytes())
 
   def run(): Unit = {
     val bossGroup = new NioEventLoopGroup(1)

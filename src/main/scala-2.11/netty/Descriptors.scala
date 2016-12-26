@@ -13,24 +13,23 @@ object Descriptors {
 
   sealed abstract class Descriptor[T <: ThriftStruct, R <: ThriftStruct](methodName: String, serverCodec: ThriftStructCodec3[T], clientCodec: ThriftStructCodec3[R]) {
 
-    private def encode(entity: ThriftStruct): Array[Byte] = {
+    private def encode(entity: ThriftStruct, messageId: Int): Message = {
       val buffer = new TMemoryBuffer(512)
       val oprot = protocolFactory.getProtocol(buffer)
 
-      oprot.writeMessageBegin(new TMessage(methodName, TMessageType.CALL, 0))
+      oprot.writeMessageBegin(new TMessage(methodName, TMessageType.CALL, messageId))
       entity.write(oprot)
       oprot.writeMessageEnd()
       val bytes = util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-      Message(bytes.length, bytes).toByteArray
+      Message(bytes.length, bytes)
     }
 
-    def encodeRequest(entity: T): Array[Byte] = encode(entity)
+    def encodeRequest(entity: T)(implicit messageId: Int): Message = encode(entity, messageId)
 
-    def encodeResponse(entity: R): Array[Byte] = encode(entity)
+    def encodeResponse(entity: R)(implicit messageId: Int): Message = encode(entity, messageId)
 
-    def decodeRequest(bytes: Array[Byte]): (String, T) = {
-      val message = Message.fromByteArray(bytes).body
-      val iprot = protocolFactory.getProtocol(new TMemoryInputTransport(message))
+    def decodeRequest(message: Message): T = {
+      val iprot = protocolFactory.getProtocol(new TMemoryInputTransport(message.body))
       val msg = iprot.readMessageBegin()
       try {
         //         if (msg.`type` == TMessageType.EXCEPTION) {
@@ -43,16 +42,15 @@ object Descriptors {
         //           throw exception
         //         } else {
 
-        (msg.name, serverCodec.decode(iprot))
+        serverCodec.decode(iprot)
         //         }
       } finally {
         iprot.readMessageEnd()
       }
     }
 
-    def decodeResponse(bytes: Array[Byte]): (String, R) = {
-      val message = Message.fromByteArray(bytes).body
-      val iprot = protocolFactory.getProtocol(new TMemoryInputTransport(message))
+    def decodeResponse(message: Message): R = {
+      val iprot = protocolFactory.getProtocol(new TMemoryInputTransport(message.body))
       val msg = iprot.readMessageBegin()
       try {
         //         if (msg.`type` == TMessageType.EXCEPTION) {
@@ -65,11 +63,19 @@ object Descriptors {
         //           throw exception
         //         } else {
 
-        (msg.name, clientCodec.decode(iprot))
+        clientCodec.decode(iprot)
         //         }
       } finally {
         iprot.readMessageEnd()
       }
+    }
+  }
+
+  object Descriptor {
+    def decodeMethodName(message: Message): (String, Int) = {
+      val iprot  = protocolFactory.getProtocol(new TMemoryInputTransport(message.body))
+      val header = iprot.readMessageBegin()
+      (header.name, header.seqid)
     }
   }
 
@@ -87,42 +93,50 @@ object Descriptors {
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
 
+  val methods = Array(
+    putStreamMethod, doesStreamExistMethod, getStreamMethod, delStreamMethod,
+    putTransactionMethod, putTranscationsMethod, scanTransactionsMethod,
+    putTransactionDataMethod, getTransactionDataMethod,
+    setConsumerStateMethod, getConsumerStateMethod,
+    authenticateMethod, isValidMethod
+  )
+
   case object PutStream extends
-    Descriptor[TransactionService.PutStream.Args, TransactionService.PutStream.Result](putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result)
+    Descriptor(putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result)
 
   case object DoesStreamExist extends
-    Descriptor[TransactionService.DoesStreamExist.Args, TransactionService.DoesStreamExist.Result](doesStreamExistMethod, TransactionService.DoesStreamExist.Args, TransactionService.DoesStreamExist.Result)
+    Descriptor(doesStreamExistMethod, TransactionService.DoesStreamExist.Args, TransactionService.DoesStreamExist.Result)
 
   case object GetStream extends
-    Descriptor[TransactionService.GetStream.Args, TransactionService.GetStream.Result](getStreamMethod, TransactionService.GetStream.Args, TransactionService.GetStream.Result)
+    Descriptor(getStreamMethod, TransactionService.GetStream.Args, TransactionService.GetStream.Result)
 
   case object DelStream extends
-    Descriptor[TransactionService.DelStream.Args, TransactionService.DelStream.Result](delStreamMethod, TransactionService.DelStream.Args, TransactionService.DelStream.Result)
+    Descriptor(delStreamMethod, TransactionService.DelStream.Args, TransactionService.DelStream.Result)
 
   case object PutTransaction extends
-    Descriptor[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result](putTransactionMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result)
+    Descriptor(putTransactionMethod, TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result)
 
   case object PutTransactions extends
-    Descriptor[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result](putTranscationsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result)
+    Descriptor(putTranscationsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result)
 
   case object ScanTransactions extends
-    Descriptor[TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result](scanTransactionsMethod, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result)
+    Descriptor(scanTransactionsMethod, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result)
 
   case object PutTransactionData extends
-    Descriptor[TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result](putTransactionDataMethod, TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result)
+    Descriptor(putTransactionDataMethod, TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result)
 
   case object GetTransactionData extends
-    Descriptor[TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result](getTransactionDataMethod, TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result)
+    Descriptor(getTransactionDataMethod, TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result)
 
   case object SetConsumerState extends
-    Descriptor[TransactionService.SetConsumerState.Args, TransactionService.SetConsumerState.Result](setConsumerStateMethod, TransactionService.SetConsumerState.Args, TransactionService.SetConsumerState.Result)
+    Descriptor(setConsumerStateMethod, TransactionService.SetConsumerState.Args, TransactionService.SetConsumerState.Result)
 
   case object GetConsumerState extends
-    Descriptor[TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result](getConsumerStateMethod, TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result)
+    Descriptor(getConsumerStateMethod, TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result)
 
   case object Authenticate extends
-    Descriptor[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result](authenticateMethod, TransactionService.Authenticate.Args, TransactionService.Authenticate.Result)
+    Descriptor(authenticateMethod, TransactionService.Authenticate.Args, TransactionService.Authenticate.Result)
 
   case object IsValid extends
-    Descriptor[TransactionService.IsValid.Args, TransactionService.IsValid.Result](isValidMethod, TransactionService.IsValid.Args, TransactionService.IsValid.Result)
+    Descriptor(isValidMethod, TransactionService.IsValid.Args, TransactionService.IsValid.Result)
 }

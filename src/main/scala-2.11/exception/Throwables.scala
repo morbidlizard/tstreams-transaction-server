@@ -4,7 +4,8 @@ import java.io.FileNotFoundException
 
 object Throwables {
   val tokenInvalidExceptionMessage: String = "Token isn't valid"
-  def tokenInvalidException: Throwable = throw new IllegalArgumentException(tokenInvalidExceptionMessage)
+  object TokenInvalidException extends IllegalArgumentException(tokenInvalidExceptionMessage)
+  def tokenInvalidException: Throwable = throw TokenInvalidException
 
   val lockoutTransactionExceptionMessage: String ="com.sleepycat.je.LockTimeoutException"
 

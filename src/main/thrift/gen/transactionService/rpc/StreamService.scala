@@ -534,6 +534,8 @@ object StreamService { self =>
       val Struct = new TStruct("putStream_result")
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
+      val TokenInvalidField = new TField("tokenInvalid", TType.STRUCT, 1)
+      val TokenInvalidFieldManifest = implicitly[Manifest[transactionService.rpc.TokenInvalidException]]
     
       /**
        * Field information in declaration order.
@@ -544,6 +546,17 @@ object StreamService { self =>
           true,
           false,
           SuccessFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          TokenInvalidField,
+          true,
+          false,
+          TokenInvalidFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -569,6 +582,13 @@ object StreamService { self =>
               field.map { field =>
                 field
               }
+            },
+          tokenInvalid =
+            {
+              val field = original.tokenInvalid
+              field.map { field =>
+                transactionService.rpc.TokenInvalidException.withoutPassthroughFields(field)
+              }
             }
         )
     
@@ -578,6 +598,7 @@ object StreamService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Boolean] = _root_.scala.None
+        var tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -601,6 +622,19 @@ object StreamService { self =>
                       )
                     )
                 }
+              case 1 =>
+                _field.`type` match {
+                  case TType.STRUCT =>
+                    tokenInvalid = _root_.scala.Some(readTokenInvalidValue(_iprot))
+                  case _actualType =>
+                    val _expectedType = TType.STRUCT
+                    throw new TProtocolException(
+                      "Received wrong type for field 'tokenInvalid' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
               case _ =>
                 if (_passthroughFields == null)
                   _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
@@ -613,6 +647,7 @@ object StreamService { self =>
     
         new Result(
           success,
+          tokenInvalid,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -621,13 +656,15 @@ object StreamService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[Boolean] = _root_.scala.None
+        success: _root_.scala.Option[Boolean] = _root_.scala.None,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
       ): Result =
         new Result(
-          success
+          success,
+          tokenInvalid
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Option[Boolean]] = _root_.scala.Some(_item.success)
+      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]] = _root_.scala.Some(_item)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
@@ -644,35 +681,54 @@ object StreamService { self =>
         _oprot.writeBool(success_item)
       }
     
+      @inline private def readTokenInvalidValue(_iprot: TProtocol): transactionService.rpc.TokenInvalidException = {
+        transactionService.rpc.TokenInvalidException.decode(_iprot)
+      }
+    
+      @inline private def writeTokenInvalidField(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(TokenInvalidField)
+        writeTokenInvalidValue(tokenInvalid_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeTokenInvalidValue(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
+        tokenInvalid_item.write(_oprot)
+      }
+    
     
     }
     
     class Result(
         val success: _root_.scala.Option[Boolean],
+        val tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Boolean] with ThriftStruct
-      with scala.Product1[Option[Boolean]]
+      with scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[Boolean] = _root_.scala.None
+        success: _root_.scala.Option[Boolean] = _root_.scala.None,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
       ) = this(
         success,
+        tokenInvalid,
         Map.empty
       )
     
       def _1 = success
+      def _2 = tokenInvalid
     
       def successField: Option[Boolean] = success
-      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq()
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(tokenInvalid)
     
     
       override def write(_oprot: TProtocol): Unit = {
         Result.validate(this)
         _oprot.writeStructBegin(Struct)
         if (success.isDefined) writeSuccessField(success.get, _oprot)
+        if (tokenInvalid.isDefined) writeTokenInvalidField(tokenInvalid.get, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -682,10 +738,12 @@ object StreamService { self =>
     
       def copy(
         success: _root_.scala.Option[Boolean] = this.success,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = this.tokenInvalid,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
           success,
+          tokenInvalid,
           _passthroughFields
         )
     
@@ -705,10 +763,11 @@ object StreamService { self =>
       override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
     
     
-      override def productArity: Int = 1
+      override def productArity: Int = 2
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.success
+        case 1 => this.tokenInvalid
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -996,6 +1055,8 @@ object StreamService { self =>
       val Struct = new TStruct("doesStreamExist_result")
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
+      val TokenInvalidField = new TField("tokenInvalid", TType.STRUCT, 1)
+      val TokenInvalidFieldManifest = implicitly[Manifest[transactionService.rpc.TokenInvalidException]]
     
       /**
        * Field information in declaration order.
@@ -1006,6 +1067,17 @@ object StreamService { self =>
           true,
           false,
           SuccessFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          TokenInvalidField,
+          true,
+          false,
+          TokenInvalidFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -1031,6 +1103,13 @@ object StreamService { self =>
               field.map { field =>
                 field
               }
+            },
+          tokenInvalid =
+            {
+              val field = original.tokenInvalid
+              field.map { field =>
+                transactionService.rpc.TokenInvalidException.withoutPassthroughFields(field)
+              }
             }
         )
     
@@ -1040,6 +1119,7 @@ object StreamService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Boolean] = _root_.scala.None
+        var tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1063,6 +1143,19 @@ object StreamService { self =>
                       )
                     )
                 }
+              case 1 =>
+                _field.`type` match {
+                  case TType.STRUCT =>
+                    tokenInvalid = _root_.scala.Some(readTokenInvalidValue(_iprot))
+                  case _actualType =>
+                    val _expectedType = TType.STRUCT
+                    throw new TProtocolException(
+                      "Received wrong type for field 'tokenInvalid' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
               case _ =>
                 if (_passthroughFields == null)
                   _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
@@ -1075,6 +1168,7 @@ object StreamService { self =>
     
         new Result(
           success,
+          tokenInvalid,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -1083,13 +1177,15 @@ object StreamService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[Boolean] = _root_.scala.None
+        success: _root_.scala.Option[Boolean] = _root_.scala.None,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
       ): Result =
         new Result(
-          success
+          success,
+          tokenInvalid
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Option[Boolean]] = _root_.scala.Some(_item.success)
+      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]] = _root_.scala.Some(_item)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
@@ -1106,35 +1202,54 @@ object StreamService { self =>
         _oprot.writeBool(success_item)
       }
     
+      @inline private def readTokenInvalidValue(_iprot: TProtocol): transactionService.rpc.TokenInvalidException = {
+        transactionService.rpc.TokenInvalidException.decode(_iprot)
+      }
+    
+      @inline private def writeTokenInvalidField(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(TokenInvalidField)
+        writeTokenInvalidValue(tokenInvalid_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeTokenInvalidValue(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
+        tokenInvalid_item.write(_oprot)
+      }
+    
     
     }
     
     class Result(
         val success: _root_.scala.Option[Boolean],
+        val tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Boolean] with ThriftStruct
-      with scala.Product1[Option[Boolean]]
+      with scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[Boolean] = _root_.scala.None
+        success: _root_.scala.Option[Boolean] = _root_.scala.None,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
       ) = this(
         success,
+        tokenInvalid,
         Map.empty
       )
     
       def _1 = success
+      def _2 = tokenInvalid
     
       def successField: Option[Boolean] = success
-      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq()
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(tokenInvalid)
     
     
       override def write(_oprot: TProtocol): Unit = {
         Result.validate(this)
         _oprot.writeStructBegin(Struct)
         if (success.isDefined) writeSuccessField(success.get, _oprot)
+        if (tokenInvalid.isDefined) writeTokenInvalidField(tokenInvalid.get, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -1144,10 +1259,12 @@ object StreamService { self =>
     
       def copy(
         success: _root_.scala.Option[Boolean] = this.success,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = this.tokenInvalid,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
           success,
+          tokenInvalid,
           _passthroughFields
         )
     
@@ -1167,10 +1284,11 @@ object StreamService { self =>
       override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
     
     
-      override def productArity: Int = 1
+      override def productArity: Int = 2
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.success
+        case 1 => this.tokenInvalid
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -1458,6 +1576,8 @@ object StreamService { self =>
       val Struct = new TStruct("getStream_result")
       val SuccessField = new TField("success", TType.STRUCT, 0)
       val SuccessFieldManifest = implicitly[Manifest[transactionService.rpc.Stream]]
+      val TokenInvalidField = new TField("tokenInvalid", TType.STRUCT, 1)
+      val TokenInvalidFieldManifest = implicitly[Manifest[transactionService.rpc.TokenInvalidException]]
     
       /**
        * Field information in declaration order.
@@ -1468,6 +1588,17 @@ object StreamService { self =>
           true,
           false,
           SuccessFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          TokenInvalidField,
+          true,
+          false,
+          TokenInvalidFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -1493,6 +1624,13 @@ object StreamService { self =>
               field.map { field =>
                 transactionService.rpc.Stream.withoutPassthroughFields(field)
               }
+            },
+          tokenInvalid =
+            {
+              val field = original.tokenInvalid
+              field.map { field =>
+                transactionService.rpc.TokenInvalidException.withoutPassthroughFields(field)
+              }
             }
         )
     
@@ -1502,6 +1640,7 @@ object StreamService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[transactionService.rpc.Stream] = _root_.scala.None
+        var tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1525,6 +1664,19 @@ object StreamService { self =>
                       )
                     )
                 }
+              case 1 =>
+                _field.`type` match {
+                  case TType.STRUCT =>
+                    tokenInvalid = _root_.scala.Some(readTokenInvalidValue(_iprot))
+                  case _actualType =>
+                    val _expectedType = TType.STRUCT
+                    throw new TProtocolException(
+                      "Received wrong type for field 'tokenInvalid' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
               case _ =>
                 if (_passthroughFields == null)
                   _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
@@ -1537,6 +1689,7 @@ object StreamService { self =>
     
         new Result(
           success,
+          tokenInvalid,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -1545,13 +1698,15 @@ object StreamService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[transactionService.rpc.Stream] = _root_.scala.None
+        success: _root_.scala.Option[transactionService.rpc.Stream] = _root_.scala.None,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
       ): Result =
         new Result(
-          success
+          success,
+          tokenInvalid
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Option[transactionService.rpc.Stream]] = _root_.scala.Some(_item.success)
+      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[transactionService.rpc.Stream], Option[transactionService.rpc.TokenInvalidException]]] = _root_.scala.Some(_item)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): transactionService.rpc.Stream = {
@@ -1568,35 +1723,54 @@ object StreamService { self =>
         success_item.write(_oprot)
       }
     
+      @inline private def readTokenInvalidValue(_iprot: TProtocol): transactionService.rpc.TokenInvalidException = {
+        transactionService.rpc.TokenInvalidException.decode(_iprot)
+      }
+    
+      @inline private def writeTokenInvalidField(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(TokenInvalidField)
+        writeTokenInvalidValue(tokenInvalid_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeTokenInvalidValue(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
+        tokenInvalid_item.write(_oprot)
+      }
+    
     
     }
     
     class Result(
         val success: _root_.scala.Option[transactionService.rpc.Stream],
+        val tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[transactionService.rpc.Stream] with ThriftStruct
-      with scala.Product1[Option[transactionService.rpc.Stream]]
+      with scala.Product2[Option[transactionService.rpc.Stream], Option[transactionService.rpc.TokenInvalidException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[transactionService.rpc.Stream] = _root_.scala.None
+        success: _root_.scala.Option[transactionService.rpc.Stream] = _root_.scala.None,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
       ) = this(
         success,
+        tokenInvalid,
         Map.empty
       )
     
       def _1 = success
+      def _2 = tokenInvalid
     
       def successField: Option[transactionService.rpc.Stream] = success
-      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq()
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(tokenInvalid)
     
     
       override def write(_oprot: TProtocol): Unit = {
         Result.validate(this)
         _oprot.writeStructBegin(Struct)
         if (success.isDefined) writeSuccessField(success.get, _oprot)
+        if (tokenInvalid.isDefined) writeTokenInvalidField(tokenInvalid.get, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -1606,10 +1780,12 @@ object StreamService { self =>
     
       def copy(
         success: _root_.scala.Option[transactionService.rpc.Stream] = this.success,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = this.tokenInvalid,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
           success,
+          tokenInvalid,
           _passthroughFields
         )
     
@@ -1629,10 +1805,11 @@ object StreamService { self =>
       override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
     
     
-      override def productArity: Int = 1
+      override def productArity: Int = 2
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.success
+        case 1 => this.tokenInvalid
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -1920,6 +2097,8 @@ object StreamService { self =>
       val Struct = new TStruct("delStream_result")
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
+      val TokenInvalidField = new TField("tokenInvalid", TType.STRUCT, 1)
+      val TokenInvalidFieldManifest = implicitly[Manifest[transactionService.rpc.TokenInvalidException]]
     
       /**
        * Field information in declaration order.
@@ -1930,6 +2109,17 @@ object StreamService { self =>
           true,
           false,
           SuccessFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          TokenInvalidField,
+          true,
+          false,
+          TokenInvalidFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -1955,6 +2145,13 @@ object StreamService { self =>
               field.map { field =>
                 field
               }
+            },
+          tokenInvalid =
+            {
+              val field = original.tokenInvalid
+              field.map { field =>
+                transactionService.rpc.TokenInvalidException.withoutPassthroughFields(field)
+              }
             }
         )
     
@@ -1964,6 +2161,7 @@ object StreamService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Boolean] = _root_.scala.None
+        var tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1987,6 +2185,19 @@ object StreamService { self =>
                       )
                     )
                 }
+              case 1 =>
+                _field.`type` match {
+                  case TType.STRUCT =>
+                    tokenInvalid = _root_.scala.Some(readTokenInvalidValue(_iprot))
+                  case _actualType =>
+                    val _expectedType = TType.STRUCT
+                    throw new TProtocolException(
+                      "Received wrong type for field 'tokenInvalid' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
               case _ =>
                 if (_passthroughFields == null)
                   _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
@@ -1999,6 +2210,7 @@ object StreamService { self =>
     
         new Result(
           success,
+          tokenInvalid,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -2007,13 +2219,15 @@ object StreamService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[Boolean] = _root_.scala.None
+        success: _root_.scala.Option[Boolean] = _root_.scala.None,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
       ): Result =
         new Result(
-          success
+          success,
+          tokenInvalid
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Option[Boolean]] = _root_.scala.Some(_item.success)
+      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]] = _root_.scala.Some(_item)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
@@ -2030,35 +2244,54 @@ object StreamService { self =>
         _oprot.writeBool(success_item)
       }
     
+      @inline private def readTokenInvalidValue(_iprot: TProtocol): transactionService.rpc.TokenInvalidException = {
+        transactionService.rpc.TokenInvalidException.decode(_iprot)
+      }
+    
+      @inline private def writeTokenInvalidField(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(TokenInvalidField)
+        writeTokenInvalidValue(tokenInvalid_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeTokenInvalidValue(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
+        tokenInvalid_item.write(_oprot)
+      }
+    
     
     }
     
     class Result(
         val success: _root_.scala.Option[Boolean],
+        val tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Boolean] with ThriftStruct
-      with scala.Product1[Option[Boolean]]
+      with scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[Boolean] = _root_.scala.None
+        success: _root_.scala.Option[Boolean] = _root_.scala.None,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
       ) = this(
         success,
+        tokenInvalid,
         Map.empty
       )
     
       def _1 = success
+      def _2 = tokenInvalid
     
       def successField: Option[Boolean] = success
-      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq()
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(tokenInvalid)
     
     
       override def write(_oprot: TProtocol): Unit = {
         Result.validate(this)
         _oprot.writeStructBegin(Struct)
         if (success.isDefined) writeSuccessField(success.get, _oprot)
+        if (tokenInvalid.isDefined) writeTokenInvalidField(tokenInvalid.get, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -2068,10 +2301,12 @@ object StreamService { self =>
     
       def copy(
         success: _root_.scala.Option[Boolean] = this.success,
+        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = this.tokenInvalid,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
           success,
+          tokenInvalid,
           _passthroughFields
         )
     
@@ -2091,10 +2326,11 @@ object StreamService { self =>
       override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
     
     
-      override def productArity: Int = 1
+      override def productArity: Int = 2
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.success
+        case 1 => this.tokenInvalid
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     

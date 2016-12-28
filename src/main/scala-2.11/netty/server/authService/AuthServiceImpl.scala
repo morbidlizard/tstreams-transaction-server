@@ -22,6 +22,5 @@ trait AuthServiceImpl extends AuthService[ScalaFuture] {
     token
   }
 
-  override def isValid(token: Int): ScalaFuture[Boolean] = //ScalaFuture.successful(usersToken.getIfPresent(token) != null)
-    ScalaFuture.successful(true)
+  override def isValid(token: Int): ScalaFuture[Boolean] = ScalaFuture.successful(usersToken.getIfPresent(token) != null)
 }

@@ -123,7 +123,12 @@ class TransactionDataService$FinagleClient(
             t.cast[Boolean]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.tokenInvalid.isDefined)
+                setServiceName(result.tokenInvalid.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -183,7 +188,12 @@ class TransactionDataService$FinagleClient(
             t.cast[Seq[ByteBuffer]]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.tokenInvalid.isDefined)
+                setServiceName(result.tokenInvalid.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)

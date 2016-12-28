@@ -7,7 +7,6 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import netty.{Descriptors, Message}
 
 import scala.concurrent.{Promise => ScalaPromise}
-import FunctionResult._
 
 class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[FunctionResult.Result]]) extends SimpleChannelInboundHandler[Message] {
 
@@ -16,22 +15,91 @@ class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[FunctionResu
     import Descriptors._
     def invokeMethod(message: Message): Unit = {
       val (method, messageSeqId) = Descriptor.decodeMethodName(message)
-      val result = method match {
-        case `putStreamMethod` =>          new FunctionResult.BoolResult(Descriptors.PutStream.decodeResponse(message).success.get)
-        case `doesStreamExistMethod` =>    new FunctionResult.BoolResult(Descriptors.DoesStreamExist.decodeResponse(message).success.get)
-        case `getStreamMethod` =>          new FunctionResult.StreamResult(Descriptors.GetStream.decodeResponse(message).success.get)
-        case `delStreamMethod` =>          new FunctionResult.BoolResult(Descriptors.DelStream.decodeResponse(message).success.get)
-        case `putTransactionMethod` =>     new FunctionResult.BoolResult(Descriptors.PutTransaction.decodeResponse(message).success.get)
-        case `putTranscationsMethod` =>    new FunctionResult.BoolResult(Descriptors.PutTransactions.decodeResponse(message).success.get)
-        case `scanTransactionsMethod` =>   new FunctionResult.SeqTransactionsResult(Descriptors.ScanTransactions.decodeResponse(message).success.get)
-        case `putTransactionDataMethod` => new FunctionResult.BoolResult(Descriptors.PutTransactionData.decodeResponse(message).success.get)
-        case `getTransactionDataMethod` => new FunctionResult.SeqByteBufferResult(Descriptors.GetTransactionData.decodeResponse(message).success.get)
-        case `setConsumerStateMethod` =>   new FunctionResult.BoolResult(Descriptors.SetConsumerState.decodeResponse(message).success.get)
-        case `getConsumerStateMethod` =>   new FunctionResult.LongResult(Descriptors.GetConsumerState.decodeResponse(message).success.get)
-        case `authenticateMethod` =>       new FunctionResult.IntResult(Descriptors.Authenticate.decodeResponse(message).success.get)
-        case `isValidMethod` =>            new FunctionResult.BoolResult(Descriptors.IsValid.decodeResponse(message).success.get)
+      method match {
+        case `putStreamMethod` =>
+          val response = Descriptors.PutStream.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `doesStreamExistMethod` =>
+          val response = Descriptors.DoesStreamExist.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `getStreamMethod` =>
+          val response = Descriptors.GetStream.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.StreamResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `delStreamMethod` =>
+          val response = Descriptors.DelStream.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `putTransactionMethod` =>
+          val response = Descriptors.PutTransaction.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `putTranscationsMethod` =>
+          val response = Descriptors.PutTransactions.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `scanTransactionsMethod` =>
+          val response = Descriptors.ScanTransactions.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.SeqTransactionsResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `putTransactionDataMethod` =>
+          val response = Descriptors.PutTransactionData.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+
+        case `getTransactionDataMethod` =>
+          val response = Descriptors.GetTransactionData.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.SeqByteBufferResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `setConsumerStateMethod` =>
+          val response = Descriptors.SetConsumerState.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `getConsumerStateMethod` =>
+          val response = Descriptors.GetConsumerState.decodeResponse(message)
+          if (response.success.isDefined)
+            reqIdToRep.get(messageSeqId).success(new FunctionResult.LongResult(response.success.get))
+          else
+            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+
+        case `authenticateMethod` =>
+          reqIdToRep.get(messageSeqId).success(new FunctionResult.IntResult(Descriptors.Authenticate.decodeResponse(message).success.get))
+
+        case `isValidMethod` =>
+          reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(Descriptors.IsValid.decodeResponse(message).success.get))
       }
-      reqIdToRep.get(messageSeqId).success(result)
     }
     invokeMethod(msg)
   }

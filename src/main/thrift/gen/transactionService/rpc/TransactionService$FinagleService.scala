@@ -149,6 +149,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("putStream", seqid, PutStream.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("putStream", seqid, PutStream.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -183,6 +186,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("doesStreamExist", seqid, DoesStreamExist.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("doesStreamExist", seqid, DoesStreamExist.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -217,6 +223,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: transactionService.rpc.Stream =>
         reply("getStream", seqid, GetStream.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("getStream", seqid, GetStream.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -251,6 +260,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("delStream", seqid, DelStream.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("delStream", seqid, DelStream.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -285,6 +297,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("putTransaction", seqid, PutTransaction.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("putTransaction", seqid, PutTransaction.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -319,6 +334,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("putTransactions", seqid, PutTransactions.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("putTransactions", seqid, PutTransactions.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -353,6 +371,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Seq[transactionService.rpc.Transaction] =>
         reply("scanTransactions", seqid, ScanTransactions.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("scanTransactions", seqid, ScanTransactions.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -387,6 +408,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("putTransactionData", seqid, PutTransactionData.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("putTransactionData", seqid, PutTransactionData.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -421,6 +445,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Seq[ByteBuffer] =>
         reply("getTransactionData", seqid, GetTransactionData.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("getTransactionData", seqid, GetTransactionData.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -455,6 +482,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("setConsumerState", seqid, SetConsumerState.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("setConsumerState", seqid, SetConsumerState.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -489,6 +519,9 @@ class TransactionService$FinagleService(
       }).flatMap { value: Long =>
         reply("getConsumerState", seqid, GetConsumerState.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.TokenInvalidException => {
+          reply("getConsumerState", seqid, GetConsumerState.Result(tokenInvalid = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>

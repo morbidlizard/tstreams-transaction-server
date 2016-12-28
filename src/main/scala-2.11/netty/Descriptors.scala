@@ -3,13 +3,13 @@ package netty
 import java.util
 
 import com.twitter.scrooge.{ThriftStruct, ThriftStructCodec3}
-import org.apache.thrift.protocol.{TBinaryProtocol, TMessage, TMessageType}
+import org.apache.thrift.protocol.{TBinaryProtocol, TCompactProtocol, TMessage, TMessageType}
 import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
 import transactionService.rpc.TransactionService
 
 object Descriptors {
 
-  val protocolFactory = new TBinaryProtocol.Factory
+  val protocolFactory = new TCompactProtocol.Factory
 
   sealed abstract class Descriptor[T <: ThriftStruct, R <: ThriftStruct](methodName: String, serverCodec: ThriftStructCodec3[T], clientCodec: ThriftStructCodec3[R]) {
 
@@ -92,6 +92,7 @@ object Descriptors {
   val getConsumerStateMethod = "getConsumerState"
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
+  val tokenInvalidException ="tokenInvalidException"
 
   val methods = Array(
     putStreamMethod, doesStreamExistMethod, getStreamMethod, delStreamMethod,

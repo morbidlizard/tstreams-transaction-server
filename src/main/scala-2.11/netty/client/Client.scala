@@ -1,6 +1,6 @@
 package netty.client
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 import configProperties.ServerConfig.{transactionServerListen, transactionServerPort}
@@ -11,11 +11,11 @@ import io.netty.channel.socket.nio.NioSocketChannel
 import scala.concurrent.ExecutionContext.Implicits.global
 import io.netty.channel.{Channel, ChannelOption}
 import netty.{Context, Descriptors}
-import transactionService.rpc.{Transaction, TransactionService}
-
+import transactionService.rpc.{TransactionService, _}
 import `implicit`.Implicits._
+import com.twitter.scrooge.ThriftStruct
 
-import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
+import scala.concurrent.{Await, ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 class Client {
   private val nextSeqId = new AtomicInteger(Int.MinValue)
@@ -32,230 +32,195 @@ class Client {
     f.channel()
   }
 
+  private def retry(times: Int, timeUnit: TimeUnit, amount: Long)(f: => ScalaFuture[FunctionResult.Result])(implicit executor: ExecutionContext): ScalaFuture[FunctionResult.Result] = {
+    def helper(times: Int)(f: => ScalaFuture[FunctionResult.Result]): ScalaFuture[FunctionResult.Result] = f recoverWith {
+      case _ if times > 0 =>
+        timeUnit.sleep(amount)
+        authenticate() flatMap (_ => helper(times - 1)(f))
+    }
+    helper(times)(f)
+  }
 
-  def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] = {
+  private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit executor: ExecutionContext): ScalaFuture[FunctionResult.Result]  = {
     val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.PutStream
-      .encodeRequest(TransactionService.PutStream.Args(0, stream, partitions, description, ttl))(messageId)
+    val message = descriptor.encodeRequest(request)(messageId)
 
     channel.writeAndFlush(message.toByteArray)
 
     val promise = ScalaPromise[FunctionResult.Result]
     ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    promise.future.map { response =>
+      ReqIdToRep.remove(messageId, promise)
+      response
+    }
+  }
+
+  private def methodWithRetry[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req, times: Int, timeUnit: TimeUnit, amount: Long) =
+    retry(times,timeUnit,amount)(method(descriptor, request))
+
+  @volatile private var token: Int = _
+
+  def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] = {
+    method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream, partitions, description, ttl))
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
   def putStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.PutStream
-      .encodeRequest(TransactionService.PutStream.Args(0, stream.name, stream.partitions, stream.description, stream.ttl))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    methodWithRetry(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream.name, stream.partitions, stream.description, stream.ttl), 5, TimeUnit.SECONDS, 5L)
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
   def delStream(stream: String): ScalaFuture[Boolean] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.DelStream
-      .encodeRequest(TransactionService.DelStream.Args(0, stream))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream))
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
   def delStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.GetStream
-      .encodeRequest(TransactionService.GetStream.Args(0, stream.name))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    method(Descriptors.GetStream,TransactionService.GetStream.Args(token, stream.name))
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
   def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.GetStream
-      .encodeRequest(TransactionService.GetStream.Args(0, stream))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.StreamResult => fun.stream}
+    method(Descriptors.GetStream, TransactionService.GetStream.Args(token, stream))
+      .map(x => x.asInstanceOf[FunctionResult.StreamResult].stream)
   }
 
   def doesStreamExist(stream: String): ScalaFuture[Boolean] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.DoesStreamExist
-      .encodeRequest(TransactionService.DoesStreamExist.Args(0, stream))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    method(Descriptors.DoesStreamExist, TransactionService.DoesStreamExist.Args(token, stream))
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
   private val futurePool = Context.producerTransactionsContext.getContext
-
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
-                      consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = ScalaFuture {
-    val messageId = nextSeqId.getAndIncrement()
+                      consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
 
     val txns = (producerTransactions map (txn => Transaction(Some(txn), None))) ++
       (consumerTransactions map (txn => Transaction(None, Some(txn))))
 
-    val message = Descriptors.PutTransactions
-      .encodeRequest(TransactionService.PutTransactions.Args(0, txns))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
-  }(futurePool).flatMap(identity)
+    method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))(futurePool)
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
+  }
 
 
-  def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = ScalaFuture {
-    val messageId = nextSeqId.getAndIncrement()
+  def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
+    TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
 
-    val message = Descriptors.PutTransaction
-      .encodeRequest(TransactionService.PutTransaction.Args(0, Transaction(Some(transaction), None)))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
-  }(futurePool).flatMap(identity)
+    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
+  }
 
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.PutTransaction
-      .encodeRequest(TransactionService.PutTransaction.Args(0, Transaction(None, Some(transaction))))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
 
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.ProducerTransaction]] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.ScanTransactions
-      .encodeRequest(TransactionService.ScanTransactions.Args(0, stream, partition, from, to))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.SeqTransactionsResult =>
-      fun.txns.withFilter(_.consumerTransaction.isEmpty).map(_.producerTransaction.get)}
+    method(Descriptors.ScanTransactions, TransactionService.ScanTransactions.Args(token, stream, partition, from, to))
+      .map(x => x.asInstanceOf[FunctionResult.SeqTransactionsResult].txns.withFilter(_.consumerTransaction.isEmpty).map(_.producerTransaction.get))
   }
 
 
   def putTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.PutTransactionData
-      .encodeRequest(TransactionService.PutTransactionData.Args(0, producerTransaction.stream,
-        producerTransaction.partition, producerTransaction.transactionID, data, from))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
+      producerTransaction.partition, producerTransaction.transactionID, data, from))
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
 
   def putTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.PutTransactionData
-      .encodeRequest(TransactionService.PutTransactionData.Args(0, consumerTransaction.stream,
-        consumerTransaction.partition, consumerTransaction.transactionID, data, from))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, consumerTransaction.stream,
+      consumerTransaction.partition, consumerTransaction.transactionID, data, from))
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
 
   def getTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0)
 
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.GetTransactionData
-      .encodeRequest(TransactionService.GetTransactionData.Args(0, producerTransaction.stream,
-        producerTransaction.partition, producerTransaction.transactionID, from, to))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.SeqByteBufferResult => fun.bytes}
+    method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, producerTransaction.stream,
+      producerTransaction.partition, producerTransaction.transactionID, from, to))
+      .map(x => x.asInstanceOf[FunctionResult.SeqByteBufferResult].bytes)
   }
 
 
   def getTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0)
 
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.GetTransactionData
-      .encodeRequest(TransactionService.GetTransactionData.Args(0, consumerTransaction.stream,
-        consumerTransaction.partition, consumerTransaction.transactionID, from, to))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.SeqByteBufferResult => fun.bytes}
+    method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, consumerTransaction.stream,
+      consumerTransaction.partition, consumerTransaction.transactionID, from, to))
+      .map(x => x.asInstanceOf[FunctionResult.SeqByteBufferResult].bytes)
   }
 
   def setConsumerState(consumerTransaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.SetConsumerState
-      .encodeRequest(TransactionService.SetConsumerState.Args(0, consumerTransaction.name,
-        consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID))(messageId)
-
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.BoolResult => fun.bool}
+    method(Descriptors.SetConsumerState,  TransactionService.SetConsumerState.Args(token, consumerTransaction.name,
+      consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID))
+      .map(x => x.asInstanceOf[FunctionResult.BoolResult].bool)
   }
 
   def getConsumerState(consumerTransaction: (String, String, Int)): ScalaFuture[Long] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val message = Descriptors.GetConsumerState
-      .encodeRequest(TransactionService.GetConsumerState.Args(0, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))(messageId)
+      method(Descriptors.GetConsumerState,  TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
+        .map(x => x.asInstanceOf[FunctionResult.LongResult].long)
+  }
 
-    channel.writeAndFlush(message.toByteArray)
-
-    val promise = ScalaPromise[FunctionResult.Result]
-    ReqIdToRep.put(messageId, promise)
-    promise.future map {case fun: FunctionResult.LongResult => fun.long}
+  private def authenticate(): ScalaFuture[Unit] = {
+    val login = configProperties.ClientConfig.login
+    val password = configProperties.ClientConfig.password
+    method(Descriptors.Authenticate, TransactionService.Authenticate.Args(login, password))
+      .map(x => token = x.asInstanceOf[FunctionResult.IntResult].int)
   }
 
   def close() = channel.closeFuture().sync()
 }
 
 object Client extends App {
-  val client = new Client()
+
   val rand = scala.util.Random
-  val futures = (0 to 10) map { _ => ScalaFuture(client.putStream(rand.nextInt(10).toString, rand.nextInt(10000), Some(rand.nextInt(50).toString), 50)) }
+  private def getRandomStream = new transactionService.rpc.Stream {
+    override val name: String = rand.nextInt(10000).toString
+    override val partitions: Int = rand.nextInt(10000)
+    override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
+    override val ttl: Int = rand.nextInt(Int.MaxValue)
+  }
+  private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
+
+  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
+    override val transactionID: Long = System.nanoTime()
+    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
+    override val stream: String = streamObj.name
+    override val keepAliveTTL: Long = Long.MaxValue
+    override val quantity: Int = -1
+    override val partition: Int = streamObj.partitions
+  }
+
+  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =  new ConsumerTransaction {
+    override def transactionID: Long = scala.util.Random.nextLong()
+    override def name: String = rand.nextInt(10000).toString
+    override def stream: String = streamObj.name
+    override def partition: Int = streamObj.partitions
+  }
+  val client = new Client()
+
+    import scala.concurrent.duration._
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), 10.seconds)
+
+    val txn = getRandomProducerTransaction(stream)
+    Await.result(client.putTransaction(txn), 10.seconds)
+
+    val amount = 50000
+    val data = Array.fill(amount)(rand.nextString(10).getBytes)
+
+    val before = System.currentTimeMillis()
+    Await.result(client.putTransactionData(txn, data, 0), 10.seconds)
+    val after = System.currentTimeMillis()
+    println(after - before)
+
+    val res = Await.result(client.getTransactionData(txn, 0, 50000), 10.seconds)
+
+    //res
+
   client.close()
+
 }

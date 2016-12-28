@@ -41,28 +41,32 @@ struct Stream {
     4: required i32           ttl
 }
 
+exception TokenInvalidException {
+    1: string message;
+}
+
 
 
 service StreamService {
 
-  bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl),
+  bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl) throws (1:TokenInvalidException tokenInvalid),
 
-  bool doesStreamExist(1: tokenType token, 2: StreamType stream),
+  bool doesStreamExist(1: tokenType token, 2: StreamType stream) throws (1:TokenInvalidException tokenInvalid),
 
-  Stream getStream(1: tokenType token, 2: StreamType stream),
+  Stream getStream(1: tokenType token, 2: StreamType stream) throws (1:TokenInvalidException tokenInvalid),
 
-  bool delStream(1: tokenType token, 2: StreamType stream)
+  bool delStream(1: tokenType token, 2: StreamType stream) throws (1:TokenInvalidException tokenInvalid)
 }
 
 
 
 service TransactionMetaService {
 
-   bool putTransaction(1: tokenType token, 2: Transaction transaction),
+   bool putTransaction(1: tokenType token, 2: Transaction transaction) throws (1:TokenInvalidException tokenInvalid),
 
-   bool putTransactions(1: tokenType token, 2: list<Transaction> transactions),
+   bool putTransactions(1: tokenType token, 2: list<Transaction> transactions) throws (1:TokenInvalidException tokenInvalid),
 
-   list<Transaction> scanTransactions(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: i64 from, 5: i64 to),
+   list<Transaction> scanTransactions(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: i64 from, 5: i64 to) throws (1:TokenInvalidException tokenInvalid),
 
 }
 
@@ -70,17 +74,17 @@ service TransactionMetaService {
 
 service TransactionDataService {
 
-  bool putTransactionData(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: list<binary> data, 6: i32 from),
+  bool putTransactionData(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: list<binary> data, 6: i32 from) throws (1:TokenInvalidException tokenInvalid),
 
-  list <binary> getTransactionData(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: i32 to)
+  list <binary> getTransactionData(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: i32 to) throws (1:TokenInvalidException tokenInvalid)
 }
 
 
 service ConsumerService {
 
- bool setConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition, 5: transactionIDType transaction),
+ bool setConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition, 5: transactionIDType transaction) throws (1:TokenInvalidException tokenInvalid),
 
- i64 getConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition)
+ i64 getConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition) throws (1:TokenInvalidException tokenInvalid)
 }
 
 
@@ -94,27 +98,27 @@ service authService {
 
 service TransactionService {
 
-  bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl),
+  bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl) throws (1:TokenInvalidException tokenInvalid),
 
-  bool doesStreamExist(1: tokenType token, 2: StreamType stream),
+  bool doesStreamExist(1: tokenType token, 2: StreamType stream) throws (1:TokenInvalidException tokenInvalid),
 
-  Stream getStream(1: tokenType token, 2: StreamType stream),
+  Stream getStream(1: tokenType token, 2: StreamType stream) throws (1:TokenInvalidException tokenInvalid),
 
-  bool delStream(1: tokenType token, 2: StreamType stream),
+  bool delStream(1: tokenType token, 2: StreamType stream) throws (1:TokenInvalidException tokenInvalid),
 
-  bool putTransaction(1: tokenType token, 2: Transaction transaction),
+  bool putTransaction(1: tokenType token, 2: Transaction transaction) throws (1:TokenInvalidException tokenInvalid),
 
-  bool putTransactions(1: tokenType token, 2: list<Transaction> transactions),
+  bool putTransactions(1: tokenType token, 2: list<Transaction> transactions) throws (1:TokenInvalidException tokenInvalid),
 
-  list<Transaction> scanTransactions(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: i64 from, 5: i64 to),
+  list<Transaction> scanTransactions(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: i64 from, 5: i64 to) throws (1:TokenInvalidException tokenInvalid),
 
-  bool putTransactionData(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: list<binary> data, 6: i32 from),
+  bool putTransactionData(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: list<binary> data, 6: i32 from) throws (1:TokenInvalidException tokenInvalid),
 
-  list <binary> getTransactionData(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: i32 to),
+  list <binary> getTransactionData(1: tokenType token, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction, 5: i32 from, 6: i32 to) throws (1:TokenInvalidException tokenInvalid),
 
-  bool setConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition, 5: transactionIDType transaction),
+  bool setConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition, 5: transactionIDType transaction) throws (1:TokenInvalidException tokenInvalid),
 
-  transactionIDType getConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition),
+  transactionIDType getConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition) throws (1:TokenInvalidException tokenInvalid),
 
   tokenType authenticate(1: string login, 2: string password),
 

@@ -2,104 +2,59 @@ package netty.client
 
 import java.util.concurrent.ConcurrentHashMap
 
-
+import com.twitter.scrooge.ThriftStruct
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import netty.{Descriptors, Message}
 
 import scala.concurrent.{Promise => ScalaPromise}
 
-class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[FunctionResult.Result]]) extends SimpleChannelInboundHandler[Message] {
+class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]]) extends SimpleChannelInboundHandler[Message] {
 
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
     def invokeMethod(message: Message): Unit = {
       val (method, messageSeqId) = Descriptor.decodeMethodName(message)
-      method match {
+      reqIdToRep.get(messageSeqId).success(method match {
         case `putStreamMethod` =>
-          val response = Descriptors.PutStream.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.PutStream.decodeResponse(message)
 
         case `doesStreamExistMethod` =>
-          val response = Descriptors.DoesStreamExist.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.DoesStreamExist.decodeResponse(message)
 
         case `getStreamMethod` =>
-          val response = Descriptors.GetStream.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.StreamResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.GetStream.decodeResponse(message)
 
         case `delStreamMethod` =>
-          val response = Descriptors.DelStream.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.DelStream.decodeResponse(message)
 
         case `putTransactionMethod` =>
-          val response = Descriptors.PutTransaction.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.PutTransaction.decodeResponse(message)
 
         case `putTranscationsMethod` =>
-          val response = Descriptors.PutTransactions.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.PutTransactions.decodeResponse(message)
 
         case `scanTransactionsMethod` =>
-          val response = Descriptors.ScanTransactions.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.SeqTransactionsResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.ScanTransactions.decodeResponse(message)
 
         case `putTransactionDataMethod` =>
-          val response = Descriptors.PutTransactionData.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
-
+          Descriptors.PutTransactionData.decodeResponse(message)
 
         case `getTransactionDataMethod` =>
-          val response = Descriptors.GetTransactionData.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.SeqByteBufferResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.GetTransactionData.decodeResponse(message)
 
         case `setConsumerStateMethod` =>
-          val response = Descriptors.SetConsumerState.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.SetConsumerState.decodeResponse(message)
 
         case `getConsumerStateMethod` =>
-          val response = Descriptors.GetConsumerState.decodeResponse(message)
-          if (response.success.isDefined)
-            reqIdToRep.get(messageSeqId).success(new FunctionResult.LongResult(response.success.get))
-          else
-            reqIdToRep.get(messageSeqId).failure(new FunctionResult.TokenInvalidExceptionResult(response.tokenInvalid.get))
+          Descriptors.GetConsumerState.decodeResponse(message)
 
         case `authenticateMethod` =>
-          reqIdToRep.get(messageSeqId).success(new FunctionResult.IntResult(Descriptors.Authenticate.decodeResponse(message).success.get))
+          Descriptors.Authenticate.decodeResponse(message)
 
         case `isValidMethod` =>
-          reqIdToRep.get(messageSeqId).success(new FunctionResult.BoolResult(Descriptors.IsValid.decodeResponse(message).success.get))
-      }
+          Descriptors.IsValid.decodeResponse(message)
+      })
     }
     invokeMethod(msg)
   }

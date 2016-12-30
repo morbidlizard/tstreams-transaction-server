@@ -8,6 +8,7 @@ import netty.server.{Authenticable, CheckpointTTL}
 import `implicit`.Implicits._
 import transactionService.rpc.TransactionDataService
 import netty.server.db.rocks.RocksDbConnection
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.collection.mutable.ArrayBuffer
 

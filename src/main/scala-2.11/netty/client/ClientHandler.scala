@@ -13,7 +13,7 @@ class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
-    def invokeMethod(message: Message): Unit = {
+    def invokeMethod(message: Message): scala.util.Try[Unit] = scala.util.Try {
       val (method, messageSeqId) = Descriptor.decodeMethodName(message)
       reqIdToRep.get(messageSeqId).success(method match {
         case `putStreamMethod` =>
@@ -56,7 +56,7 @@ class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct
           Descriptors.IsValid.decodeResponse(message)
       })
     }
-    invokeMethod(msg)
+    if (invokeMethod(msg).isFailure)  println("Error on handling response from server")
   }
 
 

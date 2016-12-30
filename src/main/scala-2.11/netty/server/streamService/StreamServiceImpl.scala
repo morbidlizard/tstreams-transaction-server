@@ -6,6 +6,7 @@ import netty.server.{Authenticable, CheckpointTTL}
 import netty.server.streamService.StreamServiceImpl._
 import transactionService.rpc.StreamService
 import exception.Throwables._
+import scala.concurrent.ExecutionContext.Implicits.global
 import shared.FNV
 
 trait StreamServiceImpl extends StreamService[ScalaFuture]

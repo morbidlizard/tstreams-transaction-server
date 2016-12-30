@@ -39,7 +39,7 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
         if (isOkay) transactionDB.commit() else transactionDB.abort()
         isOkay
       }
-    }
+    }(netty.Context.producerTransactionsContext.getContext)
 }
 
 object ConsumerServiceImpl {

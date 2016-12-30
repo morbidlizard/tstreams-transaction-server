@@ -39,13 +39,13 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 //    }
 //  }
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
-    import transactionService.rpc.TransactionStates._
-    val streamObj = getStreamDatabaseObject(txn.stream)
-    val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
+  import transactionService.rpc.TransactionStates._
+  val streamObj = getStreamDatabaseObject(txn.stream)
+  val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
 
-  val p = Promise[Boolean]
-  p success (
-  txn.state match {
+  ScalaFuture(
+    blocking(
+      txn.state match {
         case Opened =>
           (producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null) &&
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
@@ -63,9 +63,9 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         case _ => false
       }
     )
+  )(netty.Context.producerTransactionsContext.getContext)
 
-  p.future
-  }
+}
 
 
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
@@ -99,7 +99,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       if (isOkay) transactionDB.commit() else transactionDB.abort()
       isOkay
     }
-  }
+  }(netty.Context.producerTransactionsContext.getContext)
 
 
   override def putTransactions(token: Int, transactions: Seq[Transaction]): ScalaFuture[Boolean] = authenticateFutureBody(token) {
@@ -112,7 +112,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       if (isOkay) transactionDB.commit() else transactionDB.abort()
       isOkay
     }
-  }
+  }(netty.Context.producerTransactionsContext.getContext)
 
 
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =

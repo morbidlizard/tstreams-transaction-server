@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext
 class Context(threadNumber: Int) {
   require(threadNumber > 0)
 
-  private def newExecutionContext = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("Context-%d").build()))
+  private def newExecutionContext = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("Context-%d").build()))
 
   val contexts = Array.fill(threadNumber)(newExecutionContext)
 

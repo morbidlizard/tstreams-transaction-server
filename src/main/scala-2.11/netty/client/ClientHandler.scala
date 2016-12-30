@@ -56,7 +56,11 @@ class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct
           Descriptors.IsValid.decodeResponse(message)
       })
     }
-    if (invokeMethod(msg).isFailure)  println("Error on handling response from server")
+    if (invokeMethod(msg).isFailure) {
+      println("asdasdasdasdasd")
+      val (method, messageSeqId) = Descriptor.decodeMethodName(msg)
+      println(method,messageSeqId )
+    }
   }
 
 

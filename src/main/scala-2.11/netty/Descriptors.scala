@@ -21,9 +21,9 @@ object Descriptors {
       Message(bytes.length, bytes)
     }
 
-    def encodeRequest(entity: T)(implicit messageId: Int): Message = encode(entity, messageId)
+    def encodeRequest(entity: T)(messageId: Int): Message = encode(entity, messageId)
 
-    def encodeResponse(entity: R)(implicit messageId: Int): Message = encode(entity, messageId)
+    def encodeResponse(entity: R)(messageId: Int): Message = encode(entity, messageId)
 
     def decodeRequest(message: Message): T = {
       val iprot = protocol.getProtocol(new TMemoryInputTransport(message.body))

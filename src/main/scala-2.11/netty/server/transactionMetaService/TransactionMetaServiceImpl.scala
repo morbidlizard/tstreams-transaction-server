@@ -5,11 +5,10 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeUnit._
 
 import com.google.common.primitives.UnsignedBytes
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Await, Promise, blocking, Future => ScalaFuture}
+import scala.concurrent.{Promise, Future => ScalaFuture}
 import transactionService.rpc._
 import netty.server.transactionMetaService.TransactionMetaServiceImpl._
 import netty.server.{Authenticable, CheckpointTTL}
@@ -39,13 +38,13 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 //    }
 //  }
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
-  import transactionService.rpc.TransactionStates._
-  val streamObj = getStreamDatabaseObject(txn.stream)
-  val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
+    import transactionService.rpc.TransactionStates._
+    val streamObj = getStreamDatabaseObject(txn.stream)
+    val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
 
-  ScalaFuture(
-    blocking(
-      txn.state match {
+  val p = Promise[Boolean]
+  p success (
+  txn.state match {
         case Opened =>
           (producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null) &&
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
@@ -63,9 +62,9 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         case _ => false
       }
     )
-  )(netty.Context.producerTransactionsContext.getContext)
 
-}
+  p.future
+  }
 
 
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
@@ -73,7 +72,6 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
 
     val isNotExist = Promise[Boolean]
-
     isNotExist success (
       ConsumerTransactionKey(txn,streamNameToLong).put(producerTransactionsDatabase,databaseTxn, putType, new WriteOptions()) != null
     )

@@ -19,7 +19,7 @@ import scala.concurrent.{Await, ExecutionContext, Future => ScalaFuture, Promise
 
 class Client {
   private val nextSeqId = new AtomicInteger(Int.MinValue)
-  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]]()
+  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 0.5f, 2)
 
   private val workerGroup = new NioEventLoopGroup()
   private val channel: Channel = {
@@ -32,7 +32,7 @@ class Client {
     f.channel()
   }
 
-  private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit executor: ExecutionContext): ScalaFuture[Rep]  = {
+  private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req): ScalaFuture[Rep]  = {
     val messageId = nextSeqId.getAndIncrement()
     val message = descriptor.encodeRequest(request)(messageId)
 
@@ -41,12 +41,12 @@ class Client {
     val promise = ScalaPromise[ThriftStruct]
     ReqIdToRep.put(messageId, promise)
     promise.future.map { response =>
-      ReqIdToRep.remove(messageId, promise)
+      ReqIdToRep.remove(messageId)
       response.asInstanceOf[Rep]
     }
   }
 
-    private def retry[Req, Rep](times: Int, timeUnit: TimeUnit, amount: Long)(f: => ScalaFuture[Rep])(implicit executor: ExecutionContext): ScalaFuture[Rep] = {
+    private def retry[Req, Rep](times: Int, timeUnit: TimeUnit, amount: Long)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = {
       def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f recoverWith {
         case _ if times > 0 =>
           timeUnit.sleep(amount)
@@ -97,22 +97,24 @@ class Client {
     val txns = (producerTransactions map (txn => Transaction(Some(txn), None))) ++
       (consumerTransactions map (txn => Transaction(None, Some(txn))))
 
-    method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))(futurePool)
-      .map(x => x.success.get)
+    ScalaFuture(
+      method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))
+        .map(x => x.success.get)).flatMap(identity)(futurePool)
   }
 
 
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
-
-    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
-      .map{x => x.success.get}
+    ScalaFuture(
+      method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))
+        .map { x => x.success.get }).flatMap(identity)(futurePool)
   }
 
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
-      .map(x => x.success.get)
+    ScalaFuture(
+    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))
+      .map(x => x.success.get)).flatMap(identity)(futurePool)
   }
 
 

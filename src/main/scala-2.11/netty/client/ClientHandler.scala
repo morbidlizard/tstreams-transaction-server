@@ -6,16 +6,19 @@ import com.twitter.scrooge.ThriftStruct
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import netty.{Descriptors, Message}
 
+import scala.annotation.tailrec
 import scala.concurrent.{Promise => ScalaPromise}
 
-class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]]) extends SimpleChannelInboundHandler[Message] {
+class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]]) extends SimpleChannelInboundHandler[Message] {
 
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
-    def invokeMethod(message: Message): scala.util.Try[Unit] = scala.util.Try {
+
+    @tailrec
+    def invokeMethod(message: Message): Unit = {
       val (method, messageSeqId) = Descriptor.decodeMethodName(message)
-      reqIdToRep.get(messageSeqId).success(method match {
+      scala.util.Try(reqIdToRep.get(messageSeqId).success(method match {
         case `putStreamMethod` =>
           Descriptors.PutStream.decodeResponse(message)
 
@@ -54,13 +57,14 @@ class ClientHandler(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct
 
         case `isValidMethod` =>
           Descriptors.IsValid.decodeResponse(message)
-      })
+      })) match {
+        case scala.util.Failure(error) =>
+          Thread.sleep(5)
+          invokeMethod(msg)
+        case _=> ()
+      }
     }
-    if (invokeMethod(msg).isFailure) {
-      println("asdasdasdasdasd")
-      val (method, messageSeqId) = Descriptor.decodeMethodName(msg)
-      println(method,messageSeqId )
-    }
+    invokeMethod(msg)
   }
 
 

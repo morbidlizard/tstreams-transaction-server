@@ -89,10 +89,11 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       case _ => putNoTransaction
     }
 
-
   override def putTransaction(token: Int, transaction: Transaction): ScalaFuture[Boolean] = authenticateFutureBody(token) {
+
+
     val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
-    val result = matchTransactionToPut(transaction, transactionDB)
+    val result =  matchTransactionToPut(transaction, transactionDB)
     result map {isOkay =>
       if (isOkay) transactionDB.commit() else transactionDB.abort()
       isOkay

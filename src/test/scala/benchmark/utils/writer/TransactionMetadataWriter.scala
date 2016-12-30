@@ -1,14 +1,15 @@
 package benchmark.utils.writer
 
 import benchmark.utils.{CsvWriter, TimeMeasure, TransactionCreator}
-import com.twitter.util.Await
 import transactionService.rpc.TransactionStates
-import transactionZookeeperService.TransactionZooKeeperClient
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class TransactionMetadataWriter(streamName: String, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, filename: String) {
     //val client = new TransactionClient("localhost:8071", 5000, 5000)
-    val client = new TransactionZooKeeperClient
+    val client = new netty.client.Client()
     //val token = ""
     var globalProgress = 1
     val result = (1 to txnCount).map(x => {
@@ -22,7 +23,7 @@ class TransactionMetadataWriter(streamName: String, partition: Int = 1) extends 
       val openedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Opened)
       //val closedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Checkpointed, openedProducerTransaction.transactionID)
       (x, {
-        time(Await.result(client.putTransactions(Seq(openedProducerTransaction), Seq())))
+        time(Await.result(client.putTransactions(Seq(openedProducerTransaction), Seq()), 10.seconds))
       })
     })
 

@@ -20,7 +20,3 @@ object OneTransactionTest extends Launcher {
     new TransactionDataWriter(streamName).run(txnCount, dataSize, filename)
   }
 }
-
-
-
-

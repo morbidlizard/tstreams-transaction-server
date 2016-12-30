@@ -3,19 +3,16 @@ package netty
 import java.util
 
 import com.twitter.scrooge.{ThriftStruct, ThriftStructCodec3}
-import org.apache.thrift.protocol.{TBinaryProtocol, TCompactProtocol, TMessage, TMessageType}
-import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
+import org.apache.thrift.protocol._
+import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport, TTransport}
 import transactionService.rpc.TransactionService
 
 object Descriptors {
-
-  val protocolFactory = new TCompactProtocol.Factory
-
-  sealed abstract class Descriptor[T <: ThriftStruct, R <: ThriftStruct](methodName: String, serverCodec: ThriftStructCodec3[T], clientCodec: ThriftStructCodec3[R]) {
+  sealed abstract class Descriptor[T <: ThriftStruct, R <: ThriftStruct](methodName: String, serverCodec: ThriftStructCodec3[T], clientCodec: ThriftStructCodec3[R], protocol : TProtocolFactory) {
 
     private def encode(entity: ThriftStruct, messageId: Int): Message = {
       val buffer = new TMemoryBuffer(512)
-      val oprot = protocolFactory.getProtocol(buffer)
+      val oprot = protocol.getProtocol(buffer)
 
       oprot.writeMessageBegin(new TMessage(methodName, TMessageType.CALL, messageId))
       entity.write(oprot)
@@ -29,7 +26,7 @@ object Descriptors {
     def encodeResponse(entity: R)(implicit messageId: Int): Message = encode(entity, messageId)
 
     def decodeRequest(message: Message): T = {
-      val iprot = protocolFactory.getProtocol(new TMemoryInputTransport(message.body))
+      val iprot = protocol.getProtocol(new TMemoryInputTransport(message.body))
       val msg = iprot.readMessageBegin()
       try {
         //         if (msg.`type` == TMessageType.EXCEPTION) {
@@ -50,7 +47,7 @@ object Descriptors {
     }
 
     def decodeResponse(message: Message): R = {
-      val iprot = protocolFactory.getProtocol(new TMemoryInputTransport(message.body))
+      val iprot = protocol.getProtocol(new TMemoryInputTransport(message.body))
       val msg = iprot.readMessageBegin()
       try {
         //         if (msg.`type` == TMessageType.EXCEPTION) {
@@ -71,11 +68,21 @@ object Descriptors {
     }
   }
 
+  private val protocolTCompactFactory = new TCompactProtocol.Factory
+  private val protocolTBinaryFactory = new TBinaryProtocol.Factory
   object Descriptor {
     def decodeMethodName(message: Message): (String, Int) = {
-      val iprot  = protocolFactory.getProtocol(new TMemoryInputTransport(message.body))
-      val header = iprot.readMessageBegin()
-      (header.name, header.seqid)
+      scala.util.Try {
+        val iprot = protocolTBinaryFactory.getProtocol(new TMemoryInputTransport(message.body))
+        val header = iprot.readMessageBegin()
+        (header.name, header.seqid)
+      } match {
+        case scala.util.Success(result) => result
+        case _ =>
+          val iprot = protocolTCompactFactory.getProtocol(new TMemoryInputTransport(message.body))
+          val header = iprot.readMessageBegin()
+          (header.name, header.seqid)
+      }
     }
   }
 
@@ -102,42 +109,43 @@ object Descriptors {
     authenticateMethod, isValidMethod
   )
 
+
   case object PutStream extends
-    Descriptor(putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result)
+    Descriptor(putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result, protocolTBinaryFactory)
 
   case object DoesStreamExist extends
-    Descriptor(doesStreamExistMethod, TransactionService.DoesStreamExist.Args, TransactionService.DoesStreamExist.Result)
+    Descriptor(doesStreamExistMethod, TransactionService.DoesStreamExist.Args, TransactionService.DoesStreamExist.Result, protocolTBinaryFactory)
 
   case object GetStream extends
-    Descriptor(getStreamMethod, TransactionService.GetStream.Args, TransactionService.GetStream.Result)
+    Descriptor(getStreamMethod, TransactionService.GetStream.Args, TransactionService.GetStream.Result, protocolTBinaryFactory)
 
   case object DelStream extends
-    Descriptor(delStreamMethod, TransactionService.DelStream.Args, TransactionService.DelStream.Result)
+    Descriptor(delStreamMethod, TransactionService.DelStream.Args, TransactionService.DelStream.Result, protocolTBinaryFactory)
 
   case object PutTransaction extends
-    Descriptor(putTransactionMethod, TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result)
+    Descriptor(putTransactionMethod, TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, protocolTBinaryFactory)
 
   case object PutTransactions extends
-    Descriptor(putTranscationsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result)
+    Descriptor(putTranscationsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, protocolTCompactFactory)
 
   case object ScanTransactions extends
-    Descriptor(scanTransactionsMethod, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result)
+    Descriptor(scanTransactionsMethod, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, protocolTCompactFactory)
 
   case object PutTransactionData extends
-    Descriptor(putTransactionDataMethod, TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result)
+    Descriptor(putTransactionDataMethod, TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result, protocolTCompactFactory)
 
   case object GetTransactionData extends
-    Descriptor(getTransactionDataMethod, TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result)
+    Descriptor(getTransactionDataMethod, TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, protocolTCompactFactory)
 
   case object SetConsumerState extends
-    Descriptor(setConsumerStateMethod, TransactionService.SetConsumerState.Args, TransactionService.SetConsumerState.Result)
+    Descriptor(setConsumerStateMethod, TransactionService.SetConsumerState.Args, TransactionService.SetConsumerState.Result, protocolTBinaryFactory)
 
   case object GetConsumerState extends
-    Descriptor(getConsumerStateMethod, TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result)
+    Descriptor(getConsumerStateMethod, TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, protocolTBinaryFactory)
 
   case object Authenticate extends
-    Descriptor(authenticateMethod, TransactionService.Authenticate.Args, TransactionService.Authenticate.Result)
+    Descriptor(authenticateMethod, TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, protocolTBinaryFactory)
 
   case object IsValid extends
-    Descriptor(isValidMethod, TransactionService.IsValid.Args, TransactionService.IsValid.Result)
+    Descriptor(isValidMethod, TransactionService.IsValid.Args, TransactionService.IsValid.Result, protocolTBinaryFactory)
 }

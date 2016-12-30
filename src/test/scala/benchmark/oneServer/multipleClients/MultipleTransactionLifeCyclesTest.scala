@@ -3,6 +3,7 @@ package benchmark.oneServer.multipleClients
 import benchmark.utils.{Installer, Launcher}
 import benchmark.utils.writer.TransactionLifeCycleWriter
 
+
 import scala.collection.mutable.ArrayBuffer
 
 object MultipleTransactionLifeCyclesTest extends Launcher {

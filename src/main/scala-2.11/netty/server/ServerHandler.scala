@@ -27,7 +27,8 @@ private object ServerHandler {
   val transactionServer = new TransactionServer()
   import Descriptors._
   def invokeMethod(message: Message): ScalaFuture[Message] = {
-    implicit val (method, messageSeqId) = Descriptor.decodeMethodName(message)
+    val (method, messageSeqId) = Descriptor.decodeMethodName(message)
+    implicit val messageId = messageSeqId
     method match {
       case `putStreamMethod` =>
         val args = Descriptors.PutStream.decodeRequest(message)
@@ -61,14 +62,17 @@ private object ServerHandler {
         val args = Descriptors.PutTransaction.decodeRequest(message)
         transactionServer.putTransaction(args.token, args.transaction)
           .map (response => Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(response))))
-          .recover{case _ =>
+          .recover{case error =>
+            println(error.getMessage)
             Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))}
 
       case `putTranscationsMethod` =>
         val args = Descriptors.PutTransactions.decodeRequest(message)
         transactionServer.putTransactions(args.token, args.transactions)
           .map (response => Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(response))))
-          .recover{case _ =>
+          .recover{case error =>
+            sys.error(error.getMessage)
+            println(error.getMessage)
             Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))}
 
       case `scanTransactionsMethod` =>

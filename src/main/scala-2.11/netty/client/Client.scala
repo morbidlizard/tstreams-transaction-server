@@ -32,15 +32,6 @@ class Client {
     f.channel()
   }
 
-  private def retry(times: Int, timeUnit: TimeUnit, amount: Long)(f: => ScalaFuture[FunctionResult.Result])(implicit executor: ExecutionContext): ScalaFuture[FunctionResult.Result] = {
-    def helper(times: Int)(f: => ScalaFuture[FunctionResult.Result]): ScalaFuture[FunctionResult.Result] = f recoverWith {
-      case _ if times > 0 =>
-        timeUnit.sleep(amount)
-        authenticate() flatMap (_ => helper(times - 1)(f))
-    }
-    helper(times)(f)
-  }
-
   private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit executor: ExecutionContext): ScalaFuture[Rep]  = {
     val messageId = nextSeqId.getAndIncrement()
     val message = descriptor.encodeRequest(request)(messageId)
@@ -55,14 +46,23 @@ class Client {
     }
   }
 
-//  private def methodWithRetry[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req, times: Int, timeUnit: TimeUnit, amount: Long) =
-//    retry(times,timeUnit,amount)(method(descriptor, request))
+    private def retry[Req, Rep](times: Int, timeUnit: TimeUnit, amount: Long)(f: => ScalaFuture[Rep])(implicit executor: ExecutionContext): ScalaFuture[Rep] = {
+      def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f recoverWith {
+        case _ if times > 0 =>
+          timeUnit.sleep(amount)
+          authenticate() flatMap (_ => helper(times - 1)(f))
+      }
+      helper(times)(f)
+    }
+
 
   @volatile private var token: Int = _
+  import scala.concurrent.duration._
+  //Await.ready(authenticate(), 5 seconds)
 
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] = {
-    method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream, partitions, description, ttl))
-      .map(x => x.success.get)
+    (method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream, partitions, description, ttl))
+      map(x => x.success.get))
   }
 
   def putStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
@@ -106,7 +106,7 @@ class Client {
     TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
 
     method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
-      .map(x => x.success.get)
+      .map{x => x.success.get}
   }
 
 
@@ -160,7 +160,7 @@ class Client {
   }
 
   def getConsumerState(consumerTransaction: (String, String, Int)): ScalaFuture[Long] = {
-      method(Descriptors.GetConsumerState,  TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
+    method(Descriptors.GetConsumerState,  TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
         .map(x => x.success.get)
   }
 

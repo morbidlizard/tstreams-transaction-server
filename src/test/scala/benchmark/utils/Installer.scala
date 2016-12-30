@@ -3,10 +3,12 @@ package benchmark.utils
 import java.io.File
 import java.util.logging.LogManager
 
-import com.twitter.util.Await
 import configProperties.DB
 import org.apache.commons.io.FileUtils
-import transactionZookeeperService.{TransactionZooKeeperClient, TransactionZooKeeperServer}
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 
 trait Installer {
   def clearDB() = {
@@ -19,17 +21,17 @@ trait Installer {
     new Thread(new Runnable {
       LogManager.getLogManager.reset()
 
-      override def run(): Unit = TransactionZooKeeperServer.main(Array())
+      override def run(): Unit = new netty.server.Server().run()
     }).start()
   }
 
   def createStream(name: String, partitions: Int) = {
-    val client = new TransactionZooKeeperClient
-    Await.result(client.putStream(name, partitions, None, 5))
+    val client = new netty.client.Client
+    Await.result(client.putStream(name, partitions, None, 5), 10.seconds)
   }
 
   def deleteStream(name: String) = {
-    val client = new TransactionZooKeeperClient
-    Await.result(client.delStream(name))
+    val client = new netty.client.Client
+    Await.result(client.delStream(name), 10.seconds)
   }
 }

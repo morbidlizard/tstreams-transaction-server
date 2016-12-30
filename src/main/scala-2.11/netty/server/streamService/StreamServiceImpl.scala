@@ -8,8 +8,6 @@ import transactionService.rpc.StreamService
 import exception.Throwables._
 import shared.FNV
 
-import scala.concurrent.ExecutionContext.Implicits.global
-
 trait StreamServiceImpl extends StreamService[ScalaFuture]
   with Authenticable
   with CheckpointTTL

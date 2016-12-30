@@ -6,7 +6,6 @@ import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryNTimes
-import transactionService.rpc.TransactionService
 import zooKeeper.ZKLeaderServer
 
 class Server extends TransactionServer{
@@ -17,7 +16,7 @@ class Server extends TransactionServer{
 
   def run(): Unit = {
     val bossGroup = new NioEventLoopGroup(1)
-    val workerGroup = new NioEventLoopGroup()
+    val workerGroup = new NioEventLoopGroup(2)
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)

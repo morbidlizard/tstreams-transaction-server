@@ -17,7 +17,7 @@ class Server extends TransactionServer{
 
   def run(): Unit = {
     val bossGroup = new EpollEventLoopGroup(1)
-    val workerGroup = new EpollEventLoopGroup(2)
+    val workerGroup = new EpollEventLoopGroup()
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)

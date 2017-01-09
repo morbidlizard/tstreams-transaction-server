@@ -7,7 +7,6 @@ import java.util.concurrent.TimeUnit._
 import com.google.common.primitives.UnsignedBytes
 import com.sleepycat.je.{Transaction => _, _}
 
-//import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Promise, Future => ScalaFuture}
 import transactionService.rpc._
 import netty.server.transactionMetaService.TransactionMetaServiceImpl._
@@ -23,7 +22,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
 //  val logger = Logger.get(this.getClass)
 
-  private final val putType = Put.NO_OVERWRITE
+  private final val putType = Put.OVERWRITE
 
   private def checkTTL(ttl: Int) = {
     val ttlInHours = MILLISECONDS.toHours(ttl.toLong).toInt

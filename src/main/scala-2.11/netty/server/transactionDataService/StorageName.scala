@@ -1,5 +1,5 @@
 package netty.server.transactionDataService
 
-case class StorageName(stream: String, partition: Int) {
-  override def toString: String = s"${stream}_$partition"
+case class StorageName(stream: String) extends AnyVal{
+  override def toString: String = s"$stream"
 }

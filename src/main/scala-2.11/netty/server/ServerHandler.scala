@@ -2,13 +2,14 @@ package netty.server
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import netty.{Descriptors, Message}
 import transactionService.rpc.{TokenInvalidException, TransactionService}
 
 import scala.concurrent.{Future => ScalaFuture}
 
 class ServerHandler extends SimpleChannelInboundHandler[Message] {
+  private implicit val context = netty.Context.serverPool.getContext
+
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     ServerHandler.invokeMethod(msg).map(message => ctx.writeAndFlush(message.toByteArray))
   }
@@ -24,6 +25,7 @@ class ServerHandler extends SimpleChannelInboundHandler[Message] {
 }
 
 private object ServerHandler {
+  private implicit val context = netty.Context.serverPool.getContext
   val transactionServer = new TransactionServer()
   import Descriptors._
   def invokeMethod(message: Message): ScalaFuture[Message] = {

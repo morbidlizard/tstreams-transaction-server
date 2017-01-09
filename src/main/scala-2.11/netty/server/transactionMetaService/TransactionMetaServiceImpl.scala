@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit._
 import com.google.common.primitives.UnsignedBytes
 import com.sleepycat.je.{Transaction => _, _}
 
-import scala.concurrent.ExecutionContext.Implicits.global
+//import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Promise, Future => ScalaFuture}
 import transactionService.rpc._
 import netty.server.transactionMetaService.TransactionMetaServiceImpl._
@@ -23,7 +23,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
 //  val logger = Logger.get(this.getClass)
 
-  private final val putType = Put.OVERWRITE
+  private final val putType = Put.NO_OVERWRITE
 
   private def checkTTL(ttl: Int) = {
     val ttlInHours = MILLISECONDS.toHours(ttl.toLong).toInt
@@ -90,18 +90,18 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     }
 
   override def putTransaction(token: Int, transaction: Transaction): ScalaFuture[Boolean] = authenticateFutureBody(token) {
-
-
+    implicit val context = netty.Context.berkeleyWritePool.getContext
     val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
     val result =  matchTransactionToPut(transaction, transactionDB)
     result map {isOkay =>
       if (isOkay) transactionDB.commit() else transactionDB.abort()
       isOkay
     }
-  }(netty.Context.producerTransactionsContext.getContext)
+  }(netty.Context.berkeleyWritePool.getContext)
 
 
   override def putTransactions(token: Int, transactions: Seq[Transaction]): ScalaFuture[Boolean] = authenticateFutureBody(token) {
+    implicit val context = netty.Context.berkeleyWritePool.getContext
     val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
     val result = ScalaFuture.sequence(transactions map { transaction =>
       matchTransactionToPut(transaction, transactionDB)}
@@ -111,7 +111,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       if (isOkay) transactionDB.commit() else transactionDB.abort()
       isOkay
     }
-  }(netty.Context.producerTransactionsContext.getContext)
+  }(netty.Context.berkeleyWritePool.getContext)
 
 
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
@@ -123,6 +123,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   private val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
     authenticate(token) {
+      implicit val context = netty.Context.berkeleyReadPool.getContext
       val lockMode = LockMode.READ_UNCOMMITTED
       val streamObj = getStreamDatabaseObject(stream)
       val transactionDB = environment.beginTransaction(null, null)
@@ -145,7 +146,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         case None =>
           cursor.close()
           transactionDB.commit()
-          Array[Transaction]()
+          ArrayBuffer[Transaction]()
 
         case Some(producerTransactionKey) =>
           val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
@@ -166,7 +167,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
           txns map producerTransactionToTransaction
       }
-    }
+    }(netty.Context.berkeleyReadPool.getContext)
 
 //  private val transiteTxnsToInvalidState = new Runnable {
 //    val cleanAmountPerDatabaseTransaction = configProperties.ServerConfig.transactionDataCleanAmount

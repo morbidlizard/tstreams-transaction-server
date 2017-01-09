@@ -2,9 +2,9 @@ package netty.server.transactionDataService
 
 import `implicit`.Implicits._
 
-case class Key(transaction: Long) extends AnyVal {
-  def toBinary: Array[Byte] = longToByteArray(transaction)
-  override def toString: String = s"$transaction"
+case class Key(partition: Int, transaction: Long) {
+  def toBinary: Array[Byte] = intToByteArray(partition) ++ longToByteArray(transaction)
+  override def toString: String = s"$partition $transaction"
 }
 
 object Key {

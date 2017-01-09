@@ -8,7 +8,6 @@ import netty.server.{Authenticable, CheckpointTTL}
 import `implicit`.Implicits._
 import transactionService.rpc.TransactionDataService
 import netty.server.db.rocks.RocksDbConnection
-import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -27,7 +26,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
   private val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
   private def getStorage(stream: String, partition: Int, ttl: Int) = {
-    val key = StorageName(stream, partition)
+    val key = StorageName(stream)
     rocksDBStorageToStream.computeIfAbsent(key, new java.util.function.Function[StorageName, RocksDbConnection]{
       override def apply(t: StorageName): RocksDbConnection = new RocksDbConnection(key.toString, calculateTTL(ttl))
     })
@@ -40,7 +39,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       val batch = rocksDB.newBatch
 
       val rangeDataToSave = from until (from + data.length)
-      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(transaction), seqId).toBinary)
+      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(partition, transaction), seqId).toBinary)
       (keys zip data) foreach { case (key, datum) =>
         val sizeOfSlicedData = datum.limit() - datum.position()
         val bytes = new Array[Byte](sizeOfSlicedData)
@@ -50,7 +49,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       val result = batch.write()
 
       result
-    }
+    }(netty.Context.rocksWritePool.getContext)
 
 
   override def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[ByteBuffer]] =
@@ -58,8 +57,8 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       val streamObj = getStreamDatabaseObject(stream)
       val rocksDB = getStorage(stream, partition, streamObj.stream.ttl)
 
-      val fromSeqId = KeyDataSeq(Key(transaction), from).toBinary
-      val toSeqId = KeyDataSeq(Key(transaction), to).toBinary
+      val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary
+      val toSeqId = KeyDataSeq(Key(partition, transaction), to).toBinary
 
       val iterator = rocksDB.iterator
       iterator.seek(fromSeqId)
@@ -71,6 +70,6 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       }
       iterator.close()
       data
-    }
+    }(netty.Context.rocksReadPool.getContext)
 
 }

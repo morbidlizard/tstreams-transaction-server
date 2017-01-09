@@ -2,6 +2,7 @@ package netty.server
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
+import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
@@ -15,12 +16,12 @@ class Server extends TransactionServer{
   zk.putData(transactionServerAddress.getBytes())
 
   def run(): Unit = {
-    val bossGroup = new NioEventLoopGroup(1)
-    val workerGroup = new NioEventLoopGroup(2)
+    val bossGroup = new EpollEventLoopGroup(1)
+    val workerGroup = new EpollEventLoopGroup(2)
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
-        .channel(classOf[NioServerSocketChannel])
+        .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(new ServerInitializer)
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)

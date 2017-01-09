@@ -6,14 +6,12 @@ import netty.server.{Authenticable, CheckpointTTL}
 import netty.server.streamService.StreamServiceImpl._
 import transactionService.rpc.StreamService
 import exception.Throwables._
-import scala.concurrent.ExecutionContext.Implicits.global
 import shared.FNV
 
 trait StreamServiceImpl extends StreamService[ScalaFuture]
   with Authenticable
   with CheckpointTTL
 {
-
   override def getStreamDatabaseObject(stream: String): netty.server.streamService.KeyStream =
     if (streamTTL.containsKey(stream)) streamTTL.get(stream)
     else {
@@ -36,13 +34,13 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       streamTTL.putIfAbsent(stream, KeyStream(newKey, newStream))
 
       database.putNoOverwrite(null, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
-    }
+    }(netty.Context.berkeleyWritePool.getContext)
 
   override def doesStreamExist(token: Int, stream: String): ScalaFuture[Boolean] =
-    authenticate(token) (scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)
+    authenticate(token) (scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)(netty.Context.berkeleyReadPool.getContext)
 
   override def getStream(token: Int, stream: String): ScalaFuture[Stream] =
-    authenticate(token) (getStreamDatabaseObject(stream).stream)
+    authenticate(token) (getStreamDatabaseObject(stream).stream)(netty.Context.berkeleyReadPool.getContext)
 
 
   override def delStream(token: Int, stream: String): ScalaFuture[Boolean] =
@@ -51,7 +49,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       streamTTL.remove(stream)
       val keyEntry = key.toDatabaseEntry
       database.delete(null, keyEntry) == OperationStatus.SUCCESS
-    }
+    }(netty.Context.berkeleyWritePool.getContext)
 }
 
 object StreamServiceImpl {

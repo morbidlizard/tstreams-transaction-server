@@ -12,6 +12,16 @@ object ServerConfig {
 
   val transactionServerListen = config.readProperty[String]("transactionServer.listen")
 
+  val transactionServerPool = config.readProperty[Int]("transactionServer.pool")
+
+//  val transactionServerBerkeleyWritePool = config.readProperty[Int]("transactionServer.berkeleyWritePool")
+
+  val transactionServerBerkeleyReadPool = config.readProperty[Int]("transactionServer.berkeleyReadPool")
+
+  val transactionServerRocksDBWritePool = config.readProperty[Int]("transactionServer.rocksDBWritePool")
+
+  val transactionServerRocksDBReadPool = config.readProperty[Int]("transactionServer.rocksDBReadPool")
+
   val transactionServerPort =  config.readProperty[Int]("transactionServer.port")
 
   val transactionServerEndpoints = config.readProperty[String]("transactionServer.replication.endpoints")

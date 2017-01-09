@@ -28,7 +28,7 @@ private object ServerHandler {
   private implicit val context = netty.Context.serverPool.getContext
   val transactionServer = new TransactionServer()
   import Descriptors._
-  def invokeMethod(message: Message): ScalaFuture[Message] = {
+  def invokeMethod(message: Message): ScalaFuture[Message] = ScalaFuture{
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
     method match {
       case `putStreamMethod` =>
@@ -121,5 +121,5 @@ private object ServerHandler {
         transactionServer.isValid(args.token) map (response =>
           Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(response)))(messageSeqId))
     }
-  }
+  }.flatMap(identity)
 }

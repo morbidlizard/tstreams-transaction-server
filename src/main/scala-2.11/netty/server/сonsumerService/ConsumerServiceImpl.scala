@@ -2,7 +2,7 @@ package netty.server.сonsumerService
 
 import com.sleepycat.je._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+//import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future => ScalaFuture, _}
 import netty.server.сonsumerService.ConsumerServiceImpl._
 import netty.server.{Authenticable, CheckpointTTL}
@@ -25,7 +25,7 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
         ConsumerTransaction.entryToObject(consumerTransactionEntry).transactionId else -1L
       transactionDB.commit()
       result
-    }
+    }(netty.Context.berkeleyReadPool.getContext)
 
   override def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): ScalaFuture[Boolean] =
     authenticateFutureBody(token) {
@@ -35,10 +35,10 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
       val promise = Promise[Boolean]
       val result = promise success (ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransaction(transaction))
         .put(database, transactionDB, Put.OVERWRITE, new WriteOptions()) != null)
-      result.future map { isOkay =>
+      result.future.map { isOkay =>
         if (isOkay) transactionDB.commit() else transactionDB.abort()
         isOkay
-      }
+      }(netty.Context.berkeleyWritePool.getContext)
     }(netty.Context.berkeleyWritePool.getContext)
 }
 

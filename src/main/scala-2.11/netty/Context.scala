@@ -25,12 +25,12 @@ object Context {
   def apply(contextNum: Int, nameFormat: String) = new Context(contextNum, Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat(nameFormat).build()))
   def apply(f: => ExecutorService) = new Context(1, f)
 
-  val serverPool = Context(Executors.newFixedThreadPool(4, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
+  val serverPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
   val clientPool = serverPool
   final val berkeleyWritePool = Context(1, "BerkeleyWritePool-%d")
-  val berkeleyReadPool = Context(Executors.newFixedThreadPool(4, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
-  val rocksWritePool = Context(Executors.newFixedThreadPool(4, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
-  val rocksReadPool = Context(Executors.newFixedThreadPool(4, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
+  val berkeleyReadPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerBerkeleyReadPool, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
+  val rocksWritePool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
+  val rocksReadPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
 }
 
 

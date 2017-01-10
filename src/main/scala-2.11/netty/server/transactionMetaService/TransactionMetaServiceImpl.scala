@@ -37,13 +37,12 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 //  }
 
 
-  private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
+  private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction): Boolean = {
     import transactionService.rpc.TransactionStates._
     val streamObj = getStreamDatabaseObject(txn.stream)
     val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
 
-    val promise = Promise[Boolean]()
-    promise success(txn.state match {
+    txn.state match {
         case Opened =>
           (producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null) &&
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
@@ -59,8 +58,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
           (producerTransaction.delete(producerTransactionsWithOpenedStateDatabase, databaseTxn) != null) &&
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType, writeOptions) != null)
         case _ => false
-      })
-    promise.future
+      }
   }
 
 
@@ -68,46 +66,39 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     import transactionService.server.сonsumerService._
     val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
 
-    val isNotExist = Promise[Boolean]
-    isNotExist success (
-      ConsumerTransactionKey(txn,streamNameToLong).put(producerTransactionsDatabase,databaseTxn, putType, new WriteOptions()) != null
-    )
+    ConsumerTransactionKey(txn,streamNameToLong).put(producerTransactionsDatabase,databaseTxn, putType, new WriteOptions()) != null
 
-    isNotExist.future
     //logAboutTransactionExistence(isNotExist, txn.toString)
   }
 
-  private def putNoTransaction = Promise.successful(false).future
+  private def putNoTransaction = false
 
-  private def matchTransactionToPut(transaction: Transaction, transactionDB: com.sleepycat.je.Transaction): ScalaFuture[Boolean] =
+  private def matchTransactionToPut(transaction: Transaction, transactionDB: com.sleepycat.je.Transaction): Boolean =
     (transaction.producerTransaction, transaction.consumerTransaction) match {
-      case (Some(txn), _) => putProducerTransaction(transactionDB, txn)
-      case (_, Some(txn)) => putConsumerTransaction(transactionDB, txn)
+      case (Some(txn), _) => scala.concurrent.blocking(putProducerTransaction(transactionDB, txn))
+      case (_, Some(txn)) => scala.concurrent.blocking(putConsumerTransaction(transactionDB, txn))
       case _ => putNoTransaction
     }
 
 
-  override def putTransaction(token: Int, transaction: Transaction): ScalaFuture[Boolean] = authenticateFutureBody(token) {
+  override def putTransaction(token: Int, transaction: Transaction): ScalaFuture[Boolean] = authenticate(token) {
     val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
-    val result =  matchTransactionToPut(transaction, transactionDB)
-    result.flatMap {isOkay =>
-      if (isOkay) transactionDB.commit() else transactionDB.abort()
-      Promise.successful(isOkay).future
-    }(netty.Context.berkeleyWritePool.getContext)
-  }
+    val isOkay =  matchTransactionToPut(transaction, transactionDB)
+    if (isOkay) transactionDB.commit() else transactionDB.abort()
+    isOkay
+  }(netty.Context.berkeleyWritePool.getContext)
 
 
-  override def putTransactions(token: Int, transactions: Seq[Transaction]): ScalaFuture[Boolean] = authenticateFutureBody(token) {
+
+  override def putTransactions(token: Int, transactions: Seq[Transaction]): ScalaFuture[Boolean] = authenticate(token) {
     val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
-    val result = ScalaFuture.sequence(transactions map { transaction =>
-      matchTransactionToPut(transaction, transactionDB)}
-    )(implicitly, netty.Context.berkeleyWritePool.getContext)
-    result.flatMap {operationStatuses =>
-      val isOkay = operationStatuses.forall(_ == true)
-      if (isOkay) transactionDB.commit() else transactionDB.abort()
-      Promise.successful(isOkay).future
-    }(netty.Context.berkeleyWritePool.getContext)
-  }
+    val operationStatuses = transactions map { transaction =>
+      matchTransactionToPut(transaction, transactionDB)
+    }
+    val isOkay = operationStatuses.forall(_ == true)
+    if (isOkay) transactionDB.commit() else transactionDB.abort()
+    isOkay
+  }(netty.Context.berkeleyWritePool.getContext)
 
 
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =

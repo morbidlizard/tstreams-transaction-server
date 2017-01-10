@@ -7,17 +7,26 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import netty.{Descriptors, Message}
 
 import scala.annotation.tailrec
-import scala.concurrent.{Promise => ScalaPromise}
+import scala.concurrent.{ExecutionContext, Promise => ScalaPromise}
+import scala.concurrent.{Future => ScalaFuture}
 
 class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]]) extends SimpleChannelInboundHandler[Message] {
-
+   private implicit val context = netty.Context.clientPool.getContext
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
+
     @tailrec
-    def invokeMethod(message: Message): Unit = {
+    def retryCompletePromise(messageSeqId: Int, response: ThriftStruct): Unit = {
+      if (reqIdToRep.containsKey(messageSeqId))
+        reqIdToRep.get(messageSeqId).success(response)
+      else
+        retryCompletePromise(messageSeqId, response)
+    }
+
+    def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture{
       val (method, messageSeqId) = Descriptor.decodeMethodName(message)
-      scala.util.Try(reqIdToRep.get(messageSeqId).success(method match {
+      val response = method match {
         case `putStreamMethod` =>
           Descriptors.PutStream.decodeResponse(message)
 
@@ -56,12 +65,8 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
 
         case `isValidMethod` =>
           Descriptors.IsValid.decodeResponse(message)
-      })) match {
-        case scala.util.Failure(error) =>
-          Thread.sleep(5)
-          invokeMethod(msg)
-        case _=> ()
       }
+      retryCompletePromise(messageSeqId, response)
     }
     invokeMethod(msg)
   }

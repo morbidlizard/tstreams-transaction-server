@@ -31,8 +31,8 @@ object Context {
   val serverPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
   final val berkeleyWritePool = Context(1, "BerkeleyWritePool-%d")
   val berkeleyReadPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerBerkeleyReadPool, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
-  val rocksWritePool = Context(new ForkJoinPool(configProperties.ServerConfig.transactionServerRocksDBWritePool))
-  //Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
+  val rocksWritePool = //Context(new ForkJoinPool(configProperties.ServerConfig.transactionServerRocksDBWritePool))
+  Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
   val rocksReadPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
 
   val clientPool = serverPool

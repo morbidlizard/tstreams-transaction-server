@@ -10,7 +10,8 @@ class ServerHandler extends SimpleChannelInboundHandler[Message] {
   private implicit val context = netty.Context.serverPool.getContext
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
-    ServerHandler.invokeMethod(msg).map(message => ctx.writeAndFlush(message.toByteArray))
+    scala.concurrent.blocking(ServerHandler.invokeMethod(msg))
+      .map(message => ctx.writeAndFlush(message.toByteArray))
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {

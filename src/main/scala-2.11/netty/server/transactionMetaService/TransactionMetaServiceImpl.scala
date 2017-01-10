@@ -204,6 +204,7 @@ object TransactionMetaServiceImpl {
       .setAllowCreate(true)
       .setTransactional(true)
       .setLockTimeout(5L, TimeUnit.SECONDS)
+      .setSharedCache(true)
 
     configProperties.ServerConfig.berkeleyDBJEproperties foreach {
       case (name, value) => environmentConfig.setConfigParam(name,value)

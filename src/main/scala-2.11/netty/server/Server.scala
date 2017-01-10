@@ -11,9 +11,9 @@ import zooKeeper.ZKLeaderServer
 
 class Server extends TransactionServer{
   import configProperties.ServerConfig._
-  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
-    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
-  zk.putData(transactionServerAddress.getBytes())
+//  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
+//    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
+//  zk.putData(transactionServerAddress.getBytes())
 
   def run(): Unit = {
     val bossGroup = new EpollEventLoopGroup(1)

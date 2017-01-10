@@ -10,8 +10,7 @@ class ServerHandler extends SimpleChannelInboundHandler[Message] {
   private implicit val context = netty.Context.serverPool.getContext
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
-    scala.concurrent.blocking(ServerHandler.invokeMethod(msg))
-      .map(message => ctx.writeAndFlush(message.toByteArray))
+    ServerHandler.invokeMethod(msg).map(message => ctx.writeAndFlush(message.toByteArray))
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
@@ -68,7 +67,7 @@ private object ServerHandler {
 
       case `putTransactionMethod` =>
         val args = Descriptors.PutTransaction.decodeRequest(message)
-        transactionServer.putTransaction(args.token, args.transaction)
+        scala.concurrent.blocking(transactionServer.putTransaction(args.token, args.transaction))
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
             println(error.getMessage)
@@ -77,7 +76,7 @@ private object ServerHandler {
 
       case `putTranscationsMethod` =>
         val args = Descriptors.PutTransactions.decodeRequest(message)
-        transactionServer.putTransactions(args.token, args.transactions)
+        scala.concurrent.blocking(transactionServer.putTransactions(args.token, args.transactions))
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
             println(error.getMessage)

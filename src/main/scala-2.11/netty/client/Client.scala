@@ -7,7 +7,6 @@ import configProperties.ServerConfig.{transactionServerListen, transactionServer
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioSocketChannel
-
 import io.netty.channel.{Channel, ChannelOption}
 import netty.{Context, Descriptors}
 import transactionService.rpc.{TransactionService, _}
@@ -15,12 +14,12 @@ import `implicit`.Implicits._
 import com.twitter.scrooge.ThriftStruct
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 
-import scala.concurrent.{Await, Future => ScalaFuture, Promise => ScalaPromise}
+import scala.concurrent.{Await, ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 class Client {
   private implicit val context = netty.Context.clientPool.getContext
   private val nextSeqId = new AtomicInteger(Int.MinValue)
-  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 0.5f, 2)
+  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 0.5f, configProperties.ClientConfig.clientPool)
 
   private val workerGroup = new EpollEventLoopGroup()
   private val channel: Channel = {
@@ -28,20 +27,20 @@ class Client {
       .group(workerGroup)
       .channel(classOf[EpollSocketChannel])
       .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
-      .handler(new ClientInitializer(ReqIdToRep))
+      .handler(new ClientInitializer(ReqIdToRep,context))
     val f = b.connect(transactionServerListen, transactionServerPort).sync()
     f.channel()
   }
 
-  private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req): ScalaFuture[Rep] = {
+  private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit context: ExecutionContext): ScalaFuture[Rep] = {
+    val messageId = nextSeqId.getAndIncrement()
+    val promise = ScalaPromise[ThriftStruct]
+    ReqIdToRep.put(messageId, promise)
     ScalaFuture {
-      val messageId = nextSeqId.getAndIncrement()
       val message = descriptor.encodeRequest(request)(messageId)
       channel.writeAndFlush(message.toByteArray)
       messageId
     } flatMap { messageId =>
-      val promise = ScalaPromise[ThriftStruct]
-      ReqIdToRep.put(messageId, promise)
       promise.future.map { response =>
         ReqIdToRep.remove(messageId)
         response.asInstanceOf[Rep]
@@ -100,24 +99,23 @@ class Client {
     val txns = (producerTransactions map (txn => Transaction(Some(txn), None))) ++
       (consumerTransactions map (txn => Transaction(None, Some(txn))))
 
-    ScalaFuture(
-      method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))
-        .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get)))(futurePool).flatMap(identity)(futurePool)
+    method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))(futurePool)
+      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))(futurePool)
   }
 
 
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
-    ScalaFuture(
-      method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))
-        .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get)))(futurePool).flatMap(identity)(futurePool)
+    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
+      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))(futurePool)
+      .recover{case error => println(error); true}
   }
 
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    ScalaFuture(
-    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get)))(futurePool).flatMap(identity)(futurePool)
+    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
+      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))(futurePool)
+      .recover{case error => println(error); true}
   }
 
 
@@ -131,6 +129,7 @@ class Client {
     method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
       producerTransaction.partition, producerTransaction.transactionID, data, from))
       .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+      .recover{case error => println(error); true}
   }
 
 

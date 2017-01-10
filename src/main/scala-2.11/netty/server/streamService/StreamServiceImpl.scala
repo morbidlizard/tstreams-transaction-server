@@ -56,7 +56,9 @@ object StreamServiceImpl {
 
   val environment = {
     val directory = transactionService.io.FileUtils.createDirectory(configProperties.DB.StreamDirName)
-    val environmentConfig = new EnvironmentConfig().setAllowCreate(true)
+    val environmentConfig = new EnvironmentConfig()
+      .setAllowCreate(true)
+      .setSharedCache(true)
     new Environment(directory, environmentConfig)
   }
 

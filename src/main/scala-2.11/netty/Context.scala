@@ -35,7 +35,7 @@ object Context {
   Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
   val rocksReadPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
 
-  val clientPool = serverPool
+  val clientPool = Context(Executors.newFixedThreadPool(configProperties.ClientConfig.clientPool, new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build()))
   val clientTransactionPool = Context(1, "ClientTransactionPool-%d")
 }
 

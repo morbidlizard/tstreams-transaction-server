@@ -10,9 +10,7 @@ import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Promise => ScalaPromise}
 import scala.concurrent.{Future => ScalaFuture}
 
-class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]]) extends SimpleChannelInboundHandler[Message] {
-   private implicit val context = netty.Context.clientPool.getContext
-
+class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]], implicit val context: ExecutionContext) extends SimpleChannelInboundHandler[Message] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
 

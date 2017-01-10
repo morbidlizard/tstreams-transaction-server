@@ -14,7 +14,6 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
-
     @tailrec
     def invokeMethod(message: Message): Unit = {
       val (method, messageSeqId) = Descriptor.decodeMethodName(message)

@@ -38,12 +38,14 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 //      logger.log(Level.WARNING, s"$transaction exists in DB!")
 //    }
 //  }
+
+
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = ScalaFuture {
     import transactionService.rpc.TransactionStates._
     val streamObj = getStreamDatabaseObject(txn.stream)
     val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
 
-  txn.state match {
+    txn.state match {
         case Opened =>
           (producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null) &&
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)

@@ -138,16 +138,16 @@ private object ServerHandler {
         }
 
       case `authenticateMethod` =>
-        ScalaFuture(Descriptors.Authenticate.decodeRequest(message)) flatMap { args =>
-          transactionServer.authenticate(args.login, args.password) map { response =>
+        ScalaFuture(Descriptors.Authenticate.decodeRequest(message)) map { args =>
+          val response = transactionServer.authenticate(args.login, args.password)
             Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(response)))(messageSeqId)
-          }
         }
 
+
       case `isValidMethod` =>
-        ScalaFuture(Descriptors.IsValid.decodeRequest(message)) flatMap { args =>
-          transactionServer.isValid(args.token) map (response =>
-            Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(response)))(messageSeqId))
+        ScalaFuture(Descriptors.IsValid.decodeRequest(message)) map { args =>
+          val response = transactionServer.isValid(args.token)
+          Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(response)))(messageSeqId)
         }
     }
   }.flatMap(identity)

@@ -9,8 +9,8 @@ import netty.server.сonsumerService.ConsumerServiceImpl
 
 
 class TransactionServer(override val ttlToAdd: Int = configProperties.ServerConfig.transactionDataTtlAdd)
-  extends TransactionService[ScalaFuture]
-    with ConsumerServiceImpl
+  //extends TransactionService[ScalaFuture]
+  extends ConsumerServiceImpl
     with StreamServiceImpl
     with TransactionMetaServiceImpl
     with TransactionDataServiceImpl

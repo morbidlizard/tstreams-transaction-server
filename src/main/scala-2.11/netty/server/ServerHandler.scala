@@ -28,7 +28,7 @@ private object ServerHandler {
   private implicit val context = netty.Context.serverPool.getContext
   val transactionServer = new TransactionServer()
   import Descriptors._
-  def invokeMethod(message: Message): ScalaFuture[Message] = ScalaFuture{
+  def invokeMethod(message: Message): ScalaFuture[Message] = ScalaFuture.successful{
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
     method match {
       case `putStreamMethod` =>

@@ -35,11 +35,11 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
       val promise = Promise[Boolean]
       val result = promise success (ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransaction(transaction))
         .put(database, transactionDB, Put.OVERWRITE, new WriteOptions()) != null)
-      result.future.map { isOkay =>
+      result.future.flatMap { isOkay =>
         if (isOkay) transactionDB.commit() else transactionDB.abort()
-        isOkay
+        Promise.successful(isOkay).future
       }(netty.Context.berkeleyWritePool.getContext)
-    }(netty.Context.berkeleyWritePool.getContext)
+    }
 }
 
 object ConsumerServiceImpl {

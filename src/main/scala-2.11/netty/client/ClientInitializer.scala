@@ -15,6 +15,9 @@ class ClientInitializer(reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftSt
     ch.pipeline()
       .addLast(new ByteArrayEncoder())
       .addLast(new MessageDecoder)
-      .addLast(new ClientHandler(reqIdToRep,context))
+      .addLast(new ClientHandler(reqIdToRep, context))
   }
 }
+
+
+

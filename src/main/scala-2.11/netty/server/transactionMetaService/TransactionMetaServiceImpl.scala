@@ -1,13 +1,14 @@
 package netty.server.transactionMetaService
 
 import java.time.Instant
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, TimeUnit}
 import java.util.concurrent.TimeUnit._
 
 import com.google.common.primitives.UnsignedBytes
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
 
-import scala.concurrent.{Promise, Future => ScalaFuture}
+import scala.concurrent.{ExecutionContext, Promise, Future => ScalaFuture}
 import transactionService.rpc._
 import netty.server.transactionMetaService.TransactionMetaServiceImpl._
 import netty.server.{Authenticable, CheckpointTTL}
@@ -155,44 +156,45 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       }
     }(netty.Context.berkeleyReadPool.getContext)
 
-//  private val transiteTxnsToInvalidState = new Runnable {
-//    val cleanAmountPerDatabaseTransaction = configProperties.ServerConfig.transactionDataCleanAmount
-//    val lockMode = LockMode.READ_UNCOMMITTED_ALL
-//    override def run(): Unit = {
-//      val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
-//      val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
-//      val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
-//
-//      def deleteExpiredTransactions(cursor: Cursor): ScalaFuture[Boolean] = {
-//        val keyFound = new DatabaseEntry()
-//        val dataFound = new DatabaseEntry()
-//
-//        if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
-//          val producerTransaction = ProducerTransaction.entryToObject(dataFound)
-//          if (doesProducerTransactionExpired(producerTransaction)) {
-//            ScalaFuture(cursor.delete() == OperationStatus.SUCCESS)(producerTransactionsContext)
-//          } else ScalaFuture.successful(true)
-//        } else ScalaFuture.successful(false)
-//      }
-//
-//
-//      def repeat(counter: Int, cursor: Cursor): ScalaFuture[Unit] = {
-//        deleteExpiredTransactions(cursor) map (isExpired =>
-//          if (counter > 0 && isExpired) repeat(counter - 1, cursor)
-//          )
-//      }
-//
-//      ScalaFuture.sequence(
-//        Seq(
-//          repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions)
-//            .map(_ =>  cursorProducerTransactions.close()),
-//          repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
-//            .map(_ =>  cursorProducerTransactionsOpened.close())
-//        )
-//      ).map(_ => transactionDB.commit())
-//    }
-//  }
-//  Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build()).scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
+  private val transiteTxnsToInvalidState = new Runnable {
+    val cleanAmountPerDatabaseTransaction = configProperties.ServerConfig.transactionDataCleanAmount
+    val lockMode = LockMode.READ_UNCOMMITTED_ALL
+    override def run(): Unit = {
+      val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
+      val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
+      val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
+
+
+      def deleteExpiredTransactions(cursor: Cursor): Boolean = {
+        val keyFound = new DatabaseEntry()
+        val dataFound = new DatabaseEntry()
+
+        if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
+          val producerTransaction = ProducerTransaction.entryToObject(dataFound)
+          if (doesProducerTransactionExpired(producerTransaction)) {
+            ScalaFuture(cursor.delete())(netty.Context.berkeleyWritePool.getContext)
+            true
+            // == OperationStatus.SUCCESS
+          } else true
+        } else false
+      }
+      def repeat(counter: Int, cursor: Cursor)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
+        val isExpired = deleteExpiredTransactions(cursor)
+        if (counter > 0 && isExpired) repeat(counter - 1, cursor)
+      }
+
+      implicit val context = netty.Context.berkeleyReadPool.getContext
+      ScalaFuture.sequence(
+        Seq(
+          repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions)
+            .map(_ =>  cursorProducerTransactions.close()),
+          repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
+            .map(_ =>  cursorProducerTransactionsOpened.close())
+        )
+      ).map(_ => transactionDB.commit())
+    }
+  }
+  Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build()).scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 object TransactionMetaServiceImpl {

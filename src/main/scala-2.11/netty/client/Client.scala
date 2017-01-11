@@ -1,23 +1,26 @@
 package netty.client
 
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 import configProperties.ServerConfig.{transactionServerListen, transactionServerPort}
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.channel.socket.nio.NioSocketChannel
-import io.netty.channel.{Channel, ChannelOption}
+import io.netty.channel.{Channel, ChannelOption, WriteBufferWaterMark}
 import netty.{Context, Descriptors}
 import transactionService.rpc.{TransactionService, _}
 import `implicit`.Implicits._
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 
 import scala.concurrent.{Await, ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 class Client {
-  private implicit val context = netty.Context.clientPool.getContext
+  private implicit val context = Context(Executors.newFixedThreadPool(
+    configProperties.ClientConfig.clientPool,
+    new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build())
+  ).getContext
+
   private val nextSeqId = new AtomicInteger(Int.MinValue)
   private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 0.5f, configProperties.ClientConfig.clientPool)
 
@@ -36,19 +39,15 @@ class Client {
     val messageId = nextSeqId.getAndIncrement()
     val promise = ScalaPromise[ThriftStruct]
     ReqIdToRep.put(messageId, promise)
-    ScalaFuture {
-      val message = descriptor.encodeRequest(request)(messageId)
-      channel.writeAndFlush(message.toByteArray)
-      messageId
-    } flatMap { messageId =>
-      promise.future.map { response =>
-        ReqIdToRep.remove(messageId)
-        response.asInstanceOf[Rep]
-      }
+    val message = descriptor.encodeRequest(request)(messageId)
+    channel.writeAndFlush(message.toByteArray, channel.voidPromise())
+    promise.future.map { response =>
+      ReqIdToRep.remove(messageId)
+      response.asInstanceOf[Rep]
     }
   }
 
-    private def retry[Req, Rep](times: Int, timeUnit: TimeUnit, amount: Long)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = {
+    private def retry[Req, Rep](times: Int, timeUnit: TimeUnit, amount: Long)(f: => ScalaFuture[Rep])(implicit context: ExecutionContext): ScalaFuture[Rep] = {
       def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f recoverWith {
         case _ if times > 0 =>
           timeUnit.sleep(amount)
@@ -92,7 +91,7 @@ class Client {
       .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
   }
 
-  private val futurePool = Context.clientTransactionPool.getContext
+  private val futurePool = Context(1, "ClientTransactionPool-%d").getContext
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
 
@@ -179,52 +178,52 @@ class Client {
 }
 
 object Client extends App {
-  private implicit val context = netty.Context.clientPool.getContext
-
-  val rand = scala.util.Random
-  private def getRandomStream = new transactionService.rpc.Stream {
-    override val name: String = rand.nextInt(10000).toString
-    override val partitions: Int = rand.nextInt(10000)
-    override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
-    override val ttl: Int = rand.nextInt(Int.MaxValue)
-  }
-  private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
-
-  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
-    override val transactionID: Long = System.nanoTime()
-    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
-    override val stream: String = streamObj.name
-    override val keepAliveTTL: Long = Long.MaxValue
-    override val quantity: Int = -1
-    override val partition: Int = streamObj.partitions
-  }
-
-  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =  new ConsumerTransaction {
-    override def transactionID: Long = scala.util.Random.nextLong()
-    override def name: String = rand.nextInt(10000).toString
-    override def stream: String = streamObj.name
-    override def partition: Int = streamObj.partitions
-  }
-  val client = new Client()
-
-  client.authenticate() map { _ =>
-    import scala.concurrent.duration._
-    val stream = getRandomStream
-    println(Await.result(client.putStream(stream), 10.seconds))
-
-    val txn = getRandomProducerTransaction(stream)
-    Await.result(client.putTransaction(txn), 10.seconds)
-
-    val amount = 50000
-    val data = Array.fill(amount)(rand.nextString(10).getBytes)
-
-    val before = System.currentTimeMillis()
-    Await.result(client.putTransactionData(txn, data, 0), 10.seconds)
-    val after = System.currentTimeMillis()
-    println(after - before)
-
-    val res = Await.result(client.getTransactionData(txn, 0, 50000), 10.seconds)
-
-    res
-  } map (_ =>  client.close())
+//  private implicit lazy val context = netty.Context.clientPool.getContext
+//
+//  val rand = scala.util.Random
+//  private def getRandomStream = new transactionService.rpc.Stream {
+//    override val name: String = rand.nextInt(10000).toString
+//    override val partitions: Int = rand.nextInt(10000)
+//    override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
+//    override val ttl: Int = rand.nextInt(Int.MaxValue)
+//  }
+//  private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
+//
+//  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
+//    override val transactionID: Long = System.nanoTime()
+//    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
+//    override val stream: String = streamObj.name
+//    override val keepAliveTTL: Long = Long.MaxValue
+//    override val quantity: Int = -1
+//    override val partition: Int = streamObj.partitions
+//  }
+//
+//  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =  new ConsumerTransaction {
+//    override def transactionID: Long = scala.util.Random.nextLong()
+//    override def name: String = rand.nextInt(10000).toString
+//    override def stream: String = streamObj.name
+//    override def partition: Int = streamObj.partitions
+//  }
+//  val client = new Client()
+//
+//  client.authenticate() map { _ =>
+//    import scala.concurrent.duration._
+//    val stream = getRandomStream
+//    println(Await.result(client.putStream(stream), 10.seconds))
+//
+//    val txn = getRandomProducerTransaction(stream)
+//    Await.result(client.putTransaction(txn), 10.seconds)
+//
+//    val amount = 50000
+//    val data = Array.fill(amount)(rand.nextString(10).getBytes)
+//
+//    val before = System.currentTimeMillis()
+//    Await.result(client.putTransactionData(txn, data, 0), 10.seconds)
+//    val after = System.currentTimeMillis()
+//    println(after - before)
+//
+//    val res = Await.result(client.getTransactionData(txn, 0, 50000), 10.seconds)
+//
+//    res
+//  } map (_ =>  client.close())
 }

@@ -3,7 +3,7 @@ package benchmark.utils.writer
 import benchmark.utils.{CsvWriter, TimeMeasure, TransactionCreator}
 import transactionService.rpc.TransactionStates
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 
 class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
@@ -11,7 +11,7 @@ class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends
     val client = new netty.client.Client()
     val data = createTransactionData(dataSize)
 
-    implicit val context = netty.Context.clientPool.getContext
+    implicit val context = ExecutionContext.Implicits.global
 
     var globalProgress = 1
     val result = (1 to txnCount).map(x => {

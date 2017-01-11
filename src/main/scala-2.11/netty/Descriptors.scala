@@ -4,7 +4,7 @@ import java.util
 
 import com.twitter.scrooge.{ThriftStruct, ThriftStructCodec3}
 import org.apache.thrift.protocol._
-import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport, TTransport}
+import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
 import transactionService.rpc.TransactionService
 
 object Descriptors {
@@ -22,7 +22,7 @@ object Descriptors {
       entity.write(oprot)
       oprot.writeMessageEnd()
       val bytes = util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-      Message(bytes.length, bytes)
+      Message(bytes.length, getProtocolID(protocol), bytes)
     }
 
     def encodeRequest(entity: T)(messageId: Int): Message = encode(entity, protocolReq, messageId)
@@ -74,19 +74,23 @@ object Descriptors {
 
   private val protocolTCompactFactory = new TCompactProtocol.Factory
   private val protocolTBinaryFactory = new TBinaryProtocol.Factory
+
+  def getProtocolID(protocol: TProtocolFactory): Byte = protocol match {
+    case `protocolTCompactFactory` => 0
+    case `protocolTBinaryFactory`  => 1
+  }
+
+  val protocolIds = Array(protocolTCompactFactory, protocolTBinaryFactory)
+//  def getIdProtocol(byte: Byte): TProtocolFactory = byte match {
+//    case 0 => protocolTCompactFactory
+//    case 1 => protocolTBinaryFactory
+//  }
+
   object Descriptor {
     def decodeMethodName(message: Message): (String, Int) = {
-      scala.util.Try {
-        val iprot = protocolTBinaryFactory.getProtocol(new TMemoryInputTransport(message.body))
+        val iprot = protocolIds(message.protocol).getProtocol(new TMemoryInputTransport(message.body))
         val header = iprot.readMessageBegin()
         (header.name, header.seqid)
-      } match {
-        case scala.util.Success(result) => result
-        case _ =>
-          val iprot = protocolTCompactFactory.getProtocol(new TMemoryInputTransport(message.body))
-          val header = iprot.readMessageBegin()
-          (header.name, header.seqid)
-      }
     }
   }
 

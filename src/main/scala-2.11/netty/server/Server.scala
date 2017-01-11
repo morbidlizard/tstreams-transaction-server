@@ -27,6 +27,7 @@ class Server extends TransactionServer{
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
 
+
       val f = b.bind(transactionServerListen, transactionServerPort).sync()
       // Wait until the server socket is closed.
       // In this example, this does not happen, but you can do that to gracefully

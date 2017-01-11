@@ -194,11 +194,13 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       ).map(_ => transactionDB.commit())
     }
   }
-  Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build()).scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
+  TransactionMetaServiceImpl.scheduledExecutor.scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 object TransactionMetaServiceImpl {
   import configProperties.DB
+
+  final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build())
 
   val directory = transactionService.io.FileUtils.createDirectory(DB.TransactionMetaDirName)
   val environment = {

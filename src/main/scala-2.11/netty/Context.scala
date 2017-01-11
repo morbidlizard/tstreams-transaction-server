@@ -27,7 +27,6 @@ object Context {
   def apply(contextNum: Int, nameFormat: String) = new Context(contextNum, Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat(nameFormat).build()))
   def apply(f: => ExecutorService) = new Context(1, f)
 
-  def serverPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
   lazy val berkeleyWritePool = Context(1, "BerkeleyWritePool-%d")
   lazy val berkeleyReadPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerBerkeleyReadPool, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
   lazy val rocksWritePool = //Context(new ForkJoinPool(configProperties.ServerConfig.transactionServerRocksDBWritePool))

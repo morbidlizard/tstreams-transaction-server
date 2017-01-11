@@ -16,7 +16,7 @@ import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import scala.concurrent.{Await, ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 class Client {
-  private implicit val context = Context(Executors.newFixedThreadPool(
+  private implicit final val context = Context(Executors.newFixedThreadPool(
     configProperties.ClientConfig.clientPool,
     new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build())
   ).getContext
@@ -91,7 +91,7 @@ class Client {
       .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
   }
 
-  private val futurePool = Context(1, "ClientTransactionPool-%d").getContext
+  private final val futurePool = Context(1, "ClientTransactionPool-%d").getContext
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
 

@@ -13,8 +13,8 @@ class MessageDecoder extends ByteToMessageDecoder {
     if (readableBytes < Message.headerSize){}
     else {
       in.markReaderIndex()
-      val protocol = in.readByte()
       val length = in.readInt()
+      val protocol = in.readByte()
       if (length <= (readableBytes - Message.headerSize)) {
         val message = new Array[Byte](length)
         val buffer = in.readSlice(length)

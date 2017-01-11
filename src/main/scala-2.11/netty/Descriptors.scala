@@ -80,15 +80,14 @@ object Descriptors {
     case `protocolTBinaryFactory`  => 1
   }
 
-  val protocolIds = Array(protocolTCompactFactory, protocolTBinaryFactory)
-//  def getIdProtocol(byte: Byte): TProtocolFactory = byte match {
-//    case 0 => protocolTCompactFactory
-//    case 1 => protocolTBinaryFactory
-//  }
+  def getIdProtocol(byte: Byte): TProtocolFactory = byte match {
+    case 0 => protocolTCompactFactory
+    case 1 => protocolTBinaryFactory
+  }
 
   object Descriptor {
     def decodeMethodName(message: Message): (String, Int) = {
-        val iprot = protocolIds(message.protocol).getProtocol(new TMemoryInputTransport(message.body))
+        val iprot = getIdProtocol(message.protocol).getProtocol(new TMemoryInputTransport(message.body))
         val header = iprot.readMessageBegin()
         (header.name, header.seqid)
     }

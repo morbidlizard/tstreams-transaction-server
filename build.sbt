@@ -4,6 +4,7 @@ version := "1.0"
 
 scalaVersion := "2.11.8"
 
+scalacOptions ++= Seq("-unchecked", "-deprecation")
 
 val sroogeGenOutput = "src/main/thrift/gen"
 
@@ -29,8 +30,9 @@ libraryDependencies ++= Seq(
   "org.scalactic" %% "scalactic" % "3.0.0",
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   "com.storm-enroute" % "scalameter_2.11" % "0.8.1",
+  "io.netty" % "netty-all" % "4.1.6.Final",
 
-  "org.slf4j" % "slf4j-simple" % "1.7.21",
-  "org.apache.curator" % "curator-framework" % "2.11.0",
-  "org.apache.curator" % "curator-recipes" % "2.11.0"
+  "org.slf4j" % "slf4j-simple" % "1.7.22",
+  "org.apache.curator" % "curator-framework" % "2.11.1",
+  "org.apache.curator" % "curator-recipes" % "2.11.1"
 )

@@ -5,7 +5,24 @@ import configProperties.Config._
 object ServerConfig {
   val config = new Config("src/main/resources/serverProperties.properties")
 
-  val transactionServerAddress = config.readProperty[String]("transactionServer.address")
+  val transactionServerAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
+    case (host, port) => s"$host:$port"
+    case _ => config.readProperty[String]("transactionServer.listen") ++ config.readProperty[String]("transactionServer.port")
+  }
+
+  val transactionServerListen = config.readProperty[String]("transactionServer.listen")
+
+  val transactionServerPool = config.readProperty[Int]("transactionServer.pool")
+
+//  val transactionServerBerkeleyWritePool = config.readProperty[Int]("transactionServer.berkeleyWritePool")
+
+  val transactionServerBerkeleyReadPool = config.readProperty[Int]("transactionServer.berkeleyReadPool")
+
+  val transactionServerRocksDBWritePool = config.readProperty[Int]("transactionServer.rocksDBWritePool")
+
+  val transactionServerRocksDBReadPool = config.readProperty[Int]("transactionServer.rocksDBReadPool")
+
+  val transactionServerPort =  config.readProperty[Int]("transactionServer.port")
 
   val transactionServerEndpoints = config.readProperty[String]("transactionServer.replication.endpoints")
 

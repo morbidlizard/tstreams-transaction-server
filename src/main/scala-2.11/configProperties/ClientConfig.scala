@@ -10,6 +10,8 @@ object ClientConfig {
 
   private val config = new Config("src/main/resources/clientProperties.properties")
 
+  val clientPool = config.readProperty[Int]("client.pool")
+
   val login = config.readProperty[String]("auth.login")
 
   val password = config.readProperty[String]("auth.password")

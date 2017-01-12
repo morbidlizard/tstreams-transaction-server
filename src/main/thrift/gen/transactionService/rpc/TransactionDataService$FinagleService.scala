@@ -149,6 +149,9 @@ class TransactionDataService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("putTransactionData", seqid, PutTransactionData.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.ServerException => {
+          reply("putTransactionData", seqid, PutTransactionData.Result(error = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>
@@ -183,6 +186,9 @@ class TransactionDataService$FinagleService(
       }).flatMap { value: Seq[ByteBuffer] =>
         reply("getTransactionData", seqid, GetTransactionData.Result(success = Some(value)))
       }.rescue {
+        case e: transactionService.rpc.ServerException => {
+          reply("getTransactionData", seqid, GetTransactionData.Result(error = Some(e)))
+        }
         case e => Future.exception(e)
       }.respond {
         case Return(_) =>

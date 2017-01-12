@@ -123,7 +123,12 @@ class TransactionService$FinagleClient(
             t.cast[Boolean]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -183,7 +188,12 @@ class TransactionService$FinagleClient(
             t.cast[Boolean]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -243,7 +253,12 @@ class TransactionService$FinagleClient(
             t.cast[transactionService.rpc.Stream]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -303,7 +318,12 @@ class TransactionService$FinagleClient(
             t.cast[Boolean]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -363,7 +383,12 @@ class TransactionService$FinagleClient(
             t.cast[Boolean]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -423,7 +448,12 @@ class TransactionService$FinagleClient(
             t.cast[Boolean]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -483,7 +513,12 @@ class TransactionService$FinagleClient(
             t.cast[Seq[transactionService.rpc.Transaction]]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -543,7 +578,12 @@ class TransactionService$FinagleClient(
             t.cast[Boolean]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -603,7 +643,12 @@ class TransactionService$FinagleClient(
             t.cast[Seq[ByteBuffer]]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -663,7 +708,12 @@ class TransactionService$FinagleClient(
             t.cast[Boolean]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)
@@ -723,7 +773,12 @@ class TransactionService$FinagleClient(
             t.cast[Long]
           case  _root_.com.twitter.util.Return(result) =>
             val serviceException: Throwable =
-              null
+              if (false)
+                null // can never happen, but needed to open a block
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
+              else
+                null
   
             if (result.success.isDefined)
               _root_.com.twitter.util.Return(result.success.get)

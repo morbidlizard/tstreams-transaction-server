@@ -4,8 +4,9 @@ import java.util.concurrent.Executors
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import netty.{Context, Descriptors, Message}
-import transactionService.rpc.{TokenInvalidException, TransactionService}
+import netty.Context
+import netty.{Descriptors, Message}
+import transactionService.rpc.TransactionService
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
@@ -39,7 +40,7 @@ private object ServerHandler {
           .flatMap(response => ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
             println(error.getMessage)
-            Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+            Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
 
@@ -47,8 +48,8 @@ private object ServerHandler {
         val args = Descriptors.DoesStreamExist.decodeRequest(message)
         transactionServer.doesStreamExist(args.token, args.stream)
           .flatMap(response => ScalaFuture.successful(Descriptors.DoesStreamExist.encodeResponse(TransactionService.DoesStreamExist.Result(Some(response)))(messageSeqId)))
-          .recover { case _ =>
-            Descriptors.DoesStreamExist.encodeResponse(TransactionService.DoesStreamExist.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+          .recover { case error =>
+            Descriptors.DoesStreamExist.encodeResponse(TransactionService.DoesStreamExist.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
 
@@ -56,16 +57,16 @@ private object ServerHandler {
         val args = Descriptors.GetStream.decodeRequest(message)
         transactionServer.getStream(args.token, args.stream)
           .flatMap(response => ScalaFuture.successful(Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(response)))(messageSeqId)))
-          .recover { case _ =>
-            Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+          .recover { case error =>
+            Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
       case `delStreamMethod` =>
         val args = Descriptors.DelStream.decodeRequest(message)
         transactionServer.delStream(args.token, args.stream)
           .flatMap(response => ScalaFuture.successful(Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(response)))(messageSeqId)))
-          .recover { case _ =>
-            Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+          .recover { case error =>
+            Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
       case `putTransactionMethod` =>
@@ -74,7 +75,7 @@ private object ServerHandler {
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
             println(error.getMessage)
-            Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+            Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
       case `putTranscationsMethod` =>
@@ -83,23 +84,23 @@ private object ServerHandler {
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
             println(error.getMessage)
-            Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+            Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
       case `scanTransactionsMethod` =>
         val args = Descriptors.ScanTransactions.decodeRequest(message)
         transactionServer.scanTransactions(args.token, args.stream, args.partition, args.from, args.to)
           .flatMap(response => ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(response)))(messageSeqId)))
-          .recover { case _ =>
-            Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+          .recover { case error =>
+            Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
       case `putTransactionDataMethod` =>
         val args = Descriptors.PutTransactionData.decodeRequest(message)
         transactionServer.putTransactionData(args.token, args.stream, args.partition, args.transaction, args.data, args.from)
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(response)))(messageSeqId)))
-          .recover { case _ =>
-            Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+          .recover { case error =>
+            Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
 
@@ -107,8 +108,8 @@ private object ServerHandler {
         val args = Descriptors.GetTransactionData.decodeRequest(message)
         transactionServer.getTransactionData(args.token, args.stream, args.partition, args.transaction, args.from, args.to)
           .flatMap(response => ScalaFuture.successful(Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(response)))(messageSeqId)))
-          .recover { case _ =>
-            Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+          .recover { case error =>
+            Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
 
@@ -116,8 +117,8 @@ private object ServerHandler {
         val args = Descriptors.SetConsumerState.decodeRequest(message)
         transactionServer.setConsumerState(args.token, args.name, args.stream, args.partition, args.transaction)
           .flatMap(response => ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(Some(response)))(messageSeqId)))
-          .recover { case _ =>
-            Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+          .recover { case error =>
+            Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
 
@@ -125,8 +126,8 @@ private object ServerHandler {
         val args = Descriptors.GetConsumerState.decodeRequest(message)
         transactionServer.getConsumerState(args.token, args.name, args.stream, args.partition)
           .flatMap(response => ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(response)))(messageSeqId)))
-          .recover { case _ =>
-            Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, tokenInvalid = Some(transactionService.rpc.TokenInvalidException("error"))))(messageSeqId)
+          .recover { case error =>
+            Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
       case `authenticateMethod` =>

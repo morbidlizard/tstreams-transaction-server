@@ -149,8 +149,8 @@ class StreamService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("putStream", seqid, PutStream.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("putStream", seqid, PutStream.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("putStream", seqid, PutStream.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {
@@ -186,8 +186,8 @@ class StreamService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("doesStreamExist", seqid, DoesStreamExist.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("doesStreamExist", seqid, DoesStreamExist.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("doesStreamExist", seqid, DoesStreamExist.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {
@@ -223,8 +223,8 @@ class StreamService$FinagleService(
       }).flatMap { value: transactionService.rpc.Stream =>
         reply("getStream", seqid, GetStream.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("getStream", seqid, GetStream.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("getStream", seqid, GetStream.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {
@@ -260,8 +260,8 @@ class StreamService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("delStream", seqid, DelStream.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("delStream", seqid, DelStream.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("delStream", seqid, DelStream.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {

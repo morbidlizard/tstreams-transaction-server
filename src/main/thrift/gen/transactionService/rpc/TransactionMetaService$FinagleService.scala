@@ -149,8 +149,8 @@ class TransactionMetaService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("putTransaction", seqid, PutTransaction.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("putTransaction", seqid, PutTransaction.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("putTransaction", seqid, PutTransaction.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {
@@ -186,8 +186,8 @@ class TransactionMetaService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("putTransactions", seqid, PutTransactions.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("putTransactions", seqid, PutTransactions.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("putTransactions", seqid, PutTransactions.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {
@@ -223,8 +223,8 @@ class TransactionMetaService$FinagleService(
       }).flatMap { value: Seq[transactionService.rpc.Transaction] =>
         reply("scanTransactions", seqid, ScanTransactions.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("scanTransactions", seqid, ScanTransactions.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("scanTransactions", seqid, ScanTransactions.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {

@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import configProperties.ServerConfig.{transactionServerListen, transactionServerPort}
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelOption, WriteBufferWaterMark}
+import io.netty.channel.{Channel, ChannelOption}
 import netty.{Context, Descriptors}
 import transactionService.rpc.{TransactionService, _}
 import `implicit`.Implicits._
@@ -22,7 +22,7 @@ class Client {
   ).getContext
 
   private val nextSeqId = new AtomicInteger(Int.MinValue)
-  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 0.5f, configProperties.ClientConfig.clientPool)
+  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, configProperties.ClientConfig.clientPool)
 
   private val workerGroup = new EpollEventLoopGroup()
   private val channel: Channel = {
@@ -30,7 +30,7 @@ class Client {
       .group(workerGroup)
       .channel(classOf[EpollSocketChannel])
       .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
-      .handler(new ClientInitializer(ReqIdToRep,context))
+      .handler(new ClientInitializer(ReqIdToRep, context))
     val f = b.connect(transactionServerListen, transactionServerPort).sync()
     f.channel()
   }
@@ -47,48 +47,64 @@ class Client {
     }
   }
 
-    private def retry[Req, Rep](times: Int, timeUnit: TimeUnit, amount: Long)(f: => ScalaFuture[Rep])(implicit context: ExecutionContext): ScalaFuture[Rep] = {
-      def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f recoverWith {
-        case _ if times > 0 =>
-          timeUnit.sleep(amount)
-          authenticate() flatMap (_ => helper(times - 1)(f))
-      }
-      helper(times)(f)
-    }
 
+  private def retry[Req, Rep](times: Int)(f: => ScalaFuture[Rep])(condition: PartialFunction[Throwable, Boolean]): ScalaFuture[Rep] = {
+    def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f recoverWith {
+      case error if times > 0 && condition(error) => helper(times - 1)(f)
+    }
+    helper(times)(f)
+  }
+
+  private def retryAuthenticate[Req, Rep](f: => ScalaFuture[Rep]) = retry(5)(f)(
+    new PartialFunction[Throwable, Boolean] {
+      override def apply(v1: Throwable): Boolean = v1 match {
+        case _: exception.Throwables.TokenInvalidException =>
+          authenticate()
+          TimeUnit.SECONDS.sleep(1)
+          true
+        case _ => false
+      }
+
+      override def isDefinedAt(x: Throwable): Boolean = x.isInstanceOf[exception.Throwables.TokenInvalidException]
+    }
+  )
 
   @volatile private var token: Int = _
+
   import scala.concurrent.duration._
   //Await.ready(authenticate(), 5 seconds)
 
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] = {
-    retry(5, TimeUnit.SECONDS, 100)(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream, partitions, description, ttl))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get)))
+    retryAuthenticate(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream, partitions, description, ttl))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def putStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
-    method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream.name, stream.partitions, stream.description, stream.ttl))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+    retryAuthenticate(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream.name, stream.partitions, stream.description, stream.ttl))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def delStream(stream: String): ScalaFuture[Boolean] = {
-    method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+    retryAuthenticate(method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def delStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
-    method(Descriptors.DelStream,TransactionService.DelStream.Args(token, stream.name))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+    retryAuthenticate(method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream.name))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
   }
 
   def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] = {
-    method(Descriptors.GetStream, TransactionService.GetStream.Args(token, stream))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+    retryAuthenticate(method(Descriptors.GetStream, TransactionService.GetStream.Args(token, stream))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
   }
 
   def doesStreamExist(stream: String): ScalaFuture[Boolean] = {
-    method(Descriptors.DoesStreamExist, TransactionService.DoesStreamExist.Args(token, stream))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+    retryAuthenticate(method(Descriptors.DoesStreamExist, TransactionService.DoesStreamExist.Args(token, stream))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
   }
 
   private final val futurePool = Context(1, "ClientTransactionPool-%d").getContext
@@ -98,73 +114,82 @@ class Client {
     val txns = (producerTransactions map (txn => Transaction(Some(txn), None))) ++
       (consumerTransactions map (txn => Transaction(None, Some(txn))))
 
-    method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))(futurePool)
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))(futurePool)
+    retryAuthenticate(method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))(futurePool)
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool)
+    )
   }
 
 
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
-    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))(futurePool)
-      .recover{case error => println(error); true}
+    retryAuthenticate(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool))
   }
 
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))(futurePool)
-      .recover{case error => println(error); true}
+    retryAuthenticate(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool))
   }
 
 
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.ProducerTransaction]] = {
-    method(Descriptors.ScanTransactions, TransactionService.ScanTransactions.Args(token, stream, partition, from, to))
-      .map(x => x.success.get.withFilter(_.consumerTransaction.isEmpty).map(_.producerTransaction.get))
+    retryAuthenticate(method(Descriptors.ScanTransactions, TransactionService.ScanTransactions.Args(token, stream, partition, from, to))
+      .flatMap(x =>
+        if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message))
+        else
+          ScalaFuture.successful(x.success.get.withFilter(_.consumerTransaction.isEmpty).map(_.producerTransaction.get))
+      )
+    )
   }
 
 
   def putTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
+    retryAuthenticate(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
       producerTransaction.partition, producerTransaction.transactionID, data, from))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
-      .recover{case error => println(error); true}
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
   }
 
 
   def putTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, consumerTransaction.stream,
+    retryAuthenticate(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, consumerTransaction.stream,
       consumerTransaction.partition, consumerTransaction.transactionID, data, from))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
   }
 
 
   def getTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0)
 
-    method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, producerTransaction.stream,
+    retryAuthenticate(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, producerTransaction.stream,
       producerTransaction.partition, producerTransaction.transactionID, from, to))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
   }
 
 
   def getTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0)
 
-    method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, consumerTransaction.stream,
+    retryAuthenticate(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, consumerTransaction.stream,
       consumerTransaction.partition, consumerTransaction.transactionID, from, to))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
   }
 
   def setConsumerState(consumerTransaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    method(Descriptors.SetConsumerState,  TransactionService.SetConsumerState.Args(token, consumerTransaction.name,
+    retryAuthenticate(method(Descriptors.SetConsumerState, TransactionService.SetConsumerState.Args(token, consumerTransaction.name,
       consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))(futurePool)
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool)
+    )
   }
 
   def getConsumerState(consumerTransaction: (String, String, Int)): ScalaFuture[Long] = {
-    method(Descriptors.GetConsumerState,  TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
-      .flatMap(x => if (x.tokenInvalid.isDefined) ScalaFuture.failed(new Exception(x.tokenInvalid.get)) else ScalaFuture.successful(x.success.get))
+    retryAuthenticate(method(Descriptors.GetConsumerState, TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
   }
 
   private def authenticate(): ScalaFuture[Unit] = {

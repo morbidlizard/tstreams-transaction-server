@@ -352,8 +352,8 @@ object TransactionMetaService { self =>
       val Struct = new TStruct("putTransaction_result")
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
-      val TokenInvalidField = new TField("tokenInvalid", TType.STRUCT, 1)
-      val TokenInvalidFieldManifest = implicitly[Manifest[transactionService.rpc.TokenInvalidException]]
+      val ErrorField = new TField("error", TType.STRUCT, 1)
+      val ErrorFieldManifest = implicitly[Manifest[transactionService.rpc.ServerException]]
     
       /**
        * Field information in declaration order.
@@ -371,10 +371,10 @@ object TransactionMetaService { self =>
           None
         ),
         new ThriftStructFieldInfo(
-          TokenInvalidField,
+          ErrorField,
           true,
           false,
-          TokenInvalidFieldManifest,
+          ErrorFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -401,11 +401,11 @@ object TransactionMetaService { self =>
                 field
               }
             },
-          tokenInvalid =
+          error =
             {
-              val field = original.tokenInvalid
+              val field = original.error
               field.map { field =>
-                transactionService.rpc.TokenInvalidException.withoutPassthroughFields(field)
+                transactionService.rpc.ServerException.withoutPassthroughFields(field)
               }
             }
         )
@@ -416,7 +416,7 @@ object TransactionMetaService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Boolean] = _root_.scala.None
-        var tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        var error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -443,11 +443,11 @@ object TransactionMetaService { self =>
               case 1 =>
                 _field.`type` match {
                   case TType.STRUCT =>
-                    tokenInvalid = _root_.scala.Some(readTokenInvalidValue(_iprot))
+                    error = _root_.scala.Some(readErrorValue(_iprot))
                   case _actualType =>
                     val _expectedType = TType.STRUCT
                     throw new TProtocolException(
-                      "Received wrong type for field 'tokenInvalid' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'error' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -465,7 +465,7 @@ object TransactionMetaService { self =>
     
         new Result(
           success,
-          tokenInvalid,
+          error,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -475,14 +475,14 @@ object TransactionMetaService { self =>
     
       def apply(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
           success,
-          tokenInvalid
+          error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]] = _root_.scala.Some(_item)
+      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Boolean], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
@@ -499,18 +499,18 @@ object TransactionMetaService { self =>
         _oprot.writeBool(success_item)
       }
     
-      @inline private def readTokenInvalidValue(_iprot: TProtocol): transactionService.rpc.TokenInvalidException = {
-        transactionService.rpc.TokenInvalidException.decode(_iprot)
+      @inline private def readErrorValue(_iprot: TProtocol): transactionService.rpc.ServerException = {
+        transactionService.rpc.ServerException.decode(_iprot)
       }
     
-      @inline private def writeTokenInvalidField(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(TokenInvalidField)
-        writeTokenInvalidValue(tokenInvalid_item, _oprot)
+      @inline private def writeErrorField(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(ErrorField)
+        writeErrorValue(error_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeTokenInvalidValue(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
-        tokenInvalid_item.write(_oprot)
+      @inline private def writeErrorValue(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+        error_item.write(_oprot)
       }
     
     
@@ -518,35 +518,35 @@ object TransactionMetaService { self =>
     
     class Result(
         val success: _root_.scala.Option[Boolean],
-        val tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException],
+        val error: _root_.scala.Option[transactionService.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Boolean] with ThriftStruct
-      with scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]
+      with scala.Product2[Option[Boolean], Option[transactionService.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
-        tokenInvalid,
+        error,
         Map.empty
       )
     
       def _1 = success
-      def _2 = tokenInvalid
+      def _2 = error
     
       def successField: Option[Boolean] = success
-      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(tokenInvalid)
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(error)
     
     
       override def write(_oprot: TProtocol): Unit = {
         Result.validate(this)
         _oprot.writeStructBegin(Struct)
         if (success.isDefined) writeSuccessField(success.get, _oprot)
-        if (tokenInvalid.isDefined) writeTokenInvalidField(tokenInvalid.get, _oprot)
+        if (error.isDefined) writeErrorField(error.get, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -556,12 +556,12 @@ object TransactionMetaService { self =>
     
       def copy(
         success: _root_.scala.Option[Boolean] = this.success,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = this.tokenInvalid,
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
           success,
-          tokenInvalid,
+          error,
           _passthroughFields
         )
     
@@ -585,7 +585,7 @@ object TransactionMetaService { self =>
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.success
-        case 1 => this.tokenInvalid
+        case 1 => this.error
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -905,8 +905,8 @@ object TransactionMetaService { self =>
       val Struct = new TStruct("putTransactions_result")
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
-      val TokenInvalidField = new TField("tokenInvalid", TType.STRUCT, 1)
-      val TokenInvalidFieldManifest = implicitly[Manifest[transactionService.rpc.TokenInvalidException]]
+      val ErrorField = new TField("error", TType.STRUCT, 1)
+      val ErrorFieldManifest = implicitly[Manifest[transactionService.rpc.ServerException]]
     
       /**
        * Field information in declaration order.
@@ -924,10 +924,10 @@ object TransactionMetaService { self =>
           None
         ),
         new ThriftStructFieldInfo(
-          TokenInvalidField,
+          ErrorField,
           true,
           false,
-          TokenInvalidFieldManifest,
+          ErrorFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -954,11 +954,11 @@ object TransactionMetaService { self =>
                 field
               }
             },
-          tokenInvalid =
+          error =
             {
-              val field = original.tokenInvalid
+              val field = original.error
               field.map { field =>
-                transactionService.rpc.TokenInvalidException.withoutPassthroughFields(field)
+                transactionService.rpc.ServerException.withoutPassthroughFields(field)
               }
             }
         )
@@ -969,7 +969,7 @@ object TransactionMetaService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Boolean] = _root_.scala.None
-        var tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        var error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -996,11 +996,11 @@ object TransactionMetaService { self =>
               case 1 =>
                 _field.`type` match {
                   case TType.STRUCT =>
-                    tokenInvalid = _root_.scala.Some(readTokenInvalidValue(_iprot))
+                    error = _root_.scala.Some(readErrorValue(_iprot))
                   case _actualType =>
                     val _expectedType = TType.STRUCT
                     throw new TProtocolException(
-                      "Received wrong type for field 'tokenInvalid' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'error' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -1018,7 +1018,7 @@ object TransactionMetaService { self =>
     
         new Result(
           success,
-          tokenInvalid,
+          error,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -1028,14 +1028,14 @@ object TransactionMetaService { self =>
     
       def apply(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
           success,
-          tokenInvalid
+          error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]] = _root_.scala.Some(_item)
+      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Boolean], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
@@ -1052,18 +1052,18 @@ object TransactionMetaService { self =>
         _oprot.writeBool(success_item)
       }
     
-      @inline private def readTokenInvalidValue(_iprot: TProtocol): transactionService.rpc.TokenInvalidException = {
-        transactionService.rpc.TokenInvalidException.decode(_iprot)
+      @inline private def readErrorValue(_iprot: TProtocol): transactionService.rpc.ServerException = {
+        transactionService.rpc.ServerException.decode(_iprot)
       }
     
-      @inline private def writeTokenInvalidField(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(TokenInvalidField)
-        writeTokenInvalidValue(tokenInvalid_item, _oprot)
+      @inline private def writeErrorField(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(ErrorField)
+        writeErrorValue(error_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeTokenInvalidValue(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
-        tokenInvalid_item.write(_oprot)
+      @inline private def writeErrorValue(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+        error_item.write(_oprot)
       }
     
     
@@ -1071,35 +1071,35 @@ object TransactionMetaService { self =>
     
     class Result(
         val success: _root_.scala.Option[Boolean],
-        val tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException],
+        val error: _root_.scala.Option[transactionService.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Boolean] with ThriftStruct
-      with scala.Product2[Option[Boolean], Option[transactionService.rpc.TokenInvalidException]]
+      with scala.Product2[Option[Boolean], Option[transactionService.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
-        tokenInvalid,
+        error,
         Map.empty
       )
     
       def _1 = success
-      def _2 = tokenInvalid
+      def _2 = error
     
       def successField: Option[Boolean] = success
-      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(tokenInvalid)
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(error)
     
     
       override def write(_oprot: TProtocol): Unit = {
         Result.validate(this)
         _oprot.writeStructBegin(Struct)
         if (success.isDefined) writeSuccessField(success.get, _oprot)
-        if (tokenInvalid.isDefined) writeTokenInvalidField(tokenInvalid.get, _oprot)
+        if (error.isDefined) writeErrorField(error.get, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -1109,12 +1109,12 @@ object TransactionMetaService { self =>
     
       def copy(
         success: _root_.scala.Option[Boolean] = this.success,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = this.tokenInvalid,
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
           success,
-          tokenInvalid,
+          error,
           _passthroughFields
         )
     
@@ -1138,7 +1138,7 @@ object TransactionMetaService { self =>
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.success
-        case 1 => this.tokenInvalid
+        case 1 => this.error
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -1597,8 +1597,8 @@ object TransactionMetaService { self =>
       val Struct = new TStruct("scanTransactions_result")
       val SuccessField = new TField("success", TType.LIST, 0)
       val SuccessFieldManifest = implicitly[Manifest[Seq[transactionService.rpc.Transaction]]]
-      val TokenInvalidField = new TField("tokenInvalid", TType.STRUCT, 1)
-      val TokenInvalidFieldManifest = implicitly[Manifest[transactionService.rpc.TokenInvalidException]]
+      val ErrorField = new TField("error", TType.STRUCT, 1)
+      val ErrorFieldManifest = implicitly[Manifest[transactionService.rpc.ServerException]]
     
       /**
        * Field information in declaration order.
@@ -1616,10 +1616,10 @@ object TransactionMetaService { self =>
           None
         ),
         new ThriftStructFieldInfo(
-          TokenInvalidField,
+          ErrorField,
           true,
           false,
-          TokenInvalidFieldManifest,
+          ErrorFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -1648,11 +1648,11 @@ object TransactionMetaService { self =>
                 }
               }
             },
-          tokenInvalid =
+          error =
             {
-              val field = original.tokenInvalid
+              val field = original.error
               field.map { field =>
-                transactionService.rpc.TokenInvalidException.withoutPassthroughFields(field)
+                transactionService.rpc.ServerException.withoutPassthroughFields(field)
               }
             }
         )
@@ -1663,7 +1663,7 @@ object TransactionMetaService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Seq[transactionService.rpc.Transaction]] = _root_.scala.None
-        var tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        var error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1690,11 +1690,11 @@ object TransactionMetaService { self =>
               case 1 =>
                 _field.`type` match {
                   case TType.STRUCT =>
-                    tokenInvalid = _root_.scala.Some(readTokenInvalidValue(_iprot))
+                    error = _root_.scala.Some(readErrorValue(_iprot))
                   case _actualType =>
                     val _expectedType = TType.STRUCT
                     throw new TProtocolException(
-                      "Received wrong type for field 'tokenInvalid' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'error' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -1712,7 +1712,7 @@ object TransactionMetaService { self =>
     
         new Result(
           success,
-          tokenInvalid,
+          error,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -1722,14 +1722,14 @@ object TransactionMetaService { self =>
     
       def apply(
         success: _root_.scala.Option[Seq[transactionService.rpc.Transaction]] = _root_.scala.None,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
           success,
-          tokenInvalid
+          error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Seq[transactionService.rpc.Transaction]], Option[transactionService.rpc.TokenInvalidException]]] = _root_.scala.Some(_item)
+      def unapply(_item: Result): _root_.scala.Option[scala.Product2[Option[Seq[transactionService.rpc.Transaction]], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Seq[transactionService.rpc.Transaction] = {
@@ -1776,18 +1776,18 @@ object TransactionMetaService { self =>
         _oprot.writeListEnd()
       }
     
-      @inline private def readTokenInvalidValue(_iprot: TProtocol): transactionService.rpc.TokenInvalidException = {
-        transactionService.rpc.TokenInvalidException.decode(_iprot)
+      @inline private def readErrorValue(_iprot: TProtocol): transactionService.rpc.ServerException = {
+        transactionService.rpc.ServerException.decode(_iprot)
       }
     
-      @inline private def writeTokenInvalidField(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(TokenInvalidField)
-        writeTokenInvalidValue(tokenInvalid_item, _oprot)
+      @inline private def writeErrorField(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(ErrorField)
+        writeErrorValue(error_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeTokenInvalidValue(tokenInvalid_item: transactionService.rpc.TokenInvalidException, _oprot: TProtocol): Unit = {
-        tokenInvalid_item.write(_oprot)
+      @inline private def writeErrorValue(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+        error_item.write(_oprot)
       }
     
     
@@ -1795,35 +1795,35 @@ object TransactionMetaService { self =>
     
     class Result(
         val success: _root_.scala.Option[Seq[transactionService.rpc.Transaction]],
-        val tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException],
+        val error: _root_.scala.Option[transactionService.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Seq[transactionService.rpc.Transaction]] with ThriftStruct
-      with scala.Product2[Option[Seq[transactionService.rpc.Transaction]], Option[transactionService.rpc.TokenInvalidException]]
+      with scala.Product2[Option[Seq[transactionService.rpc.Transaction]], Option[transactionService.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
         success: _root_.scala.Option[Seq[transactionService.rpc.Transaction]] = _root_.scala.None,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = _root_.scala.None
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
-        tokenInvalid,
+        error,
         Map.empty
       )
     
       def _1 = success
-      def _2 = tokenInvalid
+      def _2 = error
     
       def successField: Option[Seq[transactionService.rpc.Transaction]] = success
-      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(tokenInvalid)
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(error)
     
     
       override def write(_oprot: TProtocol): Unit = {
         Result.validate(this)
         _oprot.writeStructBegin(Struct)
         if (success.isDefined) writeSuccessField(success.get, _oprot)
-        if (tokenInvalid.isDefined) writeTokenInvalidField(tokenInvalid.get, _oprot)
+        if (error.isDefined) writeErrorField(error.get, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -1833,12 +1833,12 @@ object TransactionMetaService { self =>
     
       def copy(
         success: _root_.scala.Option[Seq[transactionService.rpc.Transaction]] = this.success,
-        tokenInvalid: _root_.scala.Option[transactionService.rpc.TokenInvalidException] = this.tokenInvalid,
+        error: _root_.scala.Option[transactionService.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
           success,
-          tokenInvalid,
+          error,
           _passthroughFields
         )
     
@@ -1862,7 +1862,7 @@ object TransactionMetaService { self =>
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.success
-        case 1 => this.tokenInvalid
+        case 1 => this.error
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     

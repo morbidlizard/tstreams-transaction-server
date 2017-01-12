@@ -149,8 +149,8 @@ class ConsumerService$FinagleService(
       }).flatMap { value: Boolean =>
         reply("setConsumerState", seqid, SetConsumerState.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("setConsumerState", seqid, SetConsumerState.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("setConsumerState", seqid, SetConsumerState.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {
@@ -186,8 +186,8 @@ class ConsumerService$FinagleService(
       }).flatMap { value: Long =>
         reply("getConsumerState", seqid, GetConsumerState.Result(success = Some(value)))
       }.rescue {
-        case e: transactionService.rpc.TokenInvalidException => {
-          reply("getConsumerState", seqid, GetConsumerState.Result(tokenInvalid = Some(e)))
+        case e: transactionService.rpc.ServerException => {
+          reply("getConsumerState", seqid, GetConsumerState.Result(error = Some(e)))
         }
         case e => Future.exception(e)
       }.respond {

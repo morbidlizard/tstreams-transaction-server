@@ -125,8 +125,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -190,8 +190,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -255,8 +255,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -320,8 +320,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -385,8 +385,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -450,8 +450,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -515,8 +515,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -580,8 +580,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -645,8 +645,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -710,8 +710,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   
@@ -775,8 +775,8 @@ class TransactionService$FinagleClient(
             val serviceException: Throwable =
               if (false)
                 null // can never happen, but needed to open a block
-              else if (result.tokenInvalid.isDefined)
-                setServiceName(result.tokenInvalid.get)
+              else if (result.error.isDefined)
+                setServiceName(result.error.get)
               else
                 null
   

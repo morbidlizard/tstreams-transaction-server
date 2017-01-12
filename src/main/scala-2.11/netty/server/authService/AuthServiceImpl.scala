@@ -19,12 +19,5 @@ trait AuthServiceImpl {
     token
   }
 
-//  override def authenticate(login: String, password: String): ScalaFuture[Int] = ScalaFuture.successful{
-//    val token = random.nextInt()
-//    usersToken.put(token, (login, password))
-//    token
-//  }
-
-   def isValid(token: Int): Boolean = //usersToken.getIfPresent(token) != null
-    true
+   def isValid(token: Int): Boolean = usersToken.getIfPresent(token) != null
 }

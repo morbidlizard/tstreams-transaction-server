@@ -29,9 +29,9 @@ import scala.collection.mutable.{
 import scala.collection.{Map, Set}
 
 
-object TokenInvalidException extends ThriftStructCodec3[TokenInvalidException] {
+object ServerException extends ThriftStructCodec3[ServerException] {
   private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-  val Struct = new TStruct("TokenInvalidException")
+  val Struct = new TStruct("ServerException")
   val MessageField = new TField("message", TType.STRING, 1)
   val MessageFieldManifest = implicitly[Manifest[String]]
 
@@ -58,11 +58,11 @@ object TokenInvalidException extends ThriftStructCodec3[TokenInvalidException] {
   /**
    * Checks that all required fields are non-null.
    */
-  def validate(_item: TokenInvalidException): Unit = {
+  def validate(_item: ServerException): Unit = {
   }
 
-  def withoutPassthroughFields(original: TokenInvalidException): TokenInvalidException =
-    new TokenInvalidException(
+  def withoutPassthroughFields(original: ServerException): ServerException =
+    new ServerException(
       message =
         {
           val field = original.message
@@ -70,11 +70,11 @@ object TokenInvalidException extends ThriftStructCodec3[TokenInvalidException] {
         }
     )
 
-  override def encode(_item: TokenInvalidException, _oproto: TProtocol): Unit = {
+  override def encode(_item: ServerException, _oproto: TProtocol): Unit = {
     _item.write(_oproto)
   }
 
-  override def decode(_iprot: TProtocol): TokenInvalidException = {
+  override def decode(_iprot: TProtocol): ServerException = {
     var message: String = null
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
@@ -109,7 +109,7 @@ object TokenInvalidException extends ThriftStructCodec3[TokenInvalidException] {
     }
     _iprot.readStructEnd()
 
-    new TokenInvalidException(
+    new ServerException(
       message,
       if (_passthroughFields == null)
         NoPassthroughFields
@@ -120,12 +120,12 @@ object TokenInvalidException extends ThriftStructCodec3[TokenInvalidException] {
 
   def apply(
     message: String
-  ): TokenInvalidException =
-    new TokenInvalidException(
+  ): ServerException =
+    new ServerException(
       message
     )
 
-  def unapply(_item: TokenInvalidException): _root_.scala.Option[String] = _root_.scala.Some(_item.message)
+  def unapply(_item: ServerException): _root_.scala.Option[String] = _root_.scala.Some(_item.message)
 
 
   @inline private def readMessageValue(_iprot: TProtocol): String = {
@@ -145,15 +145,15 @@ object TokenInvalidException extends ThriftStructCodec3[TokenInvalidException] {
 
 }
 
-class TokenInvalidException(
+class ServerException(
     val message: String,
     val _passthroughFields: immutable$Map[Short, TFieldBlob])
   extends ThriftException with com.twitter.finagle.SourcedException with ThriftStruct
   with scala.Product1[String]
-  with HasThriftStructCodec3[TokenInvalidException]
+  with HasThriftStructCodec3[ServerException]
   with java.io.Serializable
 {
-  import TokenInvalidException._
+  import ServerException._
   def this(
     message: String
   ) = this(
@@ -180,7 +180,7 @@ class TokenInvalidException(
             case 1 =>
               if (message ne null) {
                 writeMessageValue(message, _oprot)
-                _root_.scala.Some(TokenInvalidException.MessageField)
+                _root_.scala.Some(ServerException.MessageField)
               } else {
                 _root_.scala.None
               }
@@ -209,7 +209,7 @@ class TokenInvalidException(
    * is unknown and passthrough fields are enabled, then the blob will be stored in
    * _passthroughFields.
    */
-  def setField(_blob: TFieldBlob): TokenInvalidException = {
+  def setField(_blob: TFieldBlob): ServerException = {
     var message: String = this.message
     var _passthroughFields = this._passthroughFields
     _blob.id match {
@@ -217,7 +217,7 @@ class TokenInvalidException(
         message = readMessageValue(_blob.read)
       case _ => _passthroughFields += (_blob.id -> _blob)
     }
-    new TokenInvalidException(
+    new ServerException(
       message,
       _passthroughFields
     )
@@ -228,7 +228,7 @@ class TokenInvalidException(
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetField(_fieldId: Short): TokenInvalidException = {
+  def unsetField(_fieldId: Short): ServerException = {
     var message: String = this.message
 
     _fieldId match {
@@ -236,7 +236,7 @@ class TokenInvalidException(
         message = null
       case _ =>
     }
-    new TokenInvalidException(
+    new ServerException(
       message,
       _passthroughFields - _fieldId
     )
@@ -247,11 +247,11 @@ class TokenInvalidException(
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetMessage: TokenInvalidException = unsetField(1)
+  def unsetMessage: ServerException = unsetField(1)
 
 
   override def write(_oprot: TProtocol): Unit = {
-    TokenInvalidException.validate(this)
+    ServerException.validate(this)
     _oprot.writeStructBegin(Struct)
     if (message ne null) writeMessageField(message, _oprot)
     if (_passthroughFields.nonEmpty) {
@@ -264,22 +264,22 @@ class TokenInvalidException(
   def copy(
     message: String = this.message,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
-  ): TokenInvalidException =
-    new TokenInvalidException(
+  ): ServerException =
+    new ServerException(
       message,
       _passthroughFields
     )
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[TokenInvalidException]
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ServerException]
 
-  private def _equals(x: TokenInvalidException, y: TokenInvalidException): Boolean =
+  private def _equals(x: ServerException, y: ServerException): Boolean =
       x.productArity == y.productArity &&
       x.productIterator.sameElements(y.productIterator)
 
   override def equals(other: Any): Boolean =
     canEqual(other) &&
-      _equals(this, other.asInstanceOf[TokenInvalidException]) &&
-      _passthroughFields == other.asInstanceOf[TokenInvalidException]._passthroughFields
+      _equals(this, other.asInstanceOf[ServerException]) &&
+      _passthroughFields == other.asInstanceOf[ServerException]._passthroughFields
 
   override def hashCode: Int = _root_.scala.runtime.ScalaRunTime._hashCode(this)
 
@@ -294,7 +294,7 @@ class TokenInvalidException(
     case _ => throw new IndexOutOfBoundsException(n.toString)
   }
 
-  override def productPrefix: String = "TokenInvalidException"
+  override def productPrefix: String = "ServerException"
 
-  def _codec: ThriftStructCodec3[TokenInvalidException] = TokenInvalidException
+  def _codec: ThriftStructCodec3[ServerException] = ServerException
 }

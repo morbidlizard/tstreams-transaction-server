@@ -24,11 +24,7 @@ object Statistic {
 
 
 object CI extends App {
-<<<<<<< Updated upstream
   val lines = Source.fromFile("41_1000000TransactionLifeCycleWriterOSOC.csv").getLines
-=======
-  val lines = Source.fromFile("16_1000000TransactionLifeCycleWriterOSOC.csv").getLines
->>>>>>> Stashed changes
   val time = lines.drop(1).map(x => x.split(",")(1).trim.toInt).toTraversable
   val mean = Statistic.mean(time)
   val stddev = Statistic.stddev(time)

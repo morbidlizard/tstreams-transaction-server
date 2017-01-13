@@ -77,8 +77,12 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
     invokeMethod(msg)
   }
 
+//  override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+//    ctx.
+//  }
+
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     cause.printStackTrace()
-    ctx.close()
+    //ctx.close()
   }
 }

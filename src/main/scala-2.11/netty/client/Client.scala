@@ -15,7 +15,7 @@ import com.twitter.scrooge.ThriftStruct
 import configProperties.ClientConfig._
 import exception.Throwables.{ServerConnectionException, ZkGetMasterException}
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
-import io.netty.channel.group.DefaultChannelGroup
+import io.netty.channel.group.{ChannelMatcher, ChannelMatchers, DefaultChannelGroup}
 import io.netty.util.concurrent.GlobalEventExecutor
 import org.apache.curator.retry.RetryNTimes
 import zooKeeper.ZKLeaderClient
@@ -35,57 +35,62 @@ class Client {
 
   private val nextSeqId = new AtomicInteger(Int.MinValue)
   private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, configProperties.ClientConfig.clientPool)
-
   private val workerGroup = new EpollEventLoopGroup()
-  val bootstrap = new Bootstrap()
-  bootstrap
+
+  @volatile var channel = connect().sync().channel()
+  lazy val bootstrap = new Bootstrap()
     .group(workerGroup)
     .channel(classOf[EpollSocketChannel])
     .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
-    .handler(new ClientInitializer(ReqIdToRep, context))
+    .handler(new ClientInitializer(ReqIdToRep, this ,context))
 
-  val channel = connect().sync().channel()
-
-  def connect(): ChannelFuture = {
-    @tailrec
-    def getInetAddressFromZookeeper(times: Int): ChannelFuture = {
-      if (times > 0 && zKLeaderClient.master.isEmpty) {
-        TimeUnit.MILLISECONDS.sleep(zkTimeoutBetweenRetries)
-        getInetAddressFromZookeeper(times - 1)
-      } else {
-        val (listen, port) = zKLeaderClient.master match {
-          case Some(master) => val listenPort = master.split(":")
-            (listenPort(0), listenPort(1).toInt)
-          case None => throw new ZkGetMasterException
-        }
-        bootstrap.connect(listen, port)
+  @tailrec
+  final def getInetAddressFromZookeeper(times: Int): (String, Int) = {
+    if (times > 0 && zKLeaderClient.master.isEmpty) {
+      TimeUnit.MILLISECONDS.sleep(zkTimeoutBetweenRetries)
+      getInetAddressFromZookeeper(times - 1)
+    } else {
+      zKLeaderClient.master match {
+        case Some(master) => val listenPort = master.split(":")
+          (listenPort(0), listenPort(1).toInt)
+        case None => throw new ZkGetMasterException
       }
     }
-    val channelFuture = getInetAddressFromZookeeper(zkTimeoutConnection / zkTimeoutBetweenRetries)
+  }
 
+  def connect(): ChannelFuture = {
+    val (listen, port) = getInetAddressFromZookeeper(zkTimeoutConnection / zkTimeoutBetweenRetries)
+    val channelFuture = bootstrap.connect(listen, port)
     val listener = new ChannelFutureListener() {
       val atomicInteger = new AtomicInteger(serverTimeoutConnection / serverTimeoutBetweenRetries)
       @throws[Exception]
       override def operationComplete(future: ChannelFuture): Unit = {
         if (!future.isSuccess && atomicInteger.getAndDecrement() > 0) {
+          future.channel().close()
           TimeUnit.MILLISECONDS.sleep(serverTimeoutBetweenRetries)
-          channelFuture.addListener(this)
         } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
       }
     }
     channelFuture.addListener(listener)
   }
 
-
   private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit context: ExecutionContext): ScalaFuture[Rep] = {
     val messageId = nextSeqId.getAndIncrement()
     val promise = ScalaPromise[ThriftStruct]
-    ReqIdToRep.put(messageId, promise)
     val message = descriptor.encodeRequest(request)(messageId)
+    ReqIdToRep.put(messageId, promise)
+
     channel.writeAndFlush(message.toByteArray)
-    promise.future.map { response =>
+
+    import scala.concurrent.duration._
+
+    scala.util.Try(Await.ready(promise.future.map {response =>
       ReqIdToRep.remove(messageId)
       response.asInstanceOf[Rep]
+    }, 1.seconds)) match {
+      case scala.util.Success(value) => value
+      case scala.util.Failure(error) =>
+        method(descriptor, request)
     }
   }
 
@@ -104,7 +109,8 @@ class Client {
           authenticate()
           TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
           true
-        case _ => false
+        case error =>
+          false
       }
       override def isDefinedAt(x: Throwable): Boolean = x.isInstanceOf[exception.Throwables.TokenInvalidException]
     }
@@ -170,7 +176,7 @@ class Client {
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     retryAuthenticate(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
-      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool))
+      .flatMap(x => /*if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else*/ ScalaFuture.successful(true/*x.success.get*/))(futurePool))
   }
 
 

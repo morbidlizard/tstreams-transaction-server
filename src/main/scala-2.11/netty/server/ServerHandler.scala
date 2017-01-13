@@ -39,7 +39,6 @@ private object ServerHandler {
         transactionServer.putStream(args.token, args.stream, args.partitions, args.description, args.ttl)
           .flatMap(response => ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
-            println(error.getMessage)
             Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
@@ -74,7 +73,6 @@ private object ServerHandler {
         scala.concurrent.blocking(transactionServer.putTransaction(args.token, args.transaction))
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
-            println(error.getMessage)
             Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
@@ -83,7 +81,6 @@ private object ServerHandler {
         scala.concurrent.blocking(transactionServer.putTransactions(args.token, args.transactions))
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
-            println(error.getMessage)
             Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 

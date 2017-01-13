@@ -3,15 +3,22 @@ package netty.client
 import java.util.concurrent.ConcurrentHashMap
 
 import com.twitter.scrooge.ThriftStruct
-import io.netty.channel.{ChannelHandler, ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.bootstrap.Bootstrap
+import io.netty.channel.group.ChannelGroup
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import netty.{Descriptors, Message}
+import zooKeeper.ZKLeaderClient
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Promise => ScalaPromise}
 import scala.concurrent.{Future => ScalaFuture}
 
 
-class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]], implicit val context: ExecutionContext) extends SimpleChannelInboundHandler[Message] {
+class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]],
+                    implicit val context: ExecutionContext)
+  extends SimpleChannelInboundHandler[Message]
+{
+
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
 

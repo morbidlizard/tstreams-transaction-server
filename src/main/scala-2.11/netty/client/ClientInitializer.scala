@@ -3,10 +3,11 @@ package netty.client
 import java.util.concurrent.ConcurrentHashMap
 
 import com.twitter.scrooge.ThriftStruct
-import io.netty.channel.ChannelInitializer
+import io.netty.channel.{Channel, ChannelInitializer}
 import io.netty.channel.socket.SocketChannel
 import io.netty.handler.codec.bytes.ByteArrayEncoder
 import netty.MessageDecoder
+import zooKeeper.ZKLeaderClient
 
 import scala.concurrent.{ExecutionContext, Promise => ScalaPromise}
 

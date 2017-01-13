@@ -28,7 +28,7 @@ class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends
         Future.sequence(Seq(
           client.putTransaction(openedProducerTransaction),
           client.putTransactionData(openedProducerTransaction, data, (txnCount - 1) * dataSize),
-          client.putTransaction(closedProducerTransaction))), 5.seconds))
+          client.putTransaction(closedProducerTransaction))), 10.seconds))
       (x, t)
     })
 

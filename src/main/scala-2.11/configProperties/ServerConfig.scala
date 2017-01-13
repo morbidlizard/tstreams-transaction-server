@@ -6,8 +6,8 @@ object ServerConfig {
   val config = new Config("src/main/resources/serverProperties.properties")
 
   val transactionServerAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
-    case (host, port) => s"$host:$port"
-    case _ => config.readProperty[String]("transactionServer.listen") ++ config.readProperty[String]("transactionServer.port")
+    case (host, port) if host != null && port != null => s"$host:$port"
+    case _ => s"${config.readProperty[String]("transactionServer.listen")}:${config.readProperty[String]("transactionServer.port")}"
   }
 
   val transactionServerListen = config.readProperty[String]("transactionServer.listen")

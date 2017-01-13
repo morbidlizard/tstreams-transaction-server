@@ -7,14 +7,14 @@ import scala.collection.mutable.ArrayBuffer
 
 object MultipleTransactionLifeCyclesTest extends Launcher {
   override val streamName = "stream"
-  override val clients = 30
+  override val clients = 2
   private val txnCount = 1000000
   private val dataSize = 1
   private val clientThreads = ArrayBuffer[Thread]()
   private val rand = new scala.util.Random()
 
   def main(args: Array[String]) {
-    launch()
+    //launch()
     createStream(streamName, clients)
     launchClients()
     System.exit(0)

@@ -3,22 +3,21 @@ package netty.client
 import java.util.concurrent.ConcurrentHashMap
 
 import com.twitter.scrooge.ThriftStruct
-import io.netty.bootstrap.Bootstrap
-import io.netty.channel.group.ChannelGroup
+import exception.Throwables.ServerUnreachableException
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import netty.{Descriptors, Message}
-import zooKeeper.ZKLeaderClient
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Promise => ScalaPromise}
 import scala.concurrent.{Future => ScalaFuture}
 
 
+
+
 class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]],
                     implicit val context: ExecutionContext)
   extends SimpleChannelInboundHandler[Message]
 {
-
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
 
@@ -77,12 +76,22 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
     invokeMethod(msg)
   }
 
-//  override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-//    ctx.
-//  }
+  override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+    import scala.collection.JavaConversions._
+      for (promise <- reqIdToRep.values()) {
+        if (!promise.isCompleted) promise.failure(new ServerUnreachableException)
+      }
+    super.channelInactive(ctx)
+  }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    cause.printStackTrace()
-    //ctx.close()
-  }
+    import scala.collection.JavaConversions._
+      for (promise <- reqIdToRep.values()) {
+        if (!promise.isCompleted) promise.failure(new ServerUnreachableException)
+      }
+      cause.printStackTrace()
+      ctx.channel().close()
+      ctx.channel().parent().close()
+      ctx.close()
+    }
 }

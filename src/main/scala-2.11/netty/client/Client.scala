@@ -37,7 +37,9 @@ class Client {
   private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, configProperties.ClientConfig.clientPool)
   private val workerGroup = new EpollEventLoopGroup()
 
-  @volatile var channel = connect().sync().channel()
+  val channelGroup = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE)
+  channelGroup.add(connect().sync().channel())
+
   lazy val bootstrap = new Bootstrap()
     .group(workerGroup)
     .channel(classOf[EpollSocketChannel])
@@ -63,11 +65,13 @@ class Client {
     val channelFuture = bootstrap.connect(listen, port)
     val listener = new ChannelFutureListener() {
       val atomicInteger = new AtomicInteger(serverTimeoutConnection / serverTimeoutBetweenRetries)
+
       @throws[Exception]
       override def operationComplete(future: ChannelFuture): Unit = {
         if (!future.isSuccess && atomicInteger.getAndDecrement() > 0) {
           future.channel().close()
           TimeUnit.MILLISECONDS.sleep(serverTimeoutBetweenRetries)
+          future.addListener(this)
         } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
       }
     }
@@ -80,20 +84,13 @@ class Client {
     val message = descriptor.encodeRequest(request)(messageId)
     ReqIdToRep.put(messageId, promise)
 
-    channel.writeAndFlush(message.toByteArray)
+    channelGroup.writeAndFlush(message.toByteArray)
 
-    import scala.concurrent.duration._
-
-    scala.util.Try(Await.ready(promise.future.map {response =>
+    promise.future.map {response =>
       ReqIdToRep.remove(messageId)
       response.asInstanceOf[Rep]
-    }, 1.seconds)) match {
-      case scala.util.Success(value) => value
-      case scala.util.Failure(error) =>
-        method(descriptor, request)
     }
   }
-
 
   private def retry[Req, Rep](times: Int)(f: => ScalaFuture[Rep])(condition: PartialFunction[Throwable, Boolean]): ScalaFuture[Rep] = {
     def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f recoverWith {
@@ -109,7 +106,12 @@ class Client {
           authenticate()
           TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
           true
+        case _: exception.Throwables.ServerUnreachableException =>
+          channelGroup.close().sync()
+          channelGroup.add(connect().sync().channel())
+          true
         case error =>
+//          System.err.println(error.getMessage)
           false
       }
       override def isDefinedAt(x: Throwable): Boolean = x.isInstanceOf[exception.Throwables.TokenInvalidException]

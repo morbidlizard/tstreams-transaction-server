@@ -19,11 +19,12 @@ class ClientTestHandler(client: Client) extends ChannelInboundHandlerAdapter {
 class ReconnectionTask(client: Client, ctxChannel: Channel) extends Runnable with ChannelFutureListener {
   override def run(): Unit = {
     val (listen, port) = client.getInetAddressFromZookeeper(5)
-    client.channel = client.bootstrap.remoteAddress(listen, port)
+    client.channelGroup.add(client.bootstrap.remoteAddress(listen, port)
       .connect()
       .addListener(this)
       .sync()
       .channel()
+    )
   }
 
   override def operationComplete(future: ChannelFuture): Unit = {

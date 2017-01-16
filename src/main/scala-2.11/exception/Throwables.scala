@@ -11,6 +11,9 @@ object Throwables {
   val serverConnectionExceptionMessage: String = "Can't connect to Server"
   class ServerConnectionException extends SocketTimeoutException(serverConnectionExceptionMessage)
 
+  val serverUnreachableExceptionMessage: String = "Server is unreachable"
+  class ServerUnreachableException extends SocketTimeoutException(serverUnreachableExceptionMessage)
+
   val zkGetMasterExceptionMessage: String = "Can't get master from ZooKeeper"
   class ZkGetMasterException extends Exception(zkGetMasterExceptionMessage)
 

@@ -5,8 +5,10 @@ import java.util.Properties
 
 import exception.Throwables.ConfigNotFoundException
 
+import scala.collection.Map
+
 class Config(pathToConfig: String) {
-  private lazy val properties = {
+  val properties: Properties = {
     val file = new Properties()
     scala.util.Try {
       val in = new FileInputStream(pathToConfig)
@@ -17,6 +19,9 @@ class Config(pathToConfig: String) {
       case scala.util.Failure(_) => throw new ConfigNotFoundException
     }
   }
+
+  import scala.collection.JavaConverters._
+  def getAllProperties(prefix: String): Map[String, String] = properties.asScala.filterKeys(key => key.startsWith(prefix))
 
   def readPropertyOptional[T](property: String)(implicit funCast: String => T): Option[T] =
     Option(properties.getProperty(property)) match {
@@ -39,8 +44,10 @@ class Config(pathToConfig: String) {
 }
 
 object Config {
+  implicit def stringToBoolean: String => Boolean = str => augmentString(str).toBoolean
   implicit def stringToInt: String => Int = str => augmentString(str).toInt
-  implicit def stringToFloat: String => Float = str => augmentString(str).toFloat
-  implicit def stringToLong: String => Long = str => augmentString(str).toLong
   implicit def stringToShort: String => Short = str => augmentString(str).toShort
+  implicit def stringToLong: String => Long = str => augmentString(str).toLong
+  implicit def stringToFloat: String => Float = str => augmentString(str).toFloat
+  implicit def stringToDouble: String => Double = str => augmentString(str).toDouble
 }

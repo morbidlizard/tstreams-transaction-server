@@ -1,25 +1,21 @@
 package transactionService.server.сonsumerService
 
-import com.sleepycat.persist.model.{Entity, PrimaryKey}
+import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
+import com.sleepycat.je.DatabaseEntry
+import ConsumerTransaction.objectToEntry
 
-@Entity
-class ConsumerTransaction extends transactionService.rpc.ConsumerTransaction {
-  @PrimaryKey private var key: ConsumerKey = _
-  private var transactionIDDB: java.lang.Long = _
 
-  def this(name: String,
-           stream: String,
-           partition: Int,
-           transactionID: java.lang.Long
-          ) {
-    this()
-    this.transactionIDDB = transactionID
-    this.key = new ConsumerKey(name, stream, partition)
+case class ConsumerTransaction(transactionId: java.lang.Long) {
+  def toDatabaseEntry: DatabaseEntry = {
+    val databaseEntry = new DatabaseEntry()
+    objectToEntry(this, databaseEntry)
+    databaseEntry
   }
+}
 
-  override def transactionID: Long = transactionIDDB
-  override def name: String = key.name
-  override def stream: String = key.stream
-  override def partition: Int = key.partition
-  override def toString: String = s"Consumer transaction: ${key.toString}"
+object ConsumerTransaction extends TupleBinding[ConsumerTransaction] {
+  override def entryToObject(input: TupleInput): ConsumerTransaction = ConsumerTransaction(input.readLong())
+  override def objectToEntry(consumerTransaction: ConsumerTransaction, output: TupleOutput): Unit = {
+    output.writeLong(consumerTransaction.transactionId)
+  }
 }

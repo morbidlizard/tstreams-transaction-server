@@ -1,6 +1,8 @@
 package transactionService.server.transactionDataService
 
+import `implicit`.Implicits._
+
 case class KeyDataSeq(key: Key, dataSeq: Int) {
-  private def dataSeqToBinary = String.format("%16s", Integer.toBinaryString(dataSeq)).replace(' ', '0')
-  override def toString: String = s"$dataSeqToBinary ${key.toString}"
+  def toBinary: Array[Byte] = key.toBinary ++ intToByteArray(dataSeq)
+  override def toString: String = s"${key.toString} $dataSeq"
 }

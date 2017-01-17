@@ -3,10 +3,26 @@ package configProperties
 import configProperties.Config._
 
 object ServerConfig {
+  val config = new Config("src/main/resources/serverProperties.properties")
 
-  private val config = new Config("src/main/resources/serverProperties.properties")
+  val transactionServerAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
+    case (host, port) if host != null && port != null => s"$host:$port"
+    case _ => s"${config.readProperty[String]("transactionServer.listen")}:${config.readProperty[String]("transactionServer.port")}"
+  }
 
-  val transactionServerAddress = config.readProperty[String]("transactionServer.address")
+  val transactionServerListen = config.readProperty[String]("transactionServer.listen")
+
+  val transactionServerPool = config.readProperty[Int]("transactionServer.pool")
+
+//  val transactionServerBerkeleyWritePool = config.readProperty[Int]("transactionServer.berkeleyWritePool")
+
+  val transactionServerBerkeleyReadPool = config.readProperty[Int]("transactionServer.berkeleyReadPool")
+
+  val transactionServerRocksDBWritePool = config.readProperty[Int]("transactionServer.rocksDBWritePool")
+
+  val transactionServerRocksDBReadPool = config.readProperty[Int]("transactionServer.rocksDBReadPool")
+
+  val transactionServerPort =  config.readProperty[Int]("transactionServer.port")
 
   val transactionServerEndpoints = config.readProperty[String]("transactionServer.replication.endpoints")
 
@@ -14,7 +30,11 @@ object ServerConfig {
 
   val transactionServerReplicationGroup = config.readProperty[String]("transactionServer.replication.group")
 
-  val zkEndpoints = config.readProperty[String]("zk.endpoints", ',')
+  val authTokenTimeExpiration = config.readProperty[Long]("auth.token.time.expiration")
+
+  val authTokenActiveMax = config.readProperty[Int]("auth.token.active.max")
+
+  val zkEndpoints = config.readProperty[String]("zk.endpoints")
 
   val zkTimeoutSession = config.readProperty[Int]("zk.timeout.session")
 
@@ -26,11 +46,15 @@ object ServerConfig {
 
   val zkPrefix = config.readProperty[String]("zk.prefix")
 
-  val authAddress = config.readProperty[String]("auth.address")
+  val transactionTimeoutCleanOpened = config.readProperty[Int]("transaction.timeout.clean.opened(sec)")
 
-  val authTimeoutConnection = config.readProperty[Int]("auth.timeout.connection")
-
-  val authTimeoutBetweenRetries = config.readProperty[Int]("auth.timeout.betweenRetries")
+  val transactionDataCleanAmount = config.readProperty[Int]("transaction.data.clean.amount")
 
   val transactionDataTtlAdd = config.readProperty[Int]("transaction.data.ttl.add")
+
+  val transactionMetadataTtlAdd = config.readProperty[Int]("transaction.metadata.ttl.add")
+
+  val dbPath = config.readProperty[String]("db.path")
+
+  val berkeleyDBJEproperties = config.getAllProperties("je.")
 }

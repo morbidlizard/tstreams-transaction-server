@@ -1,28 +1,28 @@
 import java.io.File
+import java.time.Instant
+import java.util.concurrent.atomic.LongAdder
 
-import authService.AuthServer
 import com.twitter.util.{Await, Closable, Time}
 import configProperties.DB
 import org.apache.commons.io.FileUtils
+import com.twitter.util.{Future => TwitterFuture}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import transactionZookeeperService.{TransactionZooKeeperClient, TransactionZooKeeperServer}
 
 class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
-  val client: TransactionZooKeeperClient = new TransactionZooKeeperClient
+  var client: TransactionZooKeeperClient = _
   var transactionServer: TransactionZooKeeperServer = _
-  var authServer: AuthServer = _
 
   override def beforeEach(): Unit = {
+    client = new TransactionZooKeeperClient
     transactionServer = new TransactionZooKeeperServer
-    authServer = new AuthServer
 
     transactionServer.start()
-    authServer.start()
   }
 
   override def afterEach() {
-    Closable.all(transactionServer, authServer).close()
+    Await.result(transactionServer.close())
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
     FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
@@ -38,28 +38,28 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
 
   private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
-    override val transactionID: Long = rand.nextLong()
-    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1)
+    override val transactionID: Long = System.nanoTime()
+    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
     override val stream: String = streamObj.name
-    override val timestamp: Long = Time.epoch.inNanoseconds
+    override val keepAliveTTL: Long = Long.MaxValue
     override val quantity: Int = -1
-    override val partition: Int = rand.nextInt(10000)
+    override val partition: Int = streamObj.partitions
   }
 
   private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =  new ConsumerTransaction {
     override def transactionID: Long = scala.util.Random.nextLong()
     override def name: String = rand.nextInt(10000).toString
     override def stream: String = streamObj.name
-    override def partition: Int = rand.nextInt(10000)
+    override def partition: Int = streamObj.partitions
   }
 
 
-  "TransactionZooKeeperClient" should "put producer and consumer transactions" in {
+    "TransactionZooKeeperClient" should "put producer and consumer transactions" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream))
 
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(stream))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(stream))
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val result = client.putTransactions(producerTransactions, consumerTransactions)
 
@@ -71,8 +71,8 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     Await.result(client.putStream(stream))
     Await.result(client.delStream(stream))
 
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(stream))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(stream))
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val result = client.putTransactions(producerTransactions, consumerTransactions)
     assertThrows[org.apache.thrift.TApplicationException] {
@@ -80,23 +80,33 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     }
   }
 
-  //TODO Config shouldn't be static, because it's impossible to make custom configs for test purposes.
+  it should "throw an exception when the auth server isn't available for time greater than in config" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+
+    val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
+
+    transactionServer.close()
+    assertThrows[com.twitter.finagle.ChannelWriteException] {
+      Await.result(resultInFuture)
+    }
+  }
+
   it should "not throw an exception when the auth server isn't available for time less than in config" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream))
 
-    authServer.close()
-
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(stream))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(stream))
-
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
+    Thread.sleep(configProperties.ClientConfig.authTimeoutConnection*3/5)
 
-    assertThrows[org.apache.thrift.TApplicationException] {
-      Await.result(resultInFuture)
-    }
+    Await.result(resultInFuture) shouldBe true
   }
 
   it should "put any kind of binary data and get it back" in {
@@ -106,15 +116,37 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val txn = getRandomProducerTransaction(stream)
     Await.result(client.putTransaction(txn))
 
-    val data = (0 to 1000).map(_=> rand.nextString(1000).getBytes)
+    val amount = 5000
+    val data = Array.fill(amount)(rand.nextString(10).getBytes)
 
-    val resultInFuture = client.putTransactionData(txn, data)
+    val resultInFuture = Await.result(client.putTransactionData(txn, data, 0))
+    resultInFuture shouldBe true
 
-    Await.result(resultInFuture) shouldBe true
-
-    val dataFromDatabase = Await.result(client.getTransactionData(txn,0,1000))
-
+    val dataFromDatabase = Await.result(client.getTransactionData(txn,0, amount))
     data should contain theSameElementsAs dataFromDatabase
+  }
+
+  it should "put transactions and get them back" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream))
+
+    val producerTransactions = Array.fill(15)(getRandomProducerTransaction(stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
+
+    Await.result(client.putTransactions(producerTransactions, Seq()))
+
+    val statesAllowed = Array(TransactionStates.Opened,TransactionStates.Checkpointed)
+    val (from, to) = (
+      producerTransactions.filter(txn => statesAllowed.contains(txn.state)).minBy(_.transactionID).transactionID,
+      producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
+      )
+
+    val producerTransactionsByState = producerTransactions.groupBy(_.state)
+    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to))
+
+    val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
+    
+    res should contain theSameElementsAs txns
   }
 
   "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
@@ -122,13 +154,47 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     Await.result(client.putStream(stream))
 
     val streamFake = getRandomStream
-    val producerTransactions = (0 to 100).map(_ => getRandomProducerTransaction(streamFake))
-    val consumerTransactions = (0 to 100).map(_ => getRandomConsumerTransaction(streamFake))
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
 
     val result = client.putTransactions(producerTransactions, consumerTransactions)
     assertThrows[org.apache.thrift.TApplicationException] {
       Await.result(result)
     }
   }
+
+  it should "not have problems with many clients" in {
+    val clients = Array.fill(3)(new TransactionZooKeeperClient)
+    val streams = Array.fill(10000)(getRandomStream)
+    Await.result(client.putStream(chooseStreamRandomly(streams)))
+
+    val dataCounter = new java.util.concurrent.ConcurrentHashMap[(String,Int), LongAdder]()
+    def addDataLength(stream: String, partition: Int, dataLength: Int): Unit = {
+      val valueToAdd = if (dataCounter.containsKey((stream,partition))) dataLength else 0
+      dataCounter.computeIfAbsent((stream,partition), new java.util.function.Function[(String,Int), LongAdder]{
+        override def apply(t: (String, Int)): LongAdder = new LongAdder()
+      }).add(valueToAdd)
+    }
+    def getDataLength(stream: String, partition: Int) = dataCounter.get((stream,partition)).intValue()
+
+
+    val res = TwitterFuture.collect(clients map {client =>
+      val streamFake = getRandomStream
+      client.putStream(streamFake).map{_ =>
+        val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
+        val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
+        val data = Array.fill(100)(rand.nextInt(10000).toString.getBytes)
+
+        client.putTransactions(producerTransactions, consumerTransactions)
+
+        val (stream, partition) = (producerTransactions.head.stream, producerTransactions.head.partition)
+        addDataLength(stream, partition, data.length)
+        client.putTransactionData(producerTransactions.head, data, getDataLength(stream, partition))
+      }.flatten
+    })
+
+    all (Await.result(res)) shouldBe true
+  }
+
   
 }

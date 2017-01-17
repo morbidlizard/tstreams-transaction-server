@@ -1,4 +1,4 @@
 logLevel := Level.Warn
 
 
-addSbtPlugin("com.twitter" % "scrooge-sbt-plugin" % "4.11.0")
+addSbtPlugin("com.twitter" % "scrooge-sbt-plugin" % "4.12.0")

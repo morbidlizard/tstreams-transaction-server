@@ -1,63 +1,75 @@
 package transactionService.server.streamService
 
 import com.sleepycat.je._
-import com.sleepycat.persist.{EntityStore, StoreConfig}
 import com.twitter.util.{Future => TwitterFuture}
 import transactionService.server.{Authenticable, CheckpointTTL}
 import transactionService.server.streamService.StreamServiceImpl._
 import transactionService.rpc.StreamService
 import exception.Throwables._
+import shared.FNV
 
 trait StreamServiceImpl extends StreamService[TwitterFuture]
   with Authenticable
   with CheckpointTTL
 {
 
-  def getStreamTTL(stream: String): TwitterFuture[Int] =
-    if (streamTTL.containsKey(stream)) TwitterFuture.value(streamTTL.get(stream))
+  override def getStreamDatabaseObject(stream: String): transactionService.server.streamService.KeyStream =
+    if (streamTTL.containsKey(stream)) streamTTL.get(stream)
     else {
-      TwitterFuture(pIdx.get(stream)) flatMap { streamObj => if (streamObj != null) {
-        streamTTL.put(streamObj.name, streamObj.ttl)
-        TwitterFuture.value(streamObj.ttl)
-      } else TwitterFuture.exception(throw new StreamNotExist)
-      }
-  }
+      val key = Key(FNV.hash64a(stream.getBytes()).toLong)
 
-  def putStream(token: String, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
-    authenticate(token) {
-      pIdx.put(new Stream(stream, partitions, description, ttl))
-      streamTTL.putIfAbsent(stream, ttl)
-      true
+      val keyEntry = key.toDatabaseEntry
+      val streamEntry = new DatabaseEntry()
+
+      if (database.get(null, keyEntry, streamEntry,LockMode.READ_COMMITTED) == OperationStatus.SUCCESS)
+        KeyStream(key, Stream.entryToObject(streamEntry))
+      else
+        throw new StreamNotExist
     }
 
-  def doesStreamExist(token: String, stream: String): TwitterFuture[Boolean] =
-    authenticate(token) (if (pIdx.get(stream) == null) false else true)
 
-  def getStream(token: String, stream: String): TwitterFuture[Stream] =
-    authenticate(token) (pIdx.get(stream))
-
-
-  def delStream(token: String, stream: String): TwitterFuture[Boolean] =
+  override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Int): TwitterFuture[Boolean] =
     authenticate(token) {
+      val newStream = Stream(stream, partitions, description, ttl)
+      val newKey    = Key(FNV.hash64a(stream.getBytes()).toLong)
+      streamTTL.putIfAbsent(stream, KeyStream(newKey, newStream))
+
+      database.putNoOverwrite(null, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
+    }
+
+  override def doesStreamExist(token: Int, stream: String): TwitterFuture[Boolean] =
+    authenticate(token) (scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)
+
+  override def getStream(token: Int, stream: String): TwitterFuture[Stream] =
+    authenticate(token) (getStreamDatabaseObject(stream).stream)
+
+
+  override def delStream(token: Int, stream: String): TwitterFuture[Boolean] =
+    authenticate(token) {
+      val key = Key(FNV.hash64a(stream.getBytes()).toLong)
       streamTTL.remove(stream)
-      pIdx.delete(stream)
+      val keyEntry = key.toDatabaseEntry
+      database.delete(null, keyEntry) == OperationStatus.SUCCESS
     }
 }
 
 object StreamServiceImpl {
-  val storeName = configProperties.DB.StreamStoreName
 
-  val directory = transactionService.io.FileUtils.createDirectory(configProperties.DB.StreamDirName)
-  val environmentConfig = new EnvironmentConfig()
-    .setAllowCreate(true)
-  val storeConfig = new StoreConfig()
-    .setAllowCreate(true)
-  val environment = new Environment(directory, environmentConfig)
-  val entityStore = new EntityStore(environment, storeName, storeConfig)
-  val pIdx = entityStore.getPrimaryIndex(classOf[String], classOf[Stream])
+  val environment = {
+    val directory = transactionService.io.FileUtils.createDirectory(configProperties.DB.StreamDirName)
+    val environmentConfig = new EnvironmentConfig().setAllowCreate(true)
+    new Environment(directory, environmentConfig)
+  }
+
+  val database = {
+    val dbConfig = new DatabaseConfig()
+      .setAllowCreate(true)
+    val storeName = configProperties.DB.StreamStoreName
+    environment.openDatabase(null, storeName, dbConfig)
+  }
 
   def close(): Unit = {
-    entityStore.close()
+    database.close()
     environment.close()
   }
 }

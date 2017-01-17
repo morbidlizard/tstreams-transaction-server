@@ -3,9 +3,9 @@ package netty.server
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
+import netty.server.streamService.StreamServiceImpl
+import netty.server.transactionMetaService.TransactionMetaServiceImpl
 import org.apache.curator.retry.RetryNTimes
 import zooKeeper.ZKLeaderServer
 
@@ -31,6 +31,9 @@ class Server extends TransactionServer{
       val f = b.bind(transactionServerListen, transactionServerPort).sync()
       f.channel().closeFuture().sync()
     } finally {
+      zk.close()
+      StreamServiceImpl.close()
+      TransactionMetaServiceImpl.close()
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
     }

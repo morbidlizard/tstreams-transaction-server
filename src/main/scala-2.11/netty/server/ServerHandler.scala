@@ -11,9 +11,12 @@ import transactionService.rpc.TransactionService
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
 class ServerHandler extends SimpleChannelInboundHandler[Message] {
+  var i = System.currentTimeMillis() //todo remove
+
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     ServerHandler.invokeMethod(msg)(ServerHandler.context.getContext)
       .map(message => ctx.writeAndFlush(message.toByteArray))(ServerHandler.context.getContext)
+    if (i + 30000 < System.currentTimeMillis()) throw new Exception("it's about time") //todo remove
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
@@ -22,13 +25,15 @@ class ServerHandler extends SimpleChannelInboundHandler[Message] {
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     cause.printStackTrace()
-    ctx.close()
+    ctx.channel().close()
+    ctx.channel().parent().close()
   }
 }
 
 private object ServerHandler {
   private lazy val context = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
   val transactionServer = new TransactionServer()
+
   import Descriptors._
 
   def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Message] = {

@@ -1,19 +1,19 @@
 package netty.server.transactionMetaService
 
 import java.time.Instant
-import java.util.concurrent.{Executors, TimeUnit}
 import java.util.concurrent.TimeUnit._
+import java.util.concurrent.{Executors, TimeUnit}
 
 import com.google.common.primitives.UnsignedBytes
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
-
-import scala.concurrent.{ExecutionContext, Promise, Future => ScalaFuture}
-import transactionService.rpc._
 import netty.server.transactionMetaService.TransactionMetaServiceImpl._
 import netty.server.{Authenticable, CheckpointTTL}
+import netty.server.сonsumerService.ConsumerServiceImpl
+import transactionService.rpc._
 
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
@@ -241,6 +241,8 @@ object TransactionMetaServiceImpl {
 
   def close(): Unit = {
     producerTransactionsDatabase.close()
+    producerTransactionsWithOpenedStateDatabase.close()
+    ConsumerServiceImpl.database.close()
     environment.close()
   }
 }

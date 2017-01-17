@@ -1,23 +1,21 @@
 package netty.client
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.twitter.scrooge.ThriftStruct
 import exception.Throwables.ServerUnreachableException
+import io.netty.bootstrap.Bootstrap
+import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import netty.{Descriptors, Message}
 
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Promise => ScalaPromise}
-import scala.concurrent.{Future => ScalaFuture}
+import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
-
-
-
-class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]],
+@Sharable
+class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]], val client: Client,
                     implicit val context: ExecutionContext)
-  extends SimpleChannelInboundHandler[Message]
-{
+  extends SimpleChannelInboundHandler[Message] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
 
@@ -29,7 +27,7 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
         retryCompletePromise(messageSeqId, response)
     }
 
-    def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture{
+    def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
       val (method, messageSeqId) = Descriptor.decodeMethodName(message)
       val response = method match {
         case `putStreamMethod` =>
@@ -73,25 +71,27 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
       }
       retryCompletePromise(messageSeqId, response)
     }
+
     invokeMethod(msg)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     import scala.collection.JavaConversions._
-      for (promise <- reqIdToRep.values()) {
-        if (!promise.isCompleted) promise.failure(new ServerUnreachableException)
+    println(reqIdToRep.values())
+    for (promise <- reqIdToRep.values()) {
+      if (!promise.isCompleted) promise.tryFailure(new ServerUnreachableException)
+    }
+    val eventLoop = ctx.channel().eventLoop()
+    eventLoop.schedule(new Runnable() {
+      override def run() {
+        client.createBootstrap(new Bootstrap(), eventLoop)
       }
+    }, 1L, TimeUnit.SECONDS)
     super.channelInactive(ctx)
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    import scala.collection.JavaConversions._
-      for (promise <- reqIdToRep.values()) {
-        if (!promise.isCompleted) promise.failure(new ServerUnreachableException)
-      }
-      cause.printStackTrace()
-      ctx.channel().close()
-      ctx.channel().parent().close()
-      ctx.close()
-    }
+    cause.printStackTrace()
+    ctx.close()
+  }
 }

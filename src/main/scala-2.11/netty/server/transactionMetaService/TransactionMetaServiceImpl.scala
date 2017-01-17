@@ -83,7 +83,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
 
   override def putTransaction(token: Int, transaction: Transaction): ScalaFuture[Boolean] = authenticate(token) {
-    val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
+    val transactionDB = environment.beginTransaction(null, new TransactionConfig())
     val isOkay =  matchTransactionToPut(transaction, transactionDB)
     if (isOkay) transactionDB.commit() else transactionDB.abort()
     isOkay
@@ -92,7 +92,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
 
   override def putTransactions(token: Int, transactions: Seq[Transaction]): ScalaFuture[Boolean] = authenticate(token) {
-    val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
+    val transactionDB = environment.beginTransaction(null, new TransactionConfig())
     val operationStatuses = transactions map { transaction =>
       matchTransactionToPut(transaction, transactionDB)
     }
@@ -207,7 +207,6 @@ object TransactionMetaServiceImpl {
     val environmentConfig = new EnvironmentConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-      .setLockTimeout(5L, TimeUnit.SECONDS)
       .setSharedCache(true)
 
     configProperties.ServerConfig.berkeleyDBJEproperties foreach {

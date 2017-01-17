@@ -7,7 +7,7 @@ import `implicit`.Implicits._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
 import configProperties.ClientConfig._
-import exception.Throwables.ZkGetMasterException
+import exception.Throwables.{ServerConnectionException, ZkGetMasterException}
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
@@ -34,36 +34,42 @@ class Client {
   private val nextSeqId = new AtomicInteger(Int.MinValue)
   private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, configProperties.ClientConfig.clientPool)
   private val workerGroup = new EpollEventLoopGroup()
-  createBootstrap(new Bootstrap(), workerGroup)
-  var channel: Channel = _
-  //  lazy val bootstrap = new Bootstrap()
-  //    .group(workerGroup)
-  //    .channel(classOf[EpollSocketChannel])
-  //    .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
-  //    .handler(new ClientInitializer(ReqIdToRep, this ,context))
 
+  private val bootstrap = new Bootstrap()
+    .group(workerGroup)
+    .channel(classOf[EpollSocketChannel])
+    .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
+    .handler(new ClientInitializer(ReqIdToRep, this, context))
 
-  def createBootstrap(bootstrap: Bootstrap, eventLoop: EventLoopGroup) = {
-    if (bootstrap != null) {
-      val handler = new ClientHandler(ReqIdToRep, this, context)
-      bootstrap.group(eventLoop)
-      bootstrap.channel(classOf[EpollSocketChannel])
-      bootstrap.option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
-      bootstrap.handler(new ChannelInitializer[SocketChannel]() {
-        override def initChannel(ch: SocketChannel): Unit = {
-          ch.pipeline()
-            .addLast(new ByteArrayEncoder())
-            .addLast(new MessageDecoder)
-            .addLast(handler)
-        }
-      })
-      val (listen, port) = getInetAddressFromZookeeper(zkTimeoutConnection / zkTimeoutBetweenRetries)
-      bootstrap.remoteAddress(listen, port)
-      bootstrap.connect().addListener(new ConnectionListener(this))
-    }
-
-    bootstrap
+  @volatile private var channel: Channel = {
+    connect()
+    null
   }
+
+  def connect(): Unit = {
+    val (listen, port) = getInetAddressFromZookeeper(zkTimeoutConnection / zkTimeoutBetweenRetries)
+    bootstrap.connect(listen, port).addListener(new ConnectionListener)
+  }
+
+  private class ConnectionListener extends ChannelFutureListener() {
+    val atomicInteger = new AtomicInteger(serverTimeoutConnection / serverTimeoutBetweenRetries)
+
+    @throws[Exception]
+    override def operationComplete(channelFuture: ChannelFuture): Unit = {
+      if (!channelFuture.isSuccess && atomicInteger.getAndDecrement() > 0) {
+        //      System.out.println("Reconnect")
+        val loop = channelFuture.channel().eventLoop()
+        loop.execute(new Runnable() {
+          override def run() {
+            TimeUnit.MILLISECONDS.sleep(serverTimeoutBetweenRetries)
+            connect()
+          }
+        })
+      } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
+      else channel = channelFuture.sync().channel()
+    }
+  }
+
 
   @tailrec
   final def getInetAddressFromZookeeper(times: Int): (String, Int) = {
@@ -79,26 +85,8 @@ class Client {
     }
   }
 
-  //  def connect(): ChannelFuture = {
-  //    val (listen, port) = getInetAddressFromZookeeper(zkTimeoutConnection / zkTimeoutBetweenRetries)
-  //    val channelFuture = bootstrap.connect(listen, port)
-  //    val listener = new ChannelFutureListener() {
-  //      val atomicInteger = new AtomicInteger(serverTimeoutConnection / serverTimeoutBetweenRetries)
-  //
-  //      @throws[Exception]
-  //      override def operationComplete(future: ChannelFuture): Unit = {
-  //        if (!future.isSuccess && atomicInteger.getAndDecrement() > 0) {
-  //          future.channel().close()
-  //          TimeUnit.MILLISECONDS.sleep(serverTimeoutBetweenRetries)
-  //          future.addListener(this)
-  //        } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
-  //      }
-  //    }
-  //    channelFuture.addListener(listener)
-  //  }
-
   private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit context: ExecutionContext): ScalaFuture[Rep] = {
-    if (channel.isActive) {
+    if (channel != null && channel.isActive) {
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
       val message = descriptor.encodeRequest(request)(messageId)
@@ -110,8 +98,6 @@ class Client {
       }
     } else ScalaFuture.failed(new exception.Throwables.ServerUnreachableException)
   }
-
-
 
   private def retry[Req, Rep](times: Int)(f: => ScalaFuture[Rep])(condition: PartialFunction[Throwable, Boolean]): ScalaFuture[Rep] = {
     def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f.recoverWith {

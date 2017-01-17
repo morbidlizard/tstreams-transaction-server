@@ -81,12 +81,9 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
     for (promise <- reqIdToRep.values()) {
       if (!promise.isCompleted) promise.tryFailure(new ServerUnreachableException)
     }
-    val eventLoop = ctx.channel().eventLoop()
-    eventLoop.schedule(new Runnable() {
-      override def run() {
-        client.createBootstrap(new Bootstrap(), eventLoop)
-      }
-    }, 1L, TimeUnit.SECONDS)
+
+    ctx.channel().eventLoop().execute(new Runnable() {override def run() {client.connect()}})
+
     super.channelInactive(ctx)
   }
 

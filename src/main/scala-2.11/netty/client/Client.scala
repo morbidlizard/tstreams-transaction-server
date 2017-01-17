@@ -95,7 +95,7 @@ class Client {
       promise.future.map { response =>
         ReqIdToRep.remove(messageId)
         response.asInstanceOf[Rep]
-      }
+      }.recover{case error => ReqIdToRep.remove(messageId); throw error}
     } else ScalaFuture.failed(new exception.Throwables.ServerUnreachableException)
   }
 
@@ -258,21 +258,4 @@ class Client {
   }
 
   //def close() = channelGroup.newCloseFuture().sync()
-}
-
-object Client {
-  private def retry(times: Int)(f: => Int): Int = {
-    def helper(times: Int)(f: => Int): Int = f
-
-    helper(times)(f)
-  }
-
-  def a = {
-    println(1)
-    1
-  }
-
-  def main(args: Array[String]): Unit = {
-    retry(2)(a)
-  }
 }

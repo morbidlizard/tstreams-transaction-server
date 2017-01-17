@@ -1,10 +1,9 @@
 package netty.client
 
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.ConcurrentHashMap
 
 import com.twitter.scrooge.ThriftStruct
 import exception.Throwables.ServerUnreachableException
-import io.netty.bootstrap.Bootstrap
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import netty.{Descriptors, Message}
@@ -77,7 +76,6 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     import scala.collection.JavaConversions._
-    println(reqIdToRep.values())
     for (promise <- reqIdToRep.values()) {
       if (!promise.isCompleted) promise.tryFailure(new ServerUnreachableException)
     }

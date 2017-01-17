@@ -20,9 +20,11 @@ class ZKLeaderServer(endpoints: String, sessionTimeoutMillis: Int, connectionTim
     connection.blockUntilConnected()
     connection
   }
-  scala.util.Try(client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(prefix, Array[Byte](0)))
 
-  def putData(data: Array[Byte]) = client.setData().forPath(prefix, data)
+  def putData(data: Array[Byte]) = {
+    scala.util.Try(client.delete().deletingChildrenIfNeeded().forPath(prefix))
+    scala.util.Try(client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(prefix, data))
+  }
 
   override def close(): Unit = client.close()
 

@@ -30,10 +30,18 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] =
     authenticate(token) {
       val newStream = Stream(stream, partitions, description, ttl)
-      val newKey    = Key(FNV.hash64a(stream.getBytes()).toLong)
+      val newKey = Key(FNV.hash64a(stream.getBytes()).toLong)
       streamTTL.putIfAbsent(stream, KeyStream(newKey, newStream))
 
-      database.putNoOverwrite(null, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
+      val transactionDB = environment.beginTransaction(null, new TransactionConfig())
+      val result = database.putNoOverwrite(transactionDB, newKey.toDatabaseEntry, newStream.toDatabaseEntry)
+      if (result == OperationStatus.SUCCESS) {
+        transactionDB.commit()
+        true
+      } else {
+        transactionDB.abort()
+        false
+      }
     }(netty.Context.berkeleyWritePool.getContext)
 
   override def doesStreamExist(token: Int, stream: String): ScalaFuture[Boolean] =
@@ -48,7 +56,15 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       val key = Key(FNV.hash64a(stream.getBytes()).toLong)
       streamTTL.remove(stream)
       val keyEntry = key.toDatabaseEntry
-      database.delete(null, keyEntry) == OperationStatus.SUCCESS
+      val transactionDB = environment.beginTransaction(null, new TransactionConfig())
+      val result =  database.delete(null, keyEntry)
+      if (result == OperationStatus.SUCCESS) {
+        transactionDB.commit()
+        true
+      } else {
+        transactionDB.abort()
+        false
+      }
     }(netty.Context.berkeleyWritePool.getContext)
 }
 
@@ -59,12 +75,15 @@ object StreamServiceImpl {
     val environmentConfig = new EnvironmentConfig()
       .setAllowCreate(true)
       .setSharedCache(true)
+      .setTransactional(true)
     new Environment(directory, environmentConfig)
   }
 
   val database = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
+      .setTransactional(true)
+      .setSortedDuplicates(false)
     val storeName = configProperties.DB.StreamStoreName
     environment.openDatabase(null, storeName, dbConfig)
   }

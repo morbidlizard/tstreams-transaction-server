@@ -22,13 +22,15 @@ class ServerHandler extends SimpleChannelInboundHandler[Message] {
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     cause.printStackTrace()
-    ctx.close()
+    ctx.channel().close()
+    ctx.channel().parent().close()
   }
 }
 
 private object ServerHandler {
   private lazy val context = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
   val transactionServer = new TransactionServer()
+
   import Descriptors._
 
   def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Message] = {
@@ -39,7 +41,6 @@ private object ServerHandler {
         transactionServer.putStream(args.token, args.stream, args.partitions, args.description, args.ttl)
           .flatMap(response => ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
-            println(error.getMessage)
             Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
@@ -74,7 +75,6 @@ private object ServerHandler {
         scala.concurrent.blocking(transactionServer.putTransaction(args.token, args.transaction))
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
-            println(error.getMessage)
             Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
@@ -83,7 +83,6 @@ private object ServerHandler {
         scala.concurrent.blocking(transactionServer.putTransactions(args.token, args.transactions))
           .flatMap(response => ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(response)))(messageSeqId)))
           .recover { case error =>
-            println(error.getMessage)
             Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 

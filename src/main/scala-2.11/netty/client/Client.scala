@@ -1,21 +1,31 @@
 package netty.client
 
-import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 
-import configProperties.ServerConfig.{transactionServerListen, transactionServerPort}
-import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelOption}
-import netty.{Context, Descriptors}
-import transactionService.rpc.{TransactionService, _}
 import `implicit`.Implicits._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
+import configProperties.ClientConfig._
+import exception.Throwables.{ServerConnectionException, ZkGetMasterException}
+import io.netty.bootstrap.Bootstrap
+import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
+import io.netty.channel.socket.SocketChannel
+import io.netty.handler.codec.bytes.ByteArrayEncoder
+import netty.{Context, Descriptors, MessageDecoder}
+import org.apache.curator.retry.RetryNTimes
+import transactionService.rpc.{TransactionService, _}
+import zooKeeper.ZKLeaderClient
 
-import scala.concurrent.{Await, ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
+import scala.annotation.tailrec
+import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 class Client {
+  val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
+    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
+  zKLeaderClient.start()
+
   private implicit final val context = Context(Executors.newFixedThreadPool(
     configProperties.ClientConfig.clientPool,
     new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build())
@@ -23,46 +33,95 @@ class Client {
 
   private val nextSeqId = new AtomicInteger(Int.MinValue)
   private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, configProperties.ClientConfig.clientPool)
-
   private val workerGroup = new EpollEventLoopGroup()
-  private val channel: Channel = {
-    val b = new Bootstrap()
-      .group(workerGroup)
-      .channel(classOf[EpollSocketChannel])
-      .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
-      .handler(new ClientInitializer(ReqIdToRep, context))
-    val f = b.connect(transactionServerListen, transactionServerPort).sync()
-    f.channel()
+
+  private val bootstrap = new Bootstrap()
+    .group(workerGroup)
+    .channel(classOf[EpollSocketChannel])
+    .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
+    .handler(new ClientInitializer(ReqIdToRep, this, context))
+
+  @volatile private var channel: Channel = {
+    connect()
+    null
+  }
+
+  def connect(): Unit = {
+    val (listen, port) = getInetAddressFromZookeeper(zkTimeoutConnection / zkTimeoutBetweenRetries)
+    bootstrap.connect(listen, port).addListener(new ConnectionListener)
+  }
+
+  private class ConnectionListener extends ChannelFutureListener() {
+    val atomicInteger = new AtomicInteger(serverTimeoutConnection / serverTimeoutBetweenRetries)
+
+    @throws[Exception]
+    override def operationComplete(channelFuture: ChannelFuture): Unit = {
+      if (!channelFuture.isSuccess && atomicInteger.getAndDecrement() > 0) {
+        //      System.out.println("Reconnect")
+        val loop = channelFuture.channel().eventLoop()
+        loop.execute(new Runnable() {
+          override def run() {
+            TimeUnit.MILLISECONDS.sleep(serverTimeoutBetweenRetries)
+            connect()
+          }
+        })
+      } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
+      else channel = channelFuture.sync().channel()
+    }
+  }
+
+
+  @tailrec
+  final def getInetAddressFromZookeeper(times: Int): (String, Int) = {
+    if (times > 0 && zKLeaderClient.master.isEmpty) {
+      TimeUnit.MILLISECONDS.sleep(zkTimeoutBetweenRetries)
+      getInetAddressFromZookeeper(times - 1)
+    } else {
+      zKLeaderClient.master match {
+        case Some(master) => val listenPort = master.split(":")
+          (listenPort(0), listenPort(1).toInt)
+        case None => throw new ZkGetMasterException
+      }
+    }
   }
 
   private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit context: ExecutionContext): ScalaFuture[Rep] = {
-    val messageId = nextSeqId.getAndIncrement()
-    val promise = ScalaPromise[ThriftStruct]
-    ReqIdToRep.put(messageId, promise)
-    val message = descriptor.encodeRequest(request)(messageId)
-    channel.writeAndFlush(message.toByteArray, channel.voidPromise())
-    promise.future.map { response =>
-      ReqIdToRep.remove(messageId)
-      response.asInstanceOf[Rep]
-    }
+    if (channel != null && channel.isActive) {
+      val messageId = nextSeqId.getAndIncrement()
+      val promise = ScalaPromise[ThriftStruct]
+      val message = descriptor.encodeRequest(request)(messageId)
+      ReqIdToRep.put(messageId, promise)
+      channel.writeAndFlush(message.toByteArray)
+      promise.future.map { response =>
+        ReqIdToRep.remove(messageId)
+        response.asInstanceOf[Rep]
+      }.recover{case error => ReqIdToRep.remove(messageId); throw error}
+    } else ScalaFuture.failed(new exception.Throwables.ServerUnreachableException)
   }
 
-
   private def retry[Req, Rep](times: Int)(f: => ScalaFuture[Rep])(condition: PartialFunction[Throwable, Boolean]): ScalaFuture[Rep] = {
-    def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f recoverWith {
-      case error if times > 0 && condition(error) => helper(times - 1)(f)
+    def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f.recoverWith {
+      case error if times > 0 && condition(error) =>
+        helper(times - 1)(f)
     }
+
     helper(times)(f)
   }
 
-  private def retryAuthenticate[Req, Rep](f: => ScalaFuture[Rep]) = retry(5)(f)(
+  private def retryAuthenticate[Req, Rep](f: => ScalaFuture[Rep]) = retry(50)(f)(
     new PartialFunction[Throwable, Boolean] {
       override def apply(v1: Throwable): Boolean = v1 match {
         case _: exception.Throwables.TokenInvalidException =>
           authenticate()
-          TimeUnit.SECONDS.sleep(1)
+          TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
           true
-        case _ => false
+        case _: exception.Throwables.ServerUnreachableException =>
+          TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
+          true
+        case error =>
+          println(error.getMessage)
+          //          System.err.println(error.getMessage)
+          false
       }
 
       override def isDefinedAt(x: Throwable): Boolean = x.isInstanceOf[exception.Throwables.TokenInvalidException]
@@ -70,8 +129,6 @@ class Client {
   )
 
   @volatile private var token: Int = _
-
-  import scala.concurrent.duration._
   //Await.ready(authenticate(), 5 seconds)
 
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] = {
@@ -108,6 +165,7 @@ class Client {
   }
 
   private final val futurePool = Context(1, "ClientTransactionPool-%d").getContext
+
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
 
@@ -129,7 +187,7 @@ class Client {
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     retryAuthenticate(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
-      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool))
+      .flatMap(x => /*if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else*/ ScalaFuture.successful(true /*x.success.get*/))(futurePool))
   }
 
 
@@ -199,56 +257,5 @@ class Client {
       .map(x => token = x.success.get)
   }
 
-  def close() = channel.closeFuture().sync()
-}
-
-object Client extends App {
-//  private implicit lazy val context = netty.Context.clientPool.getContext
-//
-//  val rand = scala.util.Random
-//  private def getRandomStream = new transactionService.rpc.Stream {
-//    override val name: String = rand.nextInt(10000).toString
-//    override val partitions: Int = rand.nextInt(10000)
-//    override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
-//    override val ttl: Int = rand.nextInt(Int.MaxValue)
-//  }
-//  private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
-//
-//  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
-//    override val transactionID: Long = System.nanoTime()
-//    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
-//    override val stream: String = streamObj.name
-//    override val keepAliveTTL: Long = Long.MaxValue
-//    override val quantity: Int = -1
-//    override val partition: Int = streamObj.partitions
-//  }
-//
-//  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =  new ConsumerTransaction {
-//    override def transactionID: Long = scala.util.Random.nextLong()
-//    override def name: String = rand.nextInt(10000).toString
-//    override def stream: String = streamObj.name
-//    override def partition: Int = streamObj.partitions
-//  }
-//  val client = new Client()
-//
-//  client.authenticate() map { _ =>
-//    import scala.concurrent.duration._
-//    val stream = getRandomStream
-//    println(Await.result(client.putStream(stream), 10.seconds))
-//
-//    val txn = getRandomProducerTransaction(stream)
-//    Await.result(client.putTransaction(txn), 10.seconds)
-//
-//    val amount = 50000
-//    val data = Array.fill(amount)(rand.nextString(10).getBytes)
-//
-//    val before = System.currentTimeMillis()
-//    Await.result(client.putTransactionData(txn, data, 0), 10.seconds)
-//    val after = System.currentTimeMillis()
-//    println(after - before)
-//
-//    val res = Await.result(client.getTransactionData(txn, 0, 50000), 10.seconds)
-//
-//    res
-//  } map (_ =>  client.close())
+  //def close() = channelGroup.newCloseFuture().sync()
 }

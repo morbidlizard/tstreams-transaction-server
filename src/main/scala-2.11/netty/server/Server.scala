@@ -3,17 +3,17 @@ package netty.server
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
+import netty.server.streamService.StreamServiceImpl
+import netty.server.transactionMetaService.TransactionMetaServiceImpl
 import org.apache.curator.retry.RetryNTimes
 import zooKeeper.ZKLeaderServer
 
 class Server extends TransactionServer{
   import configProperties.ServerConfig._
-//  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
-//    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
-//  zk.putData(transactionServerAddress.getBytes())
+  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
+    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
+  zk.putData(transactionServerAddress.getBytes())
 
   def run(): Unit = {
     val bossGroup = new EpollEventLoopGroup(1)
@@ -25,15 +25,15 @@ class Server extends TransactionServer{
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(new ServerInitializer)
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
-        .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
+        .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
 
       val f = b.bind(transactionServerListen, transactionServerPort).sync()
-      // Wait until the server socket is closed.
-      // In this example, this does not happen, but you can do that to gracefully
-      // shut down your server.
       f.channel().closeFuture().sync()
     } finally {
+      zk.close()
+      StreamServiceImpl.close()
+      TransactionMetaServiceImpl.close()
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
     }

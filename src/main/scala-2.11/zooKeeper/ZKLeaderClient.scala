@@ -5,13 +5,16 @@ import java.net.InetAddress
 
 import com.twitter.logging.{Level, Logger}
 import org.apache.curator.RetryPolicy
-import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
+import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 
 
 class ZKLeaderClient(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends NodeCacheListener with Closeable {
   private val logger = Logger.get(this.getClass)
+  @volatile var master: Option[String] = None
+
   val client = {
     val connection = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(sessionTimeoutMillis)
@@ -22,6 +25,15 @@ class ZKLeaderClient(endpoints: String, sessionTimeoutMillis: Int, connectionTim
 
     connection.start()
     connection.blockUntilConnected()
+    connection.getConnectionStateListenable.addListener(new ConnectionStateListener {
+      override def stateChanged(client: CuratorFramework, newState: ConnectionState): Unit = {
+        newState match {
+          case ConnectionState.SUSPENDED => master = None
+          case ConnectionState.LOST => master = None
+          case _ => ()
+        }
+      }
+    })
     connection
   }
 
@@ -35,7 +47,6 @@ class ZKLeaderClient(endpoints: String, sessionTimeoutMillis: Int, connectionTim
     client.close()
   }
 
-  @volatile var master: Option[String] = None
   override def nodeChanged(): Unit = {
     Option(nodeToWatch.getCurrentData) foreach {node =>
       val address = new String(node.getData)

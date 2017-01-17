@@ -1,16 +1,13 @@
 package configProperties
 import configProperties.Config._
 object ClientConfig {
-  // coordination.hosts = 192.1.1.1:2181,192.1.1.2:2181,192.1.1.3:2181
-  // coordination.prefix = /ab/c/d/ -> master {"1.2.3.4", 8888} - ephemeral node
-  // coordination.session.timeout_ms = 5000
-
-  // listen.address = "1.2.3.4"
-  // listen.port = 8888
-
   private val config = new Config("src/main/resources/clientProperties.properties")
 
   val clientPool = config.readProperty[Int]("client.pool")
+
+  val serverTimeoutConnection = config.readProperty[Int]("server.timeout.connection")
+
+  val serverTimeoutBetweenRetries = config.readProperty[Int]("server.timeout.betweenRetries")
 
   val login = config.readProperty[String]("auth.login")
 

@@ -53,9 +53,4 @@ object ConsumerServiceImpl {
     val storeName = configProperties.DB.ConsumerStoreName
     environment.openDatabase(null, storeName, dbConfig)
   }
-
-  def close(): Unit = {
-    database.close()
-    environment.close()
-  }
 }

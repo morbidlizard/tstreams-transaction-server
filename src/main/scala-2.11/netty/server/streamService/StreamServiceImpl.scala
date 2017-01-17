@@ -71,7 +71,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 object StreamServiceImpl {
 
   val environment = {
-    val directory = transactionService.io.FileUtils.createDirectory(configProperties.DB.StreamDirName)
+    val directory = io.FileUtils.createDirectory(configProperties.DB.StreamDirName)
     val environmentConfig = new EnvironmentConfig()
       .setAllowCreate(true)
       .setSharedCache(true)

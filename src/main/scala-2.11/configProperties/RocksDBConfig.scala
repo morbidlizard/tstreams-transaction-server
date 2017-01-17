@@ -178,7 +178,7 @@ object RocksDBConfig {
       case `arena_block_size` => options.setArenaBlockSize(properties(arena_block_size))
       case `min_write_buffer_number_to_merge` => options.setMinWriteBufferNumberToMerge(properties(min_write_buffer_number_to_merge))
       case `target_file_size_multiplier` => options.setTargetFileSizeMultiplier(properties(target_file_size_multiplier))
-      case `source_compaction_factor` => options.setSourceCompactionFactor(properties(source_compaction_factor))
+//      case `source_compaction_factor` => options.setSourceCompactionFactor(properties(source_compaction_factor))
       case `max_bytes_for_level_multiplier` => options.setMaxBytesForLevelMultiplier(properties(max_bytes_for_level_multiplier))
       //      case `max_bytes_for_level_multiplier_additional` => options.
       //      case `compaction_filter_factory` => options.
@@ -189,8 +189,8 @@ object RocksDBConfig {
       case `purge_redundant_kvs_while_flush` => options.setPurgeRedundantKvsWhileFlush(properties(purge_redundant_kvs_while_flush))
       //      case `max_write_buffer_number_to_maintain` => options.
       //      case `memtable_factory` => options.
-      case `max_grandparent_overlap_factor` => options.setMaxGrandparentOverlapFactor(properties(max_grandparent_overlap_factor))
-      case `expanded_compaction_factor` => options.setExpandedCompactionFactor(properties(expanded_compaction_factor))
+//      case `max_grandparent_overlap_factor` => options.setMaxGrandparentOverlapFactor(properties(max_grandparent_overlap_factor))
+//      case `expanded_compaction_factor` => options.setExpandedCompactionFactor(properties(expanded_compaction_factor))
       //      case `hard_pending_compaction_bytes_limit` => options.
       case `inplace_update_num_locks` => options.setInplaceUpdateNumLocks(properties(inplace_update_num_locks))
       case `level_compaction_dynamic_level_bytes` => options.setLevelCompactionDynamicLevelBytes(properties(level_compaction_dynamic_level_bytes))

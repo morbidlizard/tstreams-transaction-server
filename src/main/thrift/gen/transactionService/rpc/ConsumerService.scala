@@ -19,9 +19,6 @@ import com.twitter.scrooge.{
   ThriftUtil,
   ToThriftService
 }
-import com.twitter.finagle.{service => ctfs}
-import com.twitter.finagle.thrift.{Protocols, ThriftClientRequest, ThriftServiceIface}
-import com.twitter.util.Future
 import java.nio.ByteBuffer
 import java.util.Arrays
 import org.apache.thrift.protocol._
@@ -48,50 +45,6 @@ trait ConsumerService[+MM[_]] extends ThriftService {
 
 
 object ConsumerService { self =>
-
-  case class ServiceIface(
-      setConsumerState : com.twitter.finagle.Service[self.SetConsumerState.Args, self.SetConsumerState.Result],
-      getConsumerState : com.twitter.finagle.Service[self.GetConsumerState.Args, self.GetConsumerState.Result]
-  ) extends BaseServiceIface
-
-  // This is needed to support service inheritance.
-  trait BaseServiceIface extends ToThriftService {
-    def setConsumerState : com.twitter.finagle.Service[self.SetConsumerState.Args, self.SetConsumerState.Result]
-    def getConsumerState : com.twitter.finagle.Service[self.GetConsumerState.Args, self.GetConsumerState.Result]
-
-    override def toThriftService: ThriftService = new MethodIface(this)
-  }
-
-  implicit object ServiceIfaceBuilder
-    extends com.twitter.finagle.thrift.ServiceIfaceBuilder[ServiceIface] {
-      def newServiceIface(
-        binaryService: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-        pf: TProtocolFactory = Protocols.binaryFactory(),
-        stats: com.twitter.finagle.stats.StatsReceiver
-      ): ServiceIface =
-        new ServiceIface(
-          setConsumerState = ThriftServiceIface(self.SetConsumerState, binaryService, pf, stats),
-          getConsumerState = ThriftServiceIface(self.GetConsumerState, binaryService, pf, stats)
-      )
-  }
-
-  class MethodIface(serviceIface: BaseServiceIface)
-    extends ConsumerService[Future] {
-    private[this] val __setConsumerState_service =
-      ThriftServiceIface.resultFilter(self.SetConsumerState) andThen serviceIface.setConsumerState
-    def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean] =
-      __setConsumerState_service(self.SetConsumerState.Args(token, name, stream, partition, transaction))
-    private[this] val __getConsumerState_service =
-      ThriftServiceIface.resultFilter(self.GetConsumerState) andThen serviceIface.getConsumerState
-    def getConsumerState(token: Int, name: String, stream: String, partition: Int): Future[Long] =
-      __getConsumerState_service(self.GetConsumerState.Args(token, name, stream, partition))
-  }
-
-  implicit object MethodIfaceBuilder
-    extends com.twitter.finagle.thrift.MethodIfaceBuilder[ServiceIface, ConsumerService[Future]] {
-    def newMethodIface(serviceIface: ServiceIface): ConsumerService[Future] =
-      new MethodIface(serviceIface)
-  }
 
   object SetConsumerState extends com.twitter.scrooge.ThriftMethod {
     
@@ -756,20 +709,11 @@ object ConsumerService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "setConsumerState"
     val serviceName = "ConsumerService"
@@ -1391,20 +1335,11 @@ object ConsumerService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Long]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "getConsumerState"
     val serviceName = "ConsumerService"
@@ -1421,39 +1356,4 @@ object ConsumerService { self =>
   type getConsumerState$result = GetConsumerState.Result
 
 
-  trait FutureIface extends ConsumerService[Future] {
-    
-    def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean]
-    
-    def getConsumerState(token: Int, name: String, stream: String, partition: Int): Future[Long]
-  }
-
-  class FinagledClient(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory = Protocols.binaryFactory(),
-      serviceName: String = "ConsumerService",
-      stats: com.twitter.finagle.stats.StatsReceiver = com.twitter.finagle.stats.NullStatsReceiver,
-      responseClassifier: ctfs.ResponseClassifier = ctfs.ResponseClassifier.Default)
-    extends ConsumerService$FinagleClient(
-      service,
-      protocolFactory,
-      serviceName,
-      stats,
-      responseClassifier)
-    with FutureIface {
-
-    def this(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory,
-      serviceName: String,
-      stats: com.twitter.finagle.stats.StatsReceiver
-    ) = this(service, protocolFactory, serviceName, stats, ctfs.ResponseClassifier.Default)
-  }
-
-  class FinagledService(
-      iface: FutureIface,
-      protocolFactory: TProtocolFactory)
-    extends ConsumerService$FinagleService(
-      iface,
-      protocolFactory)
 }

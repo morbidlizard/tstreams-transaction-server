@@ -8,7 +8,7 @@ import org.rocksdb._
 class RocksDbConnection(name: String, ttl: Int = -1) extends Closeable {
   RocksDB.loadLibrary()
   private lazy val client =  {
-    val path = transactionService.io.FileUtils.createDirectory(s"${RocksDbConnection.rocksDBStoragesPath}/$name").getAbsolutePath
+    val path = io.FileUtils.createDirectory(s"${RocksDbConnection.rocksDBStoragesPath}/$name").getAbsolutePath
     TtlDB.open(configProperties.RocksDBConfig.rocksDBProperties, path, ttl, false)
   }
 

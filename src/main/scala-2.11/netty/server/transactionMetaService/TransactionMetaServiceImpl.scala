@@ -9,7 +9,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
 import netty.server.transactionMetaService.TransactionMetaServiceImpl._
 import netty.server.{Authenticable, CheckpointTTL}
-import netty.server.сonsumerService.ConsumerServiceImpl
+import netty.server.сonsumerService.{ConsumerServiceImpl, ConsumerTransactionKey}
 import transactionService.rpc._
 
 import scala.collection.mutable.ArrayBuffer
@@ -64,7 +64,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
 
   private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
-    import transactionService.server.сonsumerService._
+
     val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
 
     ConsumerTransactionKey(txn,streamNameToLong).put(producerTransactionsDatabase,databaseTxn, putType, new WriteOptions()) != null
@@ -202,7 +202,7 @@ object TransactionMetaServiceImpl {
 
   final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build())
 
-  val directory = transactionService.io.FileUtils.createDirectory(DB.TransactionMetaDirName)
+  val directory = io.FileUtils.createDirectory(DB.TransactionMetaDirName)
   val environment = {
     val environmentConfig = new EnvironmentConfig()
       .setAllowCreate(true)

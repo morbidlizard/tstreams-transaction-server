@@ -6,7 +6,7 @@ import com.sleepycat.persist.{EntityStore, StoreConfig}
 import configProperties.ServerConfig
 
 object BerkeleyDBReplication {
-//  val directory = transactionService.io.FileUtils.dirToFile(resource.DB.PathToDatabases)
+//  val directory = io.FileUtils.dirToFile(resource.DB.PathToDatabases)
 //  val environmentConfig = new EnvironmentConfig()
 //    .setAllowCreate(true)
 //    .setTransactional(true)

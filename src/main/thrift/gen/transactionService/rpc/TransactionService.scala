@@ -19,9 +19,6 @@ import com.twitter.scrooge.{
   ThriftUtil,
   ToThriftService
 }
-import com.twitter.finagle.{service => ctfs}
-import com.twitter.finagle.thrift.{Protocols, ThriftClientRequest, ThriftServiceIface}
-import com.twitter.util.Future
 import java.nio.ByteBuffer
 import java.util.Arrays
 import org.apache.thrift.protocol._
@@ -70,127 +67,6 @@ trait TransactionService[+MM[_]] extends ThriftService {
 
 
 object TransactionService { self =>
-
-  case class ServiceIface(
-      putStream : com.twitter.finagle.Service[self.PutStream.Args, self.PutStream.Result],
-      doesStreamExist : com.twitter.finagle.Service[self.DoesStreamExist.Args, self.DoesStreamExist.Result],
-      getStream : com.twitter.finagle.Service[self.GetStream.Args, self.GetStream.Result],
-      delStream : com.twitter.finagle.Service[self.DelStream.Args, self.DelStream.Result],
-      putTransaction : com.twitter.finagle.Service[self.PutTransaction.Args, self.PutTransaction.Result],
-      putTransactions : com.twitter.finagle.Service[self.PutTransactions.Args, self.PutTransactions.Result],
-      scanTransactions : com.twitter.finagle.Service[self.ScanTransactions.Args, self.ScanTransactions.Result],
-      putTransactionData : com.twitter.finagle.Service[self.PutTransactionData.Args, self.PutTransactionData.Result],
-      getTransactionData : com.twitter.finagle.Service[self.GetTransactionData.Args, self.GetTransactionData.Result],
-      setConsumerState : com.twitter.finagle.Service[self.SetConsumerState.Args, self.SetConsumerState.Result],
-      getConsumerState : com.twitter.finagle.Service[self.GetConsumerState.Args, self.GetConsumerState.Result],
-      authenticate : com.twitter.finagle.Service[self.Authenticate.Args, self.Authenticate.Result],
-      isValid : com.twitter.finagle.Service[self.IsValid.Args, self.IsValid.Result]
-  ) extends BaseServiceIface
-
-  // This is needed to support service inheritance.
-  trait BaseServiceIface extends ToThriftService {
-    def putStream : com.twitter.finagle.Service[self.PutStream.Args, self.PutStream.Result]
-    def doesStreamExist : com.twitter.finagle.Service[self.DoesStreamExist.Args, self.DoesStreamExist.Result]
-    def getStream : com.twitter.finagle.Service[self.GetStream.Args, self.GetStream.Result]
-    def delStream : com.twitter.finagle.Service[self.DelStream.Args, self.DelStream.Result]
-    def putTransaction : com.twitter.finagle.Service[self.PutTransaction.Args, self.PutTransaction.Result]
-    def putTransactions : com.twitter.finagle.Service[self.PutTransactions.Args, self.PutTransactions.Result]
-    def scanTransactions : com.twitter.finagle.Service[self.ScanTransactions.Args, self.ScanTransactions.Result]
-    def putTransactionData : com.twitter.finagle.Service[self.PutTransactionData.Args, self.PutTransactionData.Result]
-    def getTransactionData : com.twitter.finagle.Service[self.GetTransactionData.Args, self.GetTransactionData.Result]
-    def setConsumerState : com.twitter.finagle.Service[self.SetConsumerState.Args, self.SetConsumerState.Result]
-    def getConsumerState : com.twitter.finagle.Service[self.GetConsumerState.Args, self.GetConsumerState.Result]
-    def authenticate : com.twitter.finagle.Service[self.Authenticate.Args, self.Authenticate.Result]
-    def isValid : com.twitter.finagle.Service[self.IsValid.Args, self.IsValid.Result]
-
-    override def toThriftService: ThriftService = new MethodIface(this)
-  }
-
-  implicit object ServiceIfaceBuilder
-    extends com.twitter.finagle.thrift.ServiceIfaceBuilder[ServiceIface] {
-      def newServiceIface(
-        binaryService: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-        pf: TProtocolFactory = Protocols.binaryFactory(),
-        stats: com.twitter.finagle.stats.StatsReceiver
-      ): ServiceIface =
-        new ServiceIface(
-          putStream = ThriftServiceIface(self.PutStream, binaryService, pf, stats),
-          doesStreamExist = ThriftServiceIface(self.DoesStreamExist, binaryService, pf, stats),
-          getStream = ThriftServiceIface(self.GetStream, binaryService, pf, stats),
-          delStream = ThriftServiceIface(self.DelStream, binaryService, pf, stats),
-          putTransaction = ThriftServiceIface(self.PutTransaction, binaryService, pf, stats),
-          putTransactions = ThriftServiceIface(self.PutTransactions, binaryService, pf, stats),
-          scanTransactions = ThriftServiceIface(self.ScanTransactions, binaryService, pf, stats),
-          putTransactionData = ThriftServiceIface(self.PutTransactionData, binaryService, pf, stats),
-          getTransactionData = ThriftServiceIface(self.GetTransactionData, binaryService, pf, stats),
-          setConsumerState = ThriftServiceIface(self.SetConsumerState, binaryService, pf, stats),
-          getConsumerState = ThriftServiceIface(self.GetConsumerState, binaryService, pf, stats),
-          authenticate = ThriftServiceIface(self.Authenticate, binaryService, pf, stats),
-          isValid = ThriftServiceIface(self.IsValid, binaryService, pf, stats)
-      )
-  }
-
-  class MethodIface(serviceIface: BaseServiceIface)
-    extends TransactionService[Future] {
-    private[this] val __putStream_service =
-      ThriftServiceIface.resultFilter(self.PutStream) andThen serviceIface.putStream
-    def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean] =
-      __putStream_service(self.PutStream.Args(token, stream, partitions, description, ttl))
-    private[this] val __doesStreamExist_service =
-      ThriftServiceIface.resultFilter(self.DoesStreamExist) andThen serviceIface.doesStreamExist
-    def doesStreamExist(token: Int, stream: String): Future[Boolean] =
-      __doesStreamExist_service(self.DoesStreamExist.Args(token, stream))
-    private[this] val __getStream_service =
-      ThriftServiceIface.resultFilter(self.GetStream) andThen serviceIface.getStream
-    def getStream(token: Int, stream: String): Future[transactionService.rpc.Stream] =
-      __getStream_service(self.GetStream.Args(token, stream))
-    private[this] val __delStream_service =
-      ThriftServiceIface.resultFilter(self.DelStream) andThen serviceIface.delStream
-    def delStream(token: Int, stream: String): Future[Boolean] =
-      __delStream_service(self.DelStream.Args(token, stream))
-    private[this] val __putTransaction_service =
-      ThriftServiceIface.resultFilter(self.PutTransaction) andThen serviceIface.putTransaction
-    def putTransaction(token: Int, transaction: transactionService.rpc.Transaction): Future[Boolean] =
-      __putTransaction_service(self.PutTransaction.Args(token, transaction))
-    private[this] val __putTransactions_service =
-      ThriftServiceIface.resultFilter(self.PutTransactions) andThen serviceIface.putTransactions
-    def putTransactions(token: Int, transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): Future[Boolean] =
-      __putTransactions_service(self.PutTransactions.Args(token, transactions))
-    private[this] val __scanTransactions_service =
-      ThriftServiceIface.resultFilter(self.ScanTransactions) andThen serviceIface.scanTransactions
-    def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]] =
-      __scanTransactions_service(self.ScanTransactions.Args(token, stream, partition, from, to))
-    private[this] val __putTransactionData_service =
-      ThriftServiceIface.resultFilter(self.PutTransactionData) andThen serviceIface.putTransactionData
-    def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): Future[Boolean] =
-      __putTransactionData_service(self.PutTransactionData.Args(token, stream, partition, transaction, data, from))
-    private[this] val __getTransactionData_service =
-      ThriftServiceIface.resultFilter(self.GetTransactionData) andThen serviceIface.getTransactionData
-    def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]] =
-      __getTransactionData_service(self.GetTransactionData.Args(token, stream, partition, transaction, from, to))
-    private[this] val __setConsumerState_service =
-      ThriftServiceIface.resultFilter(self.SetConsumerState) andThen serviceIface.setConsumerState
-    def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean] =
-      __setConsumerState_service(self.SetConsumerState.Args(token, name, stream, partition, transaction))
-    private[this] val __getConsumerState_service =
-      ThriftServiceIface.resultFilter(self.GetConsumerState) andThen serviceIface.getConsumerState
-    def getConsumerState(token: Int, name: String, stream: String, partition: Int): Future[Long] =
-      __getConsumerState_service(self.GetConsumerState.Args(token, name, stream, partition))
-    private[this] val __authenticate_service =
-      ThriftServiceIface.resultFilter(self.Authenticate) andThen serviceIface.authenticate
-    def authenticate(login: String, password: String): Future[Int] =
-      __authenticate_service(self.Authenticate.Args(login, password))
-    private[this] val __isValid_service =
-      ThriftServiceIface.resultFilter(self.IsValid) andThen serviceIface.isValid
-    def isValid(token: Int): Future[Boolean] =
-      __isValid_service(self.IsValid.Args(token))
-  }
-
-  implicit object MethodIfaceBuilder
-    extends com.twitter.finagle.thrift.MethodIfaceBuilder[ServiceIface, TransactionService[Future]] {
-    def newMethodIface(serviceIface: ServiceIface): TransactionService[Future] =
-      new MethodIface(serviceIface)
-  }
 
   object PutStream extends com.twitter.scrooge.ThriftMethod {
     
@@ -857,20 +733,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "putStream"
     val serviceName = "TransactionService"
@@ -1378,20 +1245,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "doesStreamExist"
     val serviceName = "TransactionService"
@@ -1899,20 +1757,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[transactionService.rpc.Stream]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "getStream"
     val serviceName = "TransactionService"
@@ -2420,20 +2269,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "delStream"
     val serviceName = "TransactionService"
@@ -2941,20 +2781,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "putTransaction"
     val serviceName = "TransactionService"
@@ -3494,20 +3325,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "putTransactions"
     val serviceName = "TransactionService"
@@ -4218,20 +4040,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Seq[transactionService.rpc.Transaction]]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "scanTransactions"
     val serviceName = "TransactionService"
@@ -4999,20 +4812,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "putTransactionData"
     val serviceName = "TransactionService"
@@ -5780,20 +5584,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Seq[ByteBuffer]]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "getTransactionData"
     val serviceName = "TransactionService"
@@ -6472,20 +6267,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "setConsumerState"
     val serviceName = "TransactionService"
@@ -7107,20 +6893,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Long]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "getConsumerState"
     val serviceName = "TransactionService"
@@ -7569,20 +7346,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Int]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "authenticate"
     val serviceName = "TransactionService"
@@ -7974,20 +7742,11 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "isValid"
     val serviceName = "TransactionService"
@@ -8004,61 +7763,4 @@ object TransactionService { self =>
   type isValid$result = IsValid.Result
 
 
-  trait FutureIface extends TransactionService[Future] {
-    
-    def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean]
-    
-    def doesStreamExist(token: Int, stream: String): Future[Boolean]
-    
-    def getStream(token: Int, stream: String): Future[transactionService.rpc.Stream]
-    
-    def delStream(token: Int, stream: String): Future[Boolean]
-    
-    def putTransaction(token: Int, transaction: transactionService.rpc.Transaction): Future[Boolean]
-    
-    def putTransactions(token: Int, transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): Future[Boolean]
-    
-    def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): Future[Seq[transactionService.rpc.Transaction]]
-    
-    def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): Future[Boolean]
-    
-    def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]]
-    
-    def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): Future[Boolean]
-    
-    def getConsumerState(token: Int, name: String, stream: String, partition: Int): Future[Long]
-    
-    def authenticate(login: String, password: String): Future[Int]
-    
-    def isValid(token: Int): Future[Boolean]
-  }
-
-  class FinagledClient(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory = Protocols.binaryFactory(),
-      serviceName: String = "TransactionService",
-      stats: com.twitter.finagle.stats.StatsReceiver = com.twitter.finagle.stats.NullStatsReceiver,
-      responseClassifier: ctfs.ResponseClassifier = ctfs.ResponseClassifier.Default)
-    extends TransactionService$FinagleClient(
-      service,
-      protocolFactory,
-      serviceName,
-      stats,
-      responseClassifier)
-    with FutureIface {
-
-    def this(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory,
-      serviceName: String,
-      stats: com.twitter.finagle.stats.StatsReceiver
-    ) = this(service, protocolFactory, serviceName, stats, ctfs.ResponseClassifier.Default)
-  }
-
-  class FinagledService(
-      iface: FutureIface,
-      protocolFactory: TProtocolFactory)
-    extends TransactionService$FinagleService(
-      iface,
-      protocolFactory)
 }

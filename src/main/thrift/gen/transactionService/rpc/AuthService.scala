@@ -19,9 +19,6 @@ import com.twitter.scrooge.{
   ThriftUtil,
   ToThriftService
 }
-import com.twitter.finagle.{service => ctfs}
-import com.twitter.finagle.thrift.{Protocols, ThriftClientRequest, ThriftServiceIface}
-import com.twitter.util.Future
 import java.nio.ByteBuffer
 import java.util.Arrays
 import org.apache.thrift.protocol._
@@ -48,50 +45,6 @@ trait AuthService[+MM[_]] extends ThriftService {
 
 
 object AuthService { self =>
-
-  case class ServiceIface(
-      authenticate : com.twitter.finagle.Service[self.Authenticate.Args, self.Authenticate.Result],
-      isValid : com.twitter.finagle.Service[self.IsValid.Args, self.IsValid.Result]
-  ) extends BaseServiceIface
-
-  // This is needed to support service inheritance.
-  trait BaseServiceIface extends ToThriftService {
-    def authenticate : com.twitter.finagle.Service[self.Authenticate.Args, self.Authenticate.Result]
-    def isValid : com.twitter.finagle.Service[self.IsValid.Args, self.IsValid.Result]
-
-    override def toThriftService: ThriftService = new MethodIface(this)
-  }
-
-  implicit object ServiceIfaceBuilder
-    extends com.twitter.finagle.thrift.ServiceIfaceBuilder[ServiceIface] {
-      def newServiceIface(
-        binaryService: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-        pf: TProtocolFactory = Protocols.binaryFactory(),
-        stats: com.twitter.finagle.stats.StatsReceiver
-      ): ServiceIface =
-        new ServiceIface(
-          authenticate = ThriftServiceIface(self.Authenticate, binaryService, pf, stats),
-          isValid = ThriftServiceIface(self.IsValid, binaryService, pf, stats)
-      )
-  }
-
-  class MethodIface(serviceIface: BaseServiceIface)
-    extends AuthService[Future] {
-    private[this] val __authenticate_service =
-      ThriftServiceIface.resultFilter(self.Authenticate) andThen serviceIface.authenticate
-    def authenticate(login: String, password: String): Future[Int] =
-      __authenticate_service(self.Authenticate.Args(login, password))
-    private[this] val __isValid_service =
-      ThriftServiceIface.resultFilter(self.IsValid) andThen serviceIface.isValid
-    def isValid(token: Int): Future[Boolean] =
-      __isValid_service(self.IsValid.Args(token))
-  }
-
-  implicit object MethodIfaceBuilder
-    extends com.twitter.finagle.thrift.MethodIfaceBuilder[ServiceIface, AuthService[Future]] {
-    def newMethodIface(serviceIface: ServiceIface): AuthService[Future] =
-      new MethodIface(serviceIface)
-  }
 
   object Authenticate extends com.twitter.scrooge.ThriftMethod {
     
@@ -526,20 +479,11 @@ object AuthService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Int]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "authenticate"
     val serviceName = "AuthService"
@@ -931,20 +875,11 @@ object AuthService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "isValid"
     val serviceName = "AuthService"
@@ -961,39 +896,4 @@ object AuthService { self =>
   type isValid$result = IsValid.Result
 
 
-  trait FutureIface extends AuthService[Future] {
-    
-    def authenticate(login: String, password: String): Future[Int]
-    
-    def isValid(token: Int): Future[Boolean]
-  }
-
-  class FinagledClient(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory = Protocols.binaryFactory(),
-      serviceName: String = "AuthService",
-      stats: com.twitter.finagle.stats.StatsReceiver = com.twitter.finagle.stats.NullStatsReceiver,
-      responseClassifier: ctfs.ResponseClassifier = ctfs.ResponseClassifier.Default)
-    extends AuthService$FinagleClient(
-      service,
-      protocolFactory,
-      serviceName,
-      stats,
-      responseClassifier)
-    with FutureIface {
-
-    def this(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory,
-      serviceName: String,
-      stats: com.twitter.finagle.stats.StatsReceiver
-    ) = this(service, protocolFactory, serviceName, stats, ctfs.ResponseClassifier.Default)
-  }
-
-  class FinagledService(
-      iface: FutureIface,
-      protocolFactory: TProtocolFactory)
-    extends AuthService$FinagleService(
-      iface,
-      protocolFactory)
 }

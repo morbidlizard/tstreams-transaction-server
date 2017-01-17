@@ -108,7 +108,7 @@ class Client {
     helper(times)(f)
   }
 
-  private def retryAuthenticate[Req, Rep](f: => ScalaFuture[Rep]) = retry(50)(f)(
+  private def retryAuthenticate[Req, Rep](f: => ScalaFuture[Rep]) = retry(authTimeoutConnection / authTokenTimeoutBetweenRetries)(f)(
     new PartialFunction[Throwable, Boolean] {
       override def apply(v1: Throwable): Boolean = v1 match {
         case _: exception.Throwables.TokenInvalidException =>
@@ -120,7 +120,6 @@ class Client {
           true
         case error =>
           println(error.getMessage)
-          //          System.err.println(error.getMessage)
           false
       }
 
@@ -257,5 +256,5 @@ class Client {
       .map(x => token = x.success.get)
   }
 
-  //def close() = channelGroup.newCloseFuture().sync()
+  def close() = channel.closeFuture().sync()
 }

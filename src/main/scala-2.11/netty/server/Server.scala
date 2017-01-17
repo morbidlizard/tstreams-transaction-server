@@ -15,9 +15,10 @@ class Server extends TransactionServer{
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
   zk.putData(transactionServerAddress.getBytes())
 
-  def run(): Unit = {
-    val bossGroup = new EpollEventLoopGroup(1)
-    val workerGroup = new EpollEventLoopGroup()
+  private val bossGroup = new EpollEventLoopGroup(1)
+  private val workerGroup = new EpollEventLoopGroup()
+
+  def start(): Unit = {
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
@@ -32,14 +33,21 @@ class Server extends TransactionServer{
       f.channel().closeFuture().sync()
     } finally {
       zk.close()
-      StreamServiceImpl.close()
-      TransactionMetaServiceImpl.close()
+//      StreamServiceImpl.close()
+//      TransactionMetaServiceImpl.close()
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
     }
   }
+  def close() = {
+    zk.close()
+//    StreamServiceImpl.close()
+//    TransactionMetaServiceImpl.close()
+    workerGroup.shutdownGracefully()
+    bossGroup.shutdownGracefully()
+  }
 }
 
 object Server extends App{
-  new Server().run()
+  new Server().start()
 }

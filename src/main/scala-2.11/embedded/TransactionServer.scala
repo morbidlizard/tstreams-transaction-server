@@ -1,5 +1,0 @@
-package embedded
-
-//class TransactionServer {
-//
-//}

@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.LongAdder
 import org.apache.commons.io.FileUtils
 import netty.client.Client
 import netty.server.Server
+import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 
@@ -16,8 +17,9 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   var client: Client = _
   var transactionServer: Server = _
 
-  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/main/resources/serverProperties.properties"))
-  private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/main/resources/clientProperties.properties"))
+  val zkTestServer = new TestingServer(32000, true)
+  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/main/resources/serverIntegrationTestProperties.properties"))
+  private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/main/resources/clientIntegrationTestProperties.properties"))
   def startTransactionServer() = {
     new Thread(new Runnable {
       override def run(): Unit = {

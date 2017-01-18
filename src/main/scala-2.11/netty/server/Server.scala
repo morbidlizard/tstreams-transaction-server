@@ -7,12 +7,12 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import netty.server.streamService.StreamServiceImpl
 import netty.server.transactionMetaService.TransactionMetaServiceImpl
 import org.apache.curator.retry.RetryNTimes
-import zooKeeper.ZKLeaderServer
+import zooKeeper.ZKLeaderClientToPutMaster
 
 class Server extends TransactionServer{
   import config._
 
-  val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
+  val zk = new ZKLeaderClientToPutMaster(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
   zk.putData(transactionServerAddress.getBytes())
 

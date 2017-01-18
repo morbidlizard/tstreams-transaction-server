@@ -10,7 +10,7 @@ import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 
 
-class ZKLeaderClient(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
+class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends NodeCacheListener with Closeable {
   private val logger = Logger.get(this.getClass)
   @volatile var master: Option[String] = None

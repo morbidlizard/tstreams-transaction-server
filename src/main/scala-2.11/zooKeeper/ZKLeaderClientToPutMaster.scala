@@ -6,7 +6,7 @@ import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.zookeeper.CreateMode
 
-class ZKLeaderServer(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
+class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends Closeable {
   val client = {
     val connection = CuratorFrameworkFactory.builder()

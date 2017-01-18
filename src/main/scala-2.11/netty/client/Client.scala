@@ -16,14 +16,14 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder
 import netty.{Context, Descriptors, MessageDecoder}
 import org.apache.curator.retry.RetryNTimes
 import transactionService.rpc.{TransactionService, _}
-import zooKeeper.ZKLeaderClient
+import zooKeeper.ZKLeaderClientToGetMaster
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 class Client(config: configProperties.ClientConfig = new configProperties.ClientConfig(new configProperties.ConfigFile("src/main/resources/clientProperties.properties"))) {
   import config._
-  val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
+  val zKLeaderClient = new ZKLeaderClientToGetMaster(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
   zKLeaderClient.start()
 

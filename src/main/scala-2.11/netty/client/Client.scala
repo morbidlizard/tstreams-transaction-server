@@ -6,7 +6,7 @@ import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import `implicit`.Implicits._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
-import configProperties.ClientConfig._
+import configProperties.ConfigFile
 import exception.Throwables.{ServerConnectionException, ZkGetMasterException}
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel._
@@ -21,18 +21,16 @@ import zooKeeper.ZKLeaderClient
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
-class Client {
+class Client(config: configProperties.ClientConfig = new configProperties.ClientConfig(new configProperties.ConfigFile("src/main/resources/clientProperties.properties"))) {
+  import config._
   val zKLeaderClient = new ZKLeaderClient(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
   zKLeaderClient.start()
 
-  private implicit final val context = Context(Executors.newFixedThreadPool(
-    configProperties.ClientConfig.clientPool,
-    new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build())
-  ).getContext
+  private implicit final val context = clientPoolContext
 
   private val nextSeqId = new AtomicInteger(Int.MinValue)
-  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, configProperties.ClientConfig.clientPool)
+  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, clientPool)
   private val workerGroup = new EpollEventLoopGroup()
 
   private val bootstrap = new Bootstrap()
@@ -250,8 +248,8 @@ class Client {
   }
 
   private def authenticate(): ScalaFuture[Unit] = {
-    val login = configProperties.ClientConfig.login
-    val password = configProperties.ClientConfig.password
+    val login = config.login
+    val password = config.password
     method(Descriptors.Authenticate, TransactionService.Authenticate.Args(login, password))
       .map(x => token = x.success.get)
   }

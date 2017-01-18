@@ -3,7 +3,6 @@ package benchmark.utils
 import java.io.File
 import java.util.logging.LogManager
 
-import configProperties.DB
 import org.apache.commons.io.FileUtils
 
 import scala.concurrent.Await
@@ -11,10 +10,12 @@ import scala.concurrent.duration._
 
 
 trait Installer {
+  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/main/resources/serverProperties.properties"))
+
   def clearDB() = {
-    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
-    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
-    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
+    FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbStreamDirName))
+    FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbTransactionDataDirName))
+    FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbTransactionMetaDirName))
   }
 
   def startTransactionServer() = {

@@ -2,14 +2,14 @@ package netty.server.transactionMetaService
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit._
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 
 import com.google.common.primitives.UnsignedBytes
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
-import netty.server.transactionMetaService.TransactionMetaServiceImpl._
+import configProperties.ServerConfig
 import netty.server.{Authenticable, CheckpointTTL}
-import netty.server.сonsumerService.{ConsumerServiceImpl, ConsumerTransactionKey}
+import netty.server.сonsumerService.ConsumerTransactionKey
 import transactionService.rpc._
 
 import scala.collection.mutable.ArrayBuffer
@@ -20,7 +20,44 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   with Authenticable
   with CheckpointTTL {
 
-//  val logger = Logger.get(this.getClass)
+  val config: ServerConfig
+
+  final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build())
+
+  val directory = io.FileUtils.createDirectory(config.dbTransactionMetaDirName, config.dbPath)
+  val transactionMetaEnviroment = {
+    val environmentConfig = new EnvironmentConfig()
+      .setAllowCreate(true)
+      .setTransactional(true)
+      .setSharedCache(true)
+
+    config.berkeleyDBJEproperties foreach {
+      case (name, value) => environmentConfig.setConfigParam(name,value)
+    }
+
+    val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
+    environmentConfig.setDurabilityVoid(defaultDurability)
+
+    new Environment(directory, environmentConfig)
+  }
+
+  val producerTransactionsDatabase = {
+    val dbConfig = new DatabaseConfig()
+      .setAllowCreate(true)
+      .setTransactional(true)
+      .setSortedDuplicates(false)
+    val storeName = config.transactionMetaStoreName
+    transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
+  }
+
+  val producerTransactionsWithOpenedStateDatabase = {
+    val dbConfig = new DatabaseConfig()
+      .setAllowCreate(true)
+      .setTransactional(true)
+      .setSortedDuplicates(false)
+    val storeName = config.transactionMetaOpenStoreName
+    transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
+  }
 
   private final val putType = Put.OVERWRITE
 
@@ -28,15 +65,6 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val ttlInHours = MILLISECONDS.toHours(ttl.toLong).toInt
     if (ttlInHours == 0) 1 else ttlInHours
   }
-
-//  private def logAboutTransactionExistence(isNotExist: Boolean, transaction: String) = {
-//    if (isNotExist) {
-//      logger.log(Level.INFO, s"$transaction inserted/updated!")
-//    } else {
-//      logger.log(Level.WARNING, s"$transaction exists in DB!")
-//    }
-//  }
-
 
   private def putProducerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ProducerTransaction): Boolean = {
     import transactionService.rpc.TransactionStates._
@@ -81,39 +109,38 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       case _ => putNoTransaction
     }
 
-
   override def putTransaction(token: Int, transaction: Transaction): ScalaFuture[Boolean] = authenticate(token) {
-    val transactionDB = environment.beginTransaction(null, new TransactionConfig())
+    val transactionDB = transactionMetaEnviroment.beginTransaction(null, new TransactionConfig())
     val isOkay =  matchTransactionToPut(transaction, transactionDB)
     if (isOkay) transactionDB.commit() else transactionDB.abort()
     isOkay
-  }(netty.Context.berkeleyWritePool.getContext)
+  }(config.berkeleyWritePool.getContext)
 
 
 
   override def putTransactions(token: Int, transactions: Seq[Transaction]): ScalaFuture[Boolean] = authenticate(token) {
-    val transactionDB = environment.beginTransaction(null, new TransactionConfig())
+    val transactionDB = transactionMetaEnviroment.beginTransaction(null, new TransactionConfig())
     val operationStatuses = transactions map { transaction =>
       matchTransactionToPut(transaction, transactionDB)
     }
     val isOkay = operationStatuses.forall(_ == true)
     if (isOkay) transactionDB.commit() else transactionDB.abort()
     isOkay
-  }(netty.Context.berkeleyWritePool.getContext)
+  }(config.berkeleyWritePool.getContext)
 
 
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
-    (txn.keepAliveTTL + configProperties.ServerConfig.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
+    (txn.keepAliveTTL + config.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
 
   private def doesProducerTransactionExpired(txn: netty.server.transactionMetaService.ProducerTransaction): Boolean =
-    (txn.keepAliveTTL + configProperties.ServerConfig.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
+    (txn.keepAliveTTL + config.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
 
   private val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
     authenticate(token) {
       val lockMode = LockMode.READ_UNCOMMITTED
       val streamObj = getStreamDatabaseObject(stream)
-      val transactionDB = environment.beginTransaction(null, null)
+      val transactionDB = transactionMetaEnviroment.beginTransaction(null, null)
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
@@ -154,13 +181,13 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
           txns map producerTransactionToTransaction
       }
-    }(netty.Context.berkeleyReadPool.getContext)
+    }(config.berkeleyReadPool.getContext)
 
   private val transiteTxnsToInvalidState = new Runnable {
-    val cleanAmountPerDatabaseTransaction = configProperties.ServerConfig.transactionDataCleanAmount
+    val cleanAmountPerDatabaseTransaction = config.transactionDataCleanAmount
     val lockMode = LockMode.READ_UNCOMMITTED_ALL
     override def run(): Unit = {
-      val transactionDB = environment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
+      val transactionDB = transactionMetaEnviroment.beginTransaction(null, new TransactionConfig().setReadUncommitted(true))
       val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
       val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
 
@@ -172,7 +199,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
           val producerTransaction = ProducerTransaction.entryToObject(dataFound)
           if (doesProducerTransactionExpired(producerTransaction)) {
-            ScalaFuture(cursor.delete())(netty.Context.berkeleyWritePool.getContext)
+            ScalaFuture(cursor.delete())(config.berkeleyReadPool.getContext)
             true
             // == OperationStatus.SUCCESS
           } else true
@@ -183,7 +210,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         if (counter > 0 && isExpired) repeat(counter - 1, cursor)
       }
 
-      implicit val context = netty.Context.berkeleyReadPool.getContext
+      implicit val context = config.berkeleyReadPool.getContext
       ScalaFuture.sequence(
         Seq(
           repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions)
@@ -194,54 +221,15 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       ).map(_ => transactionDB.commit())
     }
   }
-  TransactionMetaServiceImpl.scheduledExecutor.scheduleWithFixedDelay(transiteTxnsToInvalidState,0, configProperties.ServerConfig.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
-}
 
-object TransactionMetaServiceImpl {
-  import configProperties.DB
-
-  final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build())
-
-  val directory = io.FileUtils.createDirectory(DB.TransactionMetaDirName)
-  val environment = {
-    val environmentConfig = new EnvironmentConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-      .setSharedCache(true)
-
-    configProperties.ServerConfig.berkeleyDBJEproperties foreach {
-      case (name, value) => environmentConfig.setConfigParam(name,value)
-    }
-
-    val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
-    environmentConfig.setDurabilityVoid(defaultDurability)
-
-    new Environment(directory, environmentConfig)
-  }
-
-  val producerTransactionsDatabase = {
-    val dbConfig = new DatabaseConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-      .setSortedDuplicates(false)
-    val storeName = DB.TransactionMetaStoreName
-    environment.openDatabase(null, storeName, dbConfig)
-  }
-
-  val producerTransactionsWithOpenedStateDatabase = {
-    val dbConfig = new DatabaseConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-      .setSortedDuplicates(false)
-    val storeName = DB.TransactionMetaOpenStoreName
-    environment.openDatabase(null, storeName, dbConfig)
-  }
-
-
-  def close(): Unit = {
+  def closeTransactionMetaDatabases(): Unit = {
     producerTransactionsDatabase.close()
     producerTransactionsWithOpenedStateDatabase.close()
-    ConsumerServiceImpl.database.close()
-    environment.close()
   }
+
+  def closeTransactionMetaEnviroment() = {
+    transactionMetaEnviroment.close()
+  }
+
+  scheduledExecutor.scheduleWithFixedDelay(transiteTxnsToInvalidState, 0, config.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
 }

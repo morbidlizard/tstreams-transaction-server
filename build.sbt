@@ -26,7 +26,7 @@ resolvers ++= Seq(
 libraryDependencies ++= Seq(
   "com.twitter" % "scrooge-core_2.11" % "4.13.0",
   "com.twitter" % "finagle-thrift_2.11" % "6.41.0",
-  "org.rocksdb" % "rocksdbjni" % "5.0.1",
+  "org.rocksdb" % "rocksdbjni" % "4.11.2",
   "com.sleepycat" % "je" % "7.0.6",
   "org.scalactic" %% "scalactic" % "3.0.0",
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
@@ -35,5 +35,6 @@ libraryDependencies ++= Seq(
 
   "org.slf4j" % "slf4j-simple" % "1.7.22",
   "org.apache.curator" % "curator-framework" % "2.11.1",
+  "org.apache.curator" % "curator-test" % "2.11.1",
   "org.apache.curator" % "curator-recipes" % "2.11.1"
 )

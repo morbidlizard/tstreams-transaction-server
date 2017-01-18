@@ -15,7 +15,7 @@ object MultipleTransactionLifeCyclesTest extends Launcher {
 
   def main(args: Array[String]) {
 //    launch()
- //   createStream(streamName, clients)
+//    createStream(streamName, clients)
     launchClients()
     System.exit(0)
   }

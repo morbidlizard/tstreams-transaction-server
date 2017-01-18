@@ -1,19 +1,18 @@
 package netty.server
 
-import java.util.concurrent.Executors
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import netty.Context
 import netty.{Descriptors, Message}
 import transactionService.rpc.TransactionService
+import Descriptors._
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
-class ServerHandler extends SimpleChannelInboundHandler[Message] {
+class ServerHandler(transactionServer: TransactionServer, implicit val context: ExecutionContext) extends SimpleChannelInboundHandler[Message] {
+
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
-    ServerHandler.invokeMethod(msg)(ServerHandler.context.getContext)
-      .map(message => ctx.writeAndFlush(message.toByteArray))(ServerHandler.context.getContext)
+    invokeMethod(msg)(context)
+      .map(message => ctx.writeAndFlush(message.toByteArray))(context)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
@@ -25,13 +24,7 @@ class ServerHandler extends SimpleChannelInboundHandler[Message] {
     ctx.channel().close()
     ctx.channel().parent().close()
   }
-}
 
-private object ServerHandler {
-  private lazy val context = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
-  val transactionServer = new TransactionServer()
-
-  import Descriptors._
 
   def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Message] = {
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)

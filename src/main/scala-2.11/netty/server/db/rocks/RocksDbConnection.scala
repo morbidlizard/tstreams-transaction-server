@@ -2,16 +2,16 @@ package netty.server.db.rocks
 
 import java.io.Closeable
 
-import configProperties.DB
+import configProperties.ServerConfig
 import org.rocksdb._
 
-class RocksDbConnection(name: String, ttl: Int = -1) extends Closeable {
+class RocksDbConnection(config: ServerConfig, name: String, ttl: Int = -1) extends Closeable {
   RocksDB.loadLibrary()
-  private lazy val client =  {
-    val path = io.FileUtils.createDirectory(s"${RocksDbConnection.rocksDBStoragesPath}/$name").getAbsolutePath
-    TtlDB.open(configProperties.RocksDBConfig.rocksDBProperties, path, ttl, false)
-  }
 
+  private val client =  {
+    val path = io.FileUtils.createDirectory(s"${config.dbTransactionDataDirName}/$name", config.dbPath).getAbsolutePath
+    TtlDB.open(config.options, path, ttl, false)
+  }
 
   def get(key: Array[Byte]) = client.get(key)
 
@@ -35,9 +35,4 @@ class RocksDbConnection(name: String, ttl: Int = -1) extends Closeable {
       status
     }
   }
-}
-
-
-private object RocksDbConnection {
-  val rocksDBStoragesPath = DB.TransactionDataDirName
 }

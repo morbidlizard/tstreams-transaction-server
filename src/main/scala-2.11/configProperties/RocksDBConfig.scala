@@ -3,9 +3,7 @@ package configProperties
 import org.rocksdb._
 import Config._
 
-object RocksDBConfig {
-  val config = ServerConfig.config
-
+class RocksDBConfig(config: Config) {
   private val prefix = "rocksdb."
 
   //DBOptions
@@ -112,7 +110,7 @@ object RocksDBConfig {
 
     val tableConfig = new BlockBasedTableConfig()
 
-    val env = Env.getDefault
+//    val env = Env.getDefault
     val options = new Options()
 
     val filter: PartialFunction[String, Unit] = {
@@ -136,7 +134,7 @@ object RocksDBConfig {
       case `max_total_wal_size` => options.setMaxTotalWalSize(properties(max_total_wal_size))
       case `max_open_files` => options.setMaxOpenFiles(properties(max_open_files))
       //      case `skip_stats_update_on_db_open` => options.
-      case `max_background_compactions` => env.setBackgroundThreads(properties(max_background_compactions), Env.COMPACTION_POOL)
+//      case `max_background_compactions` => env.setBackgroundThreads(properties(max_background_compactions), Env.COMPACTION_POOL)
       case `manifest_preallocation_size` => options.setManifestPreallocationSize(properties(manifest_preallocation_size))
       case `max_background_flushes` => options.setMaxBackgroundFlushes(properties(max_background_flushes))
       case `is_fd_close_on_exec` => options.setIsFdCloseOnExec(properties(is_fd_close_on_exec))
@@ -212,6 +210,7 @@ object RocksDBConfig {
       case _ => ()
     }
     properties foreach {case (key, _) => filter(key)}
-    options.setEnv(env).setTableFormatConfig(tableConfig)
+//    options.setEnv(env).setTableFormatConfig(tableConfig)
+    options
   }
 }

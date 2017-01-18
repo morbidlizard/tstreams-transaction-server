@@ -5,12 +5,14 @@ import io.netty.channel.socket.SocketChannel
 import io.netty.handler.codec.bytes.ByteArrayEncoder
 import netty.MessageDecoder
 
+import scala.concurrent.ExecutionContext
 
-class ServerInitializer extends ChannelInitializer[SocketChannel] {
+
+class ServerInitializer(server: TransactionServer, context: ExecutionContext) extends ChannelInitializer[SocketChannel] {
   override def initChannel(ch: SocketChannel): Unit = {
     ch.pipeline()
       .addLast(new ByteArrayEncoder())
       .addLast(new MessageDecoder)
-      .addLast(new ServerHandler)
+      .addLast(new ServerHandler(server, context))
   }
 }

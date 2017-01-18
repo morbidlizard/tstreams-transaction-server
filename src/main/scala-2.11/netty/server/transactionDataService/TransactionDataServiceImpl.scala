@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.{Future => ScalaFuture}
 import netty.server.{Authenticable, CheckpointTTL}
 import `implicit`.Implicits._
+import configProperties.ServerConfig
 import transactionService.rpc.TransactionDataService
 import netty.server.db.rocks.RocksDbConnection
 
@@ -15,7 +16,9 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   with Authenticable
   with CheckpointTTL {
 
-  val ttlToAdd: Int
+  val config: ServerConfig
+  private val ttlToAdd: Int = config.transactionDataTtlAdd
+
   private def calculateTTL(ttl: Int): Int = {
     def convertTTL = {
       val ttlToConvert = TimeUnit.MILLISECONDS.toSeconds(ttlToAdd).toInt
@@ -24,20 +27,22 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
     TimeUnit.HOURS.toSeconds(ttl).toInt + convertTTL
   }
 
-  private val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
-  private def getStorage(stream: String, partition: Int, ttl: Int) = {
+  val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
+  private def getStorage(stream: String, ttl: Int) = {
     val key = StorageName(stream)
-    rocksDBStorageToStream.computeIfAbsent(key, new java.util.function.Function[StorageName, RocksDbConnection]{
-      override def apply(t: StorageName): RocksDbConnection = new RocksDbConnection(key.toString, calculateTTL(ttl))
-    })
+      rocksDBStorageToStream.computeIfAbsent(key, new java.util.function.Function[StorageName, RocksDbConnection] {
+        override def apply(t: StorageName): RocksDbConnection = {
+          new RocksDbConnection(config, key.toString, calculateTTL(ttl))
+        }
+      })
   }
 
-  override def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] =
-    authenticate(token) {
-      val streamObj = getStreamDatabaseObject(stream)
-      val rocksDB = getStorage(stream, partition, streamObj.stream.ttl)
-      val batch = rocksDB.newBatch
+  override def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
+    val streamObj = getStreamDatabaseObject(stream)
+    val rocksDB = getStorage(stream, streamObj.stream.ttl)
+    val batch = rocksDB.newBatch
 
+    authenticate(token) {
       val rangeDataToSave = from until (from + data.length)
       val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(partition, transaction), seqId).toBinary)
       (keys zip data) foreach { case (key, datum) =>
@@ -49,14 +54,14 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       val result = batch.write()
 
       result
-    }(netty.Context.rocksWritePool.getContext)
+    }(config.rocksWritePool.getContext)
+  }
 
 
-  override def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[ByteBuffer]] =
+  override def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[ByteBuffer]] = {
+    val streamObj = getStreamDatabaseObject(stream)
+    val rocksDB = getStorage(stream, streamObj.stream.ttl)
     authenticate(token) {
-      val streamObj = getStreamDatabaseObject(stream)
-      val rocksDB = getStorage(stream, partition, streamObj.stream.ttl)
-
       val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary
       val toSeqId = KeyDataSeq(Key(partition, transaction), to).toBinary
 
@@ -70,6 +75,11 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       }
       iterator.close()
       data
-    }(netty.Context.rocksReadPool.getContext)
+    }(config.rocksReadPool.getContext)
+  }
 
+  def closeTransactionDataDatabases() = {
+    import scala.collection.JavaConversions._
+    rocksDBStorageToStream.values().foreach(_.close())
+  }
 }

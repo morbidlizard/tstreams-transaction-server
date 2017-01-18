@@ -1,7 +1,6 @@
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import configProperties.DB
 import org.apache.commons.io.FileUtils
 import netty.client.Client
 import netty.server.Server
@@ -17,6 +16,8 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   var client: Client = _
   var transactionServer: Server = _
 
+  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/main/resources/serverProperties.properties"))
+  private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/main/resources/clientProperties.properties"))
   def startTransactionServer() = {
     new Thread(new Runnable {
       override def run(): Unit = {
@@ -34,9 +35,9 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   override def afterEach() {
     transactionServer.close()
     client.close()
-    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.StreamDirName))
-    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionDataDirName))
-    FileUtils.deleteDirectory(new File(DB.PathToDatabases + "/" + DB.TransactionMetaDirName))
+    FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbStreamDirName))
+    FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbTransactionDataDirName))
+    FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbTransactionMetaDirName))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {
@@ -80,7 +81,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   val secondsWait = 5
 
 
-    "TransactionZooKeeperClient" should "put producer and consumer transactions" in {
+    "Client" should "put producer and consumer transactions" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait seconds)
 
@@ -117,7 +118,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     transactionServer.close()
     assertThrows[exception.Throwables.ServerUnreachableException] {
-      Await.result(resultInFuture, configProperties.ClientConfig.authTimeoutConnection + 1000 milliseconds)
+      Await.result(resultInFuture, configClient.authTimeoutConnection + 1000 milliseconds)
     }
   }
 
@@ -130,7 +131,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
-    Thread.sleep(configProperties.ClientConfig.authTimeoutConnection*3/5)
+    Thread.sleep(configClient.authTimeoutConnection*3/5)
 
     Await.result(resultInFuture, secondsWait seconds) shouldBe true
   }
@@ -189,7 +190,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     consumerState shouldBe consumerTransaction.transactionID
   }
 
-  "TransactionZooKeeperServer" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
+  "Server" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait seconds)
 

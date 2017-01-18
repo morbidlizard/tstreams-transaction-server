@@ -1,9 +1,14 @@
 package configProperties
 
-import configProperties.Config._
+import java.util.concurrent.Executors
 
-object ServerConfig {
-  val config = new Config("src/main/resources/serverProperties.properties")
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import configProperties.Config._
+import netty.Context
+
+class ServerConfig(config: Config) extends Config {
+  override val properties: Map[String, String] = config.properties
+//  val config = new ConfigFile("src/main/resources/serverProperties.properties")
 
   val transactionServerAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
     case (host, port) if host != null && port != null => s"$host:$port"
@@ -56,5 +61,25 @@ object ServerConfig {
 
   val dbPath = config.readProperty[String]("db.path")
 
+  val dbStreamDirName   = config.readProperty[String]("db.path.stream")
+  val streamStoreName = "StreamStore"
+
+  val dbTransactionDataDirName = config.readProperty[String]("db.path.transaction_data")
+
+  val dbTransactionMetaDirName   = config.readProperty[String]("db.path.transaction_meta")
+  val transactionMetaStoreName = "TransactionStore"
+  val transactionMetaOpenStoreName = "TransactionOpenStore"
+
+  val consumerStoreName = "ConsumerStore"
+
   val berkeleyDBJEproperties = config.getAllProperties("je.")
+
+  val options = new RocksDBConfig(config).rocksDBProperties
+
+  val berkeleyWritePool = Context(1, "BerkeleyWritePool-%d")
+  val berkeleyReadPool = Context(Executors.newFixedThreadPool(transactionServerBerkeleyReadPool, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
+  val rocksWritePool = Context(Executors.newFixedThreadPool(transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
+  val rocksReadPool = Context(Executors.newFixedThreadPool(transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
+  val transactionServerPoolContext = Context(Executors.newFixedThreadPool(transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
+
 }

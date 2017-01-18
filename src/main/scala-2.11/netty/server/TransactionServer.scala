@@ -1,16 +1,27 @@
 package netty.server
 
-import scala.concurrent.{Future => ScalaFuture}
-import transactionService.rpc.TransactionService
+import com.sleepycat.je.Environment
+import configProperties.ServerConfig
 import netty.server.streamService.StreamServiceImpl
 import netty.server.transactionDataService.TransactionDataServiceImpl
 import netty.server.transactionMetaService.TransactionMetaServiceImpl
 import netty.server.сonsumerService.ConsumerServiceImpl
+import org.rocksdb.Options
 
 
-class TransactionServer(override val ttlToAdd: Int = configProperties.ServerConfig.transactionDataTtlAdd)
+class TransactionServer(override val config: ServerConfig = new configProperties.ServerConfig(new configProperties.ConfigFile("src/main/resources/serverProperties.properties")))
   //extends TransactionService[ScalaFuture]
-  extends ConsumerServiceImpl
-    with StreamServiceImpl
+  extends TransactionDataServiceImpl
     with TransactionMetaServiceImpl
-    with TransactionDataServiceImpl
+    with ConsumerServiceImpl
+    with StreamServiceImpl
+{
+  override val consumerEnvironment: Environment = transactionMetaEnviroment
+  def close() = {
+//    closeConsumerDatabase()
+    closeTransactionDataDatabases()
+//    closeTransactionMetaDatabases()
+//    closeTransactionMetaEnviroment()
+//    closeStreamEnviromentAndDatabase()
+  }
+}

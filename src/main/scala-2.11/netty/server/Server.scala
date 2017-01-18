@@ -10,10 +10,13 @@ import org.apache.curator.retry.RetryNTimes
 import zooKeeper.ZKLeaderServer
 
 class Server extends TransactionServer{
-  import configProperties.ServerConfig._
+  import config._
+
   val zk = new ZKLeaderServer(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
   zk.putData(transactionServerAddress.getBytes())
+
+  private val transactionServer = new TransactionServer(config)
 
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
@@ -24,7 +27,7 @@ class Server extends TransactionServer{
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer)
+        .childHandler(new ServerInitializer(transactionServer, config.transactionServerPoolContext.getContext))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
@@ -33,18 +36,15 @@ class Server extends TransactionServer{
       f.channel().closeFuture().sync()
     } finally {
       zk.close()
-//      StreamServiceImpl.close()
-//      TransactionMetaServiceImpl.close()
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
     }
   }
-  def close() = {
+  override def close() = {
     zk.close()
-//    StreamServiceImpl.close()
-//    TransactionMetaServiceImpl.close()
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
+    super.close()
   }
 }
 

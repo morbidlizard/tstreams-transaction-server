@@ -1,7 +1,12 @@
 package configProperties
+import java.util.concurrent.Executors
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import configProperties.Config._
-object ClientConfig {
-  private val config = new Config("src/main/resources/clientProperties.properties")
+import netty.Context
+
+class ClientConfig(config: Config) extends Config {
+  override val properties: Map[String, String] = config.properties
 
   val clientPool = config.readProperty[Int]("client.pool")
 
@@ -32,4 +37,8 @@ object ClientConfig {
   val authTokenTimeoutConnection = config.readProperty[Int]("auth.token.timeout.connection")
 
   val authTokenTimeoutBetweenRetries = config.readProperty[Int]("auth.token.timeout.betweenRetries")
+
+  val clientPoolContext = Context(Executors.newFixedThreadPool(clientPool,
+    new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build())
+  ).getContext
 }

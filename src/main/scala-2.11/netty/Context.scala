@@ -5,7 +5,6 @@ import java.util.concurrent.{ExecutorService, Executors}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.forkjoin.ForkJoinPool
 
 
 class Context(contextNum: Int, f: => ExecutorService) {
@@ -17,21 +16,14 @@ class Context(contextNum: Int, f: => ExecutorService) {
 
   def getContext(value: Long) = contexts((value % contextNum).toInt)
 
-  val getContext = contexts(0)
+  lazy val getContext = contexts(0)
 }
 
 
 object Context {
-
   def apply(contextNum: Int, f: => ExecutorService): Context = new Context(contextNum, f)
   def apply(contextNum: Int, nameFormat: String) = new Context(contextNum, Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat(nameFormat).build()))
   def apply(f: => ExecutorService) = new Context(1, f)
-
-  lazy val berkeleyWritePool = Context(1, "BerkeleyWritePool-%d")
-  lazy val berkeleyReadPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerBerkeleyReadPool, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
-  lazy val rocksWritePool = //Context(new ForkJoinPool(configProperties.ServerConfig.transactionServerRocksDBWritePool))
-  Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
-  lazy val rocksReadPool = Context(Executors.newFixedThreadPool(configProperties.ServerConfig.transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
 }
 
 

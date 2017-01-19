@@ -24,7 +24,7 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
       .build()
 
     connection.start()
-    connection.blockUntilConnected()
+   // connection.blockUntilConnected()
     connection.getConnectionStateListenable.addListener(new ConnectionStateListener {
       override def stateChanged(client: CuratorFramework, newState: ConnectionState): Unit = {
         newState match {

@@ -10,7 +10,6 @@ object FileUtils {
       if (Files.exists(dir)) dir
       else java.nio.file.Files.createDirectories(Paths.get(s"/$path/$name"))
     }.toFile
-
     pathNew
   }
 }

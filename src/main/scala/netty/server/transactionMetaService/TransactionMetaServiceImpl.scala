@@ -9,7 +9,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
 import configProperties.ServerConfig
 import netty.server.{Authenticable, CheckpointTTL}
-import netty.server.сonsumerService.ConsumerTransactionKey
 import transactionService.rpc._
 
 import scala.collection.mutable.ArrayBuffer

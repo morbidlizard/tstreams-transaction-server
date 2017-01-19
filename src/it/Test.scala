@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.LongAdder
 import netty.client.Client
 import netty.server.Server
 import org.apache.commons.io.FileUtils
-import org.apache.curator.test.{InstanceSpec, TestingCluster, TestingServer}
+import org.apache.curator.test.{InstanceSpec, TestingServer}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 
@@ -16,25 +16,22 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
+  var zkTestServer: TestingServer = _
   var client: Client = _
   var transactionServer: Server = _
+
   val clientsNum = 2
 
   private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/it/serverIntegrationTestProperties.properties"))
   private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/it/clientIntegrationTestProperties.properties"))
 
-  val zkTestServer = new TestingServer(new InstanceSpec(io.FileUtils.createDirectory("zk_1","/tmp"), 32000, 47000, 48000, true, 1, -1, clientsNum + 10), true)
-
-  def startTransactionServer() = {
-    new Thread(new Runnable {
-      override def run(): Unit = {
-        transactionServer = new netty.server.Server(configServer)
-        transactionServer.start()
-      }
-    }).start()
-  }
+  def startTransactionServer() = new Thread(() => {
+      transactionServer = new netty.server.Server(configServer)
+      transactionServer.start()
+  }).start()
 
   override def beforeEach(): Unit = {
+    zkTestServer= new TestingServer(new InstanceSpec(io.FileUtils.createDirectory("zk_1","/tmp"), 32000, 47000, 48000, true, 1, -1, clientsNum + 10), true)
     startTransactionServer()
     client = new Client(configClient)
   }
@@ -42,6 +39,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   override def afterEach() {
     transactionServer.close()
     client.close()
+    zkTestServer.close()
     FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbStreamDirName))
     FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbTransactionDataDirName))
     FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbTransactionMetaDirName))
@@ -98,6 +96,10 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val result = client.putTransactions(producerTransactions, consumerTransactions)
 
     Await.result(result, 5 seconds) shouldBe true
+  }
+
+  it should "delete stream, that doesn't exist in database on the server and get result" in {
+    Await.result(client.delStream(getRandomStream), secondsWait seconds) shouldBe false
   }
 
   it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
@@ -186,7 +188,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     res shouldBe sorted
   }
 
-  it should "put consumerTransaction and get it back" in {
+  it should "put consumerState and get it back" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait seconds)
 
@@ -199,21 +201,8 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     consumerState shouldBe consumerTransaction.transactionID
   }
 
-  "Server" should "not save producer and consumer transactions, that don't refer to a stream in database they should belong to" in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait seconds)
 
-    val streamFake = getRandomStream
-    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
-    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
-
-    val result = client.putTransactions(producerTransactions, consumerTransactions)
-    assertThrows[exception.Throwables.StreamNotExist] {
-      Await.result(result, secondsWait seconds)
-    }
-  }
-
-  it should "not have problems with many clients" in {
+  "Server" should "not have problems with many clients" in {
     val clients = Array.fill(clientsNum)(new Client(configClient))
     val streams = Array.fill(10000)(getRandomStream)
     Await.result(client.putStream(chooseStreamRandomly(streams)), secondsWait seconds)

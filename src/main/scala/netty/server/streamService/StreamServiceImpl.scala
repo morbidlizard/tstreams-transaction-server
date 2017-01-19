@@ -72,14 +72,13 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   override def getStream(token: Int, stream: String): ScalaFuture[Stream] =
     authenticate(token)(getStreamDatabaseObject(stream).stream)(config.berkeleyReadPool.getContext)
 
-
   override def delStream(token: Int, stream: String): ScalaFuture[Boolean] =
     authenticate(token) {
       val key = Key(FNV.hash64a(stream.getBytes()).toLong)
       streamTTL.remove(stream)
       val keyEntry = key.toDatabaseEntry
       val transactionDB = streamEnvironment.beginTransaction(null, new TransactionConfig())
-      val result = streamDatabase.delete(null, keyEntry)
+      val result = streamDatabase.delete(transactionDB, keyEntry)
       if (result == OperationStatus.SUCCESS) {
         transactionDB.commit()
         true

@@ -1,5 +1,6 @@
 package netty.server
 
+import configProperties.ServerConfig
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
@@ -9,9 +10,8 @@ import netty.server.transactionMetaService.TransactionMetaServiceImpl
 import org.apache.curator.retry.RetryNTimes
 import zooKeeper.ZKLeaderClientToPutMaster
 
-class Server extends TransactionServer{
+class Server(override val config: ServerConfig) extends TransactionServer {
   import config._
-
   val zk = new ZKLeaderClientToPutMaster(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
   zk.putData(transactionServerAddress.getBytes())
@@ -46,8 +46,4 @@ class Server extends TransactionServer{
     bossGroup.shutdownGracefully()
     super.close()
   }
-}
-
-object Server extends App{
-  new Server().start()
 }

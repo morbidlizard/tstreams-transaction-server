@@ -22,7 +22,7 @@ trait Installer {
     new Thread(new Runnable {
       LogManager.getLogManager.reset()
 
-      override def run(): Unit = new netty.server.Server().start()
+      override def run(): Unit = new netty.server.Server(configServer).start()
     }).start()
   }
 

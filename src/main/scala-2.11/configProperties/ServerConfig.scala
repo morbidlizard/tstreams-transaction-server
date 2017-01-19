@@ -81,5 +81,4 @@ class ServerConfig(config: Config) extends Config {
   val rocksWritePool = Context(Executors.newFixedThreadPool(transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
   val rocksReadPool = Context(Executors.newFixedThreadPool(transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
   val transactionServerPoolContext = Context(Executors.newFixedThreadPool(transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
-
 }

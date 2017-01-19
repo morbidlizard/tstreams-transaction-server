@@ -1,29 +1,34 @@
+package it
+
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import org.apache.commons.io.FileUtils
 import netty.client.Client
 import netty.server.Server
-import org.apache.curator.test.TestingServer
+import org.apache.commons.io.FileUtils
+import org.apache.curator.test.{InstanceSpec, TestingCluster, TestingServer}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   var client: Client = _
   var transactionServer: Server = _
+  val clientsNum = 2
 
-  val zkTestServer = new TestingServer(32000, true)
-  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/main/resources/serverIntegrationTestProperties.properties"))
-  private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/main/resources/clientIntegrationTestProperties.properties"))
+  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/it/serverIntegrationTestProperties.properties"))
+  private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/it/clientIntegrationTestProperties.properties"))
+
+  val zkTestServer = new TestingServer(new InstanceSpec(io.FileUtils.createDirectory("zk_1","/tmp"), 32000, 47000, 48000, true, 1, -1, clientsNum + 10), true)
+
   def startTransactionServer() = {
     new Thread(new Runnable {
       override def run(): Unit = {
-        transactionServer = new netty.server.Server()
+        transactionServer = new netty.server.Server(configServer)
         transactionServer.start()
       }
     }).start()
@@ -31,7 +36,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   override def beforeEach(): Unit = {
     startTransactionServer()
-    client = new Client
+    client = new Client(configClient)
   }
 
   override def afterEach() {
@@ -109,7 +114,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     }
   }
 
-  it should "throw an exception when the auth server isn't available for time greater than in config" in {
+  it should "throw an exception when the server isn't available for time greater than in config" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait seconds)
 
@@ -124,7 +129,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     }
   }
 
-  it should "not throw an exception when the auth server isn't available for time less than in config" in {
+  it should "not throw an exception when the server isn't available for time less than in config" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait seconds)
 
@@ -133,7 +138,9 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
+    transactionServer.close()
     Thread.sleep(configClient.authTimeoutConnection*3/5)
+    startTransactionServer()
 
     Await.result(resultInFuture, secondsWait seconds) shouldBe true
   }
@@ -207,8 +214,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   }
 
   it should "not have problems with many clients" in {
-    val clietnsNum = 5
-    val clients = Array.fill(clietnsNum)(new Client)
+    val clients = Array.fill(clientsNum)(new Client(configClient))
     val streams = Array.fill(10000)(getRandomStream)
     Await.result(client.putStream(chooseStreamRandomly(streams)), secondsWait seconds)
 
@@ -237,6 +243,6 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
       }
     })
 
-    all(Await.result(res, secondsWait*clietnsNum seconds)) shouldBe true
+    all(Await.result(res, secondsWait*clientsNum seconds)) shouldBe true
   }
 }

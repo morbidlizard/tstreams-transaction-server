@@ -14,8 +14,8 @@ object MultipleTransactionLifeCyclesTest extends Launcher {
   private val rand = new scala.util.Random()
 
   def main(args: Array[String]) {
-//    launch()
-//    createStream(streamName, clients)
+    launch()
+    createStream(streamName, clients)
     launchClients()
     System.exit(0)
   }

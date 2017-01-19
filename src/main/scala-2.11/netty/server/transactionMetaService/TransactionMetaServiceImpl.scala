@@ -45,7 +45,6 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-      .setSortedDuplicates(false)
     val storeName = config.transactionMetaStoreName
     transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
   }
@@ -54,7 +53,6 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-      .setSortedDuplicates(false)
     val storeName = config.transactionMetaOpenStoreName
     transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
   }
@@ -91,14 +89,14 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   }
 
 
-  private def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction) = {
+  def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction):Boolean //= {
 
-    val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
-
-    ConsumerTransactionKey(txn,streamNameToLong).put(producerTransactionsDatabase,databaseTxn, putType, new WriteOptions()) != null
+//    val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
+//
+//    ConsumerTransactionKey(txn,streamNameToLong).put(producerTransactionsDatabase,databaseTxn, putType, new WriteOptions()) != null
 
     //logAboutTransactionExistence(isNotExist, txn.toString)
-  }
+//  }
 
   private def putNoTransaction = false
 
@@ -138,10 +136,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   private val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
     authenticate(token) {
-      val lockMode = LockMode.READ_UNCOMMITTED
+      val lockMode = LockMode.DEFAULT
       val streamObj = getStreamDatabaseObject(stream)
       val transactionDB = transactionMetaEnviroment.beginTransaction(null, null)
-      val cursor = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
+      val cursor = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadCommitted(true))
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
         val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.keepAliveTTL)
@@ -199,7 +197,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
           val producerTransaction = ProducerTransaction.entryToObject(dataFound)
           if (doesProducerTransactionExpired(producerTransaction)) {
-            ScalaFuture(cursor.delete())(config.berkeleyReadPool.getContext)
+            ScalaFuture(cursor.delete())(config.berkeleyWritePool.getContext)
             true
             // == OperationStatus.SUCCESS
           } else true

@@ -19,7 +19,6 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-      .setSortedDuplicates(false)
     val storeName = config.consumerStoreName
     consumerEnvironment.openDatabase(null, storeName, dbConfig)
   }
@@ -35,6 +34,14 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
       transactionDB.commit()
       result
     }(config.berkeleyReadPool.getContext)
+
+
+  def setConsumerState(transactionDB: Transaction, name: String, stream: String, partition: Int, transaction: Long): Boolean = {
+    val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong
+
+    ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransaction(transaction))
+      .put(consumerDatabase, transactionDB, Put.OVERWRITE, new WriteOptions()) != null
+  }
 
   override def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): ScalaFuture[Boolean] =
     authenticateFutureBody(token) {

@@ -148,7 +148,7 @@ object ServerException extends ThriftStructCodec3[ServerException] {
 class ServerException(
     val message: String,
     val _passthroughFields: immutable$Map[Short, TFieldBlob])
-  extends ThriftException with com.twitter.finagle.SourcedException with ThriftStruct
+  extends ThriftException with ThriftStruct
   with scala.Product1[String]
   with HasThriftStructCodec3[ServerException]
   with java.io.Serializable

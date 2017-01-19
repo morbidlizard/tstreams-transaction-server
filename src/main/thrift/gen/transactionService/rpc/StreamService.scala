@@ -19,9 +19,6 @@ import com.twitter.scrooge.{
   ThriftUtil,
   ToThriftService
 }
-import com.twitter.finagle.{service => ctfs}
-import com.twitter.finagle.thrift.{Protocols, ThriftClientRequest, ThriftServiceIface}
-import com.twitter.util.Future
 import java.nio.ByteBuffer
 import java.util.Arrays
 import org.apache.thrift.protocol._
@@ -52,64 +49,6 @@ trait StreamService[+MM[_]] extends ThriftService {
 
 
 object StreamService { self =>
-
-  case class ServiceIface(
-      putStream : com.twitter.finagle.Service[self.PutStream.Args, self.PutStream.Result],
-      doesStreamExist : com.twitter.finagle.Service[self.DoesStreamExist.Args, self.DoesStreamExist.Result],
-      getStream : com.twitter.finagle.Service[self.GetStream.Args, self.GetStream.Result],
-      delStream : com.twitter.finagle.Service[self.DelStream.Args, self.DelStream.Result]
-  ) extends BaseServiceIface
-
-  // This is needed to support service inheritance.
-  trait BaseServiceIface extends ToThriftService {
-    def putStream : com.twitter.finagle.Service[self.PutStream.Args, self.PutStream.Result]
-    def doesStreamExist : com.twitter.finagle.Service[self.DoesStreamExist.Args, self.DoesStreamExist.Result]
-    def getStream : com.twitter.finagle.Service[self.GetStream.Args, self.GetStream.Result]
-    def delStream : com.twitter.finagle.Service[self.DelStream.Args, self.DelStream.Result]
-
-    override def toThriftService: ThriftService = new MethodIface(this)
-  }
-
-  implicit object ServiceIfaceBuilder
-    extends com.twitter.finagle.thrift.ServiceIfaceBuilder[ServiceIface] {
-      def newServiceIface(
-        binaryService: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-        pf: TProtocolFactory = Protocols.binaryFactory(),
-        stats: com.twitter.finagle.stats.StatsReceiver
-      ): ServiceIface =
-        new ServiceIface(
-          putStream = ThriftServiceIface(self.PutStream, binaryService, pf, stats),
-          doesStreamExist = ThriftServiceIface(self.DoesStreamExist, binaryService, pf, stats),
-          getStream = ThriftServiceIface(self.GetStream, binaryService, pf, stats),
-          delStream = ThriftServiceIface(self.DelStream, binaryService, pf, stats)
-      )
-  }
-
-  class MethodIface(serviceIface: BaseServiceIface)
-    extends StreamService[Future] {
-    private[this] val __putStream_service =
-      ThriftServiceIface.resultFilter(self.PutStream) andThen serviceIface.putStream
-    def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean] =
-      __putStream_service(self.PutStream.Args(token, stream, partitions, description, ttl))
-    private[this] val __doesStreamExist_service =
-      ThriftServiceIface.resultFilter(self.DoesStreamExist) andThen serviceIface.doesStreamExist
-    def doesStreamExist(token: Int, stream: String): Future[Boolean] =
-      __doesStreamExist_service(self.DoesStreamExist.Args(token, stream))
-    private[this] val __getStream_service =
-      ThriftServiceIface.resultFilter(self.GetStream) andThen serviceIface.getStream
-    def getStream(token: Int, stream: String): Future[transactionService.rpc.Stream] =
-      __getStream_service(self.GetStream.Args(token, stream))
-    private[this] val __delStream_service =
-      ThriftServiceIface.resultFilter(self.DelStream) andThen serviceIface.delStream
-    def delStream(token: Int, stream: String): Future[Boolean] =
-      __delStream_service(self.DelStream.Args(token, stream))
-  }
-
-  implicit object MethodIfaceBuilder
-    extends com.twitter.finagle.thrift.MethodIfaceBuilder[ServiceIface, StreamService[Future]] {
-    def newMethodIface(serviceIface: ServiceIface): StreamService[Future] =
-      new MethodIface(serviceIface)
-  }
 
   object PutStream extends com.twitter.scrooge.ThriftMethod {
     
@@ -776,20 +715,11 @@ object StreamService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "putStream"
     val serviceName = "StreamService"
@@ -1297,20 +1227,11 @@ object StreamService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "doesStreamExist"
     val serviceName = "StreamService"
@@ -1818,20 +1739,11 @@ object StreamService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[transactionService.rpc.Stream]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "getStream"
     val serviceName = "StreamService"
@@ -2339,20 +2251,11 @@ object StreamService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "delStream"
     val serviceName = "StreamService"
@@ -2369,43 +2272,4 @@ object StreamService { self =>
   type delStream$result = DelStream.Result
 
 
-  trait FutureIface extends StreamService[Future] {
-    
-    def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): Future[Boolean]
-    
-    def doesStreamExist(token: Int, stream: String): Future[Boolean]
-    
-    def getStream(token: Int, stream: String): Future[transactionService.rpc.Stream]
-    
-    def delStream(token: Int, stream: String): Future[Boolean]
-  }
-
-  class FinagledClient(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory = Protocols.binaryFactory(),
-      serviceName: String = "StreamService",
-      stats: com.twitter.finagle.stats.StatsReceiver = com.twitter.finagle.stats.NullStatsReceiver,
-      responseClassifier: ctfs.ResponseClassifier = ctfs.ResponseClassifier.Default)
-    extends StreamService$FinagleClient(
-      service,
-      protocolFactory,
-      serviceName,
-      stats,
-      responseClassifier)
-    with FutureIface {
-
-    def this(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory,
-      serviceName: String,
-      stats: com.twitter.finagle.stats.StatsReceiver
-    ) = this(service, protocolFactory, serviceName, stats, ctfs.ResponseClassifier.Default)
-  }
-
-  class FinagledService(
-      iface: FutureIface,
-      protocolFactory: TProtocolFactory)
-    extends StreamService$FinagleService(
-      iface,
-      protocolFactory)
 }

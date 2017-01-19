@@ -19,9 +19,6 @@ import com.twitter.scrooge.{
   ThriftUtil,
   ToThriftService
 }
-import com.twitter.finagle.{service => ctfs}
-import com.twitter.finagle.thrift.{Protocols, ThriftClientRequest, ThriftServiceIface}
-import com.twitter.util.Future
 import java.nio.ByteBuffer
 import java.util.Arrays
 import org.apache.thrift.protocol._
@@ -48,50 +45,6 @@ trait TransactionDataService[+MM[_]] extends ThriftService {
 
 
 object TransactionDataService { self =>
-
-  case class ServiceIface(
-      putTransactionData : com.twitter.finagle.Service[self.PutTransactionData.Args, self.PutTransactionData.Result],
-      getTransactionData : com.twitter.finagle.Service[self.GetTransactionData.Args, self.GetTransactionData.Result]
-  ) extends BaseServiceIface
-
-  // This is needed to support service inheritance.
-  trait BaseServiceIface extends ToThriftService {
-    def putTransactionData : com.twitter.finagle.Service[self.PutTransactionData.Args, self.PutTransactionData.Result]
-    def getTransactionData : com.twitter.finagle.Service[self.GetTransactionData.Args, self.GetTransactionData.Result]
-
-    override def toThriftService: ThriftService = new MethodIface(this)
-  }
-
-  implicit object ServiceIfaceBuilder
-    extends com.twitter.finagle.thrift.ServiceIfaceBuilder[ServiceIface] {
-      def newServiceIface(
-        binaryService: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-        pf: TProtocolFactory = Protocols.binaryFactory(),
-        stats: com.twitter.finagle.stats.StatsReceiver
-      ): ServiceIface =
-        new ServiceIface(
-          putTransactionData = ThriftServiceIface(self.PutTransactionData, binaryService, pf, stats),
-          getTransactionData = ThriftServiceIface(self.GetTransactionData, binaryService, pf, stats)
-      )
-  }
-
-  class MethodIface(serviceIface: BaseServiceIface)
-    extends TransactionDataService[Future] {
-    private[this] val __putTransactionData_service =
-      ThriftServiceIface.resultFilter(self.PutTransactionData) andThen serviceIface.putTransactionData
-    def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): Future[Boolean] =
-      __putTransactionData_service(self.PutTransactionData.Args(token, stream, partition, transaction, data, from))
-    private[this] val __getTransactionData_service =
-      ThriftServiceIface.resultFilter(self.GetTransactionData) andThen serviceIface.getTransactionData
-    def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]] =
-      __getTransactionData_service(self.GetTransactionData.Args(token, stream, partition, transaction, from, to))
-  }
-
-  implicit object MethodIfaceBuilder
-    extends com.twitter.finagle.thrift.MethodIfaceBuilder[ServiceIface, TransactionDataService[Future]] {
-    def newMethodIface(serviceIface: ServiceIface): TransactionDataService[Future] =
-      new MethodIface(serviceIface)
-  }
 
   object PutTransactionData extends com.twitter.scrooge.ThriftMethod {
     
@@ -845,20 +798,11 @@ object TransactionDataService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Boolean]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "putTransactionData"
     val serviceName = "TransactionDataService"
@@ -1626,20 +1570,11 @@ object TransactionDataService { self =>
       def _codec: ThriftStructCodec3[Result] = Result
     }
 
-    type FunctionType = Function1[Args,Future[Seq[ByteBuffer]]]
-    type ServiceType = com.twitter.finagle.Service[Args, Result]
+    type FunctionType = Nothing
+    type ServiceType = Nothing
 
-    private[this] val toResult = (res: SuccessType) => Result(Some(res))
-
-    def functionToService(f: FunctionType): ServiceType = {
-      com.twitter.finagle.Service.mk { args: Args =>
-        f(args).map(toResult)
-      }
-    }
-
-    def serviceToFunction(svc: ServiceType): FunctionType = { args: Args =>
-      ThriftServiceIface.resultFilter(this).andThen(svc).apply(args)
-    }
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
 
     val name = "getTransactionData"
     val serviceName = "TransactionDataService"
@@ -1656,39 +1591,4 @@ object TransactionDataService { self =>
   type getTransactionData$result = GetTransactionData.Result
 
 
-  trait FutureIface extends TransactionDataService[Future] {
-    
-    def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): Future[Boolean]
-    
-    def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): Future[Seq[ByteBuffer]]
-  }
-
-  class FinagledClient(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory = Protocols.binaryFactory(),
-      serviceName: String = "TransactionDataService",
-      stats: com.twitter.finagle.stats.StatsReceiver = com.twitter.finagle.stats.NullStatsReceiver,
-      responseClassifier: ctfs.ResponseClassifier = ctfs.ResponseClassifier.Default)
-    extends TransactionDataService$FinagleClient(
-      service,
-      protocolFactory,
-      serviceName,
-      stats,
-      responseClassifier)
-    with FutureIface {
-
-    def this(
-      service: com.twitter.finagle.Service[ThriftClientRequest, Array[Byte]],
-      protocolFactory: TProtocolFactory,
-      serviceName: String,
-      stats: com.twitter.finagle.stats.StatsReceiver
-    ) = this(service, protocolFactory, serviceName, stats, ctfs.ResponseClassifier.Default)
-  }
-
-  class FinagledService(
-      iface: FutureIface,
-      protocolFactory: TProtocolFactory)
-    extends TransactionDataService$FinagleService(
-      iface,
-      protocolFactory)
 }

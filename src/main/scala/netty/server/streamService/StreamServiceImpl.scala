@@ -7,6 +7,8 @@ import scala.concurrent.{Future => ScalaFuture}
 import netty.server.{Authenticable, CheckpointTTL}
 import transactionService.rpc.StreamService
 import exception.Throwables._
+import org.apache.log4j.PropertyConfigurator
+import org.slf4j.LoggerFactory
 import shared.FNV
 
 trait StreamServiceImpl extends StreamService[ScalaFuture]
@@ -14,6 +16,9 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   with CheckpointTTL {
 
   val config: ServerConfig
+
+  PropertyConfigurator.configure("src/main/resources/logServer.properties")
+  private val logger = LoggerFactory.getLogger(classOf[netty.server.Server])
 
   val streamEnvironment = {
     val directory = io.FileUtils.createDirectory(config.dbStreamDirName, config.dbPath)
@@ -42,10 +47,14 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       val keyEntry = key.toDatabaseEntry
       val streamEntry = new DatabaseEntry()
 
-      if (streamDatabase.get(null, keyEntry, streamEntry, LockMode.READ_COMMITTED) == OperationStatus.SUCCESS)
+      if (streamDatabase.get(null, keyEntry, streamEntry, LockMode.READ_COMMITTED) == OperationStatus.SUCCESS) {
+        logger.debug(s"Stream $stream is retrieved successfully.")
         KeyStream(key, Stream.entryToObject(streamEntry))
-      else
+      }
+      else {
+        logger.debug(s"Stream $stream doesn't exist.")
         throw new StreamNotExist
+      }
     }
 
 
@@ -59,9 +68,11 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       val result = streamDatabase.putNoOverwrite(transactionDB, newKey.toDatabaseEntry, newStream.toDatabaseEntry)
       if (result == OperationStatus.SUCCESS) {
         transactionDB.commit()
+        logger.debug(s"Stream $stream is saved successfully.")
         true
       } else {
         transactionDB.abort()
+        logger.debug(s"Stream $stream isn't saved.")
         false
       }
     }(config.berkeleyWritePool.getContext)
@@ -81,8 +92,10 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       val result = streamDatabase.delete(transactionDB, keyEntry)
       if (result == OperationStatus.SUCCESS) {
         transactionDB.commit()
+        logger.debug(s"Stream $stream is removed successfully.")
         true
       } else {
+        logger.debug(s"Stream $stream isn't removed.")
         transactionDB.abort()
         false
       }
@@ -90,7 +103,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 
 
   def closeStreamEnviromentAndDatabase(): Unit = {
-    streamDatabase.close()
-    streamEnvironment.close()
+    Option(streamDatabase.close())
+    Option(streamEnvironment.close())
   }
 }

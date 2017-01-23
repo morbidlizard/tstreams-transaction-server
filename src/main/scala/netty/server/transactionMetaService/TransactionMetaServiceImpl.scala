@@ -9,8 +9,11 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
 import configProperties.ServerConfig
 import netty.server.{Authenticable, CheckpointTTL}
+import org.apache.log4j.PropertyConfigurator
+import org.slf4j.{Logger, LoggerFactory}
 import transactionService.rpc._
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
@@ -20,6 +23,9 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   with CheckpointTTL {
 
   val config: ServerConfig
+
+  PropertyConfigurator.configure("src/main/resources/logServer.properties")
+  private val logger: Logger = LoggerFactory.getLogger(classOf[netty.server.Server])
 
   final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build())
 
@@ -68,11 +74,18 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val streamObj = getStreamDatabaseObject(txn.stream)
     val producerTransaction = ProducerTransactionKey(txn, streamObj.streamNameToLong)
 
-    txn.state match {
+    def logTransactionSaved(isSuccessfully: Boolean) =
+      if (isSuccessfully) logger.debug(s"${producerTransaction.toString} is saved/updated")
+      else logger.debug(s"${producerTransaction.toString} isn't saved/updated")
+
+    val isOkay = txn.state match {
         case Opened =>
+          logger.debug(producerTransaction.toString)
           (producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null) &&
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType) != null)
+
         case Updated =>
+          logger.debug(producerTransaction.toString)
           producerTransaction.put(producerTransactionsWithOpenedStateDatabase, databaseTxn, putType) != null
 
         case Invalid =>
@@ -85,6 +98,9 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
             (producerTransaction.put(producerTransactionsDatabase, databaseTxn, putType, writeOptions) != null)
         case _ => false
       }
+
+    logTransactionSaved(isOkay)
+    isOkay
   }
 
 
@@ -117,10 +133,15 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
   override def putTransactions(token: Int, transactions: Seq[Transaction]): ScalaFuture[Boolean] = authenticate(token) {
     val transactionDB = transactionMetaEnviroment.beginTransaction(null, new TransactionConfig())
-    val operationStatuses = transactions map { transaction =>
-      matchTransactionToPut(transaction, transactionDB)
+
+    @tailrec
+    def processTransactions(transactions: List[Transaction]): Boolean = transactions match {
+      case Nil => true
+      case txn::Nil => matchTransactionToPut(txn, transactionDB)
+      case txn::txns => if (matchTransactionToPut(txn, transactionDB)) processTransactions(txns) else false
     }
-    val isOkay = operationStatuses.forall(_ == true)
+
+    val isOkay = processTransactions(transactions.toList)
     if (isOkay) transactionDB.commit() else transactionDB.abort()
     isOkay
   }(config.berkeleyWritePool.getContext)
@@ -132,7 +153,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   private def doesProducerTransactionExpired(txn: netty.server.transactionMetaService.ProducerTransaction): Boolean =
     (txn.keepAliveTTL + config.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
 
-  private val comparator = UnsignedBytes.lexicographicalComparator
+  private final val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
     authenticate(token) {
       val lockMode = LockMode.DEFAULT
@@ -181,6 +202,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     }(config.berkeleyReadPool.getContext)
 
   private val transiteTxnsToInvalidState = new Runnable {
+    logger.debug(s"Cleaner of expired transactions is running.")
     val cleanAmountPerDatabaseTransaction = config.transactionDataCleanAmount
     val lockMode = LockMode.READ_UNCOMMITTED_ALL
     override def run(): Unit = {
@@ -196,6 +218,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
           val producerTransaction = ProducerTransaction.entryToObject(dataFound)
           if (doesProducerTransactionExpired(producerTransaction)) {
+            logger.debug(s"Cleaning $producerTransaction as it's expired.")
             ScalaFuture(cursor.delete())(config.berkeleyWritePool.getContext)
             true
             // == OperationStatus.SUCCESS
@@ -220,12 +243,12 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   }
 
   def closeTransactionMetaDatabases(): Unit = {
-    producerTransactionsDatabase.close()
-    producerTransactionsWithOpenedStateDatabase.close()
+    Option(producerTransactionsDatabase.close())
+    Option(producerTransactionsWithOpenedStateDatabase.close())
   }
 
   def closeTransactionMetaEnviroment() = {
-    transactionMetaEnviroment.close()
+    Option(transactionMetaEnviroment.close())
   }
 
   scheduledExecutor.scheduleWithFixedDelay(transiteTxnsToInvalidState, 0, config.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)

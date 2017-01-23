@@ -75,12 +75,12 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-    import scala.collection.JavaConversions._
-    for (promise <- reqIdToRep.values()) {
+    import scala.collection.JavaConverters._
+    for (promise <- reqIdToRep.values().asScala) {
       if (!promise.isCompleted) promise.tryFailure(new ServerUnreachableException)
     }
 
-    ctx.channel().eventLoop().execute(new Runnable() {override def run() {client.connect()}})
+    ctx.channel().eventLoop().execute(() => client.connect())
 
     super.channelInactive(ctx)
   }

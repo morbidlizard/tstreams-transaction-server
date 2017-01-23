@@ -1,5 +1,3 @@
-package it
-
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
@@ -22,8 +20,8 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   val clientsNum = 2
 
-  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/it/serverIntegrationTestProperties.properties"))
-  private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/it/clientIntegrationTestProperties.properties"))
+  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/test/scala/it/serverIntegrationTestProperties.properties"))
+  private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/test/scala/it/clientIntegrationTestProperties.properties"))
 
   def startTransactionServer() = new Thread(() => {
       transactionServer = new netty.server.Server(configServer)

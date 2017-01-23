@@ -10,7 +10,7 @@ import org.rocksdb.Options
 import transactionService.rpc.ConsumerTransaction
 
 
-class TransactionServer(override val config: ServerConfig = new configProperties.ServerConfig(new configProperties.ConfigFile("src/main/resources/serverProperties.properties")))
+class TransactionServer(override val config: ServerConfig)
   //extends TransactionService[ScalaFuture]
   extends TransactionDataServiceImpl
     with TransactionMetaServiceImpl
@@ -23,10 +23,10 @@ class TransactionServer(override val config: ServerConfig = new configProperties
     setConsumerState(databaseTxn, txn.name, txn.stream, txn.partition, txn.transactionID)
   }
   def close() = {
-//    closeConsumerDatabase()
+    //closeConsumerDatabase()
     closeTransactionDataDatabases()
-//    closeTransactionMetaDatabases()
-//    closeTransactionMetaEnviroment()
-//    closeStreamEnviromentAndDatabase()
+    //closeTransactionMetaDatabases()
+    //closeTransactionMetaEnviroment()
+    //closeStreamEnviromentAndDatabase()
   }
 }

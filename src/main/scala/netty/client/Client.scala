@@ -1,20 +1,18 @@
 package netty.client
 
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import `implicit`.Implicits._
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
-import configProperties.ConfigFile
 import exception.Throwables.{ServerConnectionException, ZkGetMasterException}
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
-import io.netty.channel.socket.SocketChannel
-import io.netty.handler.codec.bytes.ByteArrayEncoder
-import netty.{Context, Descriptors, MessageDecoder}
+import netty.{Context, Descriptors}
 import org.apache.curator.retry.RetryNTimes
+import org.apache.log4j.PropertyConfigurator
+import org.slf4j.LoggerFactory
 import transactionService.rpc.{TransactionService, _}
 import zooKeeper.ZKLeaderClientToGetMaster
 
@@ -23,6 +21,10 @@ import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => Sca
 
 class Client(config: configProperties.ClientConfig = new configProperties.ClientConfig(new configProperties.ConfigFile("src/main/resources/clientProperties.properties"))) {
   import config._
+
+  PropertyConfigurator.configure("src/main/resources/logClient.properties")
+  private val logger = LoggerFactory.getLogger(classOf[Client])
+
   val zKLeaderClient = new ZKLeaderClientToGetMaster(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
   zKLeaderClient.start()
@@ -73,12 +75,16 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
   final def getInetAddressFromZookeeper(times: Int): (String, Int) = {
     if (times > 0 && zKLeaderClient.master.isEmpty) {
       TimeUnit.MILLISECONDS.sleep(zkTimeoutBetweenRetries)
+      logger.info("Retrying to get master server from zookeeper server.")
       getInetAddressFromZookeeper(times - 1)
     } else {
       zKLeaderClient.master match {
         case Some(master) => val listenPort = master.split(":")
           (listenPort(0), listenPort(1).toInt)
-        case None => throw new ZkGetMasterException
+        case None => {
+          logger.error(exception.Throwables.zkGetMasterExceptionMessage)
+          throw new ZkGetMasterException
+        }
       }
     }
   }
@@ -110,14 +116,16 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
     new PartialFunction[Throwable, Boolean] {
       override def apply(v1: Throwable): Boolean = v1 match {
         case _: exception.Throwables.TokenInvalidException =>
+          logger.info("Token isn't valid. Retrying get one.")
           authenticate()
           TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
           true
         case _: exception.Throwables.ServerUnreachableException =>
+          logger.info(s"${exception.Throwables.serverUnreachableExceptionMessage}Retrying to reconnect server.")
           TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
           true
         case error =>
-          println(error.getMessage)
+          logger.error(error.getMessage, error)
           false
       }
 
@@ -129,33 +137,39 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
   //Await.ready(authenticate(), 5 seconds)
 
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] = {
+    logger.info("PutStream method is invoked.")
     retryAuthenticate(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream, partitions, description, ttl))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def putStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
+    logger.info("PutStream method is invoked.")
     retryAuthenticate(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream.name, stream.partitions, stream.description, stream.ttl))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def delStream(stream: String): ScalaFuture[Boolean] = {
+    logger.info("delStream method is invoked.")
     retryAuthenticate(method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def delStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
+    logger.info("delStream method is invoked.")
     retryAuthenticate(method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream.name))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
 
   def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] = {
+    logger.info("getStream method is invoked.")
     retryAuthenticate(method(Descriptors.GetStream, TransactionService.GetStream.Args(token, stream))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
 
   def doesStreamExist(stream: String): ScalaFuture[Boolean] = {
+    logger.info("doesStreamExist method is invoked.")
     retryAuthenticate(method(Descriptors.DoesStreamExist, TransactionService.DoesStreamExist.Args(token, stream))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
@@ -165,6 +179,7 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
 
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
+    logger.info("putTransactions method is invoked.")
 
     val txns = (producerTransactions map (txn => Transaction(Some(txn), None))) ++
       (consumerTransactions map (txn => Transaction(None, Some(txn))))
@@ -176,6 +191,7 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
 
 
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
+    logger.info("putTransaction method is invoked.")
     TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
     retryAuthenticate(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool))
@@ -183,12 +199,14 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
 
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
+    logger.info("putTransaction method is invoked.")
     retryAuthenticate(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
       .flatMap(x => /*if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else*/ ScalaFuture.successful(true /*x.success.get*/))(futurePool))
   }
 
 
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.ProducerTransaction]] = {
+    logger.info("scanTransactions method is invoked.")
     retryAuthenticate(method(Descriptors.ScanTransactions, TransactionService.ScanTransactions.Args(token, stream, partition, from, to))
       .flatMap(x =>
         if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message))
@@ -200,6 +218,7 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
 
 
   def putTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
+    logger.info("putTransactionData method is invoked.")
     retryAuthenticate(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
       producerTransaction.partition, producerTransaction.transactionID, data, from))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
@@ -208,6 +227,7 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
 
 
   def putTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
+    logger.info("putTransactionData method is invoked.")
     retryAuthenticate(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, consumerTransaction.stream,
       consumerTransaction.partition, consumerTransaction.transactionID, data, from))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
@@ -217,6 +237,7 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
 
   def getTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0)
+    logger.info("getTransactionData method is invoked.")
 
     retryAuthenticate(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, producerTransaction.stream,
       producerTransaction.partition, producerTransaction.transactionID, from, to))
@@ -227,6 +248,7 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
 
   def getTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0)
+    logger.info("getTransactionData method is invoked.")
 
     retryAuthenticate(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, consumerTransaction.stream,
       consumerTransaction.partition, consumerTransaction.transactionID, from, to))
@@ -235,6 +257,8 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
   }
 
   def setConsumerState(consumerTransaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
+    logger.info("setConsumerState method is invoked.")
+
     retryAuthenticate(method(Descriptors.SetConsumerState, TransactionService.SetConsumerState.Args(token, consumerTransaction.name,
       consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool)
@@ -242,12 +266,14 @@ class Client(config: configProperties.ClientConfig = new configProperties.Client
   }
 
   def getConsumerState(consumerTransaction: (String, String, Int)): ScalaFuture[Long] = {
+    logger.info("getConsumerState method is invoked.")
     retryAuthenticate(method(Descriptors.GetConsumerState, TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(exception.Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
 
   private def authenticate(): ScalaFuture[Unit] = {
+    logger.info("authenticate method is invoked.")
     val login = config.login
     val password = config.password
     method(Descriptors.Authenticate, TransactionService.Authenticate.Args(login, password))

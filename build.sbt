@@ -4,7 +4,46 @@ version := "1.0"
 
 scalaVersion := "2.12.1"
 
-//scalacOptions ++= Seq("-unchecked", "-deprecation")
+scalacOptions ++= Seq("-unchecked", "-deprecation")
+
+
+pomExtra :=
+  <scm>
+    <url>git@github.com:bwsw/tstreams-transaction-server.git</url>
+    <connection>scm:git@github.com:bwsw/tstreams-transaction-server.git</connection>
+  </scm>
+    <developers>
+      <developer>
+        <id>bitworks</id>
+        <name>Bitworks Software, Ltd.</name>
+        <url>http://bitworks.software/</url>
+      </developer>
+    </developers>
+
+
+licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+homepage := Some(url("http://t-streams.com/"))
+pomIncludeRepository := { _ => false }
+scalacOptions += "-feature"
+scalacOptions += "-deprecation"
+parallelExecution in Test := false
+organization := "com.bwsw"
+publishMavenStyle := true
+pomIncludeRepository := { _ => false }
+
+publishTo := {
+  val nexus = "https://oss.sonatype.org/"
+  if (isSnapshot.value)
+    Some("snapshots" at nexus + "content/repositories/snapshots")
+  else
+    Some("releases" at nexus + "service/local/staging/deploy/maven2")
+}
+
+publishArtifact in Test := false
+assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
+
+
+
 
 val sroogeGenOutput = "src/main/thrift/gen"
 
@@ -19,7 +58,8 @@ parallelExecution in Test := false
 
 resolvers ++= Seq(
   "twitter-repo" at "https://maven.twttr.com",
-  "Oracle Maven2 Repo" at "http://download.oracle.com/maven"
+  "Oracle Maven2 Repo" at "http://download.oracle.com/maven",
+  "Sonatype OSS" at "https://oss.sonatype.org/service/local/staging/deploy/maven2"
 )
 
 
@@ -31,7 +71,7 @@ libraryDependencies ++= Seq(
   "com.sleepycat" % "je" % "7.0.6",
   "org.scalactic" %% "scalactic" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
-  "io.netty" % "netty-all" % "4.1.6.Final",
+  "io.netty" % "netty-all" % "4.1.7.Final",
 
   "org.slf4j" % "slf4j-log4j12" % "1.7.22",
 

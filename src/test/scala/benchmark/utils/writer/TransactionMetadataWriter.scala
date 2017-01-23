@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 class TransactionMetadataWriter(streamName: String, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, filename: String) {
     //val client = new TransactionClient("localhost:8071", 5000, 5000)
-    val client = new netty.client.Client()
+    val client = new com.bwsw.netty.client.Client()
     //val token = ""
     var globalProgress = 1
     val result = (1 to txnCount).map(x => {

@@ -1,8 +1,8 @@
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import netty.client.Client
-import netty.server.Server
+import com.bwsw.netty.client.Client
+import com.bwsw.netty.server.Server
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.{InstanceSpec, TestingServer}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
@@ -20,16 +20,16 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   val clientsNum = 2
 
-  private val configServer = new configProperties.ServerConfig(new configProperties.ConfigFile("src/test/scala/it/serverIntegrationTestProperties.properties"))
-  private val configClient = new configProperties.ClientConfig(new configProperties.ConfigFile("src/test/scala/it/clientIntegrationTestProperties.properties"))
+  private val configServer = new com.bwsw.configProperties.ServerConfig(new com.bwsw.configProperties.ConfigFile("src/test/scala/it/serverIntegrationTestProperties.properties"))
+  private val configClient = new com.bwsw.configProperties.ClientConfig(new com.bwsw.configProperties.ConfigFile("src/test/scala/it/clientIntegrationTestProperties.properties"))
 
   def startTransactionServer() = new Thread(() => {
-      transactionServer = new netty.server.Server(configServer)
+      transactionServer = new com.bwsw.netty.server.Server(configServer)
       transactionServer.start()
   }).start()
 
   override def beforeEach(): Unit = {
-    zkTestServer= new TestingServer(new InstanceSpec(io.FileUtils.createDirectory("zk_1","/tmp"), 32000, 47000, 48000, true, 1, -1, clientsNum + 10), true)
+    zkTestServer= new TestingServer(new InstanceSpec(com.bwsw.utils.FileUtils.createDirectory("zk_1","/tmp"), 32000, 47000, 48000, true, 1, -1, clientsNum + 10), true)
     startTransactionServer()
     client = new Client(configClient)
   }
@@ -38,6 +38,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     transactionServer.close()
     client.close()
     zkTestServer.close()
+    FileUtils.deleteDirectory(new File("/tmp" + "/" + "zk_1"))
     FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbStreamDirName))
     FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbTransactionDataDirName))
     FileUtils.deleteDirectory(new File(configServer.dbPath + "/" + configServer.dbTransactionMetaDirName))
@@ -86,37 +87,37 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     "Client" should "put producer and consumer transactions" in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait seconds)
+    Await.result(client.putStream(stream), secondsWait.seconds)
 
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val result = client.putTransactions(producerTransactions, consumerTransactions)
 
-    Await.result(result, 5 seconds) shouldBe true
+    Await.result(result, 5.seconds) shouldBe true
   }
 
   it should "delete stream, that doesn't exist in database on the server and get result" in {
-    Await.result(client.delStream(getRandomStream), secondsWait seconds) shouldBe false
+    Await.result(client.delStream(getRandomStream), secondsWait.seconds) shouldBe false
   }
 
   it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait seconds)
-    Await.result(client.delStream(stream), secondsWait seconds)
+    Await.result(client.putStream(stream), secondsWait.seconds)
+    Await.result(client.delStream(stream), secondsWait.seconds)
 
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val result = client.putTransactions(producerTransactions, consumerTransactions)
-    assertThrows[exception.Throwables.StreamNotExist] {
-      Await.result(result, secondsWait seconds)
+    assertThrows[com.bwsw.exception.Throwables.StreamNotExist] {
+      Await.result(result, secondsWait.seconds)
     }
   }
 
   it should "throw an exception when the server isn't available for time greater than in config" in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait seconds)
+    Await.result(client.putStream(stream), secondsWait.seconds)
 
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
@@ -124,14 +125,14 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.close()
-    assertThrows[exception.Throwables.ServerUnreachableException] {
-      Await.result(resultInFuture, configClient.authTimeoutConnection + 1000 milliseconds)
+    assertThrows[com.bwsw.exception.Throwables.ServerUnreachableException] {
+      Await.result(resultInFuture, (configClient.authTimeoutConnection + 1000).milliseconds)
     }
   }
 
   it should "not throw an exception when the server isn't available for time less than in config" in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait seconds)
+    Await.result(client.putStream(stream), secondsWait.seconds)
 
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
@@ -142,34 +143,34 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
     Thread.sleep(configClient.authTimeoutConnection*3/5)
     startTransactionServer()
 
-    Await.result(resultInFuture, secondsWait seconds) shouldBe true
+    Await.result(resultInFuture, secondsWait.seconds) shouldBe true
   }
 
   it should "put any kind of binary data and get it back" in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait seconds)
+    Await.result(client.putStream(stream), secondsWait.seconds)
 
     val txn = getRandomProducerTransaction(stream)
-    Await.result(client.putTransaction(txn), secondsWait seconds)
+    Await.result(client.putTransaction(txn), secondsWait.seconds)
 
     val amount = 5000
     val data = Array.fill(amount)(rand.nextString(10).getBytes)
 
-    val resultInFuture = Await.result(client.putTransactionData(txn, data, 0), secondsWait seconds)
+    val resultInFuture = Await.result(client.putTransactionData(txn, data, 0), secondsWait.seconds)
     resultInFuture shouldBe true
 
-    val dataFromDatabase = Await.result(client.getTransactionData(txn,0, amount), secondsWait seconds)
+    val dataFromDatabase = Await.result(client.getTransactionData(txn,0, amount), secondsWait.seconds)
     data should contain theSameElementsAs dataFromDatabase
   }
 
   it should "put transactions and get them back(scanTransactions)" in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait seconds)
+    Await.result(client.putStream(stream), secondsWait.seconds)
 
     val producerTransactions = Array.fill(15)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-    Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait seconds)
+    Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait.seconds)
 
     val statesAllowed = Array(TransactionStates.Opened,TransactionStates.Checkpointed)
     val (from, to) = (
@@ -178,7 +179,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
       )
 
     val producerTransactionsByState = producerTransactions.groupBy(_.state)
-    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait seconds)
+    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait.seconds)
 
     val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
 
@@ -188,13 +189,13 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   it should "put consumerState and get it back" in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait seconds)
+    Await.result(client.putStream(stream), secondsWait.seconds)
 
     val consumerTransaction = getRandomConsumerTransaction(stream)
 
-    Await.result(client.setConsumerState(consumerTransaction), secondsWait seconds)
+    Await.result(client.setConsumerState(consumerTransaction), secondsWait.seconds)
 
-    val consumerState = Await.result(client.getConsumerState(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition), secondsWait seconds)
+    val consumerState = Await.result(client.getConsumerState(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition), secondsWait.seconds)
 
     consumerState shouldBe consumerTransaction.transactionID
   }
@@ -203,7 +204,7 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
   "Server" should "not have problems with many clients" in {
     val clients = Array.fill(clientsNum)(new Client(configClient))
     val streams = Array.fill(10000)(getRandomStream)
-    Await.result(client.putStream(chooseStreamRandomly(streams)), secondsWait seconds)
+    Await.result(client.putStream(chooseStreamRandomly(streams)), secondsWait.seconds)
 
     val dataCounter = new java.util.concurrent.ConcurrentHashMap[(String,Int), LongAdder]()
     def addDataLength(stream: String, partition: Int, dataLength: Int): Unit = {
@@ -230,6 +231,6 @@ class Test extends FlatSpec with Matchers with BeforeAndAfterEach {
       }
     })
 
-    all(Await.result(res, secondsWait*clientsNum seconds)) shouldBe true
+    all(Await.result(res, (secondsWait*clientsNum).seconds)) shouldBe true
   }
 }

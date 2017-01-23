@@ -1,5 +1,6 @@
 package configProperties
 
+import scala.collection.JavaConverters
 import org.rocksdb._
 import Config._
 
@@ -100,7 +101,6 @@ class RocksDBConfig(config: Config) {
   private val disable_auto_compactions = "disable_auto_compactions"
   private val inplace_update_support = "inplace_update_support"
 
-  import scala.collection.JavaConversions._
   val rocksDBProperties = {
     val properties = config.getAllProperties(prefix).map { case (key, value) => (key.splitAt(prefix.length)._2, value) }
 
@@ -200,7 +200,7 @@ class RocksDBConfig(config: Config) {
       case `target_file_size_base` => options.setTargetFileSizeBase(properties(target_file_size_base))
       case `optimize_filters_for_hits` => options.setOptimizeFiltersForHits(properties(optimize_filters_for_hits))
       case `merge_operator` => options.setMergeOperatorName(properties(merge_operator))
-      case `compression_per_level` => options.setCompressionPerLevel(properties(compression_per_level).split(':').map(x => CompressionType.valueOf(x)).toList)
+      case `compression_per_level` => options.setCompressionPerLevel(JavaConverters.seqAsJavaList(properties(compression_per_level).split(':').map(x => CompressionType.valueOf(x))))
       //      case `compaction_measure_io_stats` => options.
       //      case `prefix_extractor` => options.
       case `bloom_locality` => options.setBloomLocality(properties(bloom_locality))

@@ -3,16 +3,19 @@ package zooKeeper
 import java.io.Closeable
 import java.net.InetAddress
 
-import com.twitter.logging.{Level, Logger}
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
+import org.apache.log4j.PropertyConfigurator
+import org.slf4j.LoggerFactory
 
 
 class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends NodeCacheListener with Closeable {
-  private val logger = Logger.get(this.getClass)
+
+  PropertyConfigurator.configure("src/main/resources/logClient.properties")
+  private val logger = LoggerFactory.getLogger(classOf[netty.client.Client])
   @volatile var master: Option[String] = None
 
   val client = {
@@ -51,7 +54,7 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
       val address = new String(node.getData)
       val isValidAddress = scala.util.Try(InetAddress.getByName(address.split(':').head))
       master = if (isValidAddress.isSuccess) Some(address) else {
-        logger.log(Level.INFO,s"$prefix data is corrupted!"); None
+        logger.info(s"$prefix data is corrupted!"); None
       }
     }
   }

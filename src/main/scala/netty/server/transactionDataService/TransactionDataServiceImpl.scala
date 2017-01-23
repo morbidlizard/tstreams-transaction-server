@@ -9,12 +9,15 @@ import `implicit`.Implicits._
 import configProperties.ServerConfig
 import transactionService.rpc.TransactionDataService
 import netty.server.db.rocks.RocksDbConnection
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ArrayBuffer
 
 trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   with Authenticable
   with CheckpointTTL {
+
+  private val logger: Logger = LoggerFactory.getLogger(classOf[netty.server.Server])
 
   val config: ServerConfig
   private val ttlToAdd: Int = config.transactionDataTtlAdd
@@ -40,9 +43,9 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   override def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
     val streamObj = getStreamDatabaseObject(stream)
     val rocksDB = getStorage(stream, streamObj.stream.ttl)
-    val batch = rocksDB.newBatch
-
     authenticate(token) {
+      val batch = rocksDB.newBatch
+
       val rangeDataToSave = from until (from + data.length)
       val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(partition, transaction), seqId).toBinary)
       (keys zip data) foreach { case (key, datum) =>
@@ -51,9 +54,14 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
         datum.get(bytes)
         batch.put(key, bytes)
       }
-      val result = batch.write()
+      val isOkay = batch.write()
 
-      result
+      if (isOkay)
+        logger.debug(s"$stream $partition $transaction. Successfully saved transaction data.")
+      else
+        logger.debug(s"$stream $partition $transaction. Transaction data isn't saved.")
+
+      isOkay
     }(config.rocksWritePool.getContext)
   }
 
@@ -79,7 +87,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   }
 
   def closeTransactionDataDatabases() = {
-    import scala.collection.JavaConversions._
-    rocksDBStorageToStream.values().foreach(_.close())
+    import scala.collection.JavaConverters._
+    rocksDBStorageToStream.values().asScala.foreach(_.close())
   }
 }

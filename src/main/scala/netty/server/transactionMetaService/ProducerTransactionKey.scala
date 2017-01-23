@@ -10,7 +10,7 @@ case class ProducerTransactionKey(key: Key, producerTransaction: ProducerTransac
   override def state: TransactionStates = producerTransaction.state
   override def quantity: Int = Integer2int(producerTransaction.quantity)
   override def keepAliveTTL: Long = Long2long(producerTransaction.keepAliveTTL)
-  override def toString: String = s"Producer transaction: ${key.toString}"
+  override def toString: String = s"Producer transaction: ${key.toString}, state: $state"
   def put(database: Database, txn: Transaction, putType: Put, options: WriteOptions = new WriteOptions()) =
     database.put(txn, key.toDatabaseEntry, producerTransaction.toDatabaseEntry, putType, options)
   def delete(database: Database, txn: Transaction) =  database.delete(txn, key.toDatabaseEntry)

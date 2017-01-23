@@ -1,10 +1,8 @@
 package `implicit`
 
-import java.lang.management.ManagementFactory
 import java.nio.ByteBuffer
 
 import com.google.common.primitives.UnsignedBytes
-import com.twitter.util.{Future => TwitterFuture}
 
 import scala.language.implicitConversions
 
@@ -17,7 +15,6 @@ object Implicits {
   implicit def arrayByteTByteBuffer(array: Array[Byte]): java.nio.ByteBuffer = java.nio.ByteBuffer.wrap(array)
   implicit def arrayByteTByteBuffer(array: Seq[Array[Byte]]): Seq[java.nio.ByteBuffer] = array map arrayByteTByteBuffer
 
-  implicit def futureByteBuffersToSeqArray(futureBuffers: TwitterFuture[Seq[java.nio.ByteBuffer]]): TwitterFuture[Seq[Array[Byte]]] = futureBuffers map byteBuffersToSeqArrayByte
   implicit def byteBuffersToSeqArrayByte(buffers: Seq[java.nio.ByteBuffer]): Seq[Array[Byte]] = buffers map byteBufferToArrayByte
   implicit def byteBufferToArrayByte(buffer: java.nio.ByteBuffer): Array[Byte] = {
     val sizeOfSlicedData = buffer.limit() - buffer.position()

@@ -5,13 +5,17 @@ import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
-import netty.server.streamService.StreamServiceImpl
-import netty.server.transactionMetaService.TransactionMetaServiceImpl
 import org.apache.curator.retry.RetryNTimes
+import org.apache.log4j.PropertyConfigurator
+import org.slf4j.{Logger, LoggerFactory}
 import zooKeeper.ZKLeaderClientToPutMaster
 
-class Server(override val config: ServerConfig) extends TransactionServer {
+class Server(override val config: ServerConfig = new configProperties.ServerConfig(new configProperties.ConfigFile("src/main/resources/serverProperties.properties"))) extends TransactionServer(config) {
   import config._
+
+  PropertyConfigurator.configure("src/main/resources/logServer.properties")
+  private val logger: Logger = LoggerFactory.getLogger(classOf[netty.server.Server])
+
   val zk = new ZKLeaderClientToPutMaster(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
     new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
   zk.putData(transactionServerAddress.getBytes())
@@ -27,7 +31,7 @@ class Server(override val config: ServerConfig) extends TransactionServer {
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(transactionServer, config.transactionServerPoolContext.getContext))
+        .childHandler(new ServerInitializer(transactionServer, config.transactionServerPoolContext.getContext, logger))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 

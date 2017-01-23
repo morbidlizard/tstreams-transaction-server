@@ -4,10 +4,16 @@ import java.io.Closeable
 
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.log4j.PropertyConfigurator
 import org.apache.zookeeper.CreateMode
+import org.slf4j.LoggerFactory
 
 class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends Closeable {
+
+  PropertyConfigurator.configure("src/main/resources/logServer.properties")
+  private val logger = LoggerFactory.getLogger(classOf[netty.server.Server])
+
   val client = {
     val connection = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(sessionTimeoutMillis)

@@ -5,6 +5,8 @@ import configProperties.ServerConfig
 
 import scala.concurrent.{Future => ScalaFuture, _}
 import netty.server.{Authenticable, CheckpointTTL}
+import org.apache.log4j.PropertyConfigurator
+import org.slf4j.LoggerFactory
 import transactionService.rpc.ConsumerService
 
 
@@ -13,6 +15,9 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
   with CheckpointTTL {
 
   val config: ServerConfig
+
+  PropertyConfigurator.configure("src/main/resources/logServer.properties")
+  private val logger = LoggerFactory.getLogger(classOf[netty.server.Server])
 
   val consumerEnvironment: Environment
   lazy val consumerDatabase = {
@@ -30,7 +35,8 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
       val keyEntry = Key(name, streamNameToLong, partition).toDatabaseEntry
       val consumerTransactionEntry = new DatabaseEntry()
       val result: Long = if (consumerDatabase.get(transactionDB, keyEntry, consumerTransactionEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS)
-        ConsumerTransaction.entryToObject(consumerTransactionEntry).transactionId else -1L
+        ConsumerTransaction.entryToObject(consumerTransactionEntry).transactionId
+      else -1L
       transactionDB.commit()
       result
     }(config.berkeleyReadPool.getContext)
@@ -52,10 +58,16 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
       val result = promise success (ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransaction(transaction))
         .put(consumerDatabase, transactionDB, Put.OVERWRITE, new WriteOptions()) != null)
       result.future.flatMap { isOkay =>
-        if (isOkay) transactionDB.commit() else transactionDB.abort()
+        if (isOkay) {
+          logger.debug(s"$stream $partition $transaction. Successfully setted consumer state.")
+          transactionDB.commit()
+        } else {
+          logger.debug(s"$stream $partition $transaction. Consumer state isn't setted.")
+          transactionDB.abort()
+        }
         Promise.successful(isOkay).future
       }(config.berkeleyWritePool.getContext)
     }
 
-  def closeConsumerDatabase() = consumerDatabase.close()
+  def closeConsumerDatabase() = Option(consumerDatabase.close())
 }

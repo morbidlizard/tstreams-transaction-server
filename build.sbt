@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.0"
+version := "1.0-SNAPSHOT"
 
 scalaVersion := "2.12.1"
 
@@ -17,6 +17,8 @@ pomExtra :=
       </developer>
     </developers>
 
+fork in run := true
+fork in Test := true
 licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
 homepage := Some(url("http://t-streams.com/"))
 pomIncludeRepository := { _ => false }

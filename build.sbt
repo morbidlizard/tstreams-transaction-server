@@ -4,9 +4,6 @@ version := "1.0"
 
 scalaVersion := "2.12.1"
 
-scalacOptions ++= Seq("-unchecked", "-deprecation")
-
-
 pomExtra :=
   <scm>
     <url>git@github.com:bwsw/tstreams-transaction-server.git</url>
@@ -20,6 +17,8 @@ pomExtra :=
       </developer>
     </developers>
 
+
+parallelExecution in ThisBuild := false
 
 licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
 homepage := Some(url("http://t-streams.com/"))

@@ -27,6 +27,8 @@ organization := "com.bwsw"
 publishMavenStyle := true
 pomIncludeRepository := { _ => false }
 
+isSnapshot := true
+
 publishTo := {
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)

@@ -8,13 +8,33 @@ import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
 import transactionService.rpc.TransactionService
 
 object Descriptors {
+
+
+  /** A class for building Descriptors objects that contain all necessary information how to serialize/deserialize structures of request/response methods,
+    * how request and response are connected with each other.
+    *
+    *  @constructor create a new descriptor that could serialize/deserialize structures of methods.
+    *  @param methodName name of a method. All methods names should be distinct in all Descriptor objects.
+    *  @param codecReq a request type to serialize/deserialize.
+    *  @param codecRep a response type to serialize/deserialize.
+    *  @param protocolReq a protocol for serialization/deserialization of methods arguments of request.
+    *  @param protocolRep a protocol for serialization/deserialization of methods arguments of response.
+    */
   sealed abstract class Descriptor[T <: ThriftStruct, R <: ThriftStruct](methodName: String,
-                                                                         serverCodec: ThriftStructCodec3[T],
-                                                                         clientCodec: ThriftStructCodec3[R],
+                                                                         codecReq: ThriftStructCodec3[T],
+                                                                         codecRep: ThriftStructCodec3[R],
                                                                          protocolReq : TProtocolFactory,
                                                                          protocolRep : TProtocolFactory) {
 
-    private def encode(entity: ThriftStruct, protocol: TProtocolFactory ,messageId: Int): Message = {
+
+
+    /** A method for building request/response methods to serialize.
+      *
+      *  @param entity name of a method. All methods names should be distinct in all Descriptor objects.
+      *  @param protocol a protocol for serialization/deserialization of method.
+      *  @param messageId an id of serialized instance of request/response.
+      */
+    private def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Int): Message = {
       val buffer = new TMemoryBuffer(512)
       val oprot = protocol.getProtocol(buffer)
 
@@ -25,10 +45,17 @@ object Descriptors {
       Message(bytes.length, getProtocolID(protocol), bytes)
     }
 
+    /** A method for serializing request and adding an id to id. */
     def encodeRequest(entity: T)(messageId: Int): Message = encode(entity, protocolReq, messageId)
 
+    /** A method for serializing response and adding an id to id. */
     def encodeResponse(entity: R)(messageId: Int): Message = encode(entity, protocolRep, messageId)
 
+
+    /** A method for deserialization request.
+      *
+      *  @param message a structure that contains a binary body of request.
+      */
     def decodeRequest(message: Message): T = {
       val iprot = protocolReq.getProtocol(new TMemoryInputTransport(message.body))
       val msg = iprot.readMessageBegin()
@@ -43,13 +70,17 @@ object Descriptors {
         //           throw com.bwsw.exception
         //         } else {
 
-        serverCodec.decode(iprot)
+        codecReq.decode(iprot)
         //         }
       } finally {
         iprot.readMessageEnd()
       }
     }
 
+    /** A method for deserialization response.
+      *
+      *  @param message a structure that contains a binary body of response.
+      */
     def decodeResponse(message: Message): R = {
       val iprot = protocolRep.getProtocol(new TMemoryInputTransport(message.body))
       val msg = iprot.readMessageBegin()
@@ -64,11 +95,23 @@ object Descriptors {
         //           throw com.bwsw.exception
         //         } else {
 
-        clientCodec.decode(iprot)
+        codecRep.decode(iprot)
         //         }
       } finally {
         iprot.readMessageEnd()
       }
+    }
+  }
+
+  object Descriptor {
+    /** A method for deserialization response/request header.
+      *
+      *  @param message a structure that contains a binary body of response/request.
+      */
+    def decodeMethodName(message: Message): (String, Int) = {
+      val iprot = getIdProtocol(message.protocol).getProtocol(new TMemoryInputTransport(message.body))
+      val header = iprot.readMessageBegin()
+      (header.name, header.seqid)
     }
   }
 
@@ -85,14 +128,6 @@ object Descriptors {
     case 1 => protocolTBinaryFactory
   }
 
-  object Descriptor {
-    def decodeMethodName(message: Message): (String, Int) = {
-        val iprot = getIdProtocol(message.protocol).getProtocol(new TMemoryInputTransport(message.body))
-        val header = iprot.readMessageBegin()
-        (header.name, header.seqid)
-    }
-  }
-
   val putStreamMethod = "putStream"
   val doesStreamExistMethod = "doesStreamExist"
   val getStreamMethod = "getStream"
@@ -106,15 +141,6 @@ object Descriptors {
   val getConsumerStateMethod = "getConsumerState"
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
-  val tokenInvalidException ="tokenInvalidException"
-
-  val methods = Array(
-    putStreamMethod, doesStreamExistMethod, getStreamMethod, delStreamMethod,
-    putTransactionMethod, putTranscationsMethod, scanTransactionsMethod,
-    putTransactionDataMethod, getTransactionDataMethod,
-    setConsumerStateMethod, getConsumerStateMethod,
-    authenticateMethod, isValidMethod
-  )
 
 
   case object PutStream extends

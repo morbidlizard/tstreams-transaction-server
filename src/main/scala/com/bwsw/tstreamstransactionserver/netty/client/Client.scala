@@ -20,6 +20,12 @@ import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
+
+/** A client who connects to a server.
+  *
+  *  @constructor create a new client by configuration file or map.
+  *  @param config the configuration file or map.
+  */
 class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.ClientConfig = new com.bwsw.tstreamstransactionserver.configProperties.ClientConfig(new com.bwsw.tstreamstransactionserver.configProperties.ConfigFile("src/main/resources/clientProperties.properties"))) {
   import config._
 
@@ -56,16 +62,15 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
   private class ConnectionListener extends ChannelFutureListener() {
     val atomicInteger = new AtomicInteger(serverTimeoutConnection / serverTimeoutBetweenRetries)
 
+
     @throws[Exception]
     override def operationComplete(channelFuture: ChannelFuture): Unit = {
       if (!channelFuture.isSuccess && atomicInteger.getAndDecrement() > 0) {
         //      System.out.println("Reconnect")
         val loop = channelFuture.channel().eventLoop()
-        loop.execute(new Runnable() {
-          override def run() {
-            TimeUnit.MILLISECONDS.sleep(serverTimeoutBetweenRetries)
-            connect()
-          }
+        loop.execute(() => {
+          TimeUnit.MILLISECONDS.sleep(serverTimeoutBetweenRetries)
+          connect()
         })
       } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
       else channel = channelFuture.sync().channel()
@@ -73,8 +78,12 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
   }
 
 
+  /** A retry method to get ipAddres:port from zooKeeper server.
+    *
+    *  @param times how many times try to get ipAddres:port from zooKeeper server.
+    */
   @tailrec
-  final def getInetAddressFromZookeeper(times: Int): (String, Int) = {
+  private def getInetAddressFromZookeeper(times: Int): (String, Int) = {
     if (times > 0 && zKLeaderClient.master.isEmpty) {
       TimeUnit.MILLISECONDS.sleep(zkTimeoutBetweenRetries)
       logger.info("Retrying to get master server from zookeeper server.")
@@ -91,6 +100,12 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
       }
     }
   }
+  /** A general method for sending requests to a server and getting a response back.
+    *
+    *  @param descriptor .
+    *  @param request
+    *  @param context implicit context for processing this future.
+    */
 
   private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit context: ExecutionContext): ScalaFuture[Rep] = {
     if (channel != null && channel.isActive) {

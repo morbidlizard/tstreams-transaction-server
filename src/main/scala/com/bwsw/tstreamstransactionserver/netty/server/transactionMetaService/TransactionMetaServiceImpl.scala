@@ -157,10 +157,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   private final val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
     authenticate(token) {
-      val lockMode = LockMode.READ_UNCOMMITTED
+      val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val streamObj = getStreamDatabaseObject(stream)
       val transactionDB = transactionMetaEnviroment.beginTransaction(null, null)
-      val cursor = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setReadUncommitted(true))
+      val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
         val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.keepAliveTTL)

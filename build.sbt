@@ -17,9 +17,6 @@ pomExtra :=
       </developer>
     </developers>
 
-
-parallelExecution in ThisBuild := false
-
 licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
 homepage := Some(url("http://t-streams.com/"))
 pomIncludeRepository := { _ => false }
@@ -52,7 +49,6 @@ ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile ~= (base => base / sr
 ScroogeSBT.autoImport.scroogeBuildOptions in Compile := Seq()
 unmanagedSourceDirectories in Compile += baseDirectory.value / "src/main/resources"
 managedSourceDirectories in Compile += baseDirectory.value / sroogeGenOutput
-unmanagedSourceDirectories in Test += baseDirectory.value / "src" / "it" / "scala"
 parallelExecution in Test := false
 
 resolvers ++= Seq(

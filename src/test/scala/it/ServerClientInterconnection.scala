@@ -24,10 +24,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   private def serverConfig(connectionString: String): com.bwsw.tstreamstransactionserver.configProperties.ConfigMap = {
     val map = scala.collection.mutable.Map[String,String]()
-    map += (("transactionServer.replication.endpoints", "192.168.1.174:8071"))
+    map += (("transactionServer.replication.endpoints", "127.0.0.1:46000"))
     map += (("transaction.data.ttl.add", "50"))
     map += (("zk.endpoints", connectionString))
-    map += (("transactionServer.port", "8071"))
     map += (("db.path.transaction_meta", "transaction_meta"))
     map += (("je.evictor.maxThreads", "2"))
     map += (("transactionServer.replication.timeout.masterElection", "5000"))
@@ -47,7 +46,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     map += (("transaction.metadata.ttl.add", "50"))
     map += (("zk.timeout.betweenRetries", "500"))
     map += (("transactionServer.replication.group", "testgroup"))
-    map += (("transactionServer.listen", "192.168.1.192"))
+    map += (("transactionServer.listen", "127.0.0.1"))
+    map += (("transactionServer.port", "46000"))
     map += (("rocksdb.create_if_missing", "true"))
     map += (("rocksdb.allow_os_buffer", "true"))
     map += (("transaction.data.clean.amount", "200"))

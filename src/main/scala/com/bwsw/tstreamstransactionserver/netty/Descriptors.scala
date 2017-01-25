@@ -33,6 +33,10 @@ object Descriptors {
       *  @param entity name of a method. All methods names should be distinct in all Descriptor objects.
       *  @param protocol a protocol for serialization/deserialization of method.
       *  @param messageId an id of serialized instance of request/response.
+      *  @return a new message containing binary representation of method's object, it's size and the protocol to
+      *          serialize/deserialize the method.
+      *
+      *
       */
     private def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Int): Message = {
       val buffer = new TMemoryBuffer(512)
@@ -55,6 +59,7 @@ object Descriptors {
     /** A method for deserialization request.
       *
       *  @param message a structure that contains a binary body of request.
+      *  @return a request
       */
     def decodeRequest(message: Message): T = {
       val iprot = protocolReq.getProtocol(new TMemoryInputTransport(message.body))
@@ -80,6 +85,7 @@ object Descriptors {
     /** A method for deserialization response.
       *
       *  @param message a structure that contains a binary body of response.
+      *  @return a response
       */
     def decodeResponse(message: Message): R = {
       val iprot = protocolRep.getProtocol(new TMemoryInputTransport(message.body))
@@ -107,6 +113,7 @@ object Descriptors {
     /** A method for deserialization response/request header.
       *
       *  @param message a structure that contains a binary body of response/request.
+      *  @return a method name and it's id
       */
     def decodeMethodName(message: Message): (String, Int) = {
       val iprot = getIdProtocol(message.protocol).getProtocol(new TMemoryInputTransport(message.body))
@@ -118,11 +125,13 @@ object Descriptors {
   private val protocolTCompactFactory = new TCompactProtocol.Factory
   private val protocolTBinaryFactory = new TBinaryProtocol.Factory
 
+  /** get byte by protocol  */
   def getProtocolID(protocol: TProtocolFactory): Byte = protocol match {
     case `protocolTCompactFactory` => 0
     case `protocolTBinaryFactory`  => 1
   }
 
+  /** get protocol by byte  */
   def getIdProtocol(byte: Byte): TProtocolFactory = byte match {
     case 0 => protocolTCompactFactory
     case 1 => protocolTBinaryFactory

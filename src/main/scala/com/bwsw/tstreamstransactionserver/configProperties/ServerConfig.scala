@@ -76,9 +76,9 @@ class ServerConfig(config: Config) extends Config {
 
   val options = new RocksDBConfig(config).rocksDBProperties
 
-  val berkeleyWritePool = Context(1, "BerkeleyWritePool-%d")
-  val berkeleyReadPool = Context(Executors.newFixedThreadPool(transactionServerBerkeleyReadPool, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
-  val rocksWritePool = Context(Executors.newFixedThreadPool(transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
-  val rocksReadPool = Context(Executors.newFixedThreadPool(transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
-  val transactionServerPoolContext = Context(Executors.newFixedThreadPool(transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
+  lazy val berkeleyWritePool = Context(1, "BerkeleyWritePool-%d")
+  lazy val berkeleyReadPool = Context(Executors.newFixedThreadPool(transactionServerBerkeleyReadPool, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
+  lazy val rocksWritePool = Context(Executors.newFixedThreadPool(transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
+  lazy val rocksReadPool = Context(Executors.newFixedThreadPool(transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
+  lazy val transactionServerPoolContext = Context(Executors.newFixedThreadPool(transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
 }

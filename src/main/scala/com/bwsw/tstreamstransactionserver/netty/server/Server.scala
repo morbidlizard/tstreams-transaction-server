@@ -10,7 +10,7 @@ import io.netty.channel.ChannelOption
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 
-class Server(override val config: ServerConfig = new com.bwsw.tstreamstransactionserver.configProperties.ServerConfig(new com.bwsw.tstreamstransactionserver.configProperties.ConfigFile("src/main/resources/serverProperties.properties"))) extends TransactionServer(config) {
+class Server(val config: ServerConfig = new com.bwsw.tstreamstransactionserver.configProperties.ServerConfig(new com.bwsw.tstreamstransactionserver.configProperties.ConfigFile("src/main/resources/serverProperties.properties"))) {
   import config._
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
@@ -44,10 +44,10 @@ class Server(override val config: ServerConfig = new com.bwsw.tstreamstransactio
       bossGroup.shutdownGracefully()
     }
   }
-  override def close() = {
+  def close() = {
     zk.close()
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
-    super.close()
+    transactionServer.close()
   }
 }

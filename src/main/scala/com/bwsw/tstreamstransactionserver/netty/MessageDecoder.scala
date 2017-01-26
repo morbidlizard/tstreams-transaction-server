@@ -6,8 +6,16 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.ByteToMessageDecoder
 
-
+/** Message Decoder is aggregator for all bytes incoming via tcp session and deserialize these bytes to a new Message if
+  * there is enough bytes for doing it.
+  *
+  *  @constructor create a message decoder handler.
+  *
+  */
 class MessageDecoder extends ByteToMessageDecoder {
+
+
+  /** Deserialize bytes to a message and puts it to a list for next processing for other handlers. */
   override def decode(ctx: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     val readableBytes = in.readableBytes()
     if (readableBytes < Message.headerSize){}

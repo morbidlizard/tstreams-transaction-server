@@ -3,8 +3,6 @@ package com.bwsw.tstreamstransactionserver.netty.server.authService
 import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
 import com.google.common.cache.CacheBuilder
 
-import scala.concurrent.{Future => ScalaFuture}
-
 
 trait AuthServiceImpl {
   val config: ServerConfig
@@ -24,5 +22,5 @@ trait AuthServiceImpl {
     } else -1
   }
 
-   def isValid(token: Int): Boolean = token != -1 && usersToken.getIfPresent(token) != null
+  def isValid(token: Int): Boolean = token != -1 && usersToken.getIfPresent(token) != null
 }

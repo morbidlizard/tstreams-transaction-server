@@ -37,6 +37,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     map += (("db.path", "/tmp"))
     map += (("rocksdb.max_background_compactions", "1"))
     map += (("auth.token.active.max", "100"))
+    map += (("auth.key", "Aleksandr"))
     map += (("db.path.transaction_data", "transaction_data"))
     map += (("zk.retries.max", "5"))
     map += (("transactionServer.berkeleyReadPool", "2"))
@@ -63,11 +64,10 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   private def clientConfig(connectionString: String): com.bwsw.tstreamstransactionserver.configProperties.ConfigMap = {
     val map = scala.collection.mutable.Map[String,String]()
-    map += (("auth.login", "Aleksandr"))
+    map += (("auth.key", "Aleksandr"))
     map += (("auth.timeout.connection", "5000"))
     map += (("zk.endpoints", connectionString))
     map += (("server.timeout.connection", "5000"))
-    map += (("auth.password", "1444"))
     map += (("zk.timeout.session", "10000"))
     map += (("server.timeout.betweenRetries", "200"))
     map += (("client.pool", "4"))

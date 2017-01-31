@@ -39,6 +39,8 @@ class ServerConfig(config: Config) extends Config {
 
   val authTokenActiveMax = config.readProperty[Int]("auth.token.active.max")
 
+  val authKey = config.readProperty[String]("auth.key")
+
   val zkEndpoints = config.readProperty[String]("zk.endpoints")
 
   val zkTimeoutSession = config.readProperty[Int]("zk.timeout.session")

@@ -1,12 +1,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 
+import com.bwsw.tstreamstransactionserver.netty.Descriptors._
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
-import transactionService.rpc.TransactionService
-import org.slf4j.Logger
-import Descriptors._
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.apache.log4j.PropertyConfigurator
+import org.slf4j.Logger
+import transactionService.rpc.TransactionService
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
@@ -175,7 +175,7 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
 
       case `authenticateMethod` =>
         val args = Descriptors.Authenticate.decodeRequest(message)
-        val response = transactionServer.authenticate(args.login, args.password)
+        val response = transactionServer.authenticate(args.authKey)
         logSuccessfulProcession()
         ScalaFuture.successful(Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(response)))(messageSeqId))
 

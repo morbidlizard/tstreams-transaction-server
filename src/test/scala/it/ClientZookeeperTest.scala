@@ -8,11 +8,10 @@ class ClientZookeeperTest extends FlatSpec with Matchers {
 
   private def clientConfig(connectionString: String): com.bwsw.tstreamstransactionserver.configProperties.ConfigMap = {
     val map = scala.collection.mutable.Map[String,String]()
-    map += (("auth.login", "Aleksandr"))
+    map += (("auth.key", "Aleksandr"))
     map += (("auth.timeout.connection", "5000"))
     map += (("zk.endpoints", connectionString))
     map += (("server.timeout.connection", "5000"))
-    map += (("auth.password", "1444"))
     map += (("zk.timeout.session", "10000"))
     map += (("server.timeout.betweenRetries", "200"))
     map += (("client.pool", "4"))

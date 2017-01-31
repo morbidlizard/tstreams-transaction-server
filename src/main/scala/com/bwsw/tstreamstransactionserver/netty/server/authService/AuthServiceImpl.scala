@@ -1,8 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.authService
 
-import scala.concurrent.{Future => ScalaFuture}
-import com.google.common.cache.CacheBuilder
 import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
+import com.google.common.cache.CacheBuilder
+
+import scala.concurrent.{Future => ScalaFuture}
 
 
 trait AuthServiceImpl {
@@ -12,13 +13,16 @@ trait AuthServiceImpl {
   val usersToken = CacheBuilder.newBuilder()
     .maximumSize(config.authTokenActiveMax)
     .expireAfterAccess(config.authTokenTimeExpiration, java.util.concurrent.TimeUnit.SECONDS)
-    .build[java.lang.Integer, (String,String)]()
+    .build[java.lang.Integer, String]()
 
-  def authenticate(login: String, password: String): Int = {
-    val token = random.nextInt()
-    usersToken.put(token, (login, password))
-    token
+  def authenticate(authKey: String): Int = {
+    if (authKey == config.authKey) {
+      val token = random.nextInt(Integer.MAX_VALUE)
+      usersToken.put(token, authKey)
+
+      token
+    } else -1
   }
 
-   def isValid(token: Int): Boolean = usersToken.getIfPresent(token) != null
+   def isValid(token: Int): Boolean = token != -1 && usersToken.getIfPresent(token) != null
 }

@@ -14,10 +14,6 @@ class ClientConfig(config: Config) extends Config {
 
   val serverTimeoutBetweenRetries = config.readProperty[Int]("server.timeout.betweenRetries")
 
-  val login = config.readProperty[String]("auth.login")
-
-  val password = config.readProperty[String]("auth.password")
-
   val zkEndpoints = config.readProperty[String]("zk.endpoints")
 
   val zkTimeoutSession = config.readProperty[Int]("zk.timeout.session")
@@ -29,6 +25,8 @@ class ClientConfig(config: Config) extends Config {
   val zkRetriesMax = config.readProperty[Int]("zk.retries.max")
 
   val zkPrefix = config.readProperty[String]("zk.prefix")
+
+  val authKey = config.readProperty[String]("auth.key")
 
   val authTimeoutConnection = config.readProperty[Int]("auth.timeout.connection")
 

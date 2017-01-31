@@ -292,9 +292,8 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
 
   private def authenticate(): ScalaFuture[Unit] = {
     logger.info("authenticate method is invoked.")
-    val login = config.login
-    val password = config.password
-    method(Descriptors.Authenticate, TransactionService.Authenticate.Args(login, password))
+    val authKey = config.authKey
+    method(Descriptors.Authenticate, TransactionService.Authenticate.Args(authKey))
       .map(x => token = x.success.get)
   }
 

@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
+import com.bwsw.tstreamstransactionserver.configProperties.{ConfigFile, ServerConfig}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.log4j.PropertyConfigurator
 import org.slf4j.{Logger, LoggerFactory}
@@ -10,14 +10,15 @@ import io.netty.channel.ChannelOption
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 
-class Server(val config: ServerConfig = new com.bwsw.tstreamstransactionserver.configProperties.ServerConfig(new com.bwsw.tstreamstransactionserver.configProperties.ConfigFile("src/main/resources/serverProperties.properties"))) {
+class Server(val config: ServerConfig = new ServerConfig(new ConfigFile("src/main/resources/serverProperties.properties"))) {
+
   import config._
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger: Logger = LoggerFactory.getLogger(classOf[com.bwsw.tstreamstransactionserver.netty.server.Server])
+  private val logger: Logger = LoggerFactory.getLogger(classOf[Server])
 
-  val zk = new ZKLeaderClientToPutMaster(zkEndpoints,zkTimeoutSession,zkTimeoutConnection,
-    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries),zkPrefix)
+  val zk = new ZKLeaderClientToPutMaster(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
+    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
   zk.putData(transactionServerAddress.getBytes())
 
   private val transactionServer = new TransactionServer(config)
@@ -42,12 +43,16 @@ class Server(val config: ServerConfig = new com.bwsw.tstreamstransactionserver.c
       zk.close()
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
+      transactionServer.shutdown()
+      config.shutdownThreadPools()
     }
   }
-  def close() = {
+
+  def shutdown() = {
     zk.close()
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
-    transactionServer.close()
+    transactionServer.shutdown()
+    config.shutdownThreadPools()
   }
 }

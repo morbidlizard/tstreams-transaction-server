@@ -3,6 +3,8 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
+import com.bwsw.tstreamstransactionserver.configProperties.{ClientConfig, ConfigMap, ServerConfig}
+import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerUnreachableException, StreamNotExist}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
 import org.apache.commons.io.FileUtils
@@ -11,9 +13,9 @@ import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
@@ -22,8 +24,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   val clientsNum = 2
 
-  private def serverConfig(connectionString: String): com.bwsw.tstreamstransactionserver.configProperties.ConfigMap = {
-    val map = scala.collection.mutable.Map[String,String]()
+  private def serverConfig(connectionString: String): ConfigMap = {
+    val map = scala.collection.mutable.Map[String, String]()
     map += (("transactionServer.replication.endpoints", "127.0.0.1:46000"))
     map += (("transaction.data.ttl.add", "50"))
     map += (("zk.endpoints", connectionString))
@@ -59,11 +61,11 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     map += (("zk.timeout.connection", "10000"))
     map += (("transactionServer.pool", "4"))
     map += (("transaction.timeout.clean.opened(sec)", "10"))
-    new com.bwsw.tstreamstransactionserver.configProperties.ConfigMap(map.toMap)
+    new ConfigMap(map.toMap)
   }
 
-  private def clientConfig(connectionString: String): com.bwsw.tstreamstransactionserver.configProperties.ConfigMap = {
-    val map = scala.collection.mutable.Map[String,String]()
+  private def clientConfig(connectionString: String): ConfigMap = {
+    val map = scala.collection.mutable.Map[String, String]()
     map += (("auth.key", "Aleksandr"))
     map += (("auth.timeout.connection", "5000"))
     map += (("zk.endpoints", connectionString))
@@ -78,24 +80,24 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     map += (("auth.token.timeout.betweenRetries", "200"))
     map += (("auth.token.timeout.connection", "5000"))
     map += (("zk.timeout.connection", "10000"))
-    new com.bwsw.tstreamstransactionserver.configProperties.ConfigMap(map.toMap)
+    new ConfigMap(map.toMap)
   }
 
   def startTransactionServer(connectString: String) = new Thread(() => {
-    transactionServer = new com.bwsw.tstreamstransactionserver.netty.server.Server(new com.bwsw.tstreamstransactionserver.configProperties.ServerConfig(serverConfig(connectString)))
+    transactionServer = new Server(new ServerConfig(serverConfig(connectString)))
     transactionServer.start()
   }).start()
 
 
   override def beforeEach(): Unit = {
-    zkTestServer= new TestingServer(true)
+    zkTestServer = new TestingServer(true)
     startTransactionServer(zkTestServer.getConnectString)
-    client = new Client(new com.bwsw.tstreamstransactionserver.configProperties.ClientConfig(clientConfig(zkTestServer.getConnectString)))
+    client = new Client(new ClientConfig(clientConfig(zkTestServer.getConnectString)))
   }
 
   override def afterEach() {
-    transactionServer.close()
-    client.close()
+    client.shutdown()
+    transactionServer.shutdown()
     zkTestServer.close()
     FileUtils.deleteDirectory(new File(transactionServer.config.dbPath + "/" + transactionServer.config.dbStreamDirName))
     FileUtils.deleteDirectory(new File(transactionServer.config.dbPath + "/" + transactionServer.config.dbTransactionDataDirName))
@@ -113,14 +115,16 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       else 0
     }
   }
-  
+
   private val rand = scala.util.Random
+
   private def getRandomStream = new transactionService.rpc.Stream {
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
     override val ttl: Int = rand.nextInt(Int.MaxValue)
   }
+
   private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
 
   private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
@@ -132,7 +136,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     override val partition: Int = streamObj.partitions
   }
 
-  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =  new ConsumerTransaction {
+  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) = new ConsumerTransaction {
     override val transactionID: Long = scala.util.Random.nextLong()
     override val name: String = rand.nextInt(10000).toString
     override val stream: String = streamObj.name
@@ -142,8 +146,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   val secondsWait = 5
 
-
-    "Client" should "put producer and consumer transactions" in {
+  "Client" should "put producer and consumer transactions" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -168,7 +171,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val result = client.putTransactions(producerTransactions, consumerTransactions)
-    assertThrows[com.bwsw.tstreamstransactionserver.exception.Throwables.StreamNotExist] {
+
+    assertThrows[StreamNotExist] {
       Await.result(result, secondsWait.seconds)
     }
   }
@@ -182,8 +186,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
-    transactionServer.close()
-    assertThrows[com.bwsw.tstreamstransactionserver.exception.Throwables.ServerUnreachableException] {
+    transactionServer.shutdown()
+    assertThrows[ServerUnreachableException] {
       Await.result(resultInFuture, (client.config.authTimeoutConnection + 1000).milliseconds)
     }
   }
@@ -197,8 +201,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
-    transactionServer.close()
-    Thread.sleep(client.config.authTimeoutConnection*3/5)
+    transactionServer.shutdown()
+    Thread.sleep(client.config.authTimeoutConnection * 3 / 5)
     startTransactionServer(zkTestServer.getConnectString)
 
     Await.result(resultInFuture, secondsWait.seconds) shouldBe true
@@ -217,7 +221,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = Await.result(client.putTransactionData(txn, data, 0), secondsWait.seconds)
     resultInFuture shouldBe true
 
-    val dataFromDatabase = Await.result(client.getTransactionData(txn,0, amount), secondsWait.seconds)
+    val dataFromDatabase = Await.result(client.getTransactionData(txn, 0, amount), secondsWait.seconds)
     data should contain theSameElementsAs dataFromDatabase
   }
 
@@ -230,11 +234,11 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait.seconds)
 
-    val statesAllowed = Array(TransactionStates.Opened,TransactionStates.Checkpointed)
+    val statesAllowed = Array(TransactionStates.Opened, TransactionStates.Checkpointed)
     val (from, to) = (
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).minBy(_.transactionID).transactionID,
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
-      )
+    )
 
     val producerTransactionsByState = producerTransactions.groupBy(_.state)
     val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait.seconds)
@@ -260,23 +264,25 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
 
   "Server" should "not have problems with many clients" in {
-    val clients = Array.fill(clientsNum)(new Client(new com.bwsw.tstreamstransactionserver.configProperties.ClientConfig(clientConfig(zkTestServer.getConnectString))))
+    val clients = Array.fill(clientsNum)(new Client(new ClientConfig(clientConfig(zkTestServer.getConnectString))))
     val streams = Array.fill(10000)(getRandomStream)
     Await.result(client.putStream(chooseStreamRandomly(streams)), secondsWait.seconds)
 
-    val dataCounter = new java.util.concurrent.ConcurrentHashMap[(String,Int), LongAdder]()
+    val dataCounter = new java.util.concurrent.ConcurrentHashMap[(String, Int), LongAdder]()
+
     def addDataLength(stream: String, partition: Int, dataLength: Int): Unit = {
-      val valueToAdd = if (dataCounter.containsKey((stream,partition))) dataLength else 0
-      dataCounter.computeIfAbsent((stream,partition), new java.util.function.Function[(String,Int), LongAdder]{
+      val valueToAdd = if (dataCounter.containsKey((stream, partition))) dataLength else 0
+      dataCounter.computeIfAbsent((stream, partition), new java.util.function.Function[(String, Int), LongAdder] {
         override def apply(t: (String, Int)): LongAdder = new LongAdder()
       }).add(valueToAdd)
     }
-    def getDataLength(stream: String, partition: Int) = dataCounter.get((stream,partition)).intValue()
+
+    def getDataLength(stream: String, partition: Int) = dataCounter.get((stream, partition)).intValue()
 
 
     val res: Future[mutable.ArraySeq[Boolean]] = Future.sequence(clients map { client =>
       val streamFake = getRandomStream
-      client.putStream(streamFake).flatMap{_ =>
+      client.putStream(streamFake).flatMap { _ =>
         val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamFake))
         val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamFake))
         val data = Array.fill(100)(rand.nextInt(10000).toString.getBytes)
@@ -289,6 +295,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       }
     })
 
-    all(Await.result(res, (secondsWait*clientsNum).seconds)) shouldBe true
+    all(Await.result(res, (secondsWait * clientsNum).seconds)) shouldBe true
   }
 }

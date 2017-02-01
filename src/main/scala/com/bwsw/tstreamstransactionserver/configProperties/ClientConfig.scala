@@ -36,7 +36,13 @@ class ClientConfig(config: Config) extends Config {
 
   val authTokenTimeoutBetweenRetries = config.readProperty[Int]("auth.token.timeout.betweenRetries")
 
-  lazy val clientPoolContext = Context(Executors.newFixedThreadPool(clientPool,
-    new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build())
-  ).getContext
+  private lazy val clientThreadPool = Context(
+    Executors.newFixedThreadPool(clientPool, new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build())
+  )
+
+  lazy val clientPoolContext = clientThreadPool.getContext
+
+  def shutdownThreadPool() = {
+    clientThreadPool.shutdown()
+  }
 }

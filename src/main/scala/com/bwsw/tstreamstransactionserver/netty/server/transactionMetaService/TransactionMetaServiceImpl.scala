@@ -1,22 +1,22 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetaService
 
 import java.time.Instant
-import java.util.concurrent.TimeUnit._
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit._
 
+import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL, Server}
+import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.google.common.primitives.UnsignedBytes
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
-import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
 import org.apache.log4j.PropertyConfigurator
 import org.slf4j.{Logger, LoggerFactory}
 import transactionService.rpc._
-import com.bwsw.tstreamstransactionserver.utils.FileUtils
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
+import scala.concurrent.{Future => ScalaFuture}
 
 
 trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
@@ -26,7 +26,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   val config: ServerConfig
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger: Logger = LoggerFactory.getLogger(classOf[com.bwsw.tstreamstransactionserver.netty.server.Server])
+  private val logger: Logger = LoggerFactory.getLogger(classOf[Server])
 
   final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build())
 
@@ -105,7 +105,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   }
 
 
-  def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: transactionService.rpc.ConsumerTransaction):Boolean //= {
+  def putConsumerTransaction(databaseTxn: com.sleepycat.je.Transaction, txn: ConsumerTransaction):Boolean //= {
 
 //    val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
 //
@@ -151,7 +151,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
     (txn.keepAliveTTL + config.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
 
-  private def doesProducerTransactionExpired(txn: com.bwsw.tstreamstransactionserver.netty.server.transactionMetaService.ProducerTransaction): Boolean =
+  private def doesProducerTransactionExpired(txn: ProducerTransaction): Boolean =
     (txn.keepAliveTTL + config.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
 
   private final val comparator = UnsignedBytes.lexicographicalComparator

@@ -4,18 +4,19 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
+import com.bwsw.tstreamstransactionserver.configProperties.{ClientConfig, ConfigFile}
 import com.bwsw.tstreamstransactionserver.exception.Throwables
-import com.twitter.scrooge.ThriftStruct
-import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerConnectionException, ZkGetMasterException}
+import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerConnectionException, ServerUnreachableException, TokenInvalidException, ZkGetMasterException}
 import com.bwsw.tstreamstransactionserver.netty.{Context, Descriptors}
+import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToGetMaster
+import com.twitter.scrooge.ThriftStruct
+import io.netty.bootstrap.Bootstrap
+import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
+import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener, ChannelOption}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.log4j.PropertyConfigurator
 import org.slf4j.LoggerFactory
 import transactionService.rpc.{TransactionService, _}
-import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToGetMaster
-import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener, ChannelOption}
-import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
@@ -23,10 +24,11 @@ import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => Sca
 
 /** A client who connects to a server.
   *
-  *  @constructor create a new client by configuration file or map.
-  *  @param config the configuration file or map.
+  * @constructor create a new client by configuration file or map.
+  * @param config the configuration file or map.
   */
-class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.ClientConfig = new com.bwsw.tstreamstransactionserver.configProperties.ClientConfig(new com.bwsw.tstreamstransactionserver.configProperties.ConfigFile("src/main/resources/clientProperties.properties"))) {
+class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/main/resources/clientProperties.properties"))) {
+
   import config._
 
   PropertyConfigurator.configure("src/main/resources/logClient.properties")
@@ -80,7 +82,7 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
 
   /** A retry method to get ipAddres:port from zooKeeper server.
     *
-    *  @param times how many times try to get ipAddres:port from zooKeeper server.
+    * @param times how many times try to get ipAddres:port from zooKeeper server.
     */
   @tailrec
   private def getInetAddressFromZookeeper(times: Int): (String, Int) = {
@@ -94,17 +96,17 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
           (listenPort(0), listenPort(1).toInt)
         case None => {
           logger.error(Throwables.zkGetMasterExceptionMessage)
-          close()
+          shutdown()
           throw new ZkGetMasterException
         }
       }
     }
   }
+
   /** A general method for sending requests to a server and getting a response back.
     *
-    *  @param descriptor .
-    *  @param request
-    *  @param context implicit context for processing this future.
+    * @param descriptor .
+    * @param request
     */
 
   private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit context: ExecutionContext): ScalaFuture[Rep] = {
@@ -117,8 +119,11 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
       promise.future.map { response =>
         ReqIdToRep.remove(messageId)
         response.asInstanceOf[Rep]
-      }.recover{case error => ReqIdToRep.remove(messageId); throw error}
-    } else ScalaFuture.failed(new com.bwsw.tstreamstransactionserver.exception.Throwables.ServerUnreachableException)
+      }.recoverWith { case error =>
+        ReqIdToRep.remove(messageId)
+        ScalaFuture.failed(error)
+      }
+    } else ScalaFuture.failed(new ServerUnreachableException)
   }
 
   private def retry[Req, Rep](times: Int)(f: => ScalaFuture[Rep])(condition: PartialFunction[Throwable, Boolean]): ScalaFuture[Rep] = {
@@ -130,65 +135,67 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
     helper(times)(f)
   }
 
-  private def retryAuthenticate[Req, Rep](f: => ScalaFuture[Rep]) = retry(authTimeoutConnection / authTokenTimeoutBetweenRetries)(f)(
-    new PartialFunction[Throwable, Boolean] {
-      override def apply(v1: Throwable): Boolean = v1 match {
-        case _: com.bwsw.tstreamstransactionserver.exception.Throwables.TokenInvalidException =>
+  private def retryMethod[Req, Rep](f: => ScalaFuture[Rep]) = retry(authTimeoutConnection / authTokenTimeoutBetweenRetries)(f)(conditionToRetry)
+
+  private val conditionToRetry = new PartialFunction[Throwable, Boolean] {
+    override def apply(v1: Throwable): Boolean = {
+      v1 match {
+        case _: TokenInvalidException =>
           logger.info("Token isn't valid. Retrying get one.")
           authenticate()
           TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
           true
-        case _: com.bwsw.tstreamstransactionserver.exception.Throwables.ServerUnreachableException =>
-          logger.info(s"${Throwables.serverUnreachableExceptionMessage}Retrying to reconnect server.")
+        case _: ServerUnreachableException =>
+          logger.info(s"${Throwables.serverUnreachableExceptionMessage}. Retrying to reconnect server.")
           TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
           true
         case error =>
           logger.error(error.getMessage, error)
           false
       }
-
-      override def isDefinedAt(x: Throwable): Boolean = x.isInstanceOf[com.bwsw.tstreamstransactionserver.exception.Throwables.TokenInvalidException]
     }
-  )
+
+    override def isDefinedAt(x: Throwable): Boolean = x.isInstanceOf[TokenInvalidException]
+  }
 
   @volatile private var token: Int = _
   //Await.ready(authenticate(), 5 seconds)
 
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] = {
     logger.info("PutStream method is invoked.")
-    retryAuthenticate(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream, partitions, description, ttl))
+    retryMethod(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream, partitions, description, ttl))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def putStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
     logger.info("PutStream method is invoked.")
-    retryAuthenticate(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream.name, stream.partitions, stream.description, stream.ttl))
+    retryMethod(method(Descriptors.PutStream, TransactionService.PutStream.Args(token, stream.name, stream.partitions, stream.description, stream.ttl))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def delStream(stream: String): ScalaFuture[Boolean] = {
     logger.info("delStream method is invoked.")
-    retryAuthenticate(method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream))
+    retryMethod(method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get)))
   }
 
   def delStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
     logger.info("delStream method is invoked.")
-    retryAuthenticate(method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream.name))
+    retryMethod(method(Descriptors.DelStream, TransactionService.DelStream.Args(token, stream.name))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
 
   def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] = {
     logger.info("getStream method is invoked.")
-    retryAuthenticate(method(Descriptors.GetStream, TransactionService.GetStream.Args(token, stream))
+    retryMethod(method(Descriptors.GetStream, TransactionService.GetStream.Args(token, stream))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
 
   def doesStreamExist(stream: String): ScalaFuture[Boolean] = {
     logger.info("doesStreamExist method is invoked.")
-    retryAuthenticate(method(Descriptors.DoesStreamExist, TransactionService.DoesStreamExist.Args(token, stream))
+    retryMethod(method(Descriptors.DoesStreamExist, TransactionService.DoesStreamExist.Args(token, stream))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -202,8 +209,12 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
     val txns = (producerTransactions map (txn => Transaction(Some(txn), None))) ++
       (consumerTransactions map (txn => Transaction(None, Some(txn))))
 
-    retryAuthenticate(method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))(futurePool)
-      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool)
+    retryMethod(method(Descriptors.PutTransactions, TransactionService.PutTransactions.Args(token, txns))(futurePool)
+      .flatMap(x => if (x.error.isDefined) {
+        ScalaFuture.failed(Throwables.byText(x.error.get.message))
+      } else {
+        ScalaFuture.successful(x.success.get)
+      })(futurePool)
     )
   }
 
@@ -211,21 +222,21 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     logger.info("putTransaction method is invoked.")
     TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
-    retryAuthenticate(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
+    retryMethod(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None)))(futurePool)
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool))
   }
 
 
   def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     logger.info("putTransaction method is invoked.")
-    retryAuthenticate(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
+    retryMethod(method(Descriptors.PutTransaction, TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction))))(futurePool)
       .flatMap(x => /*if (x.error.isDefined) ScalaFuture.failed(com.bwsw.exception.Throwables.byText(x.error.get.message)) else*/ ScalaFuture.successful(true /*x.success.get*/))(futurePool))
   }
 
 
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.ProducerTransaction]] = {
     logger.info("scanTransactions method is invoked.")
-    retryAuthenticate(method(Descriptors.ScanTransactions, TransactionService.ScanTransactions.Args(token, stream, partition, from, to))
+    retryMethod(method(Descriptors.ScanTransactions, TransactionService.ScanTransactions.Args(token, stream, partition, from, to))
       .flatMap(x =>
         if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message))
         else
@@ -237,7 +248,7 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
 
   def putTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
     logger.info("putTransactionData method is invoked.")
-    retryAuthenticate(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
+    retryMethod(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
       producerTransaction.partition, producerTransaction.transactionID, data, from))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
@@ -246,7 +257,7 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
 
   def putTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
     logger.info("putTransactionData method is invoked.")
-    retryAuthenticate(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, consumerTransaction.stream,
+    retryMethod(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, consumerTransaction.stream,
       consumerTransaction.partition, consumerTransaction.transactionID, data, from))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
@@ -257,7 +268,7 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
     require(from >= 0 && to >= 0)
     logger.info("getTransactionData method is invoked.")
 
-    retryAuthenticate(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, producerTransaction.stream,
+    retryMethod(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, producerTransaction.stream,
       producerTransaction.partition, producerTransaction.transactionID, from, to))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
@@ -268,7 +279,7 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
     require(from >= 0 && to >= 0)
     logger.info("getTransactionData method is invoked.")
 
-    retryAuthenticate(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, consumerTransaction.stream,
+    retryMethod(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, consumerTransaction.stream,
       consumerTransaction.partition, consumerTransaction.transactionID, from, to))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
@@ -277,7 +288,7 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
   def setConsumerState(consumerTransaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     logger.info("setConsumerState method is invoked.")
 
-    retryAuthenticate(method(Descriptors.SetConsumerState, TransactionService.SetConsumerState.Args(token, consumerTransaction.name,
+    retryMethod(method(Descriptors.SetConsumerState, TransactionService.SetConsumerState.Args(token, consumerTransaction.name,
       consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool)
     )
@@ -285,7 +296,7 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
 
   def getConsumerState(consumerTransaction: (String, String, Int)): ScalaFuture[Long] = {
     logger.info("getConsumerState method is invoked.")
-    retryAuthenticate(method(Descriptors.GetConsumerState, TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
+    retryMethod(method(Descriptors.GetConsumerState, TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -297,9 +308,11 @@ class Client(val config: com.bwsw.tstreamstransactionserver.configProperties.Cli
       .map(x => token = x.success.get)
   }
 
-  def close() = {
+  def shutdown() = {
+    zKLeaderClient.close()
     workerGroup.shutdownGracefully()
     if (channel != null) channel.closeFuture().sync()
+    config.shutdownThreadPool()
   }
 }
 

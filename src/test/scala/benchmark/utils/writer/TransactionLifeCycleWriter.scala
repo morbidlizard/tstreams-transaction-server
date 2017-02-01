@@ -1,6 +1,7 @@
 package benchmark.utils.writer
 
 import benchmark.utils.{CsvWriter, TimeMeasure, TransactionCreator}
+import com.bwsw.tstreamstransactionserver.netty.client.Client
 import transactionService.rpc.TransactionStates
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -8,7 +9,7 @@ import scala.concurrent.duration._
 
 class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, dataSize: Int, filename: String) {
-    val client = new com.bwsw.tstreamstransactionserver.netty.client.Client()
+    val client = new Client()
     val data = createTransactionData(dataSize)
 
     implicit val context = ExecutionContext.Implicits.global
@@ -34,5 +35,7 @@ class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends
 
     println(s"Write to file $filename")
     writeTransactionsLifeCycleAndTime(filename, result)
+
+    client.shutdown()
   }
 }

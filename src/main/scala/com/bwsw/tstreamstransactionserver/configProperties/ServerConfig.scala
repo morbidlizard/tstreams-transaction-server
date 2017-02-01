@@ -83,4 +83,12 @@ class ServerConfig(config: Config) extends Config {
   lazy val rocksWritePool = Context(Executors.newFixedThreadPool(transactionServerRocksDBWritePool, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
   lazy val rocksReadPool = Context(Executors.newFixedThreadPool(transactionServerRocksDBReadPool, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
   lazy val transactionServerPoolContext = Context(Executors.newFixedThreadPool(transactionServerPool, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
+
+  def shutdownThreadPools() = {
+    berkeleyWritePool.shutdown()
+    berkeleyReadPool.shutdown()
+    rocksWritePool.shutdown()
+    rocksReadPool.shutdown()
+    transactionServerPoolContext.shutdown()
+  }
 }

@@ -1,12 +1,14 @@
 package it
 
 
+import com.bwsw.tstreamstransactionserver.configProperties.{ClientConfig, ConfigMap}
+import com.bwsw.tstreamstransactionserver.exception.Throwables.ZkGetMasterException
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import org.scalatest.{FlatSpec, Matchers}
 
 class ClientZookeeperTest extends FlatSpec with Matchers {
 
-  private def clientConfig(connectionString: String): com.bwsw.tstreamstransactionserver.configProperties.ConfigMap = {
+  private def clientConfig(connectionString: String): ConfigMap = {
     val map = scala.collection.mutable.Map[String,String]()
     map += (("auth.key", "Aleksandr"))
     map += (("auth.timeout.connection", "5000"))
@@ -22,13 +24,12 @@ class ClientZookeeperTest extends FlatSpec with Matchers {
     map += (("auth.token.timeout.betweenRetries", "200"))
     map += (("auth.token.timeout.connection", "5000"))
     map += (("zk.timeout.connection", "10000"))
-    new com.bwsw.tstreamstransactionserver.configProperties.ConfigMap(map.toMap)
+    new ConfigMap(map.toMap)
   }
 
-
   "Client" should "not connect to zookeeper server that isn't running" in {
-    val configClient = new com.bwsw.tstreamstransactionserver.configProperties.ClientConfig(clientConfig("127.0.0.1:8080"))
-    assertThrows[com.bwsw.tstreamstransactionserver.exception.Throwables.ZkGetMasterException] {
+    val configClient = new ClientConfig(clientConfig("127.0.0.1:8080"))
+    assertThrows[ZkGetMasterException] {
       new Client(configClient)
     }
   }

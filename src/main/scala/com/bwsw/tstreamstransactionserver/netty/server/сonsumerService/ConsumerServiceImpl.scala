@@ -4,7 +4,7 @@ import com.sleepycat.je._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
 
 import scala.concurrent.{Future => ScalaFuture, _}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL, Server}
 import org.apache.log4j.PropertyConfigurator
 import org.slf4j.LoggerFactory
 import transactionService.rpc.ConsumerService
@@ -17,7 +17,7 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
   val config: ServerConfig
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger = LoggerFactory.getLogger(classOf[com.bwsw.tstreamstransactionserver.netty.server.Server])
+  private val logger = LoggerFactory.getLogger(classOf[Server])
 
   val consumerEnvironment: Environment
   lazy val consumerDatabase = {

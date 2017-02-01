@@ -17,13 +17,19 @@ import scala.concurrent.ExecutionContext
 class Context(contextNum: Int, f: => ExecutorService) {
   require(contextNum > 0)
 
-  private def newExecutionContext = ExecutionContext.fromExecutor(f)
+  private val executorServices = Array.fill(contextNum)(f)
 
-  val contexts = Array.fill(contextNum)(newExecutionContext)
+  private def newExecutionContext(executorService: ExecutorService) = ExecutionContext.fromExecutor(executorService)
+
+  private val contexts = executorServices.map(newExecutionContext)
 
   def getContext(value: Long) = contexts((value % contextNum).toInt)
 
   lazy val getContext = contexts(0)
+
+  def shutdown() = {
+    executorServices.foreach(_.shutdown())
+  }
 }
 
 
@@ -34,6 +40,4 @@ object Context {
   /** Creates a context with 1 pool of any executor service*/
   def apply(f: => ExecutorService) = new Context(1, f)
 }
-
-
 

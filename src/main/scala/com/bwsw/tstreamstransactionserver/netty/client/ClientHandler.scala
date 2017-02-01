@@ -2,9 +2,9 @@ package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.twitter.scrooge.ThriftStruct
 import com.bwsw.tstreamstransactionserver.exception.Throwables.ServerUnreachableException
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
+import com.twitter.scrooge.ThriftStruct
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 
@@ -77,7 +77,9 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     import scala.collection.JavaConverters._
     for (promise <- reqIdToRep.values().asScala) {
-      if (!promise.isCompleted) promise.tryFailure(new ServerUnreachableException)
+      if (!promise.isCompleted) {
+        promise.tryFailure(new ServerUnreachableException)
+      }
     }
 
     ctx.channel().eventLoop().execute(() => client.connect())

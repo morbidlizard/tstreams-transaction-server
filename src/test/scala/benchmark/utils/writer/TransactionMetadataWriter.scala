@@ -1,6 +1,7 @@
 package benchmark.utils.writer
 
 import benchmark.utils.{CsvWriter, TimeMeasure, TransactionCreator}
+import com.bwsw.tstreamstransactionserver.netty.client.Client
 import transactionService.rpc.TransactionStates
 
 import scala.concurrent.Await
@@ -9,7 +10,7 @@ import scala.concurrent.duration._
 class TransactionMetadataWriter(streamName: String, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, filename: String) {
     //val client = new TransactionClient("localhost:8071", 5000, 5000)
-    val client = new com.bwsw.tstreamstransactionserver.netty.client.Client()
+    val client = new Client()
     //val token = ""
     var globalProgress = 1
     val result = (1 to txnCount).map(x => {
@@ -29,5 +30,7 @@ class TransactionMetadataWriter(streamName: String, partition: Int = 1) extends 
 
     println(s"Write to file $filename")
     writeMetadataTransactionsAndTime(filename, result)
+
+    client.shutdown()
   }
 }

@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.{Future => ScalaFuture}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL, Server}
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
 import transactionService.rpc.TransactionDataService
@@ -17,7 +17,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   with Authenticable
   with CheckpointTTL {
 
-  private val logger: Logger = LoggerFactory.getLogger(classOf[com.bwsw.tstreamstransactionserver.netty.server.Server])
+  private val logger: Logger = LoggerFactory.getLogger(classOf[Server])
 
   val config: ServerConfig
   private val ttlToAdd: Int = config.transactionDataTtlAdd

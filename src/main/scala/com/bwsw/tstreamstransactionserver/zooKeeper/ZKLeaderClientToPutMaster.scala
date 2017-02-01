@@ -2,6 +2,7 @@ package com.bwsw.tstreamstransactionserver.zooKeeper
 
 import java.io.Closeable
 
+import com.bwsw.tstreamstransactionserver.netty.server.Server
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.log4j.PropertyConfigurator
@@ -12,7 +13,7 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
   extends Closeable {
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger = LoggerFactory.getLogger(classOf[com.bwsw.tstreamstransactionserver.netty.server.Server])
+  private val logger = LoggerFactory.getLogger(classOf[Server])
 
   val client = {
     val connection = CuratorFrameworkFactory.builder()

@@ -4,7 +4,7 @@ import com.sleepycat.je._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
 
 import scala.concurrent.{Future => ScalaFuture}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL, Server}
 import transactionService.rpc.StreamService
 import com.bwsw.tstreamstransactionserver.exception.Throwables._
 import org.apache.log4j.PropertyConfigurator
@@ -19,7 +19,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   val config: ServerConfig
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger = LoggerFactory.getLogger(classOf[com.bwsw.tstreamstransactionserver.netty.server.Server])
+  private val logger = LoggerFactory.getLogger(classOf[Server])
 
   val streamEnvironment = {
     val directory = FileUtils.createDirectory(config.dbStreamDirName, config.dbPath)
@@ -40,7 +40,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   }
 
 
-  override def getStreamDatabaseObject(stream: String): com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream =
+  override def getStreamDatabaseObject(stream: String): KeyStream =
     if (streamTTL.containsKey(stream)) streamTTL.get(stream)
     else {
       val key = Key(FNV.hash64a(stream.getBytes()).toLong)

@@ -4,14 +4,12 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import org.apache.log4j.PropertyConfigurator
 import org.slf4j.Logger
 import transactionService.rpc.TransactionService
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
 class ServerHandler(transactionServer: TransactionServer, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
-  PropertyConfigurator.configure("src/main/resources/logServer.properties")
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     invokeMethod(msg, ctx.channel().remoteAddress().toString)(context).map(message => ctx.writeAndFlush(message.toByteArray))(context)

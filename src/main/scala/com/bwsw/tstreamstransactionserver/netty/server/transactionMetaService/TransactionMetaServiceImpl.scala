@@ -11,7 +11,6 @@ import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.google.common.primitives.UnsignedBytes
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
-import org.apache.log4j.PropertyConfigurator
 import org.slf4j.{Logger, LoggerFactory}
 import transactionService.rpc._
 
@@ -26,7 +25,6 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
 
-  PropertyConfigurator.configure("src/main/resources/logServer.properties")
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("MarkTransactionsAsInvalid-%d").build())

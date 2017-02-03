@@ -7,7 +7,6 @@ import com.bwsw.tstreamstransactionserver.options._
 import com.bwsw.tstreamstransactionserver.shared.FNV
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.sleepycat.je._
-import org.apache.log4j.PropertyConfigurator
 import org.slf4j.LoggerFactory
 import transactionService.rpc.StreamService
 
@@ -20,7 +19,6 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
 
-  PropertyConfigurator.configure("src/main/resources/logServer.properties")
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   val streamEnvironment = {

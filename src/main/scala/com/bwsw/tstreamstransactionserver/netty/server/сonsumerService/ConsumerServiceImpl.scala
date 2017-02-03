@@ -4,7 +4,6 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
 import com.bwsw.tstreamstransactionserver.options.StorageOptions
 import com.sleepycat.je._
-import org.apache.log4j.PropertyConfigurator
 import org.slf4j.LoggerFactory
 import transactionService.rpc.ConsumerService
 
@@ -17,7 +16,6 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
 
-  PropertyConfigurator.configure("src/main/resources/logServer.properties")
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   val consumerEnvironment: Environment

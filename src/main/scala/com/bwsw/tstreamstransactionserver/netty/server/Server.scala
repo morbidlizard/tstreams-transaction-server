@@ -2,21 +2,19 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.options._
-import org.apache.curator.retry.RetryNTimes
-import org.apache.log4j.PropertyConfigurator
-import org.slf4j.{Logger, LoggerFactory}
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelOption
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
+import org.apache.curator.retry.RetryNTimes
+import org.slf4j.{Logger, LoggerFactory}
 
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts: ServerOptions,
              storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
              rocksStorageOpts: RocksStorageOptions) {
 
-  PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger: Logger = LoggerFactory.getLogger(classOf[Server])
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val transactionServerAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
     case (host, port) if host != null && port != null => s"$host:$port"
     case _ => s"${serverOpts.host}:${serverOpts.port}"

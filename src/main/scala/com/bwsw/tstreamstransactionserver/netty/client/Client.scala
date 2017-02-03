@@ -15,7 +15,6 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener, ChannelOption}
 import org.apache.curator.retry.RetryNTimes
-import org.apache.log4j.PropertyConfigurator
 import org.slf4j.LoggerFactory
 import transactionService.rpc.{TransactionService, _}
 
@@ -28,9 +27,7 @@ import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
   * @constructor create a new client by configuration file or map.
   */
 class Client(clientOpts: ClientOptions, authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions) {
-
-  PropertyConfigurator.configure("src/main/resources/logClient.properties")
-  private val logger = LoggerFactory.getLogger(classOf[Client])
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val executionContext = new ClientExecutionContext(clientOpts.threadPool)
 
   val zKLeaderClient = new ZKLeaderClientToGetMaster(zookeeperOpts.endpoints,

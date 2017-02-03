@@ -3,20 +3,17 @@ package com.bwsw.tstreamstransactionserver.zooKeeper
 import java.io.Closeable
 import java.net.InetAddress
 
-import com.bwsw.tstreamstransactionserver.netty.client.Client
 import org.apache.curator.RetryPolicy
-import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
-import org.apache.log4j.PropertyConfigurator
+import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.slf4j.LoggerFactory
 
 
 class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends NodeCacheListener with Closeable {
 
-  PropertyConfigurator.configure("src/main/resources/logClient.properties")
-  private val logger = LoggerFactory.getLogger(classOf[Client])
+  private val logger = LoggerFactory.getLogger(this.getClass)
   @volatile var master: Option[String] = None
 
   val client = {

@@ -1,28 +1,30 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
-import com.sleepycat.je._
-import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
-
-import scala.concurrent.{Future => ScalaFuture}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL, Server}
-import transactionService.rpc.StreamService
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwables._
-import org.apache.log4j.PropertyConfigurator
-import org.slf4j.LoggerFactory
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.options._
 import com.bwsw.tstreamstransactionserver.shared.FNV
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
+import com.sleepycat.je._
+import org.apache.log4j.PropertyConfigurator
+import org.slf4j.LoggerFactory
+import transactionService.rpc.StreamService
+
+import scala.concurrent.{Future => ScalaFuture}
 
 trait StreamServiceImpl extends StreamService[ScalaFuture]
   with Authenticable
   with CheckpointTTL {
 
-  val config: ServerConfig
+  val executionContext: ServerExecutionContext
+  val storageOpts: StorageOptions
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger = LoggerFactory.getLogger(classOf[Server])
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   val streamEnvironment = {
-    val directory = FileUtils.createDirectory(config.dbStreamDirName, config.dbPath)
+    val directory = FileUtils.createDirectory(storageOpts.streamDirectory, storageOpts.path)
     val environmentConfig = new EnvironmentConfig()
       .setAllowCreate(true)
       .setSharedCache(true)
@@ -35,7 +37,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       .setAllowCreate(true)
       .setTransactional(true)
       .setSortedDuplicates(false)
-    val storeName = config.streamStoreName
+    val storeName = storageOpts.streamStorageName
     streamEnvironment.openDatabase(null, storeName, dbConfig)
   }
 
@@ -76,13 +78,13 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
         logger.debug(s"Stream $stream isn't saved.")
         false
       }
-    }(config.berkeleyWritePool.getContext)
+    }(executionContext.berkeleyWriteContext)
 
   override def doesStreamExist(token: Int, stream: String): ScalaFuture[Boolean] =
-    authenticate(token)(scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)(config.berkeleyReadPool.getContext)
+    authenticate(token)(scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)(executionContext.berkeleyReadContext)
 
   override def getStream(token: Int, stream: String): ScalaFuture[Stream] =
-    authenticate(token)(getStreamDatabaseObject(stream).stream)(config.berkeleyReadPool.getContext)
+    authenticate(token)(getStreamDatabaseObject(stream).stream)(executionContext.berkeleyReadContext)
 
   override def delStream(token: Int, stream: String): ScalaFuture[Boolean] =
     authenticate(token) {
@@ -100,7 +102,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
         transactionDB.abort()
         false
       }
-    }(config.berkeleyWritePool.getContext)
+    }(executionContext.berkeleyWriteContext)
 
 
   def closeStreamEnviromentAndDatabase(): Unit = {

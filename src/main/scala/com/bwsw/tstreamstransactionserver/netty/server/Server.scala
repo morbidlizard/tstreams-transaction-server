@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import com.bwsw.tstreamstransactionserver.configProperties.{ConfigFile, ServerConfig}
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.options._
 import org.apache.curator.retry.RetryNTimes
 import org.apache.log4j.PropertyConfigurator
 import org.slf4j.{Logger, LoggerFactory}
@@ -10,18 +11,24 @@ import io.netty.channel.ChannelOption
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 
-class Server(val config: ServerConfig = new ServerConfig(new ConfigFile("src/main/resources/serverProperties.properties"))) {
-
-  import config._
+class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts: ServerOptions,
+             storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
+             rocksStorageOpts: RocksStorageOptions) {
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
   private val logger: Logger = LoggerFactory.getLogger(classOf[Server])
+  private val transactionServerAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
+    case (host, port) if host != null && port != null => s"$host:$port"
+    case _ => s"${serverOpts.host}:${serverOpts.port}"
+  }
+  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
+    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPoll)
 
-  val zk = new ZKLeaderClientToPutMaster(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
-    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
+  val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
+    new RetryNTimes(zookeeperOpts.retryCount, zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
   zk.putData(transactionServerAddress.getBytes())
 
-  private val transactionServer = new TransactionServer(config)
+  private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)
 
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
@@ -32,19 +39,19 @@ class Server(val config: ServerConfig = new ServerConfig(new ConfigFile("src/mai
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(transactionServer, config.transactionServerPoolContext.getContext, logger))
+        .childHandler(new ServerInitializer(transactionServer, executionContext.context, logger))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
 
-      val f = b.bind(transactionServerListen, transactionServerPort).sync()
+      val f = b.bind(serverOpts.host, serverOpts.port).sync()
       f.channel().closeFuture().sync()
     } finally {
       zk.close()
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
       transactionServer.shutdown()
-      config.shutdownThreadPools()
+      executionContext.shutdown()
     }
   }
 
@@ -53,6 +60,6 @@ class Server(val config: ServerConfig = new ServerConfig(new ConfigFile("src/mai
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
     transactionServer.shutdown()
-    config.shutdownThreadPools()
+    executionContext.shutdown()
   }
 }

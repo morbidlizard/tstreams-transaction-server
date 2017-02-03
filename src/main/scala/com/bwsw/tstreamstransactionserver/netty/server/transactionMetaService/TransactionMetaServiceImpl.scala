@@ -4,8 +4,9 @@ import java.time.Instant
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit._
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL, Server}
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.options.StorageOptions
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.google.common.primitives.UnsignedBytes
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -18,28 +19,28 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
-
 trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   with Authenticable
   with CheckpointTTL {
 
-  val config: ServerConfig
+  val executionContext: ServerExecutionContext
+  val storageOpts: StorageOptions
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger: Logger = LoggerFactory.getLogger(classOf[Server])
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("TransiteTxnsToInvalidState-%d").build())
+  final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("MarkTransactionsAsInvalid-%d").build())
 
-  val directory = FileUtils.createDirectory(config.dbTransactionMetaDirName, config.dbPath)
+  val directory = FileUtils.createDirectory(storageOpts.metadataDirectory, storageOpts.path)
   val transactionMetaEnviroment = {
     val environmentConfig = new EnvironmentConfig()
       .setAllowCreate(true)
       .setTransactional(true)
       .setSharedCache(true)
 
-    config.berkeleyDBJEproperties foreach {
-      case (name, value) => environmentConfig.setConfigParam(name,value)
-    }
+//    config.berkeleyDBJEproperties foreach {
+//      case (name, value) => environmentConfig.setConfigParam(name,value)
+//    } //todo it will be deprecated soon
 
     val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
     environmentConfig.setDurabilityVoid(defaultDurability)
@@ -51,7 +52,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-    val storeName = config.transactionMetaStoreName
+    val storeName = storageOpts.metadataStorageName
     transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
   }
 
@@ -59,7 +60,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-    val storeName = config.transactionMetaOpenStoreName
+    val storeName = storageOpts.openedTransactionsStorageName
     transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
   }
 
@@ -128,7 +129,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val isOkay =  matchTransactionToPut(transaction, transactionDB)
     if (isOkay) transactionDB.commit() else transactionDB.abort()
     isOkay
-  }(config.berkeleyWritePool.getContext)
+  }(executionContext.berkeleyWriteContext)
 
 
 
@@ -145,14 +146,14 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val isOkay = processTransactions(transactions.toList)
     if (isOkay) transactionDB.commit() else transactionDB.abort()
     isOkay
-  }(config.berkeleyWritePool.getContext)
+  }(executionContext.berkeleyWriteContext)
 
 
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
-    (txn.keepAliveTTL + config.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
+    (txn.keepAliveTTL + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
 
   private def doesProducerTransactionExpired(txn: ProducerTransaction): Boolean =
-    (txn.keepAliveTTL + config.transactionMetadataTtlAdd) <= Instant.now().getEpochSecond
+    (txn.keepAliveTTL + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
 
   private final val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
@@ -200,11 +201,11 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
           txns map producerTransactionToTransaction
       }
-    }(config.berkeleyReadPool.getContext)
+    }(executionContext.berkeleyReadContext)
 
-  private val transiteTxnsToInvalidState = new Runnable {
+  private val markTransactionsAsInvalid = new Runnable {
     logger.debug(s"Cleaner of expired transactions is running.")
-    val cleanAmountPerDatabaseTransaction = config.transactionDataCleanAmount
+    val cleanAmountPerDatabaseTransaction = storageOpts.clearAmount
     val lockMode = LockMode.READ_UNCOMMITTED_ALL
 
     override def run(): Unit = {
@@ -251,5 +252,5 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     Option(transactionMetaEnviroment.close())
   }
 
-  scheduledExecutor.scheduleWithFixedDelay(transiteTxnsToInvalidState, 0, config.transactionTimeoutCleanOpened, java.util.concurrent.TimeUnit.SECONDS)
+  scheduledExecutor.scheduleWithFixedDelay(markTransactionsAsInvalid, 0, storageOpts.clearDelayMs, java.util.concurrent.TimeUnit.SECONDS)
 }

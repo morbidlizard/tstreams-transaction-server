@@ -1,31 +1,32 @@
 package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
 
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.options.StorageOptions
 import com.sleepycat.je._
-import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
-
-import scala.concurrent.{Future => ScalaFuture, _}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL, Server}
 import org.apache.log4j.PropertyConfigurator
 import org.slf4j.LoggerFactory
 import transactionService.rpc.ConsumerService
 
+import scala.concurrent.{Future => ScalaFuture, _}
 
 trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
   with Authenticable
   with CheckpointTTL {
 
-  val config: ServerConfig
+  val executionContext: ServerExecutionContext
+  val storageOpts: StorageOptions
 
   PropertyConfigurator.configure("src/main/resources/logServer.properties")
-  private val logger = LoggerFactory.getLogger(classOf[Server])
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   val consumerEnvironment: Environment
   lazy val consumerDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-    val storeName = config.consumerStoreName
-    consumerEnvironment.openDatabase(null, storeName, dbConfig)
+
+    consumerEnvironment.openDatabase(null, storageOpts.consumerStorageName, dbConfig)
   }
 
   override def getConsumerState(token: Int, name: String, stream: String, partition: Int): ScalaFuture[Long] =
@@ -39,7 +40,7 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
       else -1L
       transactionDB.commit()
       result
-    }(config.berkeleyReadPool.getContext)
+    }(executionContext.berkeleyReadContext)
 
 
   def setConsumerState(transactionDB: Transaction, name: String, stream: String, partition: Int, transaction: Long): Boolean = {
@@ -59,14 +60,14 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
         .put(consumerDatabase, transactionDB, Put.OVERWRITE, new WriteOptions()) != null)
       result.future.flatMap { isOkay =>
         if (isOkay) {
-          logger.debug(s"$stream $partition $transaction. Successfully setted consumer state.")
+          logger.debug(s"$stream $partition $transaction. Successfully set consumer state.")
           transactionDB.commit()
         } else {
-          logger.debug(s"$stream $partition $transaction. Consumer state isn't setted.")
+          logger.debug(s"$stream $partition $transaction. Consumer state hasn't been set.")
           transactionDB.abort()
         }
         Promise.successful(isOkay).future
-      }(config.berkeleyWritePool.getContext)
+      }(executionContext.berkeleyWriteContext)
     }
 
   def closeConsumerDatabase() = Option(consumerDatabase.close())

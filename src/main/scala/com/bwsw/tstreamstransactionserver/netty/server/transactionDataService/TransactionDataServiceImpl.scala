@@ -3,41 +3,45 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionDataService
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.{Future => ScalaFuture}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL, Server}
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
-import com.bwsw.tstreamstransactionserver.configProperties.ServerConfig
-import transactionService.rpc.TransactionDataService
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.options.{RocksStorageOptions, StorageOptions}
 import org.slf4j.{Logger, LoggerFactory}
+import transactionService.rpc.TransactionDataService
 
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{Future => ScalaFuture}
 
 trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   with Authenticable
   with CheckpointTTL {
 
-  private val logger: Logger = LoggerFactory.getLogger(classOf[Server])
+  val executionContext: ServerExecutionContext
+  val storageOpts: StorageOptions
+  val rocksStorageOpts: RocksStorageOptions
 
-  val config: ServerConfig
-  private val ttlToAdd: Int = config.transactionDataTtlAdd
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+
+  private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
 
   private def calculateTTL(ttl: Int): Int = {
     def convertTTL = {
       val ttlToConvert = TimeUnit.MILLISECONDS.toSeconds(ttlToAdd).toInt
       if (ttlToConvert == 0) 0 else ttlToConvert
     }
+
     TimeUnit.HOURS.toSeconds(ttl).toInt + convertTTL
   }
 
   val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
+
   private def getStorage(stream: String, ttl: Int) = {
     val key = StorageName(stream)
-      rocksDBStorageToStream.computeIfAbsent(key, new java.util.function.Function[StorageName, RocksDbConnection] {
-        override def apply(t: StorageName): RocksDbConnection = {
-          new RocksDbConnection(config, key.toString, calculateTTL(ttl))
-        }
-      })
+    rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
+      new RocksDbConnection(storageOpts, rocksStorageOpts, key.toString, calculateTTL(ttl))
+    })
   }
 
   override def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
@@ -59,10 +63,10 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       if (isOkay)
         logger.debug(s"$stream $partition $transaction. Successfully saved transaction data.")
       else
-        logger.debug(s"$stream $partition $transaction. Transaction data isn't saved.")
+        logger.debug(s"$stream $partition $transaction. Transaction data hasn't been saved.")
 
       isOkay
-    }(config.rocksWritePool.getContext)
+    }(executionContext.rocksWriteContext)
   }
 
 
@@ -83,7 +87,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       }
       iterator.close()
       data
-    }(config.rocksReadPool.getContext)
+    }(executionContext.rocksReadContext)
   }
 
   def closeTransactionDataDatabases() = {

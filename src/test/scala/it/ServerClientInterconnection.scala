@@ -3,19 +3,19 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.tstreamstransactionserver.configProperties.{ClientConfig, ConfigMap, ServerConfig}
 import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerUnreachableException, StreamNotExist}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder, ZookeeperOptions}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 
 import scala.collection.mutable
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
@@ -24,84 +24,30 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   val clientsNum = 2
 
-  private def serverConfig(connectionString: String): ConfigMap = {
-    val map = scala.collection.mutable.Map[String, String]()
-    map += (("transactionServer.replication.endpoints", "127.0.0.1:46000"))
-    map += (("transaction.data.ttl.add", "50"))
-    map += (("zk.endpoints", connectionString))
-    map += (("db.path.transaction_meta", "transaction_meta"))
-    map += (("je.evictor.maxThreads", "2"))
-    map += (("transactionServer.replication.timeout.masterElection", "5000"))
-    map += (("auth.token.time.expiration", "120"))
-    map += (("je.maxMemory", "600000"))
-    map += (("zk.timeout.session", "10000"))
-    map += (("rocksdb.use_fsync", "true"))
-    map += (("db.path", "/tmp"))
-    map += (("rocksdb.max_background_compactions", "1"))
-    map += (("auth.token.active.max", "100"))
-    map += (("auth.key", "Aleksandr"))
-    map += (("db.path.transaction_data", "transaction_data"))
-    map += (("zk.retries.max", "5"))
-    map += (("transactionServer.berkeleyReadPool", "2"))
-    map += (("transactionServer.rocksDBWritePool", "4"))
-    map += (("zk.prefix", "/stream"))
-    map += (("transactionServer.replication.name", "TestServer1"))
-    map += (("transaction.metadata.ttl.add", "50"))
-    map += (("zk.timeout.betweenRetries", "500"))
-    map += (("transactionServer.replication.group", "testgroup"))
-    map += (("transactionServer.listen", "127.0.0.1"))
-    map += (("transactionServer.port", "46000"))
-    map += (("rocksdb.create_if_missing", "true"))
-    map += (("rocksdb.allow_os_buffer", "true"))
-    map += (("transaction.data.clean.amount", "200"))
-    map += (("je.evictor.coreThreads", "2"))
-    map += (("transactionServer.rocksDBReadPool", "2"))
-    map += (("db.path.stream", "stream"))
-    map += (("rocksdb.compression", "lz4"))
-    map += (("zk.timeout.connection", "10000"))
-    map += (("transactionServer.pool", "4"))
-    map += (("transaction.timeout.clean.opened(sec)", "10"))
-    new ConfigMap(map.toMap)
-  }
+  private val serverBuilder = new ServerBuilder()
+  private val clientBuilder = new ClientBuilder()
+  private val storageOptions = serverBuilder.getStorageOptions()
+  private val authOptions = clientBuilder.getAuthOptions()
 
-  private def clientConfig(connectionString: String): ConfigMap = {
-    val map = scala.collection.mutable.Map[String, String]()
-    map += (("auth.key", "Aleksandr"))
-    map += (("auth.timeout.connection", "5000"))
-    map += (("zk.endpoints", connectionString))
-    map += (("server.timeout.connection", "5000"))
-    map += (("zk.timeout.session", "10000"))
-    map += (("server.timeout.betweenRetries", "200"))
-    map += (("client.pool", "4"))
-    map += (("zk.retries.max", "5"))
-    map += (("zk.prefix", "/stream"))
-    map += (("zk.timeout.betweenRetries", "500"))
-    map += (("auth.timeout.betweenRetries", "300"))
-    map += (("auth.token.timeout.betweenRetries", "200"))
-    map += (("auth.token.timeout.connection", "5000"))
-    map += (("zk.timeout.connection", "10000"))
-    new ConfigMap(map.toMap)
-  }
-
-  def startTransactionServer(connectString: String) = new Thread(() => {
-    transactionServer = new Server(new ServerConfig(serverConfig(connectString)))
+  def startTransactionServer() = new Thread(() => {
+    transactionServer = serverBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
     transactionServer.start()
   }).start()
 
 
   override def beforeEach(): Unit = {
     zkTestServer = new TestingServer(true)
-    startTransactionServer(zkTestServer.getConnectString)
-    client = new Client(new ClientConfig(clientConfig(zkTestServer.getConnectString)))
+    startTransactionServer()
+    client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
   }
 
   override def afterEach() {
     client.shutdown()
     transactionServer.shutdown()
     zkTestServer.close()
-    FileUtils.deleteDirectory(new File(transactionServer.config.dbPath + "/" + transactionServer.config.dbStreamDirName))
-    FileUtils.deleteDirectory(new File(transactionServer.config.dbPath + "/" + transactionServer.config.dbTransactionDataDirName))
-    FileUtils.deleteDirectory(new File(transactionServer.config.dbPath + "/" + transactionServer.config.dbTransactionMetaDirName))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {
@@ -188,7 +134,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     transactionServer.shutdown()
     assertThrows[ServerUnreachableException] {
-      Await.result(resultInFuture, (client.config.authTimeoutConnection + 1000).milliseconds)
+      Await.result(resultInFuture, (authOptions.connectionTimeoutMs + 1000).milliseconds)
     }
   }
 
@@ -202,8 +148,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    Thread.sleep(client.config.authTimeoutConnection * 3 / 5)
-    startTransactionServer(zkTestServer.getConnectString)
+    Thread.sleep(authOptions.connectionTimeoutMs * 3 / 5)
+    startTransactionServer()
 
     Await.result(resultInFuture, secondsWait.seconds) shouldBe true
   }
@@ -262,9 +208,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     consumerState shouldBe consumerTransaction.transactionID
   }
 
-
   "Server" should "not have problems with many clients" in {
-    val clients = Array.fill(clientsNum)(new Client(new ClientConfig(clientConfig(zkTestServer.getConnectString))))
+    val clients = Array.fill(clientsNum)(clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build())
     val streams = Array.fill(10000)(getRandomStream)
     Await.result(client.putStream(chooseStreamRandomly(streams)), secondsWait.seconds)
 

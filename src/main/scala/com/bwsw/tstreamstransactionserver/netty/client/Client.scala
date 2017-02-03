@@ -4,10 +4,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
-import com.bwsw.tstreamstransactionserver.configProperties.{ClientConfig, ConfigFile}
+import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwables
 import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerConnectionException, ServerUnreachableException, TokenInvalidException, ZkGetMasterException}
-import com.bwsw.tstreamstransactionserver.netty.{Context, Descriptors}
+import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext}
+import com.bwsw.tstreamstransactionserver.options.{AuthOptions, ClientOptions, ZookeeperOptions}
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToGetMaster
 import com.twitter.scrooge.ThriftStruct
 import io.netty.bootstrap.Bootstrap
@@ -19,29 +20,28 @@ import org.slf4j.LoggerFactory
 import transactionService.rpc.{TransactionService, _}
 
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
+import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
 
 
 /** A client who connects to a server.
   *
   * @constructor create a new client by configuration file or map.
-  * @param config the configuration file or map.
   */
-class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/main/resources/clientProperties.properties"))) {
-
-  import config._
+class Client(clientOpts: ClientOptions, authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions) {
 
   PropertyConfigurator.configure("src/main/resources/logClient.properties")
   private val logger = LoggerFactory.getLogger(classOf[Client])
+  private val executionContext = new ClientExecutionContext(clientOpts.threadPool)
 
-  val zKLeaderClient = new ZKLeaderClientToGetMaster(zkEndpoints, zkTimeoutSession, zkTimeoutConnection,
-    new RetryNTimes(zkRetriesMax, zkTimeoutBetweenRetries), zkPrefix)
+  val zKLeaderClient = new ZKLeaderClientToGetMaster(zookeeperOpts.endpoints,
+    zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
+    new RetryNTimes(zookeeperOpts.retryCount, zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
   zKLeaderClient.start()
 
-  private implicit final val context = clientPoolContext
+  private implicit final val context = executionContext.context
 
   private val nextSeqId = new AtomicInteger(Int.MinValue)
-  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, clientPool)
+  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, clientOpts.threadPool)
   private val workerGroup = new EpollEventLoopGroup()
 
   private val bootstrap = new Bootstrap()
@@ -57,12 +57,12 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
   }
 
   def connect(): Unit = {
-    val (listen, port) = getInetAddressFromZookeeper(zkTimeoutConnection / zkTimeoutBetweenRetries)
+    val (listen, port) = getInetAddressFromZookeeper(zookeeperOpts.connectionTimeoutMs / zookeeperOpts.retryDelayMs)
     bootstrap.connect(listen, port).addListener(new ConnectionListener)
   }
 
   private class ConnectionListener extends ChannelFutureListener() {
-    val atomicInteger = new AtomicInteger(serverTimeoutConnection / serverTimeoutBetweenRetries)
+    val atomicInteger = new AtomicInteger(clientOpts.connectionTimeoutMs / clientOpts.retryDelayMs)
 
 
     @throws[Exception]
@@ -71,7 +71,7 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
         //      System.out.println("Reconnect")
         val loop = channelFuture.channel().eventLoop()
         loop.execute(() => {
-          TimeUnit.MILLISECONDS.sleep(serverTimeoutBetweenRetries)
+          TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
           connect()
         })
       } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
@@ -87,7 +87,7 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
   @tailrec
   private def getInetAddressFromZookeeper(times: Int): (String, Int) = {
     if (times > 0 && zKLeaderClient.master.isEmpty) {
-      TimeUnit.MILLISECONDS.sleep(zkTimeoutBetweenRetries)
+      TimeUnit.MILLISECONDS.sleep(zookeeperOpts.retryDelayMs)
       logger.info("Retrying to get master server from zookeeper server.")
       getInetAddressFromZookeeper(times - 1)
     } else {
@@ -109,7 +109,8 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
     * @param request
     */
 
-  private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)(implicit context: ExecutionContext): ScalaFuture[Rep] = {
+  private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)
+                                                              (implicit context: concurrent.ExecutionContext): ScalaFuture[Rep] = {
     if (channel != null && channel.isActive) {
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
@@ -135,7 +136,7 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
     helper(times)(f)
   }
 
-  private def retryMethod[Req, Rep](f: => ScalaFuture[Rep]) = retry(authTimeoutConnection / authTokenTimeoutBetweenRetries)(f)(conditionToRetry)
+  private def retryMethod[Req, Rep](f: => ScalaFuture[Rep]) = retry(authOpts.connectionTimeoutMs / authOpts.retryDelayMs)(f)(conditionToRetry)
 
   private val conditionToRetry = new PartialFunction[Throwable, Boolean] {
     override def apply(v1: Throwable): Boolean = {
@@ -143,11 +144,11 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
         case _: TokenInvalidException =>
           logger.info("Token isn't valid. Retrying get one.")
           authenticate()
-          TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
+          TimeUnit.MILLISECONDS.sleep(authOpts.tokenRetryDelayMs)
           true
         case _: ServerUnreachableException =>
           logger.info(s"${Throwables.serverUnreachableExceptionMessage}. Retrying to reconnect server.")
-          TimeUnit.MILLISECONDS.sleep(authTokenTimeoutBetweenRetries)
+          TimeUnit.MILLISECONDS.sleep(authOpts.retryDelayMs)
           true
         case error =>
           logger.error(error.getMessage, error)
@@ -200,7 +201,7 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
     )
   }
 
-  private final val futurePool = Context(1, "ClientTransactionPool-%d").getContext
+  private final val futurePool = ExecutionContext(1, "ClientTransactionPool-%d").getContext
 
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
@@ -303,7 +304,7 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
 
   private def authenticate(): ScalaFuture[Unit] = {
     logger.info("authenticate method is invoked.")
-    val authKey = config.authKey
+    val authKey = authOpts.key
     method(Descriptors.Authenticate, TransactionService.Authenticate.Args(authKey))
       .map(x => token = x.success.get)
   }
@@ -312,13 +313,6 @@ class Client(val config: ClientConfig = new ClientConfig(new ConfigFile("src/mai
     zKLeaderClient.close()
     workerGroup.shutdownGracefully()
     if (channel != null) channel.closeFuture().sync()
-    config.shutdownThreadPool()
+    executionContext.shutdown()
   }
 }
-
-//object Client extends App {
-//  val config = new com.bwsw.tstreamstransactionserver.configProperties.ServerConfig(new com.bwsw.tstreamstransactionserver.configProperties.ConfigFile("src/main/resources/serverProperties.properties"))
-//  config.properties foreach{x =>
-//    println(("map += ((" :+ '"') ++ (x._1 :+ '"') ++ ", " ++  ('"' +: x._2 :+ '"') ++ "))")
-//  }
-//}

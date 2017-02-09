@@ -43,11 +43,10 @@ publishArtifact in Test := false
 assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
 
 
-
-
 val sroogeGenOutput = "src/main/thrift/gen"
-
-ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile ~= (base => base / sroogeGenOutput)
+ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile <<= baseDirectory {
+  base => base / sroogeGenOutput
+}
 
 
 ScroogeSBT.autoImport.scroogeBuildOptions in Compile := Seq()
@@ -64,7 +63,7 @@ resolvers ++= Seq(
 
 libraryDependencies ++= Seq(
   "commons-io" % "commons-io" % "2.5",
-  "com.twitter" %% "scrooge-core" % "4.13.0",
+  "com.twitter" %% "scrooge-core" % "4.14.0",
   "com.twitter" % "libthrift" % "0.5.0-7",
   "org.rocksdb" % "rocksdbjni" % "4.11.2",
   "com.sleepycat" % "je" % "7.0.6",

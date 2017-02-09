@@ -7,7 +7,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.ByteToMessageDecoder
 
 /** Message Decoder is aggregator for all bytes incoming via tcp session and deserialize these bytes to a new Message if
-  * there is enough bytes for doing it.
+  * there are enough bytes for doing it.
   *
   *  @constructor create a message decoder handler.
   *

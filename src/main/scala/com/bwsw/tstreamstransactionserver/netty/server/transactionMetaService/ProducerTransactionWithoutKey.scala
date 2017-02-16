@@ -3,9 +3,9 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetaService
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
 import transactionService.rpc.TransactionStates
-import ProducerTransaction.objectToEntry
+import ProducerTransactionWithoutKey.objectToEntry
 
-case class ProducerTransaction(state: TransactionStates, quantity: java.lang.Integer, keepAliveTTL: java.lang.Long) {
+case class ProducerTransactionWithoutKey(state: TransactionStates, quantity: java.lang.Integer, keepAliveTTL: java.lang.Long, timestamp: java.lang.Long) {
   def toDatabaseEntry: DatabaseEntry = {
     val databaseEntry = new DatabaseEntry()
     objectToEntry(this, databaseEntry)
@@ -13,17 +13,19 @@ case class ProducerTransaction(state: TransactionStates, quantity: java.lang.Int
   }
 }
 
-object ProducerTransaction extends TupleBinding[ProducerTransaction]
+object ProducerTransactionWithoutKey extends TupleBinding[ProducerTransactionWithoutKey]
 {
-  override def entryToObject(input: TupleInput): ProducerTransaction = {
+  override def entryToObject(input: TupleInput): ProducerTransactionWithoutKey = {
     val state  = TransactionStates(input.readInt())
     val quantity = input.readInt()
+    val keepAliveTTL = input.readLong()
     val timestamp = input.readLong()
-    ProducerTransaction(state, int2Integer(quantity), long2Long(timestamp))
+    ProducerTransactionWithoutKey(state, int2Integer(quantity), long2Long(keepAliveTTL), long2Long(timestamp))
   }
-  override def objectToEntry(producerTransaction: ProducerTransaction, output: TupleOutput): Unit = {
+  override def objectToEntry(producerTransaction: ProducerTransactionWithoutKey, output: TupleOutput): Unit = {
     output.writeInt(producerTransaction.state.value)
     output.writeInt(Integer2int(producerTransaction.quantity))
     output.writeLong(Long2long(producerTransaction.keepAliveTTL))
+    output.writeLong(Long2long(producerTransaction.timestamp))
   }
 }

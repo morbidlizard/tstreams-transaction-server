@@ -1,8 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
+import java.util.concurrent.Executors
+
+import com.bwsw.commitlog.CommitLog
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.JournaledCommitLogImpl
 import com.bwsw.tstreamstransactionserver.options._
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelOption
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
@@ -31,13 +36,16 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
+  final private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLog-%d").build())
+  private val journaledCommitLog= new JournaledCommitLogImpl(new CommitLog(Int.MaxValue, "/tmp"), transactionServer, scheduledExecutor)
+
   def start(): Unit = {
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(transactionServer, executionContext.context, logger))
+        .childHandler(new ServerInitializer(transactionServer, journaledCommitLog, executionContext.context, logger))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 

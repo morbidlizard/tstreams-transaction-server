@@ -9,10 +9,7 @@ import transactionService.rpc.ConsumerService
 
 import scala.concurrent.{Future => ScalaFuture, _}
 
-trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
-  with Authenticable
-  with CheckpointTTL {
-
+trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
 
@@ -27,15 +24,17 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
     consumerEnvironment.openDatabase(null, storageOpts.consumerStorageName, dbConfig)
   }
 
-  override def getConsumerState(token: Int, name: String, stream: String, partition: Int): ScalaFuture[Long] =
+  def getConsumerState(token: Int, name: String, stream: String, partition: Int): ScalaFuture[Long] =
     authenticate(token) {
       val transactionDB = consumerEnvironment.beginTransaction(null, null)
       val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong
       val keyEntry = Key(name, streamNameToLong, partition).toDatabaseEntry
       val consumerTransactionEntry = new DatabaseEntry()
-      val result: Long = if (consumerDatabase.get(transactionDB, keyEntry, consumerTransactionEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS)
-        ConsumerTransaction.entryToObject(consumerTransactionEntry).transactionId
-      else -1L
+      val result: Long =
+        if (consumerDatabase.get(transactionDB, keyEntry, consumerTransactionEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS)
+          ConsumerTransactionWithoutKey.entryToObject(consumerTransactionEntry).transactionId
+        else -1L
+
       transactionDB.commit()
       result
     }(executionContext.berkeleyReadContext)
@@ -44,8 +43,16 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
   def setConsumerState(transactionDB: Transaction, name: String, stream: String, partition: Int, transaction: Long): Boolean = {
     val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong
 
-    ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransaction(transaction))
+    ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransactionWithoutKey(transaction))
       .put(consumerDatabase, transactionDB, Put.OVERWRITE, new WriteOptions()) != null
+  }
+
+  private final def transiteConsumerTranasctionToNewState(commitLogTransactions: Seq[ConsumerTransactionKey]): ConsumerTransactionKey = {
+    commitLogTransactions.sortBy(_.timestamp).last
+  }
+
+  private final def groupProducerTransactions(consumerTransactions: Seq[ConsumerTransactionKey]) = {
+    consumerTransactions.groupBy(txn => txn.key)
   }
 
   override def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): ScalaFuture[Boolean] =
@@ -54,7 +61,7 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
       val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong
 
       val promise = Promise[Boolean]
-      val result = promise success (ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransaction(transaction))
+      val result = promise success (ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransactionWithoutKey(transaction))
         .put(consumerDatabase, transactionDB, Put.OVERWRITE, new WriteOptions()) != null)
       result.future.flatMap { isOkay =>
         if (isOkay) {

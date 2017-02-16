@@ -2,13 +2,13 @@ package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
 
 import com.sleepycat.je.{Database, Put, Transaction, WriteOptions}
 
-case class ConsumerTransactionKey(key: Key, consumerTransaction: ConsumerTransaction)
-  extends transactionService.rpc.ConsumerTransaction
+case class ConsumerTransactionKey(key: Key, consumerTransaction: ConsumerTransactionWithoutKey)
 {
-  override def transactionID: Long = consumerTransaction.transactionId
-  override def name: String = key.name
-  override def stream: String = key.stream.toString
-  override def partition: Int = key.partition
+  def transactionID: Long = consumerTransaction.transactionId
+  def name: String = key.name
+  def stream: Long = Long2long(key.stream)
+  def partition: Int = key.partition
+  def timestamp: Long = Long2long(consumerTransaction.timestamp)
   override def toString: String = s"Consumer transaction: ${key.toString}"
 
   def put(database: Database, txn: Transaction, putType: Put, options: WriteOptions) =
@@ -16,9 +16,9 @@ case class ConsumerTransactionKey(key: Key, consumerTransaction: ConsumerTransac
 }
 
 object ConsumerTransactionKey {
-  def apply(txn: transactionService.rpc.ConsumerTransaction, streamNameToLong: java.lang.Long): ConsumerTransactionKey = {
+  def apply(txn: transactionService.rpc.ConsumerTransaction, streamNameToLong: java.lang.Long, timestamp: Long): ConsumerTransactionKey = {
     val key = Key(txn.name, streamNameToLong, txn.partition)
-    val producerTransaction = ConsumerTransaction(txn.transactionID)
+    val producerTransaction = ConsumerTransactionWithoutKey(txn.transactionID, timestamp)
     ConsumerTransactionKey(key, producerTransaction)
   }
 }

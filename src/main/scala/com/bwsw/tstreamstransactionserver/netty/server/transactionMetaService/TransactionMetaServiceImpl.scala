@@ -1,11 +1,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetaService
 
 import java.time.Instant
-import java.util.concurrent.Executors
+import java.util.concurrent.{ConcurrentHashMap, Executors}
 import java.util.concurrent.TimeUnit._
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.netty.server.сonsumerService.ConsumerTransactionKey
 import com.bwsw.tstreamstransactionserver.options.StorageOptions
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.google.common.primitives.UnsignedBytes
@@ -18,9 +19,12 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
-trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
+trait TransactionMetaServiceImpl extends TransactionStateHandler
   with Authenticable
   with CheckpointTTL {
+
+  def putConsumerTransaction(consumerTransaction: ConsumerTransactionKey):Boolean
+  def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey]): Boolean
 
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
@@ -39,6 +43,8 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 //    config.berkeleyDBJEproperties foreach {
 //      case (name, value) => environmentConfig.setConfigParam(name,value)
 //    } //todo it will be deprecated soon
+
+
 
     val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
     environmentConfig.setDurabilityVoid(defaultDurability)
@@ -61,6 +67,23 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
     val storeName = storageOpts.openedTransactionsStorageName
     transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
   }
+
+  private def fillOpenedTransactionsRAMTable: java.util.concurrent.ConcurrentHashMap[Key, ProducerTransactionWithoutKey] = {
+    val map = new java.util.concurrent.ConcurrentHashMap[Key, ProducerTransactionWithoutKey]()
+
+    val lockMode = LockMode.READ_UNCOMMITTED_ALL
+    val keyFound  = new DatabaseEntry()
+    val dataFound = new DatabaseEntry()
+
+    val cursor = producerTransactionsWithOpenedStateDatabase.openCursor(new DiskOrderedCursorConfig())
+    while (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
+      map.put(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))
+    }
+    map
+  }
+  private val openedTransactionsMap: ConcurrentHashMap[Key, ProducerTransactionWithoutKey] = fillOpenedTransactionsRAMTable
+
+
 
   private final val putType = Put.OVERWRITE
 
@@ -147,11 +170,11 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
   }(executionContext.berkeleyWriteContext)
 
 
-  private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
-    (txn.keepAliveTTL + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
-
-  private def doesProducerTransactionExpired(txn: ProducerTransaction): Boolean =
-    (txn.keepAliveTTL + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
+//  private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
+//    (txn.keepAliveTTL + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
+//
+//  private def doesProducerTransactionExpired(txn: ProducerTransactionWithoutKey): Boolean =
+//    (txn.keepAliveTTL + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
 
   private final val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
@@ -171,7 +194,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         val keyFound = keyFrom.toDatabaseEntry
         val dataFound = new DatabaseEntry()
         if (cursor.getSearchKey(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS)
-          Some(new ProducerTransactionKey(keyFrom, ProducerTransaction.entryToObject(dataFound))) else None
+          Some(new ProducerTransactionKey(keyFrom, ProducerTransactionWithoutKey.entryToObject(dataFound))) else None
       }
 
       moveCursorToKey match {
@@ -190,7 +213,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
               (comparator.compare(keyFound.getData, keyTo) <= 0)
           )
           {
-            val txn = ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransaction.entryToObject(dataFound))
+            val txn = ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))
             if (doesProducerTransactionExpired(txn)) txns += txn
           }
 
@@ -208,7 +231,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
     override def run(): Unit = {
       val transactionDB = transactionMetaEnviroment.beginTransaction(null, null)
-      val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, null)
+//      val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, null)
       val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, null)
 
 
@@ -217,7 +240,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         val dataFound = new DatabaseEntry()
 
         if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
-          val producerTransaction = ProducerTransaction.entryToObject(dataFound)
+          val producerTransaction = ProducerTransactionWithoutKey.entryToObject(dataFound)
           if (doesProducerTransactionExpired(producerTransaction)) {
             logger.debug(s"Cleaning $producerTransaction as it's expired.")
             cursor.delete()
@@ -235,7 +258,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         else cursor.close()
       }
 
-      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions)
+//      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions)
       repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
       transactionDB.commit()
     }

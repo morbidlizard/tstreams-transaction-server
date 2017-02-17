@@ -6,8 +6,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.Tr
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetaService.TransactionMetaServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.сonsumerService.{ConsumerServiceImpl, ConsumerTransactionKey}
 import com.bwsw.tstreamstransactionserver.options._
-import com.sleepycat.je.{Environment, Transaction}
-import transactionService.rpc.ConsumerTransaction
+import com.sleepycat.je.Environment
 
 
 class TransactionServer(override val executionContext:ServerExecutionContext,
@@ -17,12 +16,11 @@ class TransactionServer(override val executionContext:ServerExecutionContext,
   extends TransactionDataServiceImpl
     with TransactionMetaServiceImpl
     with ConsumerServiceImpl
-    with StreamServiceImpl {
+    with StreamServiceImpl
+{
 
   override val consumerEnvironment: Environment = transactionMetaEnviroment
-
-  override def putConsumerTransaction(consumerTransaction: ConsumerTransactionKey):Boolean = setConsumerState(consumerTransaction)
-  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey]): Boolean = setConsumerStates(consumerTransactions)
+  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Boolean = setConsumerStates(consumerTransactions, parentBerkeleyTxn)
 
   def shutdown() = {
     closeTransactionDataDatabases()

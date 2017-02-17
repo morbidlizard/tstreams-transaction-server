@@ -40,13 +40,6 @@ trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
     }(executionContext.berkeleyReadContext)
 
 
-  def setConsumerState(transactionDB: Transaction, name: String, stream: String, partition: Int, transaction: Long): Boolean = {
-    val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong
-
-    ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransactionWithoutKey(transaction))
-      .put(consumerDatabase, transactionDB, Put.OVERWRITE, new WriteOptions()) != null
-  }
-
   private final def transiteConsumerTranasctionToNewState(commitLogTransactions: Seq[ConsumerTransactionKey]): ConsumerTransactionKey = {
     commitLogTransactions.sortBy(_.timestamp).last
   }
@@ -55,25 +48,21 @@ trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
     consumerTransactions.groupBy(txn => txn.key)
   }
 
-  override def setConsumerState(token: Int, name: String, stream: String, partition: Int, transaction: Long): ScalaFuture[Boolean] =
-    authenticateFutureBody(token) {
-      val transactionDB = consumerEnvironment.beginTransaction(null, null)
-      val streamNameToLong = getStreamDatabaseObject(stream).streamNameToLong
+  def setConsumerStates(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Boolean =
+  {
+    val nestedBerkeleyTxn = consumerEnvironment.beginTransaction(parentBerkeleyTxn, new TransactionConfig())
 
-      val promise = Promise[Boolean]
-      val result = promise success (ConsumerTransactionKey(Key(name, streamNameToLong, partition), ConsumerTransactionWithoutKey(transaction))
-        .put(consumerDatabase, transactionDB, Put.OVERWRITE, new WriteOptions()) != null)
-      result.future.flatMap { isOkay =>
-        if (isOkay) {
-          logger.debug(s"$stream $partition $transaction. Successfully set consumer state.")
-          transactionDB.commit()
-        } else {
-          logger.debug(s"$stream $partition $transaction. Consumer state hasn't been set.")
-          transactionDB.abort()
-        }
-        Promise.successful(isOkay).future
-      }(executionContext.berkeleyWriteContext)
+    groupProducerTransactions(consumerTransactions) foreach {case (key, txns) =>
+      val theLastStateTransaction = transiteConsumerTranasctionToNewState(txns)
+      val binaryKey = key.toDatabaseEntry
+      consumerDatabase.put(nestedBerkeleyTxn, binaryKey, theLastStateTransaction.consumerTransaction.toDatabaseEntry)
     }
+
+    scala.util.Try(nestedBerkeleyTxn.commit()) match {
+      case scala.util.Success(_) => true
+      case scala.util.Failure(_) => false
+    }
+  }
 
   def closeConsumerDatabase() = Option(consumerDatabase.close())
 }

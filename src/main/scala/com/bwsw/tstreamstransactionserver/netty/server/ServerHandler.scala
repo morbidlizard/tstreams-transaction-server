@@ -30,10 +30,10 @@ class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: Jo
   def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = {
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
 
-    def logSuccessfulProcession() = logger.info(s"Server processed successfully request $method with id $messageSeqId of $inetAddress")
-    def logUnSuccessfulProcession(error: Throwable) = logger.debug(error.getMessage, error)
+    def logSuccessfulProcession() = Unit//logger.info(s"Server processed successfully request $method with id $messageSeqId of $inetAddress")
+    def logUnSuccessfulProcession(error: Throwable) = Unit//logger.debug(error.getMessage, error)
 
-    logger.info(s"$inetAddress request $method with id $messageSeqId")
+    //logger.info(s"$inetAddress request $method with id $messageSeqId")
     method match {
       case `putStreamMethod` =>
         val args = Descriptors.PutStream.decodeRequest(message)

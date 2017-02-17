@@ -50,7 +50,7 @@ trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
 
   def setConsumerStates(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Boolean =
   {
-    val nestedBerkeleyTxn = consumerEnvironment.beginTransaction(parentBerkeleyTxn, new TransactionConfig())
+    val nestedBerkeleyTxn = parentBerkeleyTxn
 
     groupProducerTransactions(consumerTransactions) foreach {case (key, txns) =>
       val theLastStateTransaction = transiteConsumerTranasctionToNewState(txns)
@@ -58,10 +58,11 @@ trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
       consumerDatabase.put(nestedBerkeleyTxn, binaryKey, theLastStateTransaction.consumerTransaction.toDatabaseEntry)
     }
 
-    scala.util.Try(nestedBerkeleyTxn.commit()) match {
-      case scala.util.Success(_) => true
-      case scala.util.Failure(_) => false
-    }
+//    scala.util.Try(nestedBerkeleyTxn.commit()) match {
+//      case scala.util.Success(_) => true
+//      case scala.util.Failure(_) => false
+//    }
+    true
   }
 
   def closeConsumerDatabase() = Option(consumerDatabase.close())

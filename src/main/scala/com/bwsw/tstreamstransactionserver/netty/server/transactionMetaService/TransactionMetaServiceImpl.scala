@@ -13,7 +13,6 @@ import com.sleepycat.je.{Transaction => _, _}
 import org.slf4j.{Logger, LoggerFactory}
 import transactionService.rpc._
 
-import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
@@ -25,11 +24,12 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
 
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+//  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   final val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("MarkTransactionsAsInvalid-%d").build())
 
   val directory = FileUtils.createDirectory(storageOpts.metadataDirectory, storageOpts.path)
+  private val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
   val transactionMetaEnviroment = {
     val environmentConfig = new EnvironmentConfig()
       .setAllowCreate(true)
@@ -41,8 +41,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 //    } //todo it will be deprecated soon
 
 
-
-    val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
     environmentConfig.setDurabilityVoid(defaultDurability)
 
     new Environment(directory, environmentConfig)
@@ -72,7 +70,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     val dataFound = new DatabaseEntry()
 
     val cursor = producerTransactionsWithOpenedStateDatabase.openCursor(new DiskOrderedCursorConfig())
-    while (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
+    while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
       map.put(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))
     }
     map
@@ -88,7 +86,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   private def putTransactions(transactions: Seq[(Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Boolean = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions)
 
-    val nestedBerkeleyTxn = transactionMetaEnviroment.beginTransaction(parentBerkeleyTxn, new TransactionConfig())
+    val nestedBerkeleyTxn = parentBerkeleyTxn
 
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStream(producerTransactions)
     groupedProducerTransactionsWithTimestamp.foreach { case (stream, producerTransactionsWithTimestamp) =>
@@ -96,7 +94,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
       val dbProducerTransactions = decomposeProducerTransactionsToDatabaseRepresentation(dbStream, producerTransactionsWithTimestamp)
       val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
-      groupedProducerTransactions foreach scala.concurrent.blocking({ case (key, txns) =>
+      groupedProducerTransactions foreach { case (key, txns) =>
         scala.util.Try {
           openedTransactionsMap.get(key) match {
             case data: ProducerTransactionWithoutKey =>
@@ -108,10 +106,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
                 val binaryKey = key.toDatabaseEntry
 
                 if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                  producerTransactionsWithOpenedStateDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn)
+                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn))
                 }
 
-                producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl)))
+                scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl))))
               }
             case _ =>
               val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(txns)
@@ -120,32 +118,40 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
               val binaryKey = key.toDatabaseEntry
 
               if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                producerTransactionsWithOpenedStateDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn)
+                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn))
               }
 
-              producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl)))
+              scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl))))
           }
         }
-      })
+      }
     }
 
-    val isOkay = scala.util.Try(nestedBerkeleyTxn.commit()) match {
+//    val isOkay = scala.util.Try(nestedBerkeleyTxn.commit()) match {
+//      case scala.util.Success(_) => true
+//      case scala.util.Failure(_) => false
+//    }
+
+//    if (isOkay)
+      putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), parentBerkeleyTxn)
+//    else
+//      isOkay
+    true
+  }
+
+  class BigCommit {
+    private val transactionDB = transactionMetaEnviroment.beginTransaction(null, null)
+    def putSomeTransactions(transactions: Seq[(Transaction, Long)]) = putTransactions(transactions, transactionDB)
+
+    def commit(): Boolean = scala.util.Try(transactionDB.commit(defaultDurability)) match {
       case scala.util.Success(_) => true
       case scala.util.Failure(_) => false
     }
 
-    if (isOkay)
-      putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), parentBerkeleyTxn)
-    else
-      isOkay
-  }
-
-  private class BigCommit {
-    private val transactionDB = transactionMetaEnviroment.beginTransaction(null, new TransactionConfig())
-    def putSomeTransactions(transactions: Seq[(Transaction, Long)]) = putTransactions(transactions, transactionDB)
-
-    def commit(): Unit = transactionDB.commit()
-    def abort(): Unit  = transactionDB.abort()
+    def abort(): Boolean  = scala.util.Try(transactionDB.abort()) match {
+      case scala.util.Success(_) => true
+      case scala.util.Failure(_) => false
+    }
   }
 
   def getBigCommit = new BigCommit()

@@ -22,7 +22,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   val storageOpts: StorageOptions
   val rocksStorageOpts: RocksStorageOptions
 
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+//  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
 
@@ -60,10 +60,10 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       }
       val isOkay = batch.write()
 
-      if (isOkay)
-        logger.debug(s"$stream $partition $transaction. Successfully saved transaction data.")
-      else
-        logger.debug(s"$stream $partition $transaction. Transaction data hasn't been saved.")
+//      if (isOkay)
+//        logger.debug(s"$stream $partition $transaction. Successfully saved transaction data.")
+//      else
+//        logger.debug(s"$stream $partition $transaction. Transaction data hasn't been saved.")
 
       isOkay
     }(executionContext.rocksWriteContext)

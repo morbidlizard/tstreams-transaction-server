@@ -1,14 +1,16 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.{Executors, ScheduledExecutorService}
+import java.io.BufferedInputStream
+import java.util.concurrent.ScheduledExecutorService
 
 import com.bwsw.commitlog.CommitLog
-import com.bwsw.commitlog.filesystem.CommitLogFile
+import com.bwsw.commitlog.filesystem.{CommitLogFile, CommitLogFileIterator}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.JournaledCommitLogImpl.Token
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import transactionService.rpc.Transaction
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContextExecutorService, Future => ScalaFuture}
 
@@ -39,36 +41,80 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
      }
   }
 
+
   private val task = new Runnable {
     override def run(): Unit = {
-      def readRecordsFromCommitLogFile(file: CommitLogFile) = {
-        val iter = file.getIterator()
+//      def readRecordsFromCommitLogFile(file: CommitLogFile, recordsToReadNumber: Int): (ArrayBuffer[(Token, Seq[(Transaction, Long)])], CommitLogFileIterator) = {
+//        val iter = file.getIterator()
+//        val buffer = ArrayBuffer[(JournaledCommitLogImpl.Token, Seq[(Transaction, Long)])]()
+//        var recordsToRead = recordsToReadNumber
+//        while (iter.hasNext() && recordsToRead > 0) {
+//          val record = iter.next()
+//          val (messageType, message) = record.splitAt(1)
+//          buffer += JournaledCommitLogImpl.retrieveTransactions(messageType.head, MessageWithTimestamp.fromByteArray(message))
+//          recordsToRead = recordsToRead - 1
+//        }
+//        (buffer, iter)
+//      }
+
+      def readRecordsFromCommitLogFile(iter: CommitLogFileIterator, recordsToReadNumber: Int): (ArrayBuffer[(Token, Seq[(Transaction, Long)])], CommitLogFileIterator) = {
         val buffer = ArrayBuffer[(JournaledCommitLogImpl.Token, Seq[(Transaction, Long)])]()
-        while (iter.hasNext()) {
+        var recordsToRead = recordsToReadNumber
+        while (iter.hasNext() && recordsToRead > 0) {
           val record = iter.next()
           val (messageType, message) = record.splitAt(1)
           buffer += JournaledCommitLogImpl.retrieveTransactions(messageType.head, MessageWithTimestamp.fromByteArray(message))
+          recordsToRead = recordsToRead - 1
         }
-        buffer
+        (buffer, iter)
       }
 
+
+      def isProcessedSuccessfullyCommitLogFile(iterator: CommitLogFileIterator, recordsToReadNumber: Int): Boolean = {
+        val bigCommit = transactionServer.getBigCommit
+
+        @tailrec
+        def helper(iterator: CommitLogFileIterator): Boolean = {
+          val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
+          val transactionsFromValidClients = records
+            .withFilter(transactionTTLWithToken => transactionServer.isValid(transactionTTLWithToken._1))
+            .flatMap(x => x._2)
+
+          val okay = bigCommit.putSomeTransactions(transactionsFromValidClients)
+
+          val isAnyElements = scala.util.Try(iter.hasNext()).getOrElse(false)
+          if (okay && isAnyElements) helper(iter)
+          else if (okay) bigCommit.commit() else bigCommit.abort()
+        }
+        helper(iterator)
+      }
+
+      @tailrec @throws[Exception]
+      def processCommitLogFiles(commitLogFiles: List[CommitLogFile], recordsToReadNumber: Int): Unit = commitLogFiles match {
+        case Nil => ()
+        case head::Nil => if (!isProcessedSuccessfullyCommitLogFile(head.getIterator(), recordsToReadNumber)) throw new Exception("There is a bug; Stop server and fix code!")
+        case head::tail =>
+          if (!isProcessedSuccessfullyCommitLogFile(head.getIterator(), recordsToReadNumber)) throw new Exception("There is a bug; Stop server and fix code!")
+          else processCommitLogFiles(tail, recordsToReadNumber)
+
+      }
       releaseBarrier()
-
-
-      //      def readRecordsFromCommitLogFiles(files: Seq[CommitLogFile]) = {
-      //        def helper()
-      //      }
-
-      def getFileNameWithExtension(file: String) = file.substring(file.lastIndexOf("/"), file.length)
-
-      val filesToRead = pathsToFilesToPutData.toSeq.map(path => new CommitLogFile(path)).filter(_.md5Exists())
-      val records = filesToRead flatMap readRecordsFromCommitLogFile
-
       scala.util.Try {
-        val transactionsFromValidClients = records
-          .withFilter(transactionTTLWithToken => transactionServer.isValid(transactionTTLWithToken._1))
-          .flatMap(x => x._2)
+        val filesToRead = pathsToFilesToPutData.toSeq.map(path => new CommitLogFile(path)).filter(_.md5Exists())
+        processCommitLogFiles(filesToRead.toList, 1000000)
+      } match {
+        case scala.util.Success(x) => println("it's okay")
+        case scala.util.Failure(error) => error.printStackTrace()
+      }
 
+
+
+//      scala.util.Try {
+//        val transactionsFromValidClients = records
+//          .withFilter(transactionTTLWithToken => transactionServer.isValid(transactionTTLWithToken._1))
+//          .flatMap(x => x._2)
+//
+//        transactionServer.getBigCommit
 //        transactionServer putTransactions transactionsFromValidClients
 //
 //        val filesRead = filesToRead.map(_.path).toSet
@@ -78,13 +124,13 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
         //        val catalogue = new CommitLogCatalogue("/tmp", new java.util.Date(System.currentTimeMillis()))
         //        filesRead foreach(file => catalogue.deleteFile(getFileNameWithExtension(file)))
 
-      } match {
-        case scala.util.Success(x) => println("it's okay")
-        case scala.util.Failure(error) => error.printStackTrace()
-      }
+//      } match {
+//        case scala.util.Success(x) => println("it's okay")
+//        case scala.util.Failure(error) => error.printStackTrace()
+//      }
     }
   }
-  scheduledExecutor.scheduleWithFixedDelay(task, 0, 5, java.util.concurrent.TimeUnit.SECONDS)
+  scheduledExecutor.scheduleWithFixedDelay(task, 0, 10, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 object JournaledCommitLogImpl {

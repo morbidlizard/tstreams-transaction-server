@@ -72,7 +72,7 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "io.netty" % "netty-all" % "4.1.7.Final",
 
-  "com.bwsw" % "journaled-commit-log_2.12" % "1.0.0-SNAPSHOT",
+//  "com.bwsw" % "journaled-commit-log_2.12" % "1.0.0-SNAPSHOT",
 
   "org.slf4j" % "slf4j-log4j12" % "1.7.22",
 

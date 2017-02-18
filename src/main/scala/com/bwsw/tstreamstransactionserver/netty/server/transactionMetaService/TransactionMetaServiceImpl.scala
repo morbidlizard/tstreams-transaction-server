@@ -54,6 +54,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
   }
 
+
   val producerTransactionsWithOpenedStateDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
@@ -73,6 +74,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
       map.put(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))
     }
+    cursor.close()
+
     map
   }
   private val openedTransactionsMap: ConcurrentHashMap[Key, ProducerTransactionWithoutKey] = fillOpenedTransactionsRAMTable
@@ -139,13 +142,27 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     true
   }
 
-  class BigCommit {
+
+  val commitLogDatabase = {
+    val dbConfig = new DatabaseConfig()
+      .setAllowCreate(true)
+      .setTransactional(true)
+    val storeName = "CommitLogStore"
+    transactionMetaEnviroment.openDatabase(null, storeName, dbConfig)
+  }
+
+
+  class BigCommit(timestamp: Long, pathToFile: String) {
     private val transactionDB = transactionMetaEnviroment.beginTransaction(null, null)
     def putSomeTransactions(transactions: Seq[(Transaction, Long)]) = putTransactions(transactions, transactionDB)
 
-    def commit(): Boolean = scala.util.Try(transactionDB.commit(defaultDurability)) match {
-      case scala.util.Success(_) => true
-      case scala.util.Failure(_) => false
+    def commit(): Boolean = {
+      val timestampCommitLog = TimestampCommitLog(timestamp, pathToFile)
+      commitLogDatabase.putNoOverwrite(transactionDB, timestampCommitLog.keyToDatabaseEntry, timestampCommitLog.dataToDatabaseEntry)
+      scala.util.Try(transactionDB.commit(defaultDurability)) match {
+        case scala.util.Success(_) => true
+        case scala.util.Failure(_) => false
+      }
     }
 
     def abort(): Boolean  = scala.util.Try(transactionDB.abort()) match {
@@ -154,7 +171,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     }
   }
 
-  def getBigCommit = new BigCommit()
+  def getBigCommit(timestamp: Long, pathToFile: String) = new BigCommit(timestamp, pathToFile)
 
   private final val comparator = UnsignedBytes.lexicographicalComparator
   def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =

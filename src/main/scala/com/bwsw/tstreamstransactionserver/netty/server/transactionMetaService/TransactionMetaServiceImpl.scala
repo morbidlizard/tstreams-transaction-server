@@ -170,7 +170,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
         val keyFrom = new Key(streamObj.streamNameToLong, partition, long2Long(from))
         val keyFound = keyFrom.toDatabaseEntry
         val dataFound = new DatabaseEntry()
-        if (cursor.getSearchKey(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS)
+        if (cursor.getSearchKeyRange(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS)
           Some(new ProducerTransactionKey(keyFrom, ProducerTransaction.entryToObject(dataFound))) else None
       }
 

@@ -16,7 +16,7 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-    logger.info(s"${ctx.channel().remoteAddress().toString} is inactive ")
+    if (logger.isInfoEnabled) logger.info(s"${ctx.channel().remoteAddress().toString} is inactive")
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
@@ -29,10 +29,10 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
   def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = {
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
 
-    def logSuccessfulProcession() = logger.info(s"Server processed successfully request $method with id $messageSeqId of $inetAddress")
-    def logUnSuccessfulProcession(error: Throwable) = logger.debug(error.getMessage, error)
+    def logSuccessfulProcession() = if (logger.isInfoEnabled) logger.info(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
+    def logUnSuccessfulProcession(error: Throwable) = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is failed while processing!", error)
 
-    logger.info(s"$inetAddress request $method with id $messageSeqId")
+    if (logger.isInfoEnabled) logger.info(s"$inetAddress request id $messageSeqId: $method is invoked.")
     method match {
       case `putStreamMethod` =>
         val args = Descriptors.PutStream.decodeRequest(message)

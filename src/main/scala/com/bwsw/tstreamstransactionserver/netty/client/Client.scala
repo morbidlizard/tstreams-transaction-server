@@ -315,7 +315,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.ProducerTransaction]] = {
-    require(from >= 0 && to >= 0 && to >= from)
+    require(from >= 0 && to >= 0)
+    if(to < from)
+      return ScalaFuture.successful(Seq[transactionService.rpc.ProducerTransaction]())
     if (logger.isInfoEnabled) logger.info("scanTransactions method is invoked.")
     retryMethod(method(Descriptors.ScanTransactions, TransactionService.ScanTransactions.Args(token, stream, partition, from, to))
       .flatMap(x =>

@@ -168,7 +168,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = Await.result(client.putTransactionData(txn, data, 0), secondsWait.seconds)
     resultInFuture shouldBe true
 
-    val dataFromDatabase = Await.result(client.getTransactionData(txn, 0, amount), secondsWait.seconds)
+    val dataFromDatabase = Await.result(client.getTransactionData(txn.stream, txn.partition, txn.transactionID, 0, amount), secondsWait.seconds)
     data should contain theSameElementsAs dataFromDatabase
   }
 

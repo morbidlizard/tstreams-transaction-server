@@ -235,9 +235,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @return placeholder of doesStream operation that can be completed or not. If the method returns failed future it means
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
-  def doesStreamExist(stream: String): ScalaFuture[Boolean] = {
+  def checkStreamExists(stream: String): ScalaFuture[Boolean] = {
     if (logger.isInfoEnabled) logger.info("doesStreamExist method is invoked.")
-    retryMethod(method(Descriptors.DoesStreamExist, TransactionService.DoesStreamExist.Args(token, stream))
+    retryMethod(method(Descriptors.CheckStreamExists, TransactionService.CheckStreamExists.Args(token, stream))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }

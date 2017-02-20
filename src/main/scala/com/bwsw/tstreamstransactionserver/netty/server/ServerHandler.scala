@@ -48,15 +48,15 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
 
 
       case `doesStreamExistMethod` =>
-        val args = Descriptors.DoesStreamExist.decodeRequest(message)
-        transactionServer.doesStreamExist(args.token, args.stream)
+        val args = Descriptors.CheckStreamExists.decodeRequest(message)
+        transactionServer.checkStreamExists(args.token, args.stream)
           .flatMap{response =>
             logSuccessfulProcession()
-            ScalaFuture.successful(Descriptors.DoesStreamExist.encodeResponse(TransactionService.DoesStreamExist.Result(Some(response)))(messageSeqId))
+            ScalaFuture.successful(Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(response)))(messageSeqId))
           }
           .recover { case error =>
             logUnSuccessfulProcession(error)
-            Descriptors.DoesStreamExist.encodeResponse(TransactionService.DoesStreamExist.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
+            Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
 

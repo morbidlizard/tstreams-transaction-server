@@ -39,7 +39,7 @@ trait TransactionService[+MM[_]] extends ThriftService {
   
   def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Long): MM[Boolean]
   
-  def doesStreamExist(token: Int, stream: String): MM[Boolean]
+  def checkStreamExists(token: Int, stream: String): MM[Boolean]
   
   def getStream(token: Int, stream: String): MM[transactionService.rpc.Stream]
   
@@ -770,11 +770,11 @@ object TransactionService { self =>
   val putStream$result = PutStream.Result
   type putStream$result = PutStream.Result
 
-  object DoesStreamExist extends com.twitter.scrooge.ThriftMethod {
+  object CheckStreamExists extends com.twitter.scrooge.ThriftMethod {
     
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-      val Struct = new TStruct("doesStreamExist_args")
+      val Struct = new TStruct("checkStreamExists_args")
       val TokenField = new TField("token", TType.I32, 1)
       val TokenFieldManifest = implicitly[Manifest[Int]]
       val StreamField = new TField("stream", TType.STRING, 2)
@@ -1024,7 +1024,7 @@ object TransactionService { self =>
     
     object Result extends ThriftStructCodec3[Result] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-      val Struct = new TStruct("doesStreamExist_result")
+      val Struct = new TStruct("checkStreamExists_result")
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
       val ErrorField = new TField("error", TType.STRUCT, 1)
@@ -1282,7 +1282,7 @@ object TransactionService { self =>
     def functionToService(f: FunctionType): ServiceType = ???
     def serviceToFunction(svc: ServiceType): FunctionType = ???
 
-    val name = "doesStreamExist"
+    val name = "checkStreamExists"
     val serviceName = "TransactionService"
     val argsCodec = Args
     val responseCodec = Result
@@ -1290,11 +1290,11 @@ object TransactionService { self =>
   }
 
   // Compatibility aliases.
-  val doesStreamExist$args = DoesStreamExist.Args
-  type doesStreamExist$args = DoesStreamExist.Args
+  val checkStreamExists$args = CheckStreamExists.Args
+  type checkStreamExists$args = CheckStreamExists.Args
 
-  val doesStreamExist$result = DoesStreamExist.Result
-  type doesStreamExist$result = DoesStreamExist.Result
+  val checkStreamExists$result = CheckStreamExists.Result
+  type checkStreamExists$result = CheckStreamExists.Result
 
   object GetStream extends com.twitter.scrooge.ThriftMethod {
     

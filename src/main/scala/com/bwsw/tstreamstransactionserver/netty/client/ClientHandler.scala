@@ -33,7 +33,7 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
           Descriptors.PutStream.decodeResponse(message)
 
         case `doesStreamExistMethod` =>
-          Descriptors.DoesStreamExist.decodeResponse(message)
+          Descriptors.CheckStreamExists.decodeResponse(message)
 
         case `getStreamMethod` =>
           Descriptors.GetStream.decodeResponse(message)

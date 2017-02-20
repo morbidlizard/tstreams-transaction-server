@@ -2,7 +2,8 @@ package it
 
 
 import com.bwsw.tstreamstransactionserver.exception.Throwables.ZkGetMasterException
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ZookeeperOptions}
+import com.bwsw.tstreamstransactionserver.options.ClientBuilder
+import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import org.scalatest.{FlatSpec, Matchers}
 
 class ClientZookeeperTest extends FlatSpec with Matchers {

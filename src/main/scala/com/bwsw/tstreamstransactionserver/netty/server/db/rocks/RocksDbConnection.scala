@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
 import java.io.Closeable
 
-import com.bwsw.tstreamstransactionserver.options.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import org.rocksdb._
 

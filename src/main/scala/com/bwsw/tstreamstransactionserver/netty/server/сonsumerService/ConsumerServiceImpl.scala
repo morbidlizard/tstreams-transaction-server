@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
-import com.bwsw.tstreamstransactionserver.options.StorageOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
 import transactionService.rpc.ConsumerService

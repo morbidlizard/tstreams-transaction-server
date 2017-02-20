@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwables._
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
-import com.bwsw.tstreamstransactionserver.options._
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.shared.FNV
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.sleepycat.je._

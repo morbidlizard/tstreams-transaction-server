@@ -52,7 +52,7 @@ service StreamService {
 
   bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: tllType ttl) throws (1:ServerException error),
 
-  bool doesStreamExist(1: tokenType token, 2: StreamType stream) throws (1:ServerException error),
+  bool checkStreamExists(1: tokenType token, 2: StreamType stream) throws (1:ServerException error),
 
   Stream getStream(1: tokenType token, 2: StreamType stream) throws (1:ServerException error),
 
@@ -101,7 +101,7 @@ service TransactionService {
 
   bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: tllType ttl) throws (1:ServerException error),
 
-  bool doesStreamExist(1: tokenType token, 2: StreamType stream) throws (1:ServerException error),
+  bool checkStreamExists(1: tokenType token, 2: StreamType stream) throws (1:ServerException error),
 
   Stream getStream(1: tokenType token, 2: StreamType stream) throws (1:ServerException error),
 

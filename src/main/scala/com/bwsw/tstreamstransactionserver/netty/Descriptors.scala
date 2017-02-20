@@ -155,8 +155,8 @@ object Descriptors {
   case object PutStream extends
     Descriptor(putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
-  case object DoesStreamExist extends
-    Descriptor(doesStreamExistMethod, TransactionService.DoesStreamExist.Args, TransactionService.DoesStreamExist.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+  case object CheckStreamExists extends
+    Descriptor(doesStreamExistMethod, TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object GetStream extends
     Descriptor(getStreamMethod, TransactionService.GetStream.Args, TransactionService.GetStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)

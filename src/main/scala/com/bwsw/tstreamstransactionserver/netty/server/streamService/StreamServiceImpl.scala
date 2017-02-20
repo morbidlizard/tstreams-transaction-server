@@ -78,7 +78,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       }
     }(executionContext.berkeleyWriteContext)
 
-  override def doesStreamExist(token: Int, stream: String): ScalaFuture[Boolean] =
+  override def checkStreamExists(token: Int, stream: String): ScalaFuture[Boolean] =
     authenticate(token)(scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)(executionContext.berkeleyReadContext)
 
   override def getStream(token: Int, stream: String): ScalaFuture[Stream] =

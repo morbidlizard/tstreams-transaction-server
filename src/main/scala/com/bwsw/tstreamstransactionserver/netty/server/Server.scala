@@ -2,13 +2,13 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.options.CommonOptions._
+import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelOption
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
-import org.apache.curator.retry.RetryNTimes
+import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts: BootstrapOptions,
@@ -24,7 +24,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
     rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPoll)
 
   val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
-    new RetryNTimes(zookeeperOpts.retryCount, zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
+    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
   zk.putData(transactionServerAddress.getBytes())
 
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)

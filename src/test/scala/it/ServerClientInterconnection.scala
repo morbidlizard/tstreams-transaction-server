@@ -135,7 +135,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     transactionServer.shutdown()
     assertThrows[ServerUnreachableException] {
-      Await.result(resultInFuture, (authOptions.connectionTimeoutMs + 1000).milliseconds)
+      Await.result(resultInFuture, (clientBuilder.getConnectionOptions().connectionTimeoutMs + 1000).milliseconds)
     }
   }
 
@@ -149,7 +149,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    Thread.sleep(authOptions.connectionTimeoutMs * 3 / 5)
+    Thread.sleep(clientBuilder.getConnectionOptions().connectionTimeoutMs * 3 / 5)
     startTransactionServer()
 
     Await.result(resultInFuture, secondsWait.seconds) shouldBe true

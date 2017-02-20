@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.authService
 
-import com.bwsw.tstreamstransactionserver.options.CommonOptions.AuthOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions
 import com.google.common.cache.CacheBuilder
 
 
@@ -9,8 +9,8 @@ trait AuthServiceImpl {
 
   val random = scala.util.Random
   val usersToken = CacheBuilder.newBuilder()
-    .maximumSize(authOpts.cacheSize)
-    .expireAfterAccess(authOpts.ttl, java.util.concurrent.TimeUnit.SECONDS)
+    .maximumSize(authOpts.activeTokensNumber)
+    .expireAfterAccess(authOpts.tokenTTL, java.util.concurrent.TimeUnit.SECONDS)
     .build[java.lang.Integer, String]()
 
   def authenticate(authKey: String): Int = {

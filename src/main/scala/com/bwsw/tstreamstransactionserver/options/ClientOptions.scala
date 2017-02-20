@@ -8,4 +8,6 @@ object ClientOptions {
     * @param threadPool
     */
   case class ConnectionOptions(connectionTimeoutMs: Int = 5000, retryDelayMs: Int = 200, threadPool: Int = 4)
+
+  case class AuthOptions(key: String = "") extends AnyVal
 }

@@ -148,10 +148,10 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
 
   private def doesProducerTransactionExpired(txn: transactionService.rpc.ProducerTransaction): Boolean =
-    (txn.keepAliveTTL + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
+    (txn.ttl + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
 
   private def doesProducerTransactionExpired(txn: ProducerTransaction): Boolean =
-    (txn.keepAliveTTL + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
+    (txn.ttl + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
 
   private final val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
@@ -162,7 +162,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
-        val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.keepAliveTTL)
+        val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
         Transaction(Some(producerTxn), None)
       }
 

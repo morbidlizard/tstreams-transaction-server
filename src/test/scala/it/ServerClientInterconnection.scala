@@ -78,7 +78,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     override val transactionID: Long = System.nanoTime()
     override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
     override val stream: String = streamObj.name
-    override val keepAliveTTL: Long = Long.MaxValue
+    override val ttl: Long = Long.MaxValue
     override val quantity: Int = -1
     override val partition: Int = streamObj.partitions
   }

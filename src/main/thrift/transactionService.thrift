@@ -18,7 +18,7 @@ struct ProducerTransaction {
    3: required transactionIDType   transactionID
    4: required TransactionStates   state
    5: required i32                 quantity
-   6: required i64                 keepAliveTTL
+   6: required i64                 ttl
 }
 
 struct ConsumerTransaction {

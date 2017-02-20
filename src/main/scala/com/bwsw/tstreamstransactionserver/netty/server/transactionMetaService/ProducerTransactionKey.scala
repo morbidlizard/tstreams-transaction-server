@@ -9,7 +9,7 @@ case class ProducerTransactionKey(key: Key, producerTransaction: ProducerTransac
   override def transactionID: Long = Long2long(key.transactionID)
   override def state: TransactionStates = producerTransaction.state
   override def quantity: Int = Integer2int(producerTransaction.quantity)
-  override def keepAliveTTL: Long = Long2long(producerTransaction.keepAliveTTL)
+  override def ttl: Long = Long2long(producerTransaction.ttl)
   override def toString: String = s"Producer transaction: ${key.toString}, state: $state"
   def put(database: Database, txn: Transaction, putType: Put, options: WriteOptions = new WriteOptions()) =
     database.put(txn, key.toDatabaseEntry, producerTransaction.toDatabaseEntry, putType, options)
@@ -19,7 +19,7 @@ case class ProducerTransactionKey(key: Key, producerTransaction: ProducerTransac
 object ProducerTransactionKey {
   def apply(txn: transactionService.rpc.ProducerTransaction, streamNameToLong: java.lang.Long): ProducerTransactionKey = {
     val key = Key(streamNameToLong, int2Integer(txn.partition), long2Long(txn.transactionID))
-    val producerTransaction = ProducerTransaction(txn.state, int2Integer(txn.quantity), long2Long(txn.keepAliveTTL))
+    val producerTransaction = ProducerTransaction(txn.state, int2Integer(txn.quantity), long2Long(txn.ttl))
     ProducerTransactionKey(key, producerTransaction)
   }
 }

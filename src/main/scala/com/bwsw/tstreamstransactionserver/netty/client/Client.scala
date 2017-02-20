@@ -418,17 +418,18 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-  /** Retrieves a consumer state on a specific stream, partition, transaction id on a server.
+  /** Retrieves a consumer state on a specific consumer transaction name, stream, partition from a server.
     *
-    *
-    * @param consumerTransaction a tuple consists of stream, partition, transaction id.
+    * @param name a consumer transaction name.
+    * @param stream a stream.
+    * @param partition a partition of the stream.
     *
     * @return placeholder of getConsumerState operation that can be completed or not. If the method returns failed future it means
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
-  def getConsumerState(consumerTransaction: (String, String, Int)): ScalaFuture[Long] = {
+  def getConsumerState(name: String, stream: String, partition: Int): ScalaFuture[Long] = {
     if (logger.isInfoEnabled) logger.info("getConsumerState method is invoked.")
-    retryMethod(method(Descriptors.GetConsumerState, TransactionService.GetConsumerState.Args(token, consumerTransaction._1, consumerTransaction._2, consumerTransaction._3))
+    retryMethod(method(Descriptors.GetConsumerState, TransactionService.GetConsumerState.Args(token, name, stream, partition))
       .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }

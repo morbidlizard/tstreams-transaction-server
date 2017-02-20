@@ -329,6 +329,25 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** Putting any binary data on server to a specific stream, partition, transaction id of producer tranasaction.
     *
     *
+    * @param stream a stream.
+    * @param partition a partition of stream.
+    * @param transaction a transaction ID.
+    * @param data a data to persist.
+    * @param from an inclusive bound to strat with.
+    *
+    * @return placeholder of putTransaction operation that can be completed or not. If the method returns failed future it means
+    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    */
+  def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int) = {
+    if (logger.isInfoEnabled) logger.info("putTransactionData method is invoked.")
+    retryMethod(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, stream, partition, transaction, data, from))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
+  }
+
+  /** Putting any binary data and setting transaction state on server.
+    *
+    *
     * @param producerTransaction a producer transaction contains all necessary information for persisting data.
     * @param data a data to persist.
     *
@@ -336,70 +355,37 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   def putTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    if (logger.isInfoEnabled) logger.info("putTransactionData method is invoked.")
-    retryMethod(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
-      producerTransaction.partition, producerTransaction.transactionID, data, from))
-      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
-    )
+    putTransaction(producerTransaction) flatMap {response =>
+      if (logger.isInfoEnabled) logger.info("putTransactionData method is invoked.")
+      retryMethod(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, producerTransaction.stream,
+        producerTransaction.partition, producerTransaction.transactionID, data, from))
+        .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+      )
+    }
   }
 
 
-  /** Putting any binary data on server to a specific stream, partition, transaction id of consumer tranasaction.
+  /** Retrieves all producer transactions binary data in a specific range [from; to]; it's assumed that from >= to and they are both positive.
     *
     *
-    * @param consumerTransaction a consumer transaction contains all necessary information for persisting data.
-    * @param data a data to persist.
-    *
-    * @return placeholder of putTransactionData operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
-    */
-  def putTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    if (logger.isInfoEnabled) logger.info("putTransactionData method is invoked.")
-    retryMethod(method(Descriptors.PutTransactionData, TransactionService.PutTransactionData.Args(token, consumerTransaction.stream,
-      consumerTransaction.partition, consumerTransaction.transactionID, data, from))
-      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
-    )
-  }
-
-  /** Retrieves all producer transactions binary data in a specific range [from; to); it's assumed that from >= to and they are both positive.
-    *
-    *
-    * @param producerTransaction a producer transaction contains all necessary information for retrieving data.
+    * @param stream a stream
+    * @param partition a partition of stream.
+    * @param transaction a transaction id.
     * @param from an inclusive bound to strat with.
-    * @param to an exclusive bound to end with.
+    * @param to an inclusive bound to end with.
     *
     * @return placeholder of getTransactionData operation that can be completed or not. If the method returns failed future it means
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
-  def getTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
+  def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int) = {
     require(from >= 0 && to >= 0 && to >= from)
     if (logger.isInfoEnabled) logger.info("getTransactionData method is invoked.")
 
-    retryMethod(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, producerTransaction.stream,
-      producerTransaction.partition, producerTransaction.transactionID, from, to))
-      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    retryMethod(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, stream, partition, transaction, from, to))
+      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(byteBuffersToSeqArrayByte(x.success.get)))
     )
   }
 
-  /** Retrieves all producer transactions binary data in a specific range [from; to); it's assumed that from >= to and they are both positive.
-    *
-    *
-    * @param consumerTransaction a consumer transaction contains all necessary information for retrieving data.
-    * @param from an inclusive bound to strat with.
-    * @param to an exclusive bound to end with.
-    *
-    * @return placeholder of getTransactionData operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
-    */
-  def getTransactionData(consumerTransaction: transactionService.rpc.ConsumerTransaction, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
-    require(from >= 0 && to >= 0 && to >= from)
-    if (logger.isInfoEnabled) logger.info("getTransactionData method is invoked.")
-
-    retryMethod(method(Descriptors.GetTransactionData, TransactionService.GetTransactionData.Args(token, consumerTransaction.stream,
-      consumerTransaction.partition, consumerTransaction.transactionID, from, to))
-      .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwables.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
-    )
-  }
 
   /** Puts/Updates a consumer state on a specific stream, partition, transaction id on a server.
     *

@@ -18,8 +18,8 @@ object ProducerTransaction extends TupleBinding[ProducerTransaction]
   override def entryToObject(input: TupleInput): ProducerTransaction = {
     val state  = TransactionStates(input.readInt())
     val quantity = input.readInt()
-    val timestamp = input.readLong()
-    ProducerTransaction(state, int2Integer(quantity), long2Long(timestamp))
+    val ttl = input.readLong()
+    ProducerTransaction(state, int2Integer(quantity), long2Long(ttl))
   }
   override def objectToEntry(producerTransaction: ProducerTransaction, output: TupleOutput): Unit = {
     output.writeInt(producerTransaction.state.value)

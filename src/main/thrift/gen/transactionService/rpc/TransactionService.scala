@@ -37,7 +37,7 @@ import scala.language.higherKinds
 @javax.annotation.Generated(value = Array("com.twitter.scrooge.Compiler"))
 trait TransactionService[+MM[_]] extends ThriftService {
   
-  def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Int): MM[Boolean]
+  def putStream(token: Int, stream: String, partitions: Int, description: Option[String] = None, ttl: Long): MM[Boolean]
   
   def doesStreamExist(token: Int, stream: String): MM[Boolean]
   
@@ -81,8 +81,8 @@ object TransactionService { self =>
       val PartitionsFieldManifest = implicitly[Manifest[Int]]
       val DescriptionField = new TField("description", TType.STRING, 4)
       val DescriptionFieldManifest = implicitly[Manifest[String]]
-      val TtlField = new TField("ttl", TType.I32, 5)
-      val TtlFieldManifest = implicitly[Manifest[Int]]
+      val TtlField = new TField("ttl", TType.I64, 5)
+      val TtlFieldManifest = implicitly[Manifest[Long]]
     
       /**
        * Field information in declaration order.
@@ -194,7 +194,7 @@ object TransactionService { self =>
         var stream: String = null
         var partitions: Int = 0
         var description: _root_.scala.Option[String] = _root_.scala.None
-        var ttl: Int = 0
+        var ttl: Long = 0L
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -259,10 +259,10 @@ object TransactionService { self =>
                 }
               case 5 =>
                 _field.`type` match {
-                  case TType.I32 =>
+                  case TType.I64 =>
                     ttl = readTtlValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.I32
+                    val _expectedType = TType.I64
                     throw new TProtocolException(
                       "Received wrong type for field 'ttl' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
@@ -298,7 +298,7 @@ object TransactionService { self =>
         stream: String,
         partitions: Int,
         description: _root_.scala.Option[String] = _root_.scala.None,
-        ttl: Int
+        ttl: Long
       ): Args =
         new Args(
           token,
@@ -308,7 +308,7 @@ object TransactionService { self =>
           ttl
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple5[Int, String, Int, Option[String], Int]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple5[Int, String, Int, Option[String], Long]] = _root_.scala.Some(_item.toTuple)
     
     
       @inline private def readTokenValue(_iprot: TProtocol): Int = {
@@ -367,18 +367,18 @@ object TransactionService { self =>
         _oprot.writeString(description_item)
       }
     
-      @inline private def readTtlValue(_iprot: TProtocol): Int = {
-        _iprot.readI32()
+      @inline private def readTtlValue(_iprot: TProtocol): Long = {
+        _iprot.readI64()
       }
     
-      @inline private def writeTtlField(ttl_item: Int, _oprot: TProtocol): Unit = {
+      @inline private def writeTtlField(ttl_item: Long, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(TtlField)
         writeTtlValue(ttl_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeTtlValue(ttl_item: Int, _oprot: TProtocol): Unit = {
-        _oprot.writeI32(ttl_item)
+      @inline private def writeTtlValue(ttl_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeI64(ttl_item)
       }
     
     
@@ -389,10 +389,10 @@ object TransactionService { self =>
         val stream: String,
         val partitions: Int,
         val description: _root_.scala.Option[String],
-        val ttl: Int,
+        val ttl: Long,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product5[Int, String, Int, Option[String], Int]
+      with _root_.scala.Product5[Int, String, Int, Option[String], Long]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
@@ -402,7 +402,7 @@ object TransactionService { self =>
         stream: String,
         partitions: Int,
         description: _root_.scala.Option[String] = _root_.scala.None,
-        ttl: Int
+        ttl: Long
       ) = this(
         token,
         stream,
@@ -418,7 +418,7 @@ object TransactionService { self =>
       def _4 = description
       def _5 = ttl
     
-      def toTuple: _root_.scala.Tuple5[Int, String, Int, Option[String], Int] = {
+      def toTuple: _root_.scala.Tuple5[Int, String, Int, Option[String], Long] = {
         (
           token,
           stream,
@@ -450,7 +450,7 @@ object TransactionService { self =>
         stream: String = this.stream,
         partitions: Int = this.partitions,
         description: _root_.scala.Option[String] = this.description,
-        ttl: Int = this.ttl,
+        ttl: Long = this.ttl,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(

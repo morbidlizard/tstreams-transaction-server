@@ -64,7 +64,7 @@ trait TransactionMetaServiceImpl extends TransactionMetaService[ScalaFuture]
 
   private final val putType = Put.OVERWRITE
 
-  private def checkTTL(ttl: Int) = {
+  private def checkTTL(ttl: Long) = {
     val ttlInHours = MILLISECONDS.toHours(ttl.toLong).toInt
     if (ttlInHours == 0) 1 else ttlInHours
   }

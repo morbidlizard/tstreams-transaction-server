@@ -8,7 +8,8 @@ import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContex
 import com.bwsw.tstreamstransactionserver.exception.Throwables
 import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerConnectionException, ServerUnreachableException, TokenInvalidException, ZkGetMasterException}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext}
-import com.bwsw.tstreamstransactionserver.options.{AuthOptions, ClientOptions, ZookeeperOptions}
+import com.bwsw.tstreamstransactionserver.options.CommonOptions.{AuthOptions, ZookeeperOptions}
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToGetMaster
 import com.twitter.scrooge.ThriftStruct
 import io.netty.bootstrap.Bootstrap
@@ -26,7 +27,7 @@ import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
   *
   * @constructor create a new client by configuration file or map.
   */
-class Client(clientOpts: ClientOptions, authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions) {
+class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val executionContext = new ClientExecutionContext(clientOpts.threadPool)
 

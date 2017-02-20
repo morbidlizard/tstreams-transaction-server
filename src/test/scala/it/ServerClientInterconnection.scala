@@ -6,7 +6,8 @@ import java.util.concurrent.atomic.LongAdder
 import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerUnreachableException, StreamNotExist}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder, ZookeeperOptions}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}

@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.authService
 
-import com.bwsw.tstreamstransactionserver.options.AuthOptions
+import com.bwsw.tstreamstransactionserver.options.CommonOptions.AuthOptions
 import com.google.common.cache.CacheBuilder
 
 

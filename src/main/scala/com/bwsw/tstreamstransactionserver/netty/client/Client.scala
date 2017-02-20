@@ -8,14 +8,14 @@ import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContex
 import com.bwsw.tstreamstransactionserver.exception.Throwables
 import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerConnectionException, ServerUnreachableException, TokenInvalidException, ZkGetMasterException}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext}
-import com.bwsw.tstreamstransactionserver.options.CommonOptions.{AuthOptions, ZookeeperOptions}
-import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
+import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToGetMaster
 import com.twitter.scrooge.ThriftStruct
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener, ChannelOption}
-import org.apache.curator.retry.RetryNTimes
+import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 import transactionService.rpc.{TransactionService, _}
 
@@ -33,7 +33,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   val zKLeaderClient = new ZKLeaderClientToGetMaster(zookeeperOpts.endpoints,
     zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
-    new RetryNTimes(zookeeperOpts.retryCount, zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
+    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
   zKLeaderClient.start()
 
   private implicit final val context = executionContext.context
@@ -62,7 +62,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   private class ConnectionListener extends ChannelFutureListener() {
     val atomicInteger = new AtomicInteger(clientOpts.connectionTimeoutMs / clientOpts.retryDelayMs)
 
-
     @throws[Exception]
     override def operationComplete(channelFuture: ChannelFuture): Unit = {
       if (!channelFuture.isSuccess && atomicInteger.getAndDecrement() > 0) {
@@ -82,7 +81,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *
     * @param times how many times try to get ipAddres:port from zooKeeper server.
     */
-  @tailrec
+  @tailrec @throws[ZkGetMasterException]
   private def getInetAddressFromZookeeper(times: Int): (String, Int) = {
     if (times > 0 && zKLeaderClient.master.isEmpty) {
       TimeUnit.MILLISECONDS.sleep(zookeeperOpts.retryDelayMs)
@@ -134,19 +133,19 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     helper(times)(f)
   }
 
-  private def retryMethod[Req, Rep](f: => ScalaFuture[Rep]) = retry(authOpts.connectionTimeoutMs / authOpts.retryDelayMs)(f)(conditionToRetry)
+  private def retryMethod[Req, Rep](f: => ScalaFuture[Rep]) = retry(clientOpts.connectionTimeoutMs / clientOpts.retryDelayMs)(f)(conditionToRetry)
 
   private val conditionToRetry = new PartialFunction[Throwable, Boolean] {
-    override def apply(v1: Throwable): Boolean = {
-      v1 match {
+    override def apply(throwable: Throwable): Boolean = {
+      throwable match {
         case _: TokenInvalidException =>
           logger.info("Token isn't valid. Retrying get one.")
           authenticate()
-          TimeUnit.MILLISECONDS.sleep(authOpts.tokenRetryDelayMs)
+          TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
           true
         case _: ServerUnreachableException =>
           logger.info(s"${Throwables.serverUnreachableExceptionMessage}. Retrying to reconnect server.")
-          TimeUnit.MILLISECONDS.sleep(authOpts.retryDelayMs)
+          TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
           true
         case error =>
           logger.error(error.getMessage, error)

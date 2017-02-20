@@ -59,7 +59,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }
 
 
-  override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] =
+  override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] =
     authenticate(token) {
       val newStream = Stream(stream, partitions, description, ttl)
       val newKey = Key(FNV.hash64a(stream.getBytes()).toLong)

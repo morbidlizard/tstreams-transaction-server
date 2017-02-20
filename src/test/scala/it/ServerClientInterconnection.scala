@@ -69,7 +69,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
-    override val ttl: Int = rand.nextInt(Int.MaxValue)
+    override val ttl: Long = Long.MaxValue
   }
 
   private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))

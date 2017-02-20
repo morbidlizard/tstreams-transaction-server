@@ -26,7 +26,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
   private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
 
-  private def calculateTTL(ttl: Int): Int = {
+  private def calculateTTL(ttl: Long): Int = {
     def convertTTL = {
       val ttlToConvert = TimeUnit.MILLISECONDS.toSeconds(ttlToAdd).toInt
       if (ttlToConvert == 0) 0 else ttlToConvert
@@ -37,7 +37,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
   val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
 
-  private def getStorage(stream: String, ttl: Int) = {
+  private def getStorage(stream: String, ttl: Long) = {
     val key = StorageName(stream)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
       new RocksDbConnection(storageOpts, rocksStorageOpts, key.toString, calculateTTL(ttl))

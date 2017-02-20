@@ -11,6 +11,7 @@ typedef string StreamType
 typedef i32    PartitionType
 typedef i64    transactionIDType
 typedef i32    tokenType
+typedef i64    tllType
 
 struct ProducerTransaction {
    1: required StreamType          stream
@@ -18,7 +19,7 @@ struct ProducerTransaction {
    3: required transactionIDType   transactionID
    4: required TransactionStates   state
    5: required i32                 quantity
-   6: required i64                 ttl
+   6: required tllType             ttl
 }
 
 struct ConsumerTransaction {
@@ -38,7 +39,7 @@ struct Stream {
     1: required StreamType    name
     2: required i32           partitions
     3: optional string        description
-    4: required i32           ttl
+    4: required tllType       ttl
 }
 
 exception ServerException {
@@ -49,7 +50,7 @@ exception ServerException {
 
 service StreamService {
 
-  bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl) throws (1:ServerException error),
+  bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: tllType ttl) throws (1:ServerException error),
 
   bool doesStreamExist(1: tokenType token, 2: StreamType stream) throws (1:ServerException error),
 
@@ -98,7 +99,7 @@ service authService {
 
 service TransactionService {
 
-  bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: i32 ttl) throws (1:ServerException error),
+  bool putStream(1: tokenType token, 2: StreamType stream, 3: i32 partitions, 4: optional string description, 5: tllType ttl) throws (1:ServerException error),
 
   bool doesStreamExist(1: tokenType token, 2: StreamType stream) throws (1:ServerException error),
 

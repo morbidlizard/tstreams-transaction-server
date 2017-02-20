@@ -43,8 +43,8 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
   val StateFieldManifest = implicitly[Manifest[transactionService.rpc.TransactionStates]]
   val QuantityField = new TField("quantity", TType.I32, 5)
   val QuantityFieldManifest = implicitly[Manifest[Int]]
-  val KeepAliveTTLField = new TField("keepAliveTTL", TType.I64, 6)
-  val KeepAliveTTLFieldManifest = implicitly[Manifest[Long]]
+  val TtlField = new TField("ttl", TType.I64, 6)
+  val TtlFieldManifest = implicitly[Manifest[Long]]
 
   /**
    * Field information in declaration order.
@@ -106,10 +106,10 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       None
     ),
     new ThriftStructFieldInfo(
-      KeepAliveTTLField,
+      TtlField,
       false,
       true,
-      KeepAliveTTLFieldManifest,
+      TtlFieldManifest,
       _root_.scala.None,
       _root_.scala.None,
       immutable$Map.empty[String, String],
@@ -156,9 +156,9 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
           val field = original.quantity
           field
         },
-      keepAliveTTL =
+      ttl =
         {
-          val field = original.keepAliveTTL
+          val field = original.ttl
           field
         }
     )
@@ -179,8 +179,8 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     var _got_state = false
     var quantity: Int = 0
     var _got_quantity = false
-    var keepAliveTTL: Long = 0L
-    var _got_keepAliveTTL = false
+    var ttl: Long = 0L
+    var _got_ttl = false
 
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
@@ -272,12 +272,12 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
             _field.`type` match {
               case TType.I64 =>
     
-                keepAliveTTL = readKeepAliveTTLValue(_iprot)
-                _got_keepAliveTTL = true
+                ttl = readTtlValue(_iprot)
+                _got_ttl = true
               case _actualType =>
                 val _expectedType = TType.I64
                 throw new TProtocolException(
-                  "Received wrong type for field 'keepAliveTTL' (expected=%s, actual=%s).".format(
+                  "Received wrong type for field 'ttl' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -298,7 +298,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     if (!_got_transactionID) throw new TProtocolException("Required field 'transactionID' was not found in serialized data for struct ProducerTransaction")
     if (!_got_state) throw new TProtocolException("Required field 'state' was not found in serialized data for struct ProducerTransaction")
     if (!_got_quantity) throw new TProtocolException("Required field 'quantity' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_keepAliveTTL) throw new TProtocolException("Required field 'keepAliveTTL' was not found in serialized data for struct ProducerTransaction")
+    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct ProducerTransaction")
     new LazyImmutable(
       _iprot,
       _iprot.buffer,
@@ -309,7 +309,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       transactionID,
       state,
       quantity,
-      keepAliveTTL,
+      ttl,
       if (_passthroughFields == null)
         NoPassthroughFields
       else
@@ -334,8 +334,8 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     var _got_state = false
     var quantity: Int = 0
     var _got_quantity = false
-    var keepAliveTTL: Long = 0L
-    var _got_keepAliveTTL = false
+    var ttl: Long = 0L
+    var _got_ttl = false
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
 
@@ -419,12 +419,12 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
           case 6 =>
             _field.`type` match {
               case TType.I64 =>
-                keepAliveTTL = readKeepAliveTTLValue(_iprot)
-                _got_keepAliveTTL = true
+                ttl = readTtlValue(_iprot)
+                _got_ttl = true
               case _actualType =>
                 val _expectedType = TType.I64
                 throw new TProtocolException(
-                  "Received wrong type for field 'keepAliveTTL' (expected=%s, actual=%s).".format(
+                  "Received wrong type for field 'ttl' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -445,14 +445,14 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     if (!_got_transactionID) throw new TProtocolException("Required field 'transactionID' was not found in serialized data for struct ProducerTransaction")
     if (!_got_state) throw new TProtocolException("Required field 'state' was not found in serialized data for struct ProducerTransaction")
     if (!_got_quantity) throw new TProtocolException("Required field 'quantity' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_keepAliveTTL) throw new TProtocolException("Required field 'keepAliveTTL' was not found in serialized data for struct ProducerTransaction")
+    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct ProducerTransaction")
     new Immutable(
       stream,
       partition,
       transactionID,
       state,
       quantity,
-      keepAliveTTL,
+      ttl,
       if (_passthroughFields == null)
         NoPassthroughFields
       else
@@ -466,7 +466,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     transactionID: Long,
     state: transactionService.rpc.TransactionStates,
     quantity: Int,
-    keepAliveTTL: Long
+    ttl: Long
   ): ProducerTransaction =
     new Immutable(
       stream,
@@ -474,7 +474,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       transactionID,
       state,
       quantity,
-      keepAliveTTL
+      ttl
     )
 
   def unapply(_item: ProducerTransaction): _root_.scala.Option[_root_.scala.Tuple6[String, Int, Long, transactionService.rpc.TransactionStates, Int, Long]] = _root_.scala.Some(_item.toTuple)
@@ -550,18 +550,18 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     _oprot.writeI32(quantity_item)
   }
 
-  @inline private def readKeepAliveTTLValue(_iprot: TProtocol): Long = {
+  @inline private def readTtlValue(_iprot: TProtocol): Long = {
     _iprot.readI64()
   }
 
-  @inline private def writeKeepAliveTTLField(keepAliveTTL_item: Long, _oprot: TProtocol): Unit = {
-    _oprot.writeFieldBegin(KeepAliveTTLField)
-    writeKeepAliveTTLValue(keepAliveTTL_item, _oprot)
+  @inline private def writeTtlField(ttl_item: Long, _oprot: TProtocol): Unit = {
+    _oprot.writeFieldBegin(TtlField)
+    writeTtlValue(ttl_item, _oprot)
     _oprot.writeFieldEnd()
   }
 
-  @inline private def writeKeepAliveTTLValue(keepAliveTTL_item: Long, _oprot: TProtocol): Unit = {
-    _oprot.writeI64(keepAliveTTL_item)
+  @inline private def writeTtlValue(ttl_item: Long, _oprot: TProtocol): Unit = {
+    _oprot.writeI64(ttl_item)
   }
 
 
@@ -582,7 +582,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       val transactionID: Long,
       val state: transactionService.rpc.TransactionStates,
       val quantity: Int,
-      val keepAliveTTL: Long,
+      val ttl: Long,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends ProducerTransaction {
     def this(
@@ -591,14 +591,14 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       transactionID: Long,
       state: transactionService.rpc.TransactionStates,
       quantity: Int,
-      keepAliveTTL: Long
+      ttl: Long
     ) = this(
       stream,
       partition,
       transactionID,
       state,
       quantity,
-      keepAliveTTL,
+      ttl,
       Map.empty
     )
   }
@@ -617,7 +617,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       val transactionID: Long,
       val state: transactionService.rpc.TransactionStates,
       val quantity: Int,
-      val keepAliveTTL: Long,
+      val ttl: Long,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends ProducerTransaction {
 
@@ -661,7 +661,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     override def transactionID: Long = _underlying_ProducerTransaction.transactionID
     override def state: transactionService.rpc.TransactionStates = _underlying_ProducerTransaction.state
     override def quantity: Int = _underlying_ProducerTransaction.quantity
-    override def keepAliveTTL: Long = _underlying_ProducerTransaction.keepAliveTTL
+    override def ttl: Long = _underlying_ProducerTransaction.ttl
     override def _passthroughFields = _underlying_ProducerTransaction._passthroughFields
   }
 }
@@ -679,7 +679,7 @@ trait ProducerTransaction
   def transactionID: Long
   def state: transactionService.rpc.TransactionStates
   def quantity: Int
-  def keepAliveTTL: Long
+  def ttl: Long
 
   def _passthroughFields: immutable$Map[Short, TFieldBlob] = immutable$Map.empty
 
@@ -688,7 +688,7 @@ trait ProducerTransaction
   def _3 = transactionID
   def _4 = state
   def _5 = quantity
-  def _6 = keepAliveTTL
+  def _6 = ttl
 
   def toTuple: _root_.scala.Tuple6[String, Int, Long, transactionService.rpc.TransactionStates, Int, Long] = {
     (
@@ -697,7 +697,7 @@ trait ProducerTransaction
       transactionID,
       state,
       quantity,
-      keepAliveTTL
+      ttl
     )
   }
 
@@ -752,8 +752,8 @@ trait ProducerTransaction
               }
             case 6 =>
               if (true) {
-                writeKeepAliveTTLValue(keepAliveTTL, _oprot)
-                _root_.scala.Some(ProducerTransaction.KeepAliveTTLField)
+                writeTtlValue(ttl, _oprot)
+                _root_.scala.Some(ProducerTransaction.TtlField)
               } else {
                 _root_.scala.None
               }
@@ -788,7 +788,7 @@ trait ProducerTransaction
     var transactionID: Long = this.transactionID
     var state: transactionService.rpc.TransactionStates = this.state
     var quantity: Int = this.quantity
-    var keepAliveTTL: Long = this.keepAliveTTL
+    var ttl: Long = this.ttl
     var _passthroughFields = this._passthroughFields
     _blob.id match {
       case 1 =>
@@ -802,7 +802,7 @@ trait ProducerTransaction
       case 5 =>
         quantity = readQuantityValue(_blob.read)
       case 6 =>
-        keepAliveTTL = readKeepAliveTTLValue(_blob.read)
+        ttl = readTtlValue(_blob.read)
       case _ => _passthroughFields += (_blob.id -> _blob)
     }
     new Immutable(
@@ -811,7 +811,7 @@ trait ProducerTransaction
       transactionID,
       state,
       quantity,
-      keepAliveTTL,
+      ttl,
       _passthroughFields
     )
   }
@@ -827,7 +827,7 @@ trait ProducerTransaction
     var transactionID: Long = this.transactionID
     var state: transactionService.rpc.TransactionStates = this.state
     var quantity: Int = this.quantity
-    var keepAliveTTL: Long = this.keepAliveTTL
+    var ttl: Long = this.ttl
 
     _fieldId match {
       case 1 =>
@@ -841,7 +841,7 @@ trait ProducerTransaction
       case 5 =>
         quantity = 0
       case 6 =>
-        keepAliveTTL = 0L
+        ttl = 0L
       case _ =>
     }
     new Immutable(
@@ -850,7 +850,7 @@ trait ProducerTransaction
       transactionID,
       state,
       quantity,
-      keepAliveTTL,
+      ttl,
       _passthroughFields - _fieldId
     )
   }
@@ -870,7 +870,7 @@ trait ProducerTransaction
 
   def unsetQuantity: ProducerTransaction = unsetField(5)
 
-  def unsetKeepAliveTTL: ProducerTransaction = unsetField(6)
+  def unsetTtl: ProducerTransaction = unsetField(6)
 
 
   override def write(_oprot: TProtocol): Unit = {
@@ -881,7 +881,7 @@ trait ProducerTransaction
     writeTransactionIDField(transactionID, _oprot)
     if (state ne null) writeStateField(state, _oprot)
     writeQuantityField(quantity, _oprot)
-    writeKeepAliveTTLField(keepAliveTTL, _oprot)
+    writeTtlField(ttl, _oprot)
     if (_passthroughFields.nonEmpty) {
       _passthroughFields.values.foreach { _.write(_oprot) }
     }
@@ -895,7 +895,7 @@ trait ProducerTransaction
     transactionID: Long = this.transactionID,
     state: transactionService.rpc.TransactionStates = this.state,
     quantity: Int = this.quantity,
-    keepAliveTTL: Long = this.keepAliveTTL,
+    ttl: Long = this.ttl,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
   ): ProducerTransaction =
     new Immutable(
@@ -904,7 +904,7 @@ trait ProducerTransaction
       transactionID,
       state,
       quantity,
-      keepAliveTTL,
+      ttl,
       _passthroughFields
     )
 
@@ -932,7 +932,7 @@ trait ProducerTransaction
     case 2 => this.transactionID
     case 3 => this.state
     case 4 => this.quantity
-    case 5 => this.keepAliveTTL
+    case 5 => this.ttl
     case _ => throw new IndexOutOfBoundsException(n.toString)
   }
 

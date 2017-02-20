@@ -19,7 +19,7 @@ trait TransactionCreator {
 
       override val stream: String = streamName
 
-      override val keepAliveTTL: Long = System.currentTimeMillis()
+      override val ttl: Long = System.currentTimeMillis()
 
       override val quantity: Int = -1
 
@@ -35,7 +35,7 @@ trait TransactionCreator {
 
       override val stream: String = streamName
 
-      override val keepAliveTTL: Long = System.currentTimeMillis()
+      override val ttl: Long = System.currentTimeMillis()
 
       override val quantity: Int = -1
 

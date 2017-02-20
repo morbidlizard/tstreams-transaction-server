@@ -16,16 +16,13 @@ object Throwables {
   val zkGetMasterExceptionMessage: String = "Can't get master from ZooKeeper."
   class ZkGetMasterException extends Exception(zkGetMasterExceptionMessage)
 
-  val StreamNotExistMessage: String = "Stream doesn't exist in database!"
-  class StreamNotExist extends NoSuchElementException(StreamNotExistMessage)
-
-  val configNotFoundMessage: String = "Config isn't found!"
-  class ConfigNotFoundException extends FileNotFoundException(configNotFoundMessage)
+  val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
+  class StreamDoesNotExist extends NoSuchElementException(StreamDoesntNotExistMessage)
 
 
   def byText(text: String) : Throwable = text match {
     case `tokenInvalidExceptionMessage` => new TokenInvalidException
-    case `StreamNotExistMessage` =>  new StreamNotExist
+    case StreamDoesntNotExistMessage =>  new StreamDoesNotExist
     case _ => new Exception(text)
   }
 }

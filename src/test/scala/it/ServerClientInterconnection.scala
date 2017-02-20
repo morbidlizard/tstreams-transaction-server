@@ -187,8 +187,14 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
     )
 
+    val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from), secondsWait.seconds)
+    resFrom_1From.size shouldBe 1
+    resFrom_1From.head.transactionID shouldBe from
+
     val resFromFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, from, from), secondsWait.seconds)
     resFromFrom.size shouldBe 1
+    resFromFrom.head.transactionID shouldBe from
+
 
     val resToFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, to, from), secondsWait.seconds)
     resToFrom.size shouldBe 0

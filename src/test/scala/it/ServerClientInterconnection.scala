@@ -3,7 +3,7 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerUnreachableException, StreamNotExist}
+import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerUnreachableException, StreamDoesNotExist}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
@@ -119,7 +119,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val result = client.putTransactions(producerTransactions, consumerTransactions)
 
-    assertThrows[StreamNotExist] {
+    assertThrows[StreamDoesNotExist] {
       Await.result(result, secondsWait.seconds)
     }
   }

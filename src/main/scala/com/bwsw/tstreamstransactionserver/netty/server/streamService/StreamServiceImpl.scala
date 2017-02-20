@@ -54,7 +54,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       }
       else {
         logger.debug(s"Stream $stream doesn't exist.")
-        throw new StreamNotExist
+        throw new StreamDoesNotExist
       }
     }
 

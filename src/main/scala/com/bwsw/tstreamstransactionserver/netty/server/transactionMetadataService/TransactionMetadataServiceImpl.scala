@@ -146,14 +146,7 @@ trait TransactionMetadataServiceImpl extends TransactionMetaService[ScalaFuture]
     isOkay
   }(executionContext.berkeleyWriteContext)
 
-
-  private def isProducerTransactionExpired(transaction: transactionService.rpc.ProducerTransaction): Boolean =
-    (transaction.ttl + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
-
-  private def isProducerTransactionExpired(transaction: ProducerTransaction): Boolean =
-    (transaction.ttl + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
-
-  private final val comparator = UnsignedBytes.lexicographicalComparator
+//  private final val comparator = UnsignedBytes.lexicographicalComparator
   override def scanTransactions(token: Int, stream: String, partition: Int, from: Long, lastTransactionID: Long): ScalaFuture[Seq[Transaction]] =
     authenticate(token) {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
@@ -203,7 +196,7 @@ trait TransactionMetadataServiceImpl extends TransactionMetaService[ScalaFuture]
             status = cursor.getNext(keyFound, dataFound, lockMode)
             if(status == OperationStatus.SUCCESS) {
               currentTransaction = ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransaction.entryToObject(dataFound))
-              if (currentTransaction.transactionID <= lastTransactionID && isProducerTransactionExpired(currentTransaction)) transactions += currentTransaction
+              if (currentTransaction.transactionID <= lastTransactionID) transactions += currentTransaction
             }
           }
 
@@ -214,45 +207,52 @@ trait TransactionMetadataServiceImpl extends TransactionMetaService[ScalaFuture]
       }
     }(executionContext.berkeleyReadContext)
 
-  private val markTransactionsAsInvalid = new Runnable {
-    logger.debug(s"Cleaner of expired transactions is running.")
-    val cleanAmountPerDatabaseTransaction = storageOpts.clearAmount
-    val lockMode = LockMode.READ_UNCOMMITTED_ALL
+  //TODO incorrect cleaner of transactions, as ttl couldn't be comparable to instant time.
+//  private def isProducerTransactionExpired(transaction: ProducerTransaction): Boolean =
+//    (transaction.ttl + storageOpts.ttlAddMs) >= Instant.now().getEpochSecond
 
-    override def run(): Unit = {
-      val transactionDB = transactionMetaEnviroment.beginTransaction(null, null)
-      val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, null)
-      val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, null)
+//  private def isProducerTransactionExpired(transaction: transactionService.rpc.ProducerTransaction): Boolean =
+//    (transaction.ttl + storageOpts.ttlAddMs) <= Instant.now().getEpochSecond
 
-
-      def deleteExpiredTransactions(cursor: Cursor): Boolean = {
-        val keyFound = new DatabaseEntry()
-        val dataFound = new DatabaseEntry()
-
-        if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
-          val producerTransaction = ProducerTransaction.entryToObject(dataFound)
-          if (isProducerTransactionExpired(producerTransaction)) {
-            logger.debug(s"Cleaning $producerTransaction as it's expired.")
-            cursor.delete()
-            true
-            // == OperationStatus.SUCCESS
-          } else true
-        } else false
-      }
-
-
-      @tailrec
-      def repeat(counter: Int, cursor: Cursor): Unit = {
-        val isExpired = deleteExpiredTransactions(cursor)
-        if (counter > 0 && isExpired) repeat(counter - 1, cursor)
-        else cursor.close()
-      }
-
-      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions)
-      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
-      transactionDB.commit()
-    }
-  }
+//  private val markTransactionsAsInvalid = new Runnable {
+//    logger.debug(s"Cleaner of expired transactions is running.")
+//    val cleanAmountPerDatabaseTransaction = storageOpts.clearAmount
+//    val lockMode = LockMode.READ_UNCOMMITTED_ALL
+//
+//    override def run(): Unit = {
+//      val transactionDB = transactionMetaEnviroment.beginTransaction(null, null)
+//      val cursorProducerTransactions = producerTransactionsDatabase.openCursor(transactionDB, null)
+//      val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, null)
+//
+//
+//      def deleteExpiredTransactions(cursor: Cursor): Boolean = {
+//        val keyFound = new DatabaseEntry()
+//        val dataFound = new DatabaseEntry()
+//
+//        if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
+//          val producerTransaction = ProducerTransaction.entryToObject(dataFound)
+//          if (isProducerTransactionExpired(producerTransaction)) {
+//            logger.debug(s"Cleaning $producerTransaction as it's expired.")
+//            cursor.delete()
+//            true
+//            // == OperationStatus.SUCCESS
+//          } else true
+//        } else false
+//      }
+//
+//
+//      @tailrec
+//      def repeat(counter: Int, cursor: Cursor): Unit = {
+//        val isExpired = deleteExpiredTransactions(cursor)
+//        if (counter > 0 && isExpired) repeat(counter - 1, cursor)
+//        else cursor.close()
+//      }
+//
+//      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactions)
+//      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
+//      transactionDB.commit()
+//    }
+//  }
 
   def closeTransactionMetaDatabases(): Unit = {
     Option(producerTransactionsDatabase.close())
@@ -263,5 +263,5 @@ trait TransactionMetadataServiceImpl extends TransactionMetaService[ScalaFuture]
     Option(transactionMetaEnviroment.close())
   }
 
-  scheduledExecutor.scheduleWithFixedDelay(markTransactionsAsInvalid, 0, storageOpts.clearDelayMs, java.util.concurrent.TimeUnit.SECONDS)
+//  scheduledExecutor.scheduleWithFixedDelay(markTransactionsAsInvalid, 0, storageOpts.clearDelayMs, java.util.concurrent.TimeUnit.SECONDS)
 }

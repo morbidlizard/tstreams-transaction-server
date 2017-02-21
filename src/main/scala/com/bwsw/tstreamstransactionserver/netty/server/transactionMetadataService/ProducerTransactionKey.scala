@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.transactionMetaService
+package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.sleepycat.je.{Database, Put, Transaction, WriteOptions}
 import transactionService.rpc.TransactionStates

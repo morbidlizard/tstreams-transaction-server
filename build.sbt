@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.1.1-SNAPSHOT"
+version := "1.1.2-SNAPSHOT"
 
 scalaVersion := "2.12.1"
 
@@ -37,6 +37,11 @@ publishTo := {
     Some("snapshots" at nexus + "content/repositories/snapshots")
   else
     Some("releases" at nexus + "service/local/staging/deploy/maven2")
+}
+
+assemblyExcludedJars in assembly := {
+  val cp = (fullClasspath in assembly).value
+  cp filter {_.data.getName == "log4j-1.2.17.jar"}
 }
 
 publishArtifact in Test := false

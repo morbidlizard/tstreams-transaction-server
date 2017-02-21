@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.transactionMetaService
+package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry

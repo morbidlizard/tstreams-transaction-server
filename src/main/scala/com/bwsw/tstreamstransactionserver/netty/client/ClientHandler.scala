@@ -4,26 +4,27 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.bwsw.tstreamstransactionserver.exception.Throwables.ServerUnreachableException
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
+import com.google.common.cache.Cache
 import com.twitter.scrooge.ThriftStruct
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 @Sharable
-class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]], val client: Client,
+class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]], val client: Client,
                     implicit val context: ExecutionContext)
   extends SimpleChannelInboundHandler[Message] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
 
-    @tailrec
+
     def retryCompletePromise(messageSeqId: Int, response: ThriftStruct): Unit = {
-      if (reqIdToRep.containsKey(messageSeqId))
-        reqIdToRep.get(messageSeqId).success(response)
-      else
-        retryCompletePromise(messageSeqId, response)
+      reqIdToRep.cleanUp()
+      val request = reqIdToRep.getIfPresent(messageSeqId)
+      if (request != null) request.success(response)
+      else ()
+//        retryCompletePromise(messageSeqId, response)
     }
 
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
@@ -76,7 +77,7 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     import scala.collection.JavaConverters._
-    for (promise <- reqIdToRep.values().asScala) {
+    for (promise <- reqIdToRep.asMap().values().asScala) {
       if (!promise.isCompleted) {
         promise.tryFailure(new ServerUnreachableException)
       }

@@ -165,7 +165,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val amount = 5000
     val data = Array.fill(amount)(rand.nextString(10).getBytes)
 
-    val resultInFuture = Await.result(client.putTransactionData(txn, data, 0), secondsWait.seconds)
+    val resultInFuture = Await.result(client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, 0), secondsWait.seconds)
     resultInFuture shouldBe true
 
     val dataFromDatabase = Await.result(client.getTransactionData(txn.stream, txn.partition, txn.transactionID, 0, amount), secondsWait.seconds)
@@ -249,7 +249,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
         val (stream, partition) = (producerTransactions.head.stream, producerTransactions.head.partition)
         addDataLength(stream, partition, data.length)
-        client.putTransactionData(producerTransactions.head, data, getDataLength(stream, partition))
+        val txn = producerTransactions.head
+        client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, getDataLength(stream, partition))
       }
     })
 

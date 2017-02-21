@@ -1,20 +1,24 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwables
-import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerConnectionException, ServerUnreachableException, TokenInvalidException, ZkGetMasterException}
+import com.bwsw.tstreamstransactionserver.exception.Throwables._
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToGetMaster
+import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener, ChannelOption}
+import org.apache.curator.framework.CuratorFramework
+import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 import transactionService.rpc.{TransactionService, _}
@@ -29,24 +33,41 @@ import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
   */
 class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions) {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val executionContext = new ClientExecutionContext(clientOpts.threadPool)
+  private final val executionContext = new ClientExecutionContext(clientOpts.threadPool)
 
-  val zKLeaderClient = new ZKLeaderClientToGetMaster(zookeeperOpts.endpoints,
+  private final val zkListener = new ConnectionStateListener {
+    override def stateChanged(client: CuratorFramework, newState: ConnectionState): Unit =
+      connectionStateListenable(newState)
+  }
+  private final val zKLeaderClient = new ZKLeaderClientToGetMaster(zookeeperOpts.endpoints,
     zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
-    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
+    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix, zkListener)
   zKLeaderClient.start()
 
   private implicit final val context = executionContext.context
 
-  private val nextSeqId = new AtomicInteger(1)
-  private val ReqIdToRep = new ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]](10000, 1.0f, clientOpts.threadPool)
+  private final val nextSeqId = new AtomicInteger(1)
+
+  private final val expiredRequestInvalidator = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("ExpiredRequestInvalidator-%d").build())
+  private final val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]] = CacheBuilder.newBuilder()
+    .concurrencyLevel(clientOpts.threadPool)
+    .expireAfterWrite(clientOpts.requestTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+    .removalListener(new RemovalListener[java.lang.Integer, ScalaPromise[ThriftStruct]] {
+        override def onRemoval(notification: RemovalNotification[java.lang.Integer, ScalaPromise[ThriftStruct]]): Unit = {
+          notification.getValue.tryFailure(new RequestTimeoutException(notification.getKey, clientOpts.requestTimeoutMs))
+        }
+      }
+    ).build[java.lang.Integer, ScalaPromise[ThriftStruct]]()
+
+  expiredRequestInvalidator.scheduleAtFixedRate(() => reqIdToRep.cleanUp(), 0, clientOpts.connectionTimeoutMs, TimeUnit.MILLISECONDS)
+
   private val workerGroup = new EpollEventLoopGroup()
 
   private val bootstrap = new Bootstrap()
     .group(workerGroup)
     .channel(classOf[EpollSocketChannel])
     .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
-    .handler(new ClientInitializer(ReqIdToRep, this, context))
+    .handler(new ClientInitializer(reqIdToRep, this, context))
 
 
   @volatile private var channel: Channel = {
@@ -112,28 +133,57 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
       val message = descriptor.encodeRequest(request)(messageId)
-      ReqIdToRep.put(messageId, promise)
+      reqIdToRep.put(messageId, promise)
       channel.writeAndFlush(message.toByteArray)
       promise.future.map { response =>
-        ReqIdToRep.remove(messageId)
+        reqIdToRep.invalidate(messageId)
         response.asInstanceOf[Rep]
       }.recoverWith { case error =>
-        ReqIdToRep.remove(messageId)
+        reqIdToRep.invalidate(messageId)
         ScalaFuture.failed(error)
       }
     } else ScalaFuture.failed(new ServerUnreachableException)
   }
 
-  private def retry[Req, Rep](times: Int)(f: => ScalaFuture[Rep])(condition: PartialFunction[Throwable, Boolean]): ScalaFuture[Rep] = {
-    def helper(times: Int)(f: => ScalaFuture[Rep]): ScalaFuture[Rep] = f.recoverWith {
+  private def retry[Req, Rep](times: Int)(f: => ScalaFuture[Rep], exceptionOpt: Option[Throwable])(condition: PartialFunction[Throwable, Boolean]): ScalaFuture[Rep] = {
+    def helper(times: Int)(f: => ScalaFuture[Rep], exceptionOpt: Option[Throwable]): ScalaFuture[Rep] = f.recoverWith {
       case error if times > 0 && condition(error) =>
-        helper(times - 1)(f)
+        if (exceptionOpt.isEmpty) helper(times - 1)(f, Some(error))
+        else {
+          val exception = exceptionOpt.get
+          if (error.getClass equals exception.getClass) {
+            helper(times - 1)(f, Some(error))
+          } else
+            error match {
+              case concreteThrowable: TokenInvalidException =>
+                println("token invalid")
+                helper(5)(f, Some(concreteThrowable))
+              case concreteThrowable: ServerUnreachableException =>
+                println("server unreachable exception")
+                helper(Int.MaxValue)(f, Some(concreteThrowable))
+              case concreteThrowable: RequestTimeoutException =>
+                println("request exception")
+                helper(2)(f, Some(concreteThrowable))
+              case otherThrowable =>
+                ScalaFuture.failed(otherThrowable)
+            }
+        }
     }
-
-    helper(times)(f)
+    helper(times)(f, exceptionOpt)
   }
 
-  private def retryMethod[Req, Rep](f: => ScalaFuture[Rep]) = retry(clientOpts.connectionTimeoutMs / clientOpts.retryDelayMs)(f)(conditionToRetry)
+  private def retryMethod[Req, Rep](f: => ScalaFuture[Rep]) = {
+    f recoverWith {
+      case concreteThrowable: TokenInvalidException => retry(3)(f, Some(concreteThrowable))(conditionToRetry)
+      case concreteThrowable: ServerUnreachableException => retry(Int.MaxValue)(f, Some(concreteThrowable))(conditionToRetry)
+      case concreteThrowable: RequestTimeoutException =>
+        println("request exception")
+        retry(2)(f, Some(concreteThrowable))(conditionToRetry)
+      case otherThrowable => ScalaFuture.failed(otherThrowable)
+
+    }
+   // retry(3)(f)(conditionToRetry)
+  }
 
   private val conditionToRetry = new PartialFunction[Throwable, Boolean] {
     override def apply(throwable: Throwable): Boolean = {
@@ -144,17 +194,26 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
           TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
           true
         case _: ServerUnreachableException =>
-          if (logger.isInfoEnabled) logger.info(s"${Throwables.serverUnreachableExceptionMessage}. Retrying to reconnect server.")
+          if (logger.isWarnEnabled) logger.warn(s"${Throwables.serverUnreachableExceptionMessage}. Retrying to reconnect server.")
           TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+          true
+        case _: RequestTimeoutException =>
           true
         case error =>
           if (logger.isErrorEnabled) logger.error(error.getMessage, error)
           false
       }
     }
-
     override def isDefinedAt(x: Throwable): Boolean = x.isInstanceOf[TokenInvalidException]
   }
+
+  protected def connectionStateListenable(newState: ConnectionState): Unit =
+    newState match {
+      case ConnectionState.LOST => zKLeaderClient.master = None
+      case _ => ()
+    }
+
+//  protected def addServerConnectionListener = ???
 
   @volatile private var token: Int = _
 

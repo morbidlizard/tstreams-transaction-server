@@ -3,9 +3,10 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerUnreachableException, StreamDoesNotExist}
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{ServerUnreachableException, StreamDoesNotExist}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import org.apache.commons.io.FileUtils
@@ -105,6 +106,28 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(result, 5.seconds) shouldBe true
   }
 
+  it should "send request with little ttl and exception should be thrown." in {
+    client.shutdown()
+    client = clientBuilder
+      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+      .withConnectionOptions(ConnectionOptions(requestTimeoutMs = 5))
+      .build()
+
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val txn = getRandomProducerTransaction(stream)
+    Await.result(client.putTransaction(txn), secondsWait.seconds)
+
+    val amount = 5000
+    val data = Array.fill(amount)(rand.nextString(10).getBytes)
+
+    val result = client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, 0)
+    assertThrows[java.util.concurrent.TimeoutException] {
+      println(Await.result(result, secondsWait.seconds))
+    }
+  }
+
   it should "delete stream, that doesn't exist in database on the server and get result" in {
     Await.result(client.delStream(getRandomStream), secondsWait.seconds) shouldBe false
   }
@@ -124,7 +147,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     }
   }
 
-  it should "throw an exception when the server isn't available for time greater than in config" in {
+
+  it should "throw an exception when the single server isn't available for time greater than in config" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -134,7 +158,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    assertThrows[ServerUnreachableException] {
+    assertThrows[java.util.concurrent.TimeoutException] {
       Await.result(resultInFuture, (clientBuilder.getConnectionOptions().connectionTimeoutMs + 1000).milliseconds)
     }
   }

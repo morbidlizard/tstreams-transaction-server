@@ -2,6 +2,7 @@ package com.bwsw.tstreamstransactionserver.zooKeeper
 
 import java.io.Closeable
 import java.net.InetAddress
+import java.util.concurrent.TimeUnit
 
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
@@ -24,9 +25,10 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
       .connectString(endpoints)
       .build()
 
-    connection.start()
-    connection.blockUntilConnected()
     connection.getConnectionStateListenable.addListener(connectionStateListener)
+
+    connection.start()
+    connection.blockUntilConnected(connectionTimeoutMillis, TimeUnit.MILLISECONDS)
     connection
   }
 

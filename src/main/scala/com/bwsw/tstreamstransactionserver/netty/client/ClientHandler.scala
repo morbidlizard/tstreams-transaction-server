@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.bwsw.tstreamstransactionserver.exception.Throwables.ServerUnreachableException
+import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerUnreachableException
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import com.google.common.cache.Cache
 import com.twitter.scrooge.ThriftStruct

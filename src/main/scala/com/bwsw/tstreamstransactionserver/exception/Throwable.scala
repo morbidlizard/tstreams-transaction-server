@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.exception
 import java.io.FileNotFoundException
 import java.net.SocketTimeoutException
 
-object Throwables {
+object Throwable {
   val tokenInvalidExceptionMessage: String = "Token isn't valid."
   class TokenInvalidException extends IllegalArgumentException(tokenInvalidExceptionMessage)
 

@@ -1,8 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.util.concurrent.ConcurrentHashMap
-
-import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerUnreachableException
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{MethodDoesnotFoundException, ServerUnreachableException}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import com.google.common.cache.Cache
 import com.twitter.scrooge.ThriftStruct
@@ -17,7 +15,6 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
   extends SimpleChannelInboundHandler[Message] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
-
 
     def retryCompletePromise(messageSeqId: Int, response: ThriftStruct): Unit = {
       reqIdToRep.cleanUp()
@@ -68,20 +65,18 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
 
         case `isValidMethod` =>
           Descriptors.IsValid.decodeResponse(message)
+
+        case _ =>
+          throw new MethodDoesnotFoundException(method)
       }
       retryCompletePromise(messageSeqId, response)
     }
-
     invokeMethod(msg)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-    import scala.collection.JavaConverters._
-    for (promise <- reqIdToRep.asMap().values().asScala) {
-      if (!promise.isCompleted) {
-        promise.tryFailure(new ServerUnreachableException)
-      }
-    }
+    reqIdToRep.asMap().values()
+      .forEach(request => if (!request.isCompleted) request.tryFailure(new ServerUnreachableException))
 
     ctx.channel().eventLoop().execute(() => client.connect())
 

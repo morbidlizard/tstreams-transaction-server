@@ -4,10 +4,11 @@ import java.io.Closeable
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
+import com.bwsw.tstreamstransactionserver.exception.Throwable.ZkNoConnectionException
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
-import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
-import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
+import org.apache.curator.framework.state.ConnectionStateListener
+import org.apache.curator.framework.CuratorFrameworkFactory
 import org.slf4j.LoggerFactory
 
 
@@ -28,8 +29,8 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
     connection.getConnectionStateListenable.addListener(connectionStateListener)
 
     connection.start()
-    connection.blockUntilConnected(connectionTimeoutMillis, TimeUnit.MILLISECONDS)
-    connection
+    val isConnected = connection.blockUntilConnected(connectionTimeoutMillis, TimeUnit.MILLISECONDS)
+    if (isConnected) connection else throw new ZkNoConnectionException(endpoints)
   }
 
   val nodeToWatch = new NodeCache(client, prefix, false)

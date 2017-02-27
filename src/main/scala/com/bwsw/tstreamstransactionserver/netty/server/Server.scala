@@ -50,7 +50,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
       transactionServer.shutdown()
-      executionContext.shutdown()
     }
   }
 
@@ -59,6 +58,5 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
     transactionServer.shutdown()
-    executionContext.shutdown()
   }
 }

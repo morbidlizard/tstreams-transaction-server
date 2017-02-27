@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.zooKeeper
 
 import java.io.Closeable
+import java.util.concurrent.TimeUnit
 
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
@@ -21,7 +22,7 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
       .build()
 
     connection.start()
-    connection.blockUntilConnected()
+    connection.blockUntilConnected(connectionTimeoutMillis, TimeUnit.MILLISECONDS)
     connection
   }
 

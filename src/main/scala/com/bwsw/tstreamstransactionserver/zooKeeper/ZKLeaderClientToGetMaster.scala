@@ -2,6 +2,7 @@ package com.bwsw.tstreamstransactionserver.zooKeeper
 
 import java.io.Closeable
 import java.net.InetAddress
+import java.util.concurrent.TimeUnit
 
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
@@ -10,7 +11,7 @@ import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.slf4j.LoggerFactory
 
 
-class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
+class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String, connectionStateListener: ConnectionStateListener)
   extends NodeCacheListener with Closeable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -24,14 +25,10 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
       .connectString(endpoints)
       .build()
 
+    connection.getConnectionStateListenable.addListener(connectionStateListener)
+
     connection.start()
-    connection.blockUntilConnected()
-    connection.getConnectionStateListenable.addListener((client, newState) =>
-      newState match {
-        case ConnectionState.LOST => master = None
-        case _ => ()
-      }
-    )
+    connection.blockUntilConnected(connectionTimeoutMillis, TimeUnit.MILLISECONDS)
     connection
   }
 

@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.exception.Throwables._
+import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.shared.FNV
@@ -103,8 +103,8 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }(executionContext.berkeleyWriteContext)
 
 
-  def closeStreamEnviromentAndDatabase(): Unit = {
-    Option(streamDatabase.close())
-    Option(streamEnvironment.close())
+  def closeStreamEnvironmentAndDatabase(): Unit = {
+    scala.util.Try(streamDatabase.close())
+    scala.util.Try(streamEnvironment.close())
   }
 }

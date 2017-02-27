@@ -24,7 +24,7 @@ class TransactionDataWriter(streamName: String, partition: Int = 1) extends Tran
         globalProgress += 1
       }
 
-      x -> time(Await.result(client.putTransactionData(producerTransaction, data, (txnCount - 1) * dataSize), 10.seconds))
+      x -> time(Await.result(client.putTransactionData(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, data, (txnCount - 1) * dataSize), 10.seconds))
     })
 
     println(s"Write to file $filename")

@@ -68,5 +68,5 @@ trait ConsumerServiceImpl extends ConsumerService[ScalaFuture]
       }(executionContext.berkeleyWriteContext)
     }
 
-  def closeConsumerDatabase() = Option(consumerDatabase.close())
+  def closeConsumerDatabase() = scala.util.Try(consumerDatabase.close())
 }

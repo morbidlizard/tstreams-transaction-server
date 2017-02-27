@@ -255,12 +255,12 @@ trait TransactionMetadataServiceImpl extends TransactionMetaService[ScalaFuture]
 //  }
 
   def closeTransactionMetaDatabases(): Unit = {
-    Option(producerTransactionsDatabase.close())
-    Option(producerTransactionsWithOpenedStateDatabase.close())
+    scala.util.Try(producerTransactionsDatabase.close())
+    scala.util.Try(producerTransactionsWithOpenedStateDatabase.close())
   }
 
-  def closeTransactionMetaEnviroment() = {
-    Option(transactionMetaEnviroment.close())
+  def closeTransactionMetaEnvironment() = {
+    scala.util.Try(transactionMetaEnviroment.close())
   }
 
 //  scheduledExecutor.scheduleWithFixedDelay(markTransactionsAsInvalid, 0, storageOpts.clearDelayMs, java.util.concurrent.TimeUnit.SECONDS)

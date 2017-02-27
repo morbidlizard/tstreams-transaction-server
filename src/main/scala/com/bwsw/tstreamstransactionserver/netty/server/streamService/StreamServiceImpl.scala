@@ -103,8 +103,8 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }(executionContext.berkeleyWriteContext)
 
 
-  def closeStreamEnviromentAndDatabase(): Unit = {
-    Option(streamDatabase.close())
-    Option(streamEnvironment.close())
+  def closeStreamEnvironmentAndDatabase(): Unit = {
+    scala.util.Try(streamDatabase.close())
+    scala.util.Try(streamEnvironment.close())
   }
 }

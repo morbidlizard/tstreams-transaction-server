@@ -3,9 +3,10 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerUnreachableException, StreamDoesNotExist}
+import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import org.apache.commons.io.FileUtils
@@ -105,6 +106,67 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(result, 5.seconds) shouldBe true
   }
 
+  it should "send request with little ttl and exception should be thrown." in {
+    client.shutdown()
+    client = clientBuilder
+      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+      .withConnectionOptions(ConnectionOptions(requestTimeoutMs = 5))
+      .build()
+
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val txn = getRandomProducerTransaction(stream)
+    Await.result(client.putTransaction(txn), secondsWait.seconds)
+
+    val amount = 5000
+    val data = Array.fill(amount)(rand.nextString(10).getBytes)
+
+    val result = client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, 0)
+    assertThrows[java.util.concurrent.TimeoutException] {
+      println(Await.result(result, secondsWait.seconds))
+    }
+  }
+
+  it should "throw an user defined exception on overriding onRequestTimeout method" in {
+    client.shutdown()
+    val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
+    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+    val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(requestTimeoutMs = 5)
+
+    class MyThrowable extends Exception("My exception")
+
+    client = new Client(connectionOpts, authOpts, zookeeperOpts) {
+      override def onRequestTimeout(): Unit = throw new MyThrowable
+    }
+
+    val stream = getRandomStream
+
+    assertThrows[MyThrowable] {
+      Await.result(client.putStream(stream), secondsWait.seconds)
+    }
+  }
+
+
+  it should "throw an user defined exception on overriding onServerConnectionLost method" in {
+    client.shutdown()
+    val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
+    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+    val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(connectionTimeoutMs = 5)
+
+    class MyThrowable extends Exception("My exception")
+
+    client = new Client(connectionOpts, authOpts, zookeeperOpts) {
+      override def onServerConnectionLost(): Unit = throw new MyThrowable
+    }
+
+    val stream = getRandomStream
+
+    assertThrows[MyThrowable] {
+      Await.result(client.putStream(stream), secondsWait.seconds)
+    }
+  }
+
   it should "delete stream, that doesn't exist in database on the server and get result" in {
     Await.result(client.delStream(getRandomStream), secondsWait.seconds) shouldBe false
   }
@@ -124,7 +186,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     }
   }
 
-  it should "throw an exception when the server isn't available for time greater than in config" in {
+  it should "throw an exception when the a server isn't available for time greater than in config" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -134,8 +196,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    assertThrows[ServerUnreachableException] {
-      Await.result(resultInFuture, (clientBuilder.getConnectionOptions().connectionTimeoutMs + 1000).milliseconds)
+    assertThrows[java.util.concurrent.TimeoutException] {
+      Await.result(resultInFuture, clientBuilder.getConnectionOptions().connectionTimeoutMs.milliseconds)
     }
   }
 
@@ -165,7 +227,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val amount = 5000
     val data = Array.fill(amount)(rand.nextString(10).getBytes)
 
-    val resultInFuture = Await.result(client.putTransactionData(txn, data, 0), secondsWait.seconds)
+    val resultInFuture = Await.result(client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, 0), secondsWait.seconds)
     resultInFuture shouldBe true
 
     val dataFromDatabase = Await.result(client.getTransactionData(txn.stream, txn.partition, txn.transactionID, 0, amount), secondsWait.seconds)
@@ -249,7 +311,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
         val (stream, partition) = (producerTransactions.head.stream, producerTransactions.head.partition)
         addDataLength(stream, partition, data.length)
-        client.putTransactionData(producerTransactions.head, data, getDataLength(stream, partition))
+        val txn = producerTransactions.head
+        client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, getDataLength(stream, partition))
       }
     })
 

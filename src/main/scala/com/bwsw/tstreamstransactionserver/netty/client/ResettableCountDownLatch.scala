@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.zooKeeper
+package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.AbstractQueuedSynchronizer

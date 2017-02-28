@@ -4,9 +4,11 @@ import java.util
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkGetMasterException, ZkNoConnectionException}
+import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.BootstrapOptions
+import com.bwsw.tstreamstransactionserver.zooKeeper.InetSocketAddressValueClass
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
@@ -114,7 +116,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     zkTestServer.close()
   }
 
-  it should "not connect to server which port value(retrieved from zooKeeper server) is exceeds 65535" in {
+  it should "not connect to server which port value(retrieved from zooKeeper server) exceeds 65535" in {
     val zkPrefix = "/tts"
     val zkTestServer = new TestingServer(true)
 
@@ -144,6 +146,49 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     zkTestServer.close()
   }
 
+
+  it should "connect to server, and when the server shutdown, starts on another port — client should reconnect properly" in {
+    val zkTestServer = new TestingServer(true)
+
+    val serverBuilder = new ServerBuilder()
+    val clientBuilder = new ClientBuilder()
+      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+
+
+    var server: Server = null
+    def startTransactionServer(newHost: String, newPort: Int) = new Thread(() => {
+      server = serverBuilder
+        .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+        .withBootstrapOptions(BootstrapOptions(host = newHost, port = newPort))
+        .build()
+      server.start()
+    }).start()
+
+
+    val host = "127.0.0.1"
+    val initialPort = 8071
+    val newPort = 8073
+
+    startTransactionServer(host, initialPort)
+
+    Thread.sleep(300)
+    val client = clientBuilder.build()
+
+    val initialSocketAddress = client.currentConnectionSocketAddress()
+    server.shutdown()
+    startTransactionServer(host, newPort)
+
+    Thread.sleep(300)
+    val newSocketAddress = client.currentConnectionSocketAddress()
+
+    initialSocketAddress shouldBe InetSocketAddressValueClass(host, initialPort)
+    newSocketAddress     shouldBe InetSocketAddressValueClass(host, newPort)
+
+    zkTestServer.close()
+    server.shutdown()
+  }
+
+
   "Server" should "not connect to zookeeper server that isn't running" in {
     val serverBuilder = new ServerBuilder().withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888"))
     assertThrows[ZkNoConnectionException] {
@@ -155,7 +200,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     val zkTestServer = new TestingServer(true)
     val serverBuilder = new ServerBuilder()
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withServerOptions(BootstrapOptions(host = "1270.0.0.1"))
+      .withBootstrapOptions(BootstrapOptions(host = "1270.0.0.1"))
 
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()
@@ -167,7 +212,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     val zkTestServer = new TestingServer(true)
     val serverBuilder = new ServerBuilder()
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withServerOptions(BootstrapOptions(port = Int.MinValue))
+      .withBootstrapOptions(BootstrapOptions(port = Int.MinValue))
 
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()
@@ -179,7 +224,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     val zkTestServer = new TestingServer(true)
     val serverBuilder = new ServerBuilder()
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withServerOptions(BootstrapOptions(port = 65536))
+      .withBootstrapOptions(BootstrapOptions(port = 65536))
 
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()

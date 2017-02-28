@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
+import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, TimeUnit}
 
@@ -10,7 +11,7 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutExc
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
-import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToGetMaster
+import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressValueClass, ZKLeaderClientToGetMaster}
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
@@ -22,7 +23,6 @@ import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListe
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 import transactionService.rpc.{TransactionService, _}
-
 
 import scala.annotation.tailrec
 import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
@@ -87,6 +87,17 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   def connect(): Unit = {
     val (listen, port) = getInetAddressFromZookeeper(clientOpts.requestTimeoutRetryCount)
     bootstrap.connect(listen, port).addListener(new ConnectionListener)
+  }
+
+  @tailrec
+  final def currentConnectionSocketAddress(): InetSocketAddressValueClass = {
+    if (channel == null) {
+      Thread.sleep(30)
+      currentConnectionSocketAddress()
+    } else {
+      val socketAddress = channel.remoteAddress().asInstanceOf[InetSocketAddress]
+      InetSocketAddressValueClass(socketAddress.getAddress.getHostAddress, socketAddress.getPort)
+    }
   }
 
 

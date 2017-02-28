@@ -1,21 +1,23 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
+import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
-import com.google.common.net.InetAddresses
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel.ChannelOption
+import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.concurrent.ExecutionContextExecutorService
+
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts: BootstrapOptions,
              storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
-             rocksStorageOpts: RocksStorageOptions) {
+             rocksStorageOpts: RocksStorageOptions,
+             serverHandler: (TransactionServer, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] = (server,context, logger) => new ServerHandler(server, context, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val transactionServerSocketAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
@@ -40,7 +42,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(transactionServer, executionContext.context, logger))
+        .childHandler(new ServerInitializer(serverHandler(transactionServer, executionContext.context, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 

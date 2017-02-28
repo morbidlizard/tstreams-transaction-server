@@ -5,6 +5,7 @@ import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ZkNoConnectionException
+import com.google.common.net.InetAddresses
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
 import org.apache.curator.framework.state.ConnectionStateListener
@@ -16,7 +17,7 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
   extends NodeCacheListener with Closeable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  @volatile var master: Option[String] = None
+  @volatile var master: Option[AddressPort] = None
 
   val client = {
     val connection = CuratorFrameworkFactory.builder()
@@ -44,11 +45,21 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
   }
 
   override def nodeChanged(): Unit = {
-    Option(nodeToWatch.getCurrentData) foreach {node =>
-      val address = new String(node.getData)
-      val isValidAddress = scala.util.Try(InetAddress.getByName(address.split(':').head))
-      master = if (isValidAddress.isSuccess) Some(address) else {
-        logger.info(s"$prefix data is corrupted!"); None
+    Option(nodeToWatch.getCurrentData) foreach { node =>
+      val addressPort = new String(node.getData)
+      val splitIndex = addressPort.lastIndexOf(':')
+      if (splitIndex != -1) {
+        val (address, port) = addressPort.splitAt(splitIndex)
+        val portToInt = scala.util.Try(port.tail.toInt)
+        if (InetAddresses.isInetAddress(address) && portToInt.isSuccess)
+          master = Some(AddressPort(address, portToInt.get))
+        else {
+          master = None
+          logger.info(s"$prefix data is corrupted!")
+        }
+      } else {
+        master = None
+        logger.info(s"$prefix data is corrupted!")
       }
     }
   }

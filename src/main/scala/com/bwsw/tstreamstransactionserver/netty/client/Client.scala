@@ -120,8 +120,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       getInetAddressFromZookeeper(times - 1)
     } else {
       zKLeaderClient.master match {
-        case Some(master) => val listenPort = master.split(":")
-          (listenPort(0), listenPort(1).toInt)
+        case Some(master) => (master.address, master.port)
         case None => {
           if (logger.isErrorEnabled) logger.error(Throwable.zkGetMasterExceptionMessage)
           shutdown()

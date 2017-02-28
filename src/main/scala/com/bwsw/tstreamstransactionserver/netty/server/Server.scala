@@ -4,6 +4,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
+import com.google.common.net.InetAddresses
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelOption
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
@@ -17,8 +18,9 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val transactionServerAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
-    case (host, port) if host != null && port != null => s"$host:$port"
-    case _ => s"${serverOpts.host}:${serverOpts.port}"
+    case (host, port) if host != null && port != null && InetAddresses.isInetAddress(serverOpts.host) && serverOpts.port > 0 => s"$host:$port"
+    case _ if InetAddresses.isInetAddress(serverOpts.host) && serverOpts.port > 0 => s"${serverOpts.host}:${serverOpts.port}"
+    case (host, port) => throw new IllegalArgumentException(s"Invalid socket address either from options ${serverOpts.host}:${serverOpts.port} or from system properties $host:$port")
   }
   private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
     rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPoll)

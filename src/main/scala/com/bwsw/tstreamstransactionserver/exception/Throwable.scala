@@ -23,6 +23,8 @@ object Throwable {
 
   class MethodDoesnotFoundException(method: String) extends IllegalArgumentException(new StringBuilder(method).append(" isn't implemented!").toString())
 
+  class InvalidSocketAddress(message: String) extends IllegalArgumentException(message)
+
   val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
   class StreamDoesNotExist extends NoSuchElementException(StreamDoesntNotExistMessage)
 

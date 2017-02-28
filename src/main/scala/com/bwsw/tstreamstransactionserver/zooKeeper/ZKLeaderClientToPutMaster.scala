@@ -4,7 +4,8 @@ import java.io.Closeable
 import java.util
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.ZkNoConnectionException
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
+import com.google.common.net.InetAddresses
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
@@ -31,7 +32,13 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
   }
 
 
-  def putData(data: Array[Byte]) = {
+  def putSocketAddress(inetAddress: String, port: Int) = {
+    val socketAddress =
+      if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536)
+        s"$inetAddress:$port"
+      else
+        throw new InvalidSocketAddress(s"Invalid socket address $inetAddress:$port")
+
     scala.util.Try(client.delete().deletingChildrenIfNeeded().forPath(prefix))
     scala.util.Try{
       val permissions = new util.ArrayList[ACL]()
@@ -40,13 +47,9 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
       client.create().creatingParentsIfNeeded()
         .withMode(CreateMode.EPHEMERAL)
         .withACL(permissions)
-        .forPath(prefix, data)
+        .forPath(prefix, socketAddress.getBytes())
     }
   }
 
   override def close(): Unit = client.close()
-
-//  Runtime.getRuntime.addShutdownHook(new Thread {
-//    override def run() = close()
-//  })
 }

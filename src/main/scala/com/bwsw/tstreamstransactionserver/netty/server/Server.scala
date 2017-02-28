@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
@@ -17,18 +18,17 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
              rocksStorageOpts: RocksStorageOptions) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-  private val transactionServerAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
-    case (host, port) if host != null && port != null && InetAddresses.isInetAddress(serverOpts.host) && serverOpts.port > 0 => s"$host:$port"
-    case _ if InetAddresses.isInetAddress(serverOpts.host) && serverOpts.port > 0 => s"${serverOpts.host}:${serverOpts.port}"
-    case (host, port) => throw new IllegalArgumentException(s"Invalid socket address either from options ${serverOpts.host}:${serverOpts.port} or from system properties $host:$port")
+  private val transactionServerSocketAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
+    case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
+    case _  => (serverOpts.host, serverOpts.port)
   }
-  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
-    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPoll)
 
   val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
     new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
-  zk.putData(transactionServerAddress.getBytes())
+  zk.putSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2)
 
+  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
+    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPoll)
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)
 
   private val bossGroup = new EpollEventLoopGroup(1)

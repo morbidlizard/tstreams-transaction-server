@@ -51,22 +51,18 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
       if (splitIndex != -1) {
         val (address, port) = addressPort.splitAt(splitIndex)
         val portToInt = scala.util.Try(port.tail.toInt)
-        if (InetAddresses.isInetAddress(address) && portToInt.isSuccess)
+        if (InetAddresses.isInetAddress(address) && portToInt.isSuccess && portToInt.get > 0 && portToInt.get < 65536)
           master = Some(AddressPort(address, portToInt.get))
         else {
           master = None
-          logger.info(s"$prefix data is corrupted!")
+          if (logger.isInfoEnabled) logger.info(s"$prefix data is corrupted!")
         }
       } else {
         master = None
-        logger.info(s"$prefix data is corrupted!")
+        if (logger.isInfoEnabled) logger.info(s"$prefix data is corrupted!")
       }
     }
   }
-
-  Runtime.getRuntime.addShutdownHook(new Thread {
-    override def run() = close()
-  })
 }
 
 

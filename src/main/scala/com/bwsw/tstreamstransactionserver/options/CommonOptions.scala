@@ -2,6 +2,8 @@ package com.bwsw.tstreamstransactionserver.options
 
 
 object CommonOptions {
+  val propertyFileName = "config"
+
   /**
     *
     * @param endpoints

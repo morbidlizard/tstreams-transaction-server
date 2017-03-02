@@ -11,13 +11,13 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutExc
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
-import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressValueClass, ZKLeaderClientToGetMaster}
+import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressClass, ZKLeaderClientToGetMaster}
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
-import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener, ChannelOption}
+import io.netty.channel._
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 import org.apache.curator.retry.RetryForever
@@ -70,54 +70,43 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       }
     ).build[java.lang.Integer, ScalaPromise[ThriftStruct]]()
 
-  expiredRequestInvalidator.scheduleAtFixedRate(() => reqIdToRep.cleanUp(), 0, clientOpts.connectionTimeoutMs, TimeUnit.MILLISECONDS)
+  expiredRequestInvalidator.scheduleAtFixedRate(() => reqIdToRep.cleanUp(), 0, clientOpts.retryDelayMs, TimeUnit.MILLISECONDS)
 
-  private val workerGroup = new EpollEventLoopGroup()
-
-  private val bootstrap = new Bootstrap()
-    .group(workerGroup)
+  private var workerGroup: EventLoopGroup = _
+  private def newGroup = new EpollEventLoopGroup()
+  private def bootstrap(eventLoopGroup: EventLoopGroup) = new Bootstrap()
+    .group(eventLoopGroup)
     .channel(classOf[EpollSocketChannel])
-    .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
+    .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
+    .option[java.lang.Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, int2Integer(clientOpts.connectionTimeoutMs))
     .handler(new ClientInitializer(reqIdToRep, this, context))
 
-
-  @volatile private var channel: Channel = _
-  connect()
-
-  def connect(): Unit = {
-    val (listen, port) = getInetAddressFromZookeeper(clientOpts.requestTimeoutRetryCount)
-    bootstrap.connect(listen, port).addListener(new ConnectionListener)
-  }
+  @volatile private var channel: Channel = connect()
 
   @tailrec
-  final def currentConnectionSocketAddress(): InetSocketAddressValueClass = {
-    if (channel == null) {
-      Thread.sleep(30)
-      currentConnectionSocketAddress()
-    } else {
-      val socketAddress = channel.remoteAddress().asInstanceOf[InetSocketAddress]
-      InetSocketAddressValueClass(socketAddress.getAddress.getHostAddress, socketAddress.getPort)
+  final private def connect(): Channel = {
+    val (listen, port) = getInetAddressFromZookeeper(clientOpts.requestTimeoutRetryCount)
+    workerGroup = this.synchronized(newGroup)
+    val newConnection = bootstrap(workerGroup).connect(listen, port)
+    scala.util.Try(newConnection.sync().channel()) match {
+      case scala.util.Success(channelToUse) =>
+        channelToUse
+      case scala.util.Failure(throwable) =>
+        workerGroup.shutdownGracefully().get()
+        onServerConnectionLostDefaultBehaviour()
+        connect()
     }
   }
 
-
-  private class ConnectionListener extends ChannelFutureListener() {
-    val atomicInteger = new AtomicInteger(clientOpts.connectionTimeoutMs / clientOpts.retryDelayMs)
-
-    @throws[Exception]
-    override def operationComplete(channelFuture: ChannelFuture): Unit = {
-      if (!channelFuture.isSuccess && atomicInteger.getAndDecrement() > 0) {
-        //      System.out.println("Reconnect")
-        val loop = channelFuture.channel().eventLoop()
-        loop.execute(() => {
-          TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
-          connect()
-        })
-      } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
-      else channel = channelFuture.sync().channel()
-    }
+  final def currentConnectionSocketAddress(): InetSocketAddressClass = {
+    val socketAddress = channel.remoteAddress().asInstanceOf[InetSocketAddress]
+    InetSocketAddressClass(socketAddress.getAddress.getHostAddress, socketAddress.getPort)
   }
 
+  final def reconnect(): Unit = {
+    Thread.sleep(clientOpts.retryDelayMs)
+    channel = connect()
+  }
 
   /** A retry method to get ipAddres:port from zooKeeper server.
     *
@@ -198,8 +187,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         if (throwable.getClass equals classOf[RequestTimeoutException]) {
 
           resetBarrier {
-            channel.close()
-            connect()
+            channel.close().sync()
+            reconnect()
           }
 
           tryCompleteRequest(f)
@@ -223,7 +212,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
       case requestTimeout: RequestTimeoutException =>
-        scala.util.Try(onRequestTimeout()) match {
+        scala.util.Try(onRequestTimeoutDefaultBehaviour()) match {
           case scala.util.Success(_) => helper(requestTimeout, retryCount - 1)
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
@@ -232,13 +221,15 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private def tryCompleteRequest[Req, Rep](f: => ScalaFuture[Rep]) = {
+  private final def tryCompleteRequest[Req, Rep](f: => ScalaFuture[Rep]) = {
     f recoverWith {
       case concreteThrowable: TokenInvalidException =>
         if (logger.isWarnEnabled) logger.warn("Token isn't valid. Retrying get one.")
-        authenticate()
-        TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
-        retry(f)(concreteThrowable, clientOpts.requestTimeoutRetryCount)
+
+        resetBarrier(authenticate()) flatMap { _ =>
+          TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+          retry(f)(concreteThrowable, clientOpts.requestTimeoutRetryCount)
+        }
 
       case concreteThrowable: ServerUnreachableException =>
         scala.util.Try(onServerConnectionLostDefaultBehaviour()) match {
@@ -246,7 +237,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
       case concreteThrowable: RequestTimeoutException =>
-        scala.util.Try(onRequestTimeout()) match {
+        scala.util.Try(onRequestTimeoutDefaultBehaviour()) match {
           case scala.util.Success(_) =>  retry(f)(concreteThrowable, clientOpts.requestTimeoutRetryCount)
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
@@ -255,11 +246,16 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private def onServerConnectionLostDefaultBehaviour(): Unit = {
+  private final def onServerConnectionLostDefaultBehaviour(): Unit = {
     if (logger.isWarnEnabled)
       logger.warn(s"${Throwable.serverUnreachableExceptionMessage}. Retrying to reconnect server.")
     TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     onServerConnectionLost()
+  }
+
+  private final def onRequestTimeoutDefaultBehaviour(): Unit = {
+    TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+    onRequestTimeout()
   }
 
   protected def onZKConnectionStateChanged(newState: ConnectionState): Unit = {}
@@ -548,8 +544,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   def shutdown() = {
     zKLeaderClient.close()
-    workerGroup.shutdownGracefully()
-    if (channel != null) channel.closeFuture().sync()
+    if (workerGroup != null) workerGroup.shutdownGracefully()
+    if (channel != null) channel.closeFuture()
     executionContext.shutdown()
   }
 }

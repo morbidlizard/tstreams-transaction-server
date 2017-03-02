@@ -17,7 +17,7 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
   extends NodeCacheListener with Closeable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  @volatile var master: Option[InetSocketAddressValueClass] = None
+  @volatile var master: Option[InetSocketAddressClass] = None
 
   val client = {
     val connection = CuratorFrameworkFactory.builder()
@@ -52,7 +52,7 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
         val (address, port) = addressPort.splitAt(splitIndex)
         val portToInt = scala.util.Try(port.tail.toInt)
         if (InetAddresses.isInetAddress(address) && portToInt.isSuccess && portToInt.get > 0 && portToInt.get < 65536)
-          master = Some(InetSocketAddressValueClass(address, portToInt.get))
+          master = Some(InetSocketAddressClass(address, portToInt.get))
         else {
           master = None
           if (logger.isInfoEnabled) logger.info(s"$prefix data is corrupted!")

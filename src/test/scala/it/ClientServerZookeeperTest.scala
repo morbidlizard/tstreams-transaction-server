@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.BootstrapOptions
-import com.bwsw.tstreamstransactionserver.zooKeeper.InetSocketAddressValueClass
+import com.bwsw.tstreamstransactionserver.zooKeeper.InetSocketAddressClass
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
@@ -171,18 +171,18 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
     startTransactionServer(host, initialPort)
 
-    Thread.sleep(300)
+    Thread.sleep(1000)
     val client = clientBuilder.build()
 
     val initialSocketAddress = client.currentConnectionSocketAddress()
     server.shutdown()
     startTransactionServer(host, newPort)
 
-    Thread.sleep(300)
+    Thread.sleep(1000)
     val newSocketAddress = client.currentConnectionSocketAddress()
 
-    initialSocketAddress shouldBe InetSocketAddressValueClass(host, initialPort)
-    newSocketAddress     shouldBe InetSocketAddressValueClass(host, newPort)
+    initialSocketAddress shouldBe InetSocketAddressClass(host, initialPort)
+    newSocketAddress     shouldBe InetSocketAddressClass(host, newPort)
 
     zkTestServer.close()
     server.shutdown()

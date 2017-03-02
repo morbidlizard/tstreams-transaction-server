@@ -75,10 +75,11 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+
     reqIdToRep.asMap().values()
       .forEach(request => if (!request.isCompleted) request.tryFailure(new ServerUnreachableException))
 
-    ctx.channel().eventLoop().execute(() => client.connect())
+    ctx.channel().eventLoop().execute(() => client.reconnect())
 
     super.channelInactive(ctx)
   }

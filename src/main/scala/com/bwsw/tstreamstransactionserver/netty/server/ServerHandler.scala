@@ -29,10 +29,10 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
   def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = {
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
 
-    def logSuccessfulProcession() = if (logger.isInfoEnabled) logger.info(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
+    def logSuccessfulProcession() = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
     def logUnSuccessfulProcession(error: Throwable) = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is failed while processing!", error)
 
-    if (logger.isInfoEnabled) logger.info(s"$inetAddress request id $messageSeqId: $method is invoked.")
+    if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is invoked.")
     method match {
       case `putStreamMethod` =>
         val args = Descriptors.PutStream.decodeRequest(message)

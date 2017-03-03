@@ -106,66 +106,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(result, 5.seconds) shouldBe true
   }
 
-  it should "send request with little ttl and exception should be thrown." in {
-    client.shutdown()
-    client = clientBuilder
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withConnectionOptions(ConnectionOptions(requestTimeoutMs = 5))
-      .build()
-
-    val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait.seconds)
-
-    val txn = getRandomProducerTransaction(stream)
-    Await.result(client.putTransaction(txn), secondsWait.seconds)
-
-    val amount = 5000
-    val data = Array.fill(amount)(rand.nextString(10).getBytes)
-
-    val result = client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, 0)
-    assertThrows[java.util.concurrent.TimeoutException] {
-      println(Await.result(result, secondsWait.seconds))
-    }
-  }
-
-  it should "throw an user defined exception on overriding onRequestTimeout method" in {
-    client.shutdown()
-    val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
-    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(requestTimeoutMs = 5)
-
-    class MyThrowable extends Exception("My exception")
-
-    client = new Client(connectionOpts, authOpts, zookeeperOpts) {
-      override def onRequestTimeout(): Unit = throw new MyThrowable
-    }
-
-    val stream = getRandomStream
-
-    assertThrows[MyThrowable] {
-      Await.result(client.putStream(stream), secondsWait.seconds)
-    }
-  }
-
-
-  it should "throw an user defined exception on overriding onServerConnectionLost method" in {
-    client.shutdown()
-    val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
-    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(connectionTimeoutMs = 5)
-
-    class MyThrowable extends Exception("My exception")
-
-    client = new Client(connectionOpts, authOpts, zookeeperOpts) {
-      override def onServerConnectionLost(): Unit = throw new MyThrowable
-    }
-
-    val stream = getRandomStream
-
-    assertThrows[MyThrowable] {
-      Await.result(client.putStream(stream), secondsWait.seconds)
-    }
-  }
 
   it should "delete stream, that doesn't exist in database on the server and get result" in {
     Await.result(client.delStream(getRandomStream), secondsWait.seconds) shouldBe false

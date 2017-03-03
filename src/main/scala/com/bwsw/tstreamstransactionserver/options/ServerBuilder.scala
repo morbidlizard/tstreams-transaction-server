@@ -22,7 +22,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
   def withZookeeperOptions(zookeeperOptions: ZookeeperOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions)
 
-  def withServerOptions(serverOptions: BootstrapOptions) =
+  def withBootstrapOptions(serverOptions: BootstrapOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, serverOptions, storageOptions, serverReplicationOptions, rocksStorageOptions)
 
   def withServerStorageOptions(serverStorageOptions: StorageOptions) =

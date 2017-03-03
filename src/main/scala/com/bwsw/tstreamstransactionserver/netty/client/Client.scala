@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
+import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, TimeUnit}
 
@@ -10,19 +11,18 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutExc
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
-import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToGetMaster
+import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressClass, ZKLeaderClientToGetMaster}
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
-import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener, ChannelOption}
+import io.netty.channel._
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 import transactionService.rpc.{TransactionService, _}
-
 
 import scala.annotation.tailrec
 import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
@@ -34,7 +34,15 @@ import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
   */
 class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions) {
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+
+  /** A special context for making requests asynchronously, although they are processed sequentially;
+    * If's for: putTransaction, putTransactions, setConsumerState.
+    */
+  private final val futurePool = ExecutionContext(1, "ClientTransactionPool-%d")
+
   private final val executionContext = new ClientExecutionContext(clientOpts.threadPool)
+  private implicit final val context = executionContext.context
 
   private final val zkListener = new ConnectionStateListener {
     override def stateChanged(client: CuratorFramework, newState: ConnectionState): Unit = {
@@ -55,8 +63,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     onZKConnectionStateChanged(newState)
   }
 
-  private implicit final val context = executionContext.context
-
   private final val nextSeqId = new AtomicInteger(1)
 
   private final val expiredRequestInvalidator = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("ExpiredRequestInvalidator-%d").build())
@@ -70,42 +76,44 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       }
     ).build[java.lang.Integer, ScalaPromise[ThriftStruct]]()
 
-  expiredRequestInvalidator.scheduleAtFixedRate(() => reqIdToRep.cleanUp(), 0, clientOpts.connectionTimeoutMs, TimeUnit.MILLISECONDS)
+  expiredRequestInvalidator.scheduleAtFixedRate(() => reqIdToRep.cleanUp(), 0, clientOpts.retryDelayMs, TimeUnit.MILLISECONDS)
 
-  private val workerGroup = new EpollEventLoopGroup()
-
-  private val bootstrap = new Bootstrap()
-    .group(workerGroup)
+  private var workerGroup: EventLoopGroup = _
+  private def newGroup = new EpollEventLoopGroup()
+  private def bootstrap(eventLoopGroup: EventLoopGroup) = new Bootstrap()
+    .group(eventLoopGroup)
     .channel(classOf[EpollSocketChannel])
-    .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, true)
+    .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
+    .option[java.lang.Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, int2Integer(clientOpts.connectionTimeoutMs))
     .handler(new ClientInitializer(reqIdToRep, this, context))
 
+  @volatile private var channel: Channel = connect()
 
-  @volatile private var channel: Channel = _
-  connect()
-
-  def connect(): Unit = {
+  @tailrec
+  final private def connect(): Channel = {
     val (listen, port) = getInetAddressFromZookeeper(clientOpts.requestTimeoutRetryCount)
-    bootstrap.connect(listen, port).addListener(new ConnectionListener)
-  }
-
-  private class ConnectionListener extends ChannelFutureListener() {
-    val atomicInteger = new AtomicInteger(clientOpts.connectionTimeoutMs / clientOpts.retryDelayMs)
-
-    @throws[ServerConnectionException]
-    override def operationComplete(channelFuture: ChannelFuture): Unit = {
-      if (!channelFuture.isSuccess && atomicInteger.getAndDecrement() > 0) {
-        //      System.out.println("Reconnect")
-        val loop = channelFuture.channel().eventLoop()
-        loop.execute(() => {
-          TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
-          connect()
-        })
-      } else if (atomicInteger.get() <= 0) throw new ServerConnectionException
-      else channel = channelFuture.sync().channel()
+    workerGroup = this.synchronized(newGroup)
+    val newConnection = bootstrap(workerGroup).connect(listen, port)
+    scala.util.Try(newConnection.sync().channel()) match {
+      case scala.util.Success(channelToUse) =>
+        channelToUse
+      case scala.util.Failure(throwable) =>
+        workerGroup.shutdownGracefully().get()
+        onServerConnectionLostDefaultBehaviour()
+        connect()
     }
   }
 
+
+  final def currentConnectionSocketAddress(): InetSocketAddressClass = {
+    val socketAddress = channel.remoteAddress().asInstanceOf[InetSocketAddress]
+    InetSocketAddressClass(socketAddress.getAddress.getHostAddress, socketAddress.getPort)
+  }
+
+  final def reconnect(): Unit = {
+    Thread.sleep(clientOpts.retryDelayMs)
+    channel = connect()
+  }
 
   /** Retries to get ipAddres:port from zooKeeper server.
     *
@@ -119,8 +127,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       getInetAddressFromZookeeper(times - 1)
     } else {
       zKLeaderClient.master match {
-        case Some(master) => val listenPort = master.split(":")
-          (listenPort(0), listenPort(1).toInt)
+        case Some(master) => (master.address, master.port)
         case None => {
           if (logger.isErrorEnabled) logger.error(Throwable.zkGetMasterExceptionMessage)
           shutdown()
@@ -190,8 +197,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         if (throwable.getClass equals classOf[RequestTimeoutException]) {
 
           resetBarrier {
-            channel.close()
-            connect()
+            channel.close().sync()
+            reconnect()
           }
 
           tryCompleteRequest(f)
@@ -215,7 +222,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
       case requestTimeout: RequestTimeoutException =>
-        scala.util.Try(onRequestTimeout()) match {
+        scala.util.Try(onRequestTimeoutDefaultBehaviour()) match {
           case scala.util.Success(_) => helper(requestTimeout, retryCount - 1)
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
@@ -224,13 +231,15 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private def tryCompleteRequest[Req, Rep](f: => ScalaFuture[Rep]) = {
+  private final def tryCompleteRequest[Req, Rep](f: => ScalaFuture[Rep]) = {
     f recoverWith {
       case concreteThrowable: TokenInvalidException =>
         if (logger.isWarnEnabled) logger.warn("Token isn't valid. Retrying get one.")
-        authenticate()
-        TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
-        retry(f)(concreteThrowable, clientOpts.requestTimeoutRetryCount)
+
+        resetBarrier(authenticate()) flatMap { _ =>
+          TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+          retry(f)(concreteThrowable, clientOpts.requestTimeoutRetryCount)
+        }
 
       case concreteThrowable: ServerUnreachableException =>
         scala.util.Try(onServerConnectionLostDefaultBehaviour()) match {
@@ -238,7 +247,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
       case concreteThrowable: RequestTimeoutException =>
-        scala.util.Try(onRequestTimeout()) match {
+        scala.util.Try(onRequestTimeoutDefaultBehaviour()) match {
           case scala.util.Success(_) =>  retry(f)(concreteThrowable, clientOpts.requestTimeoutRetryCount)
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
@@ -247,11 +256,16 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private def onServerConnectionLostDefaultBehaviour(): Unit = {
+  private final def onServerConnectionLostDefaultBehaviour(): Unit = {
     if (logger.isWarnEnabled)
       logger.warn(s"${Throwable.serverUnreachableExceptionMessage}. Retrying to reconnect server.")
     TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     onServerConnectionLost()
+  }
+
+  private final def onRequestTimeoutDefaultBehaviour(): Unit = {
+    TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+    onRequestTimeout()
   }
 
   protected def onZKConnectionStateChanged(newState: ConnectionState): Unit = {}
@@ -371,11 +385,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
-
-  /** A special context for making requests asynchronously, although they are processed sequentially;
-    * If's for: putTransaction, putTransactions, setConsumerState.
-    */
-  private final val futurePool = ExecutionContext(1, "ClientTransactionPool-%d")
 
 
   /** Puts producer and consumer transactions on a server; it's implied there were persisted streams on a server transactions belong to, otherwise
@@ -605,8 +614,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   def shutdown() = {
     zKLeaderClient.close()
-    workerGroup.shutdownGracefully()
-    if (channel != null) channel.closeFuture().sync()
+    if (workerGroup != null) workerGroup.shutdownGracefully()
+    if (channel != null) channel.closeFuture()
     futurePool.shutdown()
     executionContext.shutdown()
   }

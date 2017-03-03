@@ -11,7 +11,7 @@ class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksS
 
   private val client =  {
     val path = FileUtils.createDirectory(s"${storageOptions.dataDirectory}/$name", storageOptions.path).getAbsolutePath
-    TtlDB.open(rocksStorageOpts.getDBOptions(), path, ttl, false)
+    TtlDB.open(rocksStorageOpts.createDBOptions(), path, ttl, false)
   }
 
   def get(key: Array[Byte]) = client.get(key)

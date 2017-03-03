@@ -30,11 +30,18 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   zk.putSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2)
 
   private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
-    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPoll)
+    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)
 
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
+
+  private def createTransactionServerAddress() = {
+    (System.getenv("HOST"), System.getenv("PORT0")) match {
+      case (host, port) if host != null && port != null => s"$host:$port"
+      case _ => s"${serverOpts.host}:${serverOpts.port}"
+    }
+  }
 
   def start(): Unit = {
     try {
@@ -50,10 +57,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
       f.channel().closeFuture().sync()
     } finally {
-      zk.close()
-      workerGroup.shutdownGracefully()
-      bossGroup.shutdownGracefully()
-      transactionServer.shutdown()
+      shutdown()
     }
   }
 

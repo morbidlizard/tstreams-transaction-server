@@ -11,7 +11,7 @@ Implements Transaction storage server for T-Streams (hereinafter - TTS)
 
 There is two ways to launch TTS:
 - via _java_ command
-- via _docker_
+- via _docker_ image
 
 You should pass a file with properties in both cases. The file should contain the following properties:
 
@@ -58,7 +58,7 @@ But all properties should be defined with the exact names and appropriate types.
 ### Java
 
 In addition to the properties file you should provide two dependencies through adding jars of 'slf4j-api-1.7.21' 
-and 'slf4j-simple-1.7.21' to a classpath, to launch TTS. That is use the following command:
+and 'slf4j-simple-1.7.21' to a classpath, to launch TTS. That is run the following command:
 
 ```bash
 java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-transaction-server-<version>.jar:<path_to_slf4j_api_jar>/slf4j-api-1.7.21.jar:<path_to_slf4j_impl_jar>/slf4j-simple-1.7.21.jar com.bwsw.tstreamstransactionserver.ServerLauncher

@@ -18,6 +18,13 @@ object Throwable {
   val zkGetMasterExceptionMessage: String = "Can't get master from ZooKeeper."
   class ZkGetMasterException extends Exception(zkGetMasterExceptionMessage)
 
+  val zkNoConnectionExceptionMessage: String = "Can't connect to ZooKeeper server(s): "
+  class ZkNoConnectionException(endpoints: String) extends Exception(new StringBuilder(zkNoConnectionExceptionMessage).append(endpoints).append('!').toString())
+
+  class MethodDoesnotFoundException(method: String) extends IllegalArgumentException(new StringBuilder(method).append(" isn't implemented!").toString())
+
+  class InvalidSocketAddress(message: String) extends IllegalArgumentException(message)
+
   val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
   class StreamDoesNotExist extends NoSuchElementException(StreamDoesntNotExistMessage)
 

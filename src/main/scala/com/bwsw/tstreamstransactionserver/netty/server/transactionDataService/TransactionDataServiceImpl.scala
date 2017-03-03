@@ -90,8 +90,5 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
     }(executionContext.rocksReadContext)
   }
 
-  def closeTransactionDataDatabases() = {
-    import scala.collection.JavaConverters._
-    rocksDBStorageToStream.values().asScala.foreach(_.close())
-  }
+  def closeTransactionDataDatabases() = rocksDBStorageToStream.values().forEach(_.close())
 }

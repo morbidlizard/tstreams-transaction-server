@@ -7,7 +7,7 @@ object ClientOptions {
     * @param retryDelayMs
     * @param threadPool
     */
-  case class ConnectionOptions(connectionTimeoutMs: Int = 5000, retryDelayMs: Int = 200, threadPool: Int = 4)
+  case class ConnectionOptions(connectionTimeoutMs: Int = 5000, requestTimeoutMs: Int = 100, requestTimeoutRetryCount: Int = 3, retryDelayMs: Int = 200, threadPool: Int = 4)
 
   case class AuthOptions(key: String = "") extends AnyVal
 }

@@ -3,6 +3,7 @@ package com.bwsw.tstreamstransactionserver.options
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import ClientOptions._
 import CommonOptions.ZookeeperOptions
+import org.apache.curator.framework.state.ConnectionState
 
 class ClientBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, connectionOpts: ConnectionOptions) {
   private val authOptions = authOpts
@@ -15,7 +16,7 @@ class ClientBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
 
   def withZookeeperOptions(zookeeperOptions: ZookeeperOptions) = new ClientBuilder(authOptions, zookeeperOptions, connectionOptions)
 
-  def withClientOptions(clientOptions: ConnectionOptions) = new ClientBuilder(authOptions, zookeeperOptions, clientOptions)
+  def withConnectionOptions(clientOptions: ConnectionOptions) = new ClientBuilder(authOptions, zookeeperOptions, clientOptions)
 
   def build() = new Client(connectionOptions, authOptions, zookeeperOptions)
 

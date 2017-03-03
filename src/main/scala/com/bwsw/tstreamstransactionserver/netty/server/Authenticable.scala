@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
-import com.bwsw.tstreamstransactionserver.exception.Throwables.TokenInvalidException
+import com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 
 trait Authenticable extends AuthServiceImpl{

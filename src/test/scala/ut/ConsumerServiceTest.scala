@@ -1,0 +1,32 @@
+package ut
+
+import com.bwsw.tstreamstransactionserver.netty.server.сonsumerService.{ConsumerTransactionKey, ConsumerTransactionWithoutKey, Key}
+import org.scalatest.{FlatSpec, Matchers}
+
+class ConsumerServiceTest extends FlatSpec with Matchers {
+  "Key" should "be serialized/deserialized" in {
+    val key = Key("testCheckpoint", 1L, 5)
+    Key.entryToObject(key.toDatabaseEntry) shouldBe key
+  }
+
+  it should "be serialized/deserialized with negative stream" in {
+    val key = Key("testCheckpoint", -1L, 5)
+    Key.entryToObject(key.toDatabaseEntry) shouldBe key
+  }
+
+  it should "be serialized/deserialized with negative partition" in {
+    val key = Key("testCheckpoint", -1L, -5)
+    Key.entryToObject(key.toDatabaseEntry) shouldBe key
+  }
+
+  "ConsumerTransaction" should "be serialized/deserialized" in {
+    val consumerTranasction = ConsumerTransactionWithoutKey(1L, Long.MaxValue)
+    ConsumerTransactionWithoutKey.entryToObject(consumerTranasction.toDatabaseEntry) shouldBe consumerTranasction
+  }
+
+  it should "be serialized/deserialized with negative transaction" in {
+    val consumerTranasction = ConsumerTransactionWithoutKey(1L, Long.MaxValue)
+    ConsumerTransactionWithoutKey.entryToObject(consumerTranasction.toDatabaseEntry) shouldBe consumerTranasction
+  }
+
+}

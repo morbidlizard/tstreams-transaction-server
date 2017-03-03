@@ -6,7 +6,7 @@ import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogFileIterator}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.JournaledCommitLogImpl.Token
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetaService.TimestampCommitLog
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.sleepycat.je._

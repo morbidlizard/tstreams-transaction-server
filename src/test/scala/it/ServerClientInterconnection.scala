@@ -3,10 +3,12 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.tstreamstransactionserver.exception.Throwables.{ServerUnreachableException, StreamNotExist}
+import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder, ZookeeperOptions}
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
@@ -68,7 +70,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
-    override val ttl: Int = rand.nextInt(Int.MaxValue)
+    override val ttl: Long = Long.MaxValue
   }
 
   private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
@@ -77,7 +79,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     override val transactionID: Long = System.nanoTime()
     override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
     override val stream: String = streamObj.name
-    override val keepAliveTTL: Long = Long.MaxValue
+    override val ttl: Long = Long.MaxValue
     override val quantity: Int = -1
     override val partition: Int = streamObj.partitions
   }
@@ -104,6 +106,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(result, 5.seconds) shouldBe true
   }
 
+
   it should "delete stream, that doesn't exist in database on the server and get result" in {
     Await.result(client.delStream(getRandomStream), secondsWait.seconds) shouldBe false
   }
@@ -118,12 +121,12 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val result = client.putTransactions(producerTransactions, consumerTransactions)
 
-    assertThrows[StreamNotExist] {
+    assertThrows[StreamDoesNotExist] {
       Await.result(result, secondsWait.seconds)
     }
   }
 
-  it should "throw an exception when the server isn't available for time greater than in config" in {
+  it should "throw an exception when the a server isn't available for time greater than in config" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -133,8 +136,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    assertThrows[ServerUnreachableException] {
-      Await.result(resultInFuture, (authOptions.connectionTimeoutMs + 1000).milliseconds)
+    assertThrows[java.util.concurrent.TimeoutException] {
+      Await.result(resultInFuture, clientBuilder.getConnectionOptions().connectionTimeoutMs.milliseconds)
     }
   }
 
@@ -148,7 +151,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    Thread.sleep(authOptions.connectionTimeoutMs * 3 / 5)
+    Thread.sleep(clientBuilder.getConnectionOptions().connectionTimeoutMs * 3 / 5)
     startTransactionServer()
 
     Await.result(resultInFuture, secondsWait.seconds) shouldBe true
@@ -164,10 +167,10 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val amount = 5000
     val data = Array.fill(amount)(rand.nextString(10).getBytes)
 
-    val resultInFuture = Await.result(client.putTransactionData(txn, data, 0), secondsWait.seconds)
+    val resultInFuture = Await.result(client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, 0), secondsWait.seconds)
     resultInFuture shouldBe true
 
-    val dataFromDatabase = Await.result(client.getTransactionData(txn, 0, amount), secondsWait.seconds)
+    val dataFromDatabase = Await.result(client.getTransactionData(txn.stream, txn.partition, txn.transactionID, 0, amount), secondsWait.seconds)
     data should contain theSameElementsAs dataFromDatabase
   }
 
@@ -185,6 +188,18 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).minBy(_.transactionID).transactionID,
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
     )
+
+    val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from), secondsWait.seconds)
+    resFrom_1From.size shouldBe 1
+    resFrom_1From.head.transactionID shouldBe from
+
+    val resFromFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, from, from), secondsWait.seconds)
+    resFromFrom.size shouldBe 1
+    resFromFrom.head.transactionID shouldBe from
+
+
+    val resToFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, to, from), secondsWait.seconds)
+    resToFrom.size shouldBe 0
 
     val producerTransactionsByState = producerTransactions.groupBy(_.state)
     val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait.seconds)
@@ -236,7 +251,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
         val (stream, partition) = (producerTransactions.head.stream, producerTransactions.head.partition)
         addDataLength(stream, partition, data.length)
-        client.putTransactionData(producerTransactions.head, data, getDataLength(stream, partition))
+        val txn = producerTransactions.head
+        client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, getDataLength(stream, partition))
       }
     })
 

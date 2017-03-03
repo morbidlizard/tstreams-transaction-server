@@ -1,29 +1,27 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.util.concurrent.ConcurrentHashMap
-
-import com.bwsw.tstreamstransactionserver.exception.Throwables.ServerUnreachableException
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{MethodDoesnotFoundException, ServerUnreachableException}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
+import com.google.common.cache.Cache
 import com.twitter.scrooge.ThriftStruct
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 @Sharable
-class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[ThriftStruct]], val client: Client,
+class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]], val client: Client,
                     implicit val context: ExecutionContext)
   extends SimpleChannelInboundHandler[Message] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
 
-    @tailrec
     def retryCompletePromise(messageSeqId: Int, response: ThriftStruct): Unit = {
-      if (reqIdToRep.containsKey(messageSeqId))
-        reqIdToRep.get(messageSeqId).success(response)
-      else
-        retryCompletePromise(messageSeqId, response)
+      reqIdToRep.cleanUp()
+      val request = reqIdToRep.getIfPresent(messageSeqId)
+      if (request != null) request.success(response)
+      else ()
+//        retryCompletePromise(messageSeqId, response)
     }
 
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
@@ -33,7 +31,7 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
           Descriptors.PutStream.decodeResponse(message)
 
         case `doesStreamExistMethod` =>
-          Descriptors.DoesStreamExist.decodeResponse(message)
+          Descriptors.CheckStreamExists.decodeResponse(message)
 
         case `getStreamMethod` =>
           Descriptors.GetStream.decodeResponse(message)
@@ -67,22 +65,21 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Int, ScalaPromise[
 
         case `isValidMethod` =>
           Descriptors.IsValid.decodeResponse(message)
+
+        case _ =>
+          throw new MethodDoesnotFoundException(method)
       }
       retryCompletePromise(messageSeqId, response)
     }
-
     invokeMethod(msg)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-    import scala.collection.JavaConverters._
-    for (promise <- reqIdToRep.values().asScala) {
-      if (!promise.isCompleted) {
-        promise.tryFailure(new ServerUnreachableException)
-      }
-    }
 
-    ctx.channel().eventLoop().execute(() => client.connect())
+    reqIdToRep.asMap().values()
+      .forEach(request => if (!request.isCompleted) request.tryFailure(new ServerUnreachableException))
+
+    ctx.channel().eventLoop().execute(() => client.reconnect())
 
     super.channelInactive(ctx)
   }

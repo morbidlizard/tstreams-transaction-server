@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
-import com.bwsw.tstreamstransactionserver.options.StorageOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
 import transactionService.rpc.ConsumerService
@@ -57,13 +57,7 @@ trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
       val binaryKey = key.toDatabaseEntry
       consumerDatabase.put(nestedBerkeleyTxn, binaryKey, theLastStateTransaction.consumerTransaction.toDatabaseEntry)
     }
-
-//    scala.util.Try(nestedBerkeleyTxn.commit()) match {
-//      case scala.util.Success(_) => true
-//      case scala.util.Failure(_) => false
-//    }
     true
   }
-
-  def closeConsumerDatabase() = Option(consumerDatabase.close())
+  def closeConsumerDatabase() = scala.util.Try(consumerDatabase.close())
 }

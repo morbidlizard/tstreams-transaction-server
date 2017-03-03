@@ -1,10 +1,16 @@
 package com.bwsw.tstreamstransactionserver.zooKeeper
 
 import java.io.Closeable
+import java.util
+import java.util.concurrent.TimeUnit
 
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
+import com.google.common.net.InetAddresses
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
-import org.apache.zookeeper.CreateMode
+import org.apache.zookeeper.ZooDefs.{Ids, Perms}
+import org.apache.zookeeper.{CreateMode, ZooDefs}
+import org.apache.zookeeper.data.ACL
 import org.slf4j.LoggerFactory
 
 class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
@@ -21,18 +27,29 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
       .build()
 
     connection.start()
-    connection.blockUntilConnected()
-    connection
+    val isConnected = connection.blockUntilConnected(connectionTimeoutMillis, TimeUnit.MILLISECONDS)
+    if (isConnected) connection else throw new ZkNoConnectionException(endpoints)
   }
 
-  def putData(data: Array[Byte]) = {
+
+  def putSocketAddress(inetAddress: String, port: Int) = {
+    val socketAddress =
+      if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536)
+        s"$inetAddress:$port"
+      else
+        throw new InvalidSocketAddress(s"Invalid socket address $inetAddress:$port")
+
     scala.util.Try(client.delete().deletingChildrenIfNeeded().forPath(prefix))
-    scala.util.Try(client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(prefix, data))
+    scala.util.Try{
+      val permissions = new util.ArrayList[ACL]()
+      permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
+
+      client.create().creatingParentsIfNeeded()
+        .withMode(CreateMode.EPHEMERAL)
+        .withACL(permissions)
+        .forPath(prefix, socketAddress.getBytes())
+    }
   }
 
   override def close(): Unit = client.close()
-
-//  Runtime.getRuntime.addShutdownHook(new Thread {
-//    override def run() = close()
-//  })
 }

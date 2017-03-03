@@ -17,8 +17,8 @@ object Descriptors {
     *  @param methodName name of a method. All methods names should be distinct in all Descriptor objects.
     *  @param codecReq a request type to serialize/deserialize.
     *  @param codecRep a response type to serialize/deserialize.
-    *  @param protocolReq a protocol for serialization/deserialization of methods arguments of request.
-    *  @param protocolRep a protocol for serialization/deserialization of methods arguments of response.
+    *  @param protocolReq a protocol for serialization/deserialization of method arguments of request.
+    *  @param protocolRep a protocol for serialization/deserialization of method arguments of response.
     */
   sealed abstract class Descriptor[T <: ThriftStruct, R <: ThriftStruct](methodName: String,
                                                                          codecReq: ThriftStructCodec3[T],
@@ -155,8 +155,8 @@ object Descriptors {
   case object PutStream extends
     Descriptor(putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
-  case object DoesStreamExist extends
-    Descriptor(doesStreamExistMethod, TransactionService.DoesStreamExist.Args, TransactionService.DoesStreamExist.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+  case object CheckStreamExists extends
+    Descriptor(doesStreamExistMethod, TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object GetStream extends
     Descriptor(getStreamMethod, TransactionService.GetStream.Args, TransactionService.GetStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)

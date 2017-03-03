@@ -1,9 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.exception.Throwables._
+import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
-import com.bwsw.tstreamstransactionserver.options._
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.shared.FNV
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.sleepycat.je._
@@ -54,12 +54,12 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       }
       else {
         logger.debug(s"Stream $stream doesn't exist.")
-        throw new StreamNotExist
+        throw new StreamDoesNotExist
       }
     }
 
 
-  override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Int): ScalaFuture[Boolean] =
+  override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] =
     authenticate(token) {
       val newStream = Stream(stream, partitions, description, ttl)
       val newKey = Key(FNV.hash64a(stream.getBytes()).toLong)
@@ -78,7 +78,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       }
     }(executionContext.berkeleyWriteContext)
 
-  override def doesStreamExist(token: Int, stream: String): ScalaFuture[Boolean] =
+  override def checkStreamExists(token: Int, stream: String): ScalaFuture[Boolean] =
     authenticate(token)(scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)(executionContext.berkeleyReadContext)
 
   override def getStream(token: Int, stream: String): ScalaFuture[Stream] =
@@ -103,8 +103,8 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }(executionContext.berkeleyWriteContext)
 
 
-  def closeStreamEnviromentAndDatabase(): Unit = {
-    Option(streamDatabase.close())
-    Option(streamEnvironment.close())
+  def closeStreamEnvironmentAndDatabase(): Unit = {
+    scala.util.Try(streamDatabase.close())
+    scala.util.Try(streamEnvironment.close())
   }
 }

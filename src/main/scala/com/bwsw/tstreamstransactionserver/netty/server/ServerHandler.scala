@@ -17,7 +17,7 @@ class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: Jo
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-    logger.info(s"${ctx.channel().remoteAddress().toString} is inactive ")
+    if (logger.isInfoEnabled) logger.info(s"${ctx.channel().remoteAddress().toString} is inactive")
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
@@ -30,10 +30,11 @@ class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: Jo
   def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = {
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
 
-    def logSuccessfulProcession() = Unit//logger.info(s"Server processed successfully request $method with id $messageSeqId of $inetAddress")
-    def logUnSuccessfulProcession(error: Throwable) = Unit//logger.debug(error.getMessage, error)
 
-    //logger.info(s"$inetAddress request $method with id $messageSeqId")
+    def logSuccessfulProcession() = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
+    def logUnSuccessfulProcession(error: Throwable) = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is failed while processing!", error)
+
+    if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is invoked.")
     method match {
       case `putStreamMethod` =>
         val args = Descriptors.PutStream.decodeRequest(message)
@@ -49,15 +50,15 @@ class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: Jo
 
 
       case `doesStreamExistMethod` =>
-        val args = Descriptors.DoesStreamExist.decodeRequest(message)
-        transactionServer.doesStreamExist(args.token, args.stream)
+        val args = Descriptors.CheckStreamExists.decodeRequest(message)
+        transactionServer.checkStreamExists(args.token, args.stream)
           .flatMap{response =>
             logSuccessfulProcession()
-            ScalaFuture.successful(Descriptors.DoesStreamExist.encodeResponse(TransactionService.DoesStreamExist.Result(Some(response)))(messageSeqId))
+            ScalaFuture.successful(Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(response)))(messageSeqId))
           }
           .recover { case error =>
             logUnSuccessfulProcession(error)
-            Descriptors.DoesStreamExist.encodeResponse(TransactionService.DoesStreamExist.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
+            Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
           }
 
 

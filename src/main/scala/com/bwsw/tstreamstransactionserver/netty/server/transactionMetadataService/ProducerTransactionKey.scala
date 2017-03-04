@@ -9,7 +9,7 @@ case class ProducerTransactionKey(key: Key, producerTransaction: ProducerTransac
   def transactionID: Long = Long2long(key.transactionID)
   def state: TransactionStates = producerTransaction.state
   def quantity: Int = Integer2int(producerTransaction.quantity)
-  def keepAliveTTL: Long = Long2long(producerTransaction.keepAliveTTL)
+  def keepAliveTTL: Long = Long2long(producerTransaction.ttl)
   def timestamp: Long = Long2long(producerTransaction.timestamp)
   def put(database: Database, txn: Transaction, putType: Put, options: WriteOptions = new WriteOptions()) =
     database.put(txn, key.toDatabaseEntry, producerTransaction.toDatabaseEntry, putType, options)

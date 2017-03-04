@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.{ConcurrentHashMap, ScheduledExecutorService}
+import java.util.concurrent.{CompletableFuture, ConcurrentHashMap, Future, ScheduledExecutorService}
 
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogFileIterator}
@@ -32,11 +32,9 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
     barrier.reset
   }
 
-  def putData(messageType: Byte, message: Message, startNew: Boolean = false) = {
+  def putData(messageType: Byte, message: Message, startNew: Boolean = false) = this.synchronized{
     applyBarrierOnClosingCommitLogFile()
-    val pathToFile = this.synchronized(
-      commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType, startNew)
-    )
+    val pathToFile = commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType, startNew)
     pathsToFilesToPutData.add(pathToFile)
     true
   }
@@ -80,13 +78,14 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
     commitLogDatabase.close()
     transactionMetaEnvironment.close()
 
-    processedCommitLogFiles
+    //TODO commitLogFiles problems
+    processedCommitLogFiles.sorted.distinct
   }
 
   val catalogue = new CommitLogCatalogue("/tmp", new java.util.Date(System.currentTimeMillis()))
   //TODO if there in no directory exist before method is called exception will be thrown
 //  catalogue.listAllFiles() foreach (x => println(x.getFile().getAbsolutePath))
-//  println()
+//  println(getProcessedCommitLogFiles)
 
 
   private val task = new Runnable {
@@ -104,7 +103,8 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
       }
 
 
-      def isProcessedSuccessfullyCommitLogFile(file: CommitLogFile, recordsToReadNumber: Int): Boolean = {
+      @throws[Exception]
+      def processCommitLogFile(file: CommitLogFile, recordsToReadNumber: Int): Boolean = {
         val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
         @tailrec
         def helper(iterator: CommitLogFileIterator): Boolean = {
@@ -119,26 +119,25 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
           if (okay && isAnyElements) helper(iter)
           else if (okay) bigCommit.commit() else bigCommit.abort()
         }
-        helper(file.getIterator())
+        val isOkay = helper(file.getIterator())
+
+        if (isOkay) {
+          val cleanTask = transactionServer.createTransactionsToDeleteTask(file.attributes.lastModifiedTime.toMillis)
+          cleanTask.run()
+          pathsToFilesToPutData.remove(file.getFile().getAbsolutePath)
+        } else throw new Exception("There is a bug; Stop server and fix code!")
+
+        isOkay
       }
 
       @tailrec @throws[Exception]
       def processCommitLogFiles(commitLogFiles: List[CommitLogFile], recordsToReadNumber: Int): Unit = commitLogFiles match {
         case Nil => ()
         case head :: Nil =>
-          if (isProcessedSuccessfullyCommitLogFile(head, recordsToReadNumber)) {
-            pathsToFilesToPutData.remove(head.getFile().getAbsolutePath)
-          }
-          else
-            throw new Exception("There is a bug; Stop server and fix code!")
-
+          processCommitLogFile(head, recordsToReadNumber)
         case head :: tail =>
-          if (isProcessedSuccessfullyCommitLogFile(head, recordsToReadNumber)) {
-            pathsToFilesToPutData.remove(head.getFile().getAbsolutePath)
-            processCommitLogFiles(tail, recordsToReadNumber)
-          }
-          else
-            throw new Exception("There is a bug; Stop server and fix code!")
+          processCommitLogFile(head, recordsToReadNumber)
+          processCommitLogFiles(tail, recordsToReadNumber)
       }
 
 
@@ -146,7 +145,11 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
       scala.util.Try {
         import scala.collection.JavaConverters._
         val filesToRead = pathsToFilesToPutData.asScala.map(path => new CommitLogFile(path)).filter(_.md5Exists())
+
+        println(filesToRead.map(_.getFile().getAbsolutePath))
+
         processCommitLogFiles(filesToRead.toList, 1000000)
+
       } match {
         case scala.util.Success(x) => println("it's okay")
         case scala.util.Failure(error) => error.printStackTrace()
@@ -180,9 +183,9 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
 
 object JournaledCommitLogImpl {
   type Token = Int
-  val putTransactionType:  Byte = 0
-  val putTransactionsType: Byte = 1
-  val setConsumerStateType: Byte = 2
+  val putTransactionType:  Byte = 1
+  val putTransactionsType: Byte = 2
+  val setConsumerStateType: Byte = 3
 
   private def deserializePutTransaction(message: Message)  = Descriptors.PutTransaction.decodeRequest(message)
   private def deserializePutTransactions(message: Message) = Descriptors.PutTransactions.decodeRequest(message)

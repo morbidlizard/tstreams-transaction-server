@@ -5,7 +5,7 @@ import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
 import transactionService.rpc.TransactionStates
 
-case class ProducerTransactionWithoutKey(state: TransactionStates, quantity: java.lang.Integer, keepAliveTTL: java.lang.Long, timestamp: java.lang.Long) {
+case class ProducerTransactionWithoutKey(state: TransactionStates, quantity: java.lang.Integer, ttl: java.lang.Long, timestamp: java.lang.Long) {
   def toDatabaseEntry: DatabaseEntry = {
     val databaseEntry = new DatabaseEntry()
     objectToEntry(this, databaseEntry)
@@ -25,7 +25,7 @@ object ProducerTransactionWithoutKey extends TupleBinding[ProducerTransactionWit
   override def objectToEntry(producerTransaction: ProducerTransactionWithoutKey, output: TupleOutput): Unit = {
     output.writeInt(producerTransaction.state.value)
     output.writeInt(Integer2int(producerTransaction.quantity))
-    output.writeLong(Long2long(producerTransaction.keepAliveTTL))
+    output.writeLong(Long2long(producerTransaction.ttl))
     output.writeLong(Long2long(producerTransaction.timestamp))
   }
 }

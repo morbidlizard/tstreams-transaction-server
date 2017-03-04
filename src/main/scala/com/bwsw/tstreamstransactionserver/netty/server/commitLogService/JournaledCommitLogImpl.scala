@@ -32,9 +32,9 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
     barrier.reset
   }
 
-  def putData(messageType: Byte, message: Message, startNew: Boolean = false) = this.synchronized{
+  def putData(messageType: Byte, message: Message, startNew: Boolean = false) = {
     applyBarrierOnClosingCommitLogFile()
-    val pathToFile = commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType, startNew)
+    val pathToFile = this.synchronized(commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType, startNew))
     pathsToFilesToPutData.add(pathToFile)
     true
   }
@@ -105,7 +105,7 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
 
       @throws[Exception]
       def processCommitLogFile(file: CommitLogFile, recordsToReadNumber: Int): Boolean = {
-        val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
+        lazy val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
         @tailrec
         def helper(iterator: CommitLogFileIterator): Boolean = {
           val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
@@ -113,11 +113,12 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
             .withFilter(transactionTTLWithToken => transactionServer.isValid(transactionTTLWithToken._1))
             .flatMap(x => x._2)
 
-          val okay = bigCommit.putSomeTransactions(transactionsFromValidClients)
+          bigCommit.putSomeTransactions(transactionsFromValidClients)
 
           val isAnyElements = scala.util.Try(iter.hasNext()).getOrElse(false)
-          if (okay && isAnyElements) helper(iter)
-          else if (okay) bigCommit.commit() else bigCommit.abort()
+
+          if (isAnyElements) helper(iter) else bigCommit.commit()
+         // bigCommit.commit() else bigCommit.abort()
         }
         val isOkay = helper(file.getIterator())
 
@@ -150,6 +151,7 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
 
         processCommitLogFiles(filesToRead.toList, 1000000)
 
+
       } match {
         case scala.util.Success(x) => println("it's okay")
         case scala.util.Failure(error) => error.printStackTrace()
@@ -178,7 +180,7 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
 //      }
     }
   }
-  scheduledExecutor.scheduleWithFixedDelay(task, 0, 10, java.util.concurrent.TimeUnit.SECONDS)
+  scheduledExecutor.scheduleWithFixedDelay(task, 0, 2, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 object JournaledCommitLogImpl {

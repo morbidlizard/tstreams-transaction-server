@@ -40,7 +40,7 @@ trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
     }(executionContext.berkeleyReadContext)
 
 
-  private final def transiteConsumerTranasctionToNewState(commitLogTransactions: Seq[ConsumerTransactionKey]): ConsumerTransactionKey = {
+  private final def transiteConsumerTransactionToNewState(commitLogTransactions: Seq[ConsumerTransactionKey]): ConsumerTransactionKey = {
     commitLogTransactions.sortBy(_.timestamp).last
   }
 
@@ -48,16 +48,13 @@ trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
     consumerTransactions.groupBy(txn => txn.key)
   }
 
-  def setConsumerStates(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Boolean =
+  def setConsumerStates(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit =
   {
-    val nestedBerkeleyTxn = parentBerkeleyTxn
-
     groupProducerTransactions(consumerTransactions) foreach {case (key, txns) =>
-      val theLastStateTransaction = transiteConsumerTranasctionToNewState(txns)
+      val theLastStateTransaction = transiteConsumerTransactionToNewState(txns)
       val binaryKey = key.toDatabaseEntry
-      consumerDatabase.put(nestedBerkeleyTxn, binaryKey, theLastStateTransaction.consumerTransaction.toDatabaseEntry)
+      consumerDatabase.put(parentBerkeleyTxn, binaryKey, theLastStateTransaction.consumerTransaction.toDatabaseEntry)
     }
-    true
   }
   def closeConsumerDatabase() = scala.util.Try(consumerDatabase.close())
 }

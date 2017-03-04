@@ -18,9 +18,9 @@ object ProducerTransactionWithoutKey extends TupleBinding[ProducerTransactionWit
   override def entryToObject(input: TupleInput): ProducerTransactionWithoutKey = {
     val state  = TransactionStates(input.readInt())
     val quantity = input.readInt()
-    val keepAliveTTL = input.readLong()
+    val ttl = input.readLong()
     val timestamp = input.readLong()
-    ProducerTransactionWithoutKey(state, int2Integer(quantity), long2Long(keepAliveTTL), long2Long(timestamp))
+    ProducerTransactionWithoutKey(state, int2Integer(quantity), long2Long(ttl), long2Long(timestamp))
   }
   override def objectToEntry(producerTransaction: ProducerTransactionWithoutKey, output: TupleOutput): Unit = {
     output.writeInt(producerTransaction.state.value)

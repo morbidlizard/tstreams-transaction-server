@@ -77,7 +77,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
     override val transactionID: Long = System.nanoTime()
-    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
+    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1)
     override val stream: String = streamObj.name
     override val ttl: Long = Long.MaxValue
     override val quantity: Int = -1
@@ -178,20 +178,24 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(15)(getRandomProducerTransaction(stream))
+    val producerTransactions = Array.fill(30)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-    Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait.seconds)
+    Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
 
-    val statesAllowed = Array(TransactionStates.Opened, TransactionStates.Checkpointed)
+    val statesAllowed = Array(TransactionStates.Opened, TransactionStates.Updated)
     val (from, to) = (
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).minBy(_.transactionID).transactionID,
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
     )
 
+    Thread.sleep(5000)
+
     val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from), secondsWait.seconds)
+    println()
     resFrom_1From.size shouldBe 1
     resFrom_1From.head.transactionID shouldBe from
+
 
     val resFromFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, from, from), secondsWait.seconds)
     resFromFrom.size shouldBe 1
@@ -217,6 +221,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val consumerTransaction = getRandomConsumerTransaction(stream)
 
     Await.result(client.setConsumerState(consumerTransaction), secondsWait.seconds)
+
+    Thread.sleep(5000)
 
     val consumerState = Await.result(client.getConsumerState(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition), secondsWait.seconds)
 

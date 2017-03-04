@@ -29,12 +29,43 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   private val secondsInterval: Int = seconds
   private val filePathManager: FilePathManager = new FilePathManager(path)
   private val base64Encoder: Encoder = Base64.getEncoder
-  private val md5: MessageDigest = MessageDigest.getInstance("MD5")
   private val delimiter: Byte = 0
-  private var fileCreationTime: Long = -1
-  private var outputStream: BufferedOutputStream = _
+  @volatile private var fileCreationTime: Long = -1
   private var chunkWriteCount: Int = 0
   private var chunkOpenTime: Long = 0
+
+  private class CommitLogFile(path: String) {
+    val absolutePath = new StringBuffer(path).append(FilePathManager.EXTENSION).toString
+
+    private val md5: MessageDigest = MessageDigest.getInstance("MD5")
+    private def writeMD5File() = {
+      val fileMD5 = new BigInteger(1, md5.digest()).toString(16)
+
+      new FileOutputStream(new StringBuffer(path).append(CommitLog.MD5EXTENSION).toString) {
+        write(fileMD5.getBytes)
+        close()
+      }
+    }
+    private def updateMD5Digest(bytes: Array[Byte]) = md5.update(bytes)
+
+    private val outputStream = new BufferedOutputStream(new FileOutputStream(absolutePath, true))
+    def put(encodedMsgWithType: Array[Byte]):Unit = this.synchronized{
+      val data = delimiter +: encodedMsgWithType
+      outputStream.write(data)
+      updateMD5Digest(data)
+    }
+
+    def flush() = outputStream.flush()
+
+    def close() = {
+      outputStream.flush()
+      outputStream.close()
+      writeMD5File()
+    }
+  }
+
+  private var currentCommitLogFileToPut: CommitLogFile = _
+
 
   /** Puts record and its type to an appropriate file.
     *
@@ -47,103 +78,99 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     * @return name of file record was saved in
     */
   def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = {
+
+    // если хотим записать в новый файл при уже существующем коммит логе
     if (startNew && !firstRun) {
       resetCounters()
-      outputStream.close()
-      writeMD5()
-      filePathManager.getNextPath()
+      currentCommitLogFileToPut.close()
+      currentCommitLogFileToPut = new CommitLogFile(filePathManager.getNextPath())
     }
 
+    // если истекло время или мы начинаем записывать в новый коммит лог файл
     if (firstRun() || timeExceeded()) {
       if (!firstRun()) {
         resetCounters()
-        outputStream.close()
-        writeMD5()
+        currentCommitLogFileToPut.close()
       }
-      filePathManager.getNextPath()
       fileCreationTime = getCurrentSecs()
       // TODO(remove this):write here chunkOpenTime or we will write first record instantly if OnTimeInterval policy set
-//      chunkOpenTime = System.currentTimeMillis()
-      outputStream = new BufferedOutputStream(new FileOutputStream(filePathManager.getCurrentPath() + FilePathManager.EXTENSION, true))
+      //      chunkOpenTime = System.currentTimeMillis()
+      currentCommitLogFileToPut = new CommitLogFile(filePathManager.getNextPath())
     }
 
     val now: Long = System.currentTimeMillis()
     policy match {
       case interval: OnTimeInterval if interval.seconds * 1000 + chunkOpenTime < now =>
         chunkOpenTime = now
-        flushStream()
+        currentCommitLogFileToPut.flush()
       case interval: OnCountInterval if interval.count == chunkWriteCount =>
         chunkWriteCount = 0
-        flushStream()
+        currentCommitLogFileToPut.flush()
       case _ =>
     }
 
-    val encodedMsgWithType: Array[Byte] = base64Encoder.encode(Array[Byte](messageType) ++ message)
-    Stream.continually(outputStream.write(Array[Byte](delimiter) ++ encodedMsgWithType))
+    val encodedMsgWithType: Array[Byte] = base64Encoder.encode(messageType +: message)
+    currentCommitLogFileToPut.put(encodedMsgWithType)
 
     chunkWriteCount += 1
 
-    md5.update(Array[Byte](delimiter))
-    md5.update(encodedMsgWithType)
-
-    return filePathManager.getCurrentPath() + FilePathManager.EXTENSION
+    currentCommitLogFileToPut.absolutePath
   }
 
   /** Finishes work with current file. */
   def close() = {
     if (!firstRun) {
       resetCounters()
-      outputStream.close()
-      writeMD5()
+      currentCommitLogFileToPut.close()
     }
   }
 
-//  /** Return decoded messages from specified file.
-//    *
-//    * @param path path to file to read data from.
-//    * @return sequence of decoded messages.
-//    */
-//  def getMessages(path: String): IndexedSeq[Array[Byte]] = {
-//    val base64decoder: Decoder = Base64.getDecoder
-//    val byteArray = Files.readAllBytes(Paths.get(path))
-//    var msgs: IndexedSeq[Array[Byte]] = IndexedSeq[Array[Byte]]()
-//    var i = 0
-//    while (i < byteArray.length) {
-//      var msg: Array[Byte] = Array[Byte]()
-//      if (byteArray(i) == 0) {
-//        i += 1
-//        while (i < byteArray.length && byteArray(i) != 0.toByte) {
-//          msg = msg :+ byteArray(i)
-//          i += 1
-//        }
-//        msgs = msgs :+ base64decoder.decode(msg)
-//      } else {
-//        new Exception("No zero at the beginning of a message")
-//      }
-//    }
-//    return msgs
-//  }
+  //  /** Return decoded messages from specified file.
+  //    *
+  //    * @param path path to file to read data from.
+  //    * @return sequence of decoded messages.
+  //    */
+  //  def getMessages(path: String): IndexedSeq[Array[Byte]] = {
+  //    val base64decoder: Decoder = Base64.getDecoder
+  //    val byteArray = Files.readAllBytes(Paths.get(path))
+  //    var msgs: IndexedSeq[Array[Byte]] = IndexedSeq[Array[Byte]]()
+  //    var i = 0
+  //    while (i < byteArray.length) {
+  //      var msg: Array[Byte] = Array[Byte]()
+  //      if (byteArray(i) == 0) {
+  //        i += 1
+  //        while (i < byteArray.length && byteArray(i) != 0.toByte) {
+  //          msg = msg :+ byteArray(i)
+  //          i += 1
+  //        }
+  //        msgs = msgs :+ base64decoder.decode(msg)
+  //      } else {
+  //        new Exception("No zero at the beginning of a message")
+  //      }
+  //    }
+  //    return msgs
+  //  }
 
-//  /** Performance test.
-//    *
-//    * Writes specified count of messages to file.
-//    *
-//    * @param countOfRecords count of records to write.
-//    * @param message message to write.
-//    * @param typeOfMessage type of message.
-//    * @return count of milliseconds writing to file took.
-//    */
-//  def perf(countOfRecords: Int, message: Array[Byte], typeOfMessage: Byte): Long = {
-//    require(countOfRecords > 0, "Count of records cannot be less than 1")
-//
-//    val before = System.currentTimeMillis()
-//    for (i <- 1 to countOfRecords) putRec(message, typeOfMessage, startNew = false)
-//    System.currentTimeMillis() - before
-//  }
+  //  /** Performance test.
+  //    *
+  //    * Writes specified count of messages to file.
+  //    *
+  //    * @param countOfRecords count of records to write.
+  //    * @param message message to write.
+  //    * @param typeOfMessage type of message.
+  //    * @return count of milliseconds writing to file took.
+  //    */
+  //  def perf(countOfRecords: Int, message: Array[Byte], typeOfMessage: Byte): Long = {
+  //    require(countOfRecords > 0, "Count of records cannot be less than 1")
+  //
+  //    val before = System.currentTimeMillis()
+  //    for (i <- 1 to countOfRecords) putRec(message, typeOfMessage, startNew = false)
+  //    System.currentTimeMillis() - before
+  //  }
 
-  private def flushStream() = {
-    outputStream.flush()
-  }
+  //  private def flushStream() = {
+  //    outputStream.flush()
+  //  }
 
   private def resetCounters() = {
     fileCreationTime = -1
@@ -153,17 +180,6 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
   private def firstRun() = {
     fileCreationTime == -1
-  }
-
-  private def writeMD5() = {
-    val fileMD5 = new BigInteger(1, md5.digest()).toByteArray
-
-    new FileOutputStream(filePathManager.getCurrentPath() + CommitLog.MD5EXTENSION) {
-      write(fileMD5)
-      close()
-    }
-
-    md5.reset()
   }
 
   private def getCurrentSecs(): Long = {

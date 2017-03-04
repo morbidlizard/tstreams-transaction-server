@@ -97,13 +97,13 @@ class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: Jo
         }
 
       case `putTranscationsMethod` =>
-        ScalaFuture.successful(journaledCommitLog.putData(JournaledCommitLogImpl.putTransactionType, message))
+        ScalaFuture.successful(journaledCommitLog.putData(JournaledCommitLogImpl.putTransactionsType, message))
           .flatMap {isOkay =>
             logSuccessfulProcession()
-            ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isOkay)))(messageSeqId))
+            ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isOkay)))(messageSeqId))
           }.recover { case error =>
           logUnSuccessfulProcession(error)
-          Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
+          Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
         }
 
       case `scanTransactionsMethod` =>

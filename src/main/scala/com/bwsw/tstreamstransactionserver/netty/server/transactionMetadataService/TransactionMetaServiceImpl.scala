@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.Authenticable
@@ -8,8 +8,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.сonsumerService.Consumer
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.google.common.primitives.UnsignedBytes
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je.{Transaction => _, _}
+import org.slf4j.{Logger, LoggerFactory}
 import transactionService.rpc._
 
 import scala.annotation.tailrec
@@ -19,12 +19,12 @@ import scala.concurrent.{Future => ScalaFuture}
 trait TransactionMetaServiceImpl extends TransactionStateHandler
   with Authenticable
 {
-  def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn :com.sleepycat.je.Transaction): Boolean
+  def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn :com.sleepycat.je.Transaction): Unit
 
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
 
-//  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   val directory = FileUtils.createDirectory(storageOpts.metadataDirectory, storageOpts.path)
   private val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
@@ -64,7 +64,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   private def fillOpenedTransactionsRAMTable: java.util.concurrent.ConcurrentHashMap[Key, ProducerTransactionWithoutKey] = {
     val map = new java.util.concurrent.ConcurrentHashMap[Key, ProducerTransactionWithoutKey]()
 
-    val lockMode = LockMode.READ_UNCOMMITTED_ALL
     val keyFound  = new DatabaseEntry()
     val dataFound = new DatabaseEntry()
 
@@ -81,10 +80,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
   private final def calculateTTLForBerkeleyRecord(ttl: Long) = {
     val convertedTTL = TimeUnit.MILLISECONDS.toHours(ttl)
-    if (convertedTTL == 0L) 1 else convertedTTL.toInt
+    if (convertedTTL == 0L) 1 else scala.math.abs(convertedTTL.toInt)
   }
 
-  private def putTransactions(transactions: Seq[(Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Boolean = {
+  private def putTransactions(transactions: Seq[(Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions)
 
     val nestedBerkeleyTxn = parentBerkeleyTxn
@@ -99,15 +98,15 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
         scala.util.Try {
           openedTransactionsMap.get(key) match {
             case data: ProducerTransactionWithoutKey =>
-              val dbTransaction = ProducerTransactionKey(key, data)
-              if (!(dbTransaction.state == TransactionStates.Checkpointed || dbTransaction.state == TransactionStates.Invalid)) {
-                val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(dbTransaction, txns)
+              val persistedProducerTransactionBerkeley = ProducerTransactionKey(key, data)
+              if (!(persistedProducerTransactionBerkeley.state == TransactionStates.Checkpointed || persistedProducerTransactionBerkeley.state == TransactionStates.Invalid)) {
+                val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(persistedProducerTransactionBerkeley, txns)
 
                 val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
                 val binaryKey = key.toDatabaseEntry
 
                 if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn))
+                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(nestedBerkeleyTxn, binaryKey, binaryTxn))
                 }
 
                 scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl))))
@@ -115,29 +114,29 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
             case _ =>
               val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(txns)
 
+
               val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
               val binaryKey = key.toDatabaseEntry
 
               if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn))
+                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(nestedBerkeleyTxn, binaryKey, binaryTxn))
               }
 
               scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl))))
           }
         }
+//        match {
+//          case scala.util.Success(_) => println("adasd")
+//          case scala.util.Failure(throwable) => throwable.printStackTrace()
+//        }
       }
     }
+    putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), parentBerkeleyTxn)
 
 //    val isOkay = scala.util.Try(nestedBerkeleyTxn.commit()) match {
 //      case scala.util.Success(_) => true
 //      case scala.util.Failure(_) => false
 //    }
-
-//    if (isOkay)
-      putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), parentBerkeleyTxn)
-//    else
-//      isOkay
-    true
   }
 
 
@@ -180,16 +179,18 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
-        val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.keepAliveTTL)
+        val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
         Transaction(Some(producerTxn), None)
       }
 
+      val lastTransactionID = new Key(streamObj.streamNameToLong, partition, long2Long(to)).toDatabaseEntry.getData
       def moveCursorToKey: Option[ProducerTransactionKey] = {
         val keyFrom = new Key(streamObj.streamNameToLong, partition, long2Long(from))
         val keyFound = keyFrom.toDatabaseEntry
         val dataFound = new DatabaseEntry()
-        if (cursor.getSearchKey(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS)
-          Some(new ProducerTransactionKey(keyFrom, ProducerTransactionWithoutKey.entryToObject(dataFound))) else None
+        val toStartFrom = cursor.getSearchKeyRange(keyFound, dataFound, lockMode)
+        if (toStartFrom == OperationStatus.SUCCESS && comparator.compare(keyFound.getData, lastTransactionID) <= 0)
+          Some(new ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))) else None
       }
 
       moveCursorToKey match {
@@ -200,15 +201,14 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
         case Some(producerTransactionKey) =>
           val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
-          val keyTo = new Key(streamObj.streamNameToLong, partition, long2Long(to)).toDatabaseEntry.getData
-          val keyFound  = new DatabaseEntry()
+          val transactionID  = new DatabaseEntry()
           val dataFound = new DatabaseEntry()
           while (
-            cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS &&
-              (comparator.compare(keyFound.getData, keyTo) <= 0)
+            cursor.getNext(transactionID, dataFound, lockMode) == OperationStatus.SUCCESS &&
+              (comparator.compare(transactionID.getData, lastTransactionID) <= 0)
           )
           {
-            txns += ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))
+            txns += ProducerTransactionKey(Key.entryToObject(transactionID), ProducerTransactionWithoutKey.entryToObject(dataFound))
           }
 
           cursor.close()
@@ -228,7 +228,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     }
 
     override def run(): Unit = {
-      //    logger.debug(s"Cleaner of expired transactions is running.")
+      if (logger.isDebugEnabled) logger.debug(s"Cleaner of expired transactions is running.")
       val transactionDB = transactionMetaEnvironment.beginTransaction(null, null)
       val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, null)
 
@@ -240,7 +240,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
           val producerTransaction = ProducerTransactionWithoutKey.entryToObject(dataFound)
           val toDelete: Boolean = doesProducerTransactionExpired(producerTransaction)
           if (toDelete) {
-            //            logger.debug(s"Cleaning $producerTransaction as it's expired.")
+            if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransaction as it's expired.")
             cursor.delete()
             true
           } else true
@@ -248,13 +248,14 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
       }
 
       @tailrec
-      def repeat(counter: Int, cursor: Cursor): Unit = {
+      def repeat(cursor: Cursor): Unit = {
         val doesExistAnyTransactionToDelete = deleteTransactionIfExpired(cursor)
-        if (counter > 0 && doesExistAnyTransactionToDelete) repeat(counter - 1, cursor)
+        if (doesExistAnyTransactionToDelete) repeat(cursor)
         else cursor.close()
       }
 
-      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
+//      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
+      repeat(cursorProducerTransactionsOpened)
       transactionDB.commit()
     }
   }

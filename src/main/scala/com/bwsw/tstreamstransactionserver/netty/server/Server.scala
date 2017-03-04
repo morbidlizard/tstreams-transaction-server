@@ -59,17 +59,19 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
       f.channel().closeFuture().sync()
     } finally {
-      zk.close()
       workerGroup.shutdownGracefully()
       bossGroup.shutdownGracefully()
+      zk.close()
+      scheduledExecutor.shutdown()
       transactionServer.shutdown()
     }
   }
 
   def shutdown() = {
-    zk.close()
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
+    zk.close()
+    scheduledExecutor.shutdown()
     transactionServer.shutdown()
   }
 }

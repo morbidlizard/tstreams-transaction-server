@@ -12,11 +12,11 @@ import scala.collection.mutable.ArrayBuffer
 trait TransactionStateHandler extends CheckpointTTL {
 
   private final def isNextProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
-    (currentTxn.timestamp + currentTxn.keepAliveTTL) <= nextTxn.timestamp
+    (currentTxn.timestamp + currentTxn.ttl) <= nextTxn.timestamp
   }
 
   final def isCheckpointedProducerTransactionExpired(producerTransaction: ProducerTransactionKey) = {
-    (producerTransaction.timestamp + producerTransaction.keepAliveTTL) <= System.currentTimeMillis()
+    (producerTransaction.timestamp + producerTransaction.ttl) <= System.currentTimeMillis()
   }
 
 
@@ -79,7 +79,7 @@ trait TransactionStateHandler extends CheckpointTTL {
         else
           ProducerTransactionKey(
             Key(nextTxn.stream, nextTxn.partition, nextTxn.transactionID),
-            ProducerTransactionWithoutKey(Opened, nextTxn.quantity, nextTxn.keepAliveTTL, nextTxn.timestamp)
+            ProducerTransactionWithoutKey(Opened, nextTxn.quantity, nextTxn.ttl, nextTxn.timestamp)
           )
 
       case (Opened, Cancel) => transiteProducerTransactiontoInvalidState(currentTxn)

@@ -1,8 +1,8 @@
-package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
+package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionWithoutKey.objectToEntry
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
-import ConsumerTransactionWithoutKey.objectToEntry
 
 
 case class ConsumerTransactionWithoutKey(transactionId: java.lang.Long, timestamp: java.lang.Long) {

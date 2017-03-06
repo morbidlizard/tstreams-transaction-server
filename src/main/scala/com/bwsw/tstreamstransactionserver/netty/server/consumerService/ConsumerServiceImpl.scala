@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
+package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}

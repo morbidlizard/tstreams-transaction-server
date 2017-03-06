@@ -1,6 +1,7 @@
 package ut
 
-import com.bwsw.tstreamstransactionserver.netty.server.сonsumerService.{ConsumerTransactionKey, ConsumerTransactionWithoutKey, Key}
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionWithoutKey
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, Key}
 import org.scalatest.{FlatSpec, Matchers}
 
 class ConsumerServiceTest extends FlatSpec with Matchers {

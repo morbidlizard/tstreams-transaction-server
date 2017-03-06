@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
-import com.bwsw.tstreamstransactionserver.netty.server.сonsumerService.ConsumerTransactionKey
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
 import transactionService.rpc.TransactionStates._
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transaction, TransactionStates}
 

@@ -26,24 +26,30 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
                SimpleChannelInboundHandler[Message] = (server, journaledCommitLogImpl, context, logger) => new ServerHandler(server, journaledCommitLogImpl, context, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-  private val transactionServerSocketAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
-    case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
-    case _  => (serverOpts.host, serverOpts.port)
-  }
+  private val transactionServerSocketAddress = createTransactionServerAddress()
 
   val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
     new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
   zk.putSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2)
 
   private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
-    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPoll)
+    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)
 
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
+
   final private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLog-%d").build())
   private val journaledCommitLog= new JournaledCommitLogImpl(new CommitLog(Int.MaxValue, "/tmp"), transactionServer, scheduledExecutor)
+
+
+  private def createTransactionServerAddress() = {
+    (System.getenv("HOST"), System.getenv("PORT0")) match {
+      case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
+      case _  => (serverOpts.host, serverOpts.port)
+    }
+  }
 
   def start(): Unit = {
     try {
@@ -59,11 +65,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
       f.channel().closeFuture().sync()
     } finally {
-      workerGroup.shutdownGracefully()
-      bossGroup.shutdownGracefully()
-      zk.close()
-      scheduledExecutor.shutdown()
-      transactionServer.shutdown()
+      shutdown()
     }
   }
 

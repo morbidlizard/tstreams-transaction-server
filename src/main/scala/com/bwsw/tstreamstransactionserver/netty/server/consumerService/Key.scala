@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
+package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry

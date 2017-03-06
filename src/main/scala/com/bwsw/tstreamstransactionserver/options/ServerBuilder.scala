@@ -22,8 +22,8 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
   def withZookeeperOptions(zookeeperOptions: ZookeeperOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions)
 
-  def withBootstrapOptions(serverOptions: BootstrapOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, serverOptions, storageOptions, serverReplicationOptions, rocksStorageOptions)
+  def withBootstrapOptions(bootstrapOptions: BootstrapOptions) =
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions)
 
   def withServerStorageOptions(serverStorageOptions: StorageOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverStorageOptions, serverReplicationOptions, rocksStorageOptions)
@@ -31,7 +31,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
   def withServerReplicationOptions(serverReplicationOptions: ServerReplicationOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions)
 
-  def withServerStorageRocksOptions(serverStorageRocksOptions: RocksStorageOptions) =
+  def withServerRocksStorageOptions(serverStorageRocksOptions: RocksStorageOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, serverStorageRocksOptions)
 
   def build() = new Server(authOptions, zookeeperOptions, bootstrapOptions,

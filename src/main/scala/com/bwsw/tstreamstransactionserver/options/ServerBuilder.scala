@@ -15,7 +15,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
   private val rocksStorageOptions = rocksStorageOpts
   private val commitLogOptions = commitLogOpts
 
-  def this() = this(AuthOptions(), ZookeeperOptions(), BootstrapOptions(), StorageOptions(), ServerReplicationOptions(), RocksStorageOptions())
+  def this() = this(AuthOptions(), ZookeeperOptions(), BootstrapOptions(), StorageOptions(), ServerReplicationOptions(), RocksStorageOptions(), CommitLogOptions())
 
   def withAuthOptions(authOptions: AuthOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions, commitLogOptions)
@@ -39,7 +39,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions, commitLogOptions)
 
   def build() = new Server(authOptions, zookeeperOptions, bootstrapOptions,
-    storageOptions, serverReplicationOptions, rocksStorageOptions)
+    storageOptions, serverReplicationOptions, rocksStorageOptions, commitLogOptions)
 
   def getZookeeperOptions() = zookeeperOptions.copy()
 

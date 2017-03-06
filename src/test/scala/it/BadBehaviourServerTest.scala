@@ -35,6 +35,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   private val storageOptions   = StorageOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
   private val rocksStorageOptions = RocksStorageOptions()
+  private val commitLogOptions = CommitLogOptions()
 
   private val requestTimeoutMs = 500
   @volatile private var server: Server = _
@@ -47,7 +48,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     }
   }
   def startTransactionServer() = new Thread(() => {
-    server = new Server(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions, serverHandler)
+    server = new Server(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions, commitLogOptions, serverHandler)
     server.start()
   }).start()
 

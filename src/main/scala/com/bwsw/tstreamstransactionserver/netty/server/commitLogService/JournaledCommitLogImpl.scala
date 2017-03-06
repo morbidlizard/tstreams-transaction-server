@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.{CompletableFuture, ConcurrentHashMap, Future, ScheduledExecutorService}
+import java.util.concurrent.{ConcurrentHashMap, ScheduledExecutorService}
 
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogFileIterator}
@@ -14,7 +14,7 @@ import transactionService.rpc.Transaction
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContextExecutorService, Future => ScalaFuture}
+import scala.concurrent.{Future => ScalaFuture}
 
 class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: TransactionServer, scheduledExecutor: ScheduledExecutorService) {
   private val pathsToFilesToPutData = ConcurrentHashMap.newKeySet[String]()

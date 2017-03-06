@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.options
 
+import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy._
 import org.rocksdb.{CompressionType, Options}
 
 object ServerOptions {
@@ -37,4 +38,5 @@ object ServerOptions {
     }
   }
 
+  case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile, commitLogWriteSyncValue: Int = 0)
 }

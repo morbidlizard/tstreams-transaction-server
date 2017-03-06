@@ -6,7 +6,7 @@ import com.sleepycat.bind.tuple.TupleOutput
 import com.sleepycat.je.DatabaseEntry
 import StreamWithoutKey.objectToEntry
 
-case class StreamWithoutKey(name: String, partitions: Int, description: Option[String], ttl: Long)
+case class StreamWithoutKey(name: String, partitions: Int, description: Option[String], ttl: Long, timestamp: Long, var deleted: Boolean)
   extends transactionService.rpc.Stream
 {
   def toDatabaseEntry: DatabaseEntry = {
@@ -26,7 +26,9 @@ object StreamWithoutKey extends TupleBinding[StreamWithoutKey]
       case str => Some(str)
     }
     val ttl              = input.readLong()
-    StreamWithoutKey(name, partitions, description, ttl)
+    val timestamp        = input.readLong()
+    val deleted          = input.readBoolean()
+    StreamWithoutKey(name, partitions, description, ttl, timestamp, deleted)
   }
   override def objectToEntry(stream: StreamWithoutKey, output: TupleOutput): Unit = {
     output.writeInt(stream.partitions)
@@ -36,5 +38,7 @@ object StreamWithoutKey extends TupleBinding[StreamWithoutKey]
       case None => output.writeString(null: String)
     }
     output.writeLong(stream.ttl)
+    output.writeLong(stream.timestamp)
+    output.writeBoolean(stream.deleted)
   }
 }

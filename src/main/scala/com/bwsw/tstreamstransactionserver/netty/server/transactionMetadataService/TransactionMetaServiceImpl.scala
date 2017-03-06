@@ -113,9 +113,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStream(producerTransactions)
     groupedProducerTransactionsWithTimestamp.foreach { case (stream, producerTransactionsWithTimestamp) =>
-      val dbStream = getStreamDatabaseObject(stream)
+      val keyStreams = getStreamFromOldestToNewest(stream)
 
-      val dbProducerTransactions = decomposeProducerTransactionsToDatabaseRepresentation(dbStream, producerTransactionsWithTimestamp)
+      val dbProducerTransactions = decomposeProducerTransactionsToDatabaseRepresentation(keyStreams, producerTransactionsWithTimestamp)
       val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
       groupedProducerTransactions foreach { case (key, txns) =>
         scala.util.Try {
@@ -132,7 +132,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
                   scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(nestedBerkeleyTxn, binaryKey, binaryTxn))
                 }
 
-                scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl))))
+                val ttlForThisTransaction = keyStreams.find(_.stream.timestamp <= ProducerTransactionWithNewState.timestamp).get.ttl
+                scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(ttlForThisTransaction))))
               }
             case None =>
               val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(txns)
@@ -145,7 +146,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
                 scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(nestedBerkeleyTxn, binaryKey, binaryTxn))
               }
 
-              scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl))))
+              val ttlForThisTransaction = keyStreams.find(_.stream.timestamp <= ProducerTransactionWithNewState.timestamp).get.ttl
+              scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(ttlForThisTransaction))))
           }
         }
         //        match {
@@ -197,18 +199,18 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
     authenticate(token) {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
-      val streamObj = getStreamDatabaseObject(stream)
+      val keyStream = getStreamFromOldestToNewest(stream).last
       val transactionDB = transactionMetaEnvironment.beginTransaction(null, null)
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
-        val producerTxn = transactionService.rpc.ProducerTransaction(streamObj.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
+        val producerTxn = transactionService.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
         Transaction(Some(producerTxn), None)
       }
 
-      val lastTransactionID = new Key(streamObj.streamNameToLong, partition, long2Long(to)).toDatabaseEntry.getData
+      val lastTransactionID = new Key(keyStream.streamNameToLong, partition, long2Long(to)).toDatabaseEntry.getData
       def moveCursorToKey: Option[ProducerTransactionKey] = {
-        val keyFrom = new Key(streamObj.streamNameToLong, partition, long2Long(from))
+        val keyFrom = new Key(keyStream.streamNameToLong, partition, long2Long(from))
         val keyFound = keyFrom.toDatabaseEntry
         val dataFound = new DatabaseEntry()
         val toStartFrom = cursor.getSearchKeyRange(keyFound, dataFound, lockMode)

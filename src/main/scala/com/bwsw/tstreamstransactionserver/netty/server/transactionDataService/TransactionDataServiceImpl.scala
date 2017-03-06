@@ -6,9 +6,10 @@ import java.util.concurrent.TimeUnit
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j
 import transactionService.rpc.TransactionDataService
 
 import scala.collection.mutable.ArrayBuffer
@@ -29,24 +30,23 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   private def calculateTTL(ttl: Long): Int = {
     def convertTTL = {
       val ttlToConvert = TimeUnit.MILLISECONDS.toSeconds(ttlToAdd).toInt
-      if (ttlToConvert == 0) 0 else ttlToConvert
+      if (ttlToConvert == 0) 0 else scala.math.abs(ttlToConvert)
     }
-
-    TimeUnit.HOURS.toSeconds(ttl).toInt + convertTTL
+    scala.math.abs(TimeUnit.HOURS.toSeconds(ttl).toInt + convertTTL)
   }
 
   val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
 
-  private def getStorage(stream: String, ttl: Long) = {
-    val key = StorageName(stream)
+  private def getStorage(keyStream: KeyStream, ttl: Long) = {
+    val key = StorageName(keyStream.key.streamNameToLong.toString)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
       new RocksDbConnection(storageOpts, rocksStorageOpts, key.toString, calculateTTL(ttl))
     })
   }
 
   override def putTransactionData(token: Int, stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
-    val streamObj = getStreamDatabaseObject(stream)
-    val rocksDB = getStorage(stream, streamObj.stream.ttl)
+    val streamObj = getStreamFromOldestToNewest(stream).last
+    val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
     authenticate(token) {
       val batch = rocksDB.newBatch
 
@@ -71,8 +71,8 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
 
   override def getTransactionData(token: Int, stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[ByteBuffer]] = {
-    val streamObj = getStreamDatabaseObject(stream)
-    val rocksDB = getStorage(stream, streamObj.stream.ttl)
+    val streamObj = getStreamFromOldestToNewest(stream).last
+    val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
     authenticate(token) {
       val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary
       val toSeqId = KeyDataSeq(Key(partition, transaction), to).toBinary

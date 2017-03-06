@@ -1,18 +1,16 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
-import java.util.concurrent.atomic.AtomicLong
-
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
-import com.bwsw.tstreamstransactionserver.shared.FNV
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
-import com.sleepycat.bind.tuple.{StringBinding, TupleBinding}
+import com.sleepycat.bind.tuple.StringBinding
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
 import transactionService.rpc.StreamService
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
 trait StreamServiceImpl extends StreamService[ScalaFuture]
@@ -46,13 +44,16 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     val keyFound  = new DatabaseEntry()
     val dataFound = new DatabaseEntry()
 
+    val keyStreams = ArrayBuffer[KeyStream]()
     val cursor = streamDatabase.openCursor(new DiskOrderedCursorConfig())
     while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
       val key = Key.entryToObject(keyFound)
       val streamWithoutKey = StreamWithoutKey.entryToObject(dataFound)
-      streamCache.put(streamWithoutKey.name, KeyStream(key, streamWithoutKey))
+      keyStreams += KeyStream(key, streamWithoutKey)
     }
     cursor.close()
+
+    keyStreams.groupBy(_.name).foreach{case(name, streams) => streamCache.put(name, streams)}
   }
   fillStreamRAMTable()
 
@@ -72,7 +73,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     streamSequenceDB.openSequence(null, key, new SequenceConfig().setAllowCreate(true))
   }
 
-  override def getStreamDatabaseObject(stream: String): KeyStream =
+  override def getStreamFromOldestToNewest(stream: String): ArrayBuffer[KeyStream] =
     if (streamCache.containsKey(stream)) streamCache.get(stream)
     else {
       logger.debug(s"StreamWithoutKey $stream doesn't exist.")
@@ -84,13 +85,18 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     authenticate(token) {
       val transactionDB = streamEnvironment.beginTransaction(null, new TransactionConfig())
 
-      val newStream = StreamWithoutKey(stream, partitions, description, ttl)
+      val newStream = StreamWithoutKey(stream, partitions, description, ttl, System.currentTimeMillis(), deleted = false)
       val newKey    = Key(streamSeq.get(transactionDB, 1))
 
       val result = streamDatabase.putNoOverwrite(transactionDB,  newKey.toDatabaseEntry, newStream.toDatabaseEntry)
       if (result == OperationStatus.SUCCESS) {
         transactionDB.commit()
-        streamCache.putIfAbsent(stream, KeyStream(newKey, newStream))
+
+        if (streamCache.containsKey(stream))
+           streamCache.get(stream) += KeyStream(newKey, newStream)
+        else
+          streamCache.put(stream, ArrayBuffer(KeyStream(newKey, newStream)))
+
         logger.debug(s"StreamWithoutKey $stream is saved successfully.")
         true
       } else {
@@ -101,17 +107,24 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }(executionContext.berkeleyWriteContext)
 
   override def checkStreamExists(token: Int, stream: String): ScalaFuture[Boolean] =
-    authenticate(token)(scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)(executionContext.berkeleyReadContext)
+    authenticate(token)(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)(executionContext.berkeleyReadContext)
 
-  override def getStream(token: Int, stream: String): ScalaFuture[StreamWithoutKey] =
-    authenticate(token)(getStreamDatabaseObject(stream).stream)(executionContext.berkeleyReadContext)
+  override def getStream(token: Int, stream: String): ScalaFuture[transactionService.rpc.Stream] =
+    authenticate(token){
+      val mostRecentStream = getStreamFromOldestToNewest(stream).last.stream
+      if (mostRecentStream.deleted) throw new StreamDoesNotExist else mostRecentStream
+    }(executionContext.berkeleyReadContext)
 
   override def delStream(token: Int, stream: String): ScalaFuture[Boolean] =
     authenticate(token) {
-      scala.util.Try(getStreamDatabaseObject(stream)) match {
-        case scala.util.Success(streamObj) =>
+      scala.util.Try(getStreamFromOldestToNewest(stream)) match {
+        case scala.util.Success(streamObjects) =>
           val transactionDB = streamEnvironment.beginTransaction(null, new TransactionConfig())
-          val result = streamDatabase.delete(transactionDB, streamObj.key.toDatabaseEntry)
+
+          val mostRecentKeyStream = streamObjects.last
+          mostRecentKeyStream.stream.deleted = true
+
+          val result = streamDatabase.put(transactionDB, mostRecentKeyStream.key.toDatabaseEntry, mostRecentKeyStream.stream.toDatabaseEntry)
           if (result == OperationStatus.SUCCESS) {
             transactionDB.commit()
             streamCache.remove(stream)

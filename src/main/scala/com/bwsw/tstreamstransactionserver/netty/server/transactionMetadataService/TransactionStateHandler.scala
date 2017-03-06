@@ -132,15 +132,17 @@ trait TransactionStateHandler extends StreamCache {
 
   final def groupProducerTransactionsByStream(txns: Seq[(ProducerTransaction, Long)]) = txns.groupBy(txn => txn._1.stream)
 
-  final def decomposeProducerTransactionsToDatabaseRepresentation(keyStream: KeyStream, transactions: Seq[(ProducerTransaction, Long)]) = {
+  final def decomposeProducerTransactionsToDatabaseRepresentation(keyStreams: Seq[KeyStream], transactions: Seq[(ProducerTransaction, Long)]) = {
     transactions map { case (txn, timestamp) =>
-      if (txn.state == Checkpointed)
-        ProducerTransactionKey(
-          ProducerTransaction(txn.stream, txn.partition, txn.transactionID, txn.state, txn.quantity, keyStream.ttl),
-          keyStream.streamNameToLong, timestamp
-        )
-      else
-        ProducerTransactionKey(txn, keyStream.streamNameToLong, timestamp)
+      val streamForThisTransaction = keyStreams.find(_.stream.timestamp <= timestamp).get
+//      if (txn.state == Checkpointed)
+//        // Special case for changing ttl
+//        ProducerTransactionKey(
+//          ProducerTransaction(txn.stream, txn.partition, txn.transactionID, txn.state, txn.quantity, streamForThisTransaction.ttl),
+//          streamForThisTransaction.streamNameToLong, timestamp
+//        )
+//      else
+      ProducerTransactionKey(txn, streamForThisTransaction.streamNameToLong, timestamp)
     }
   }
 
@@ -148,8 +150,8 @@ trait TransactionStateHandler extends StreamCache {
   final def decomposeConsumerTransactionsToDatabaseRepresentation(transactions: Seq[(ConsumerTransaction, Long)]) = {
     val consumerTransactionsKey = ArrayBuffer[ConsumerTransactionKey]()
     transactions foreach { case (txn, timestamp) => scala.util.Try {
-      val streamNameToLong = getStreamDatabaseObject(txn.stream).streamNameToLong
-      consumerTransactionsKey += ConsumerTransactionKey(txn, streamNameToLong, timestamp)
+      val streamForThisTransaction = getStreamFromOldestToNewest(txn.stream).find(_.stream.timestamp <= timestamp).get
+      consumerTransactionsKey += ConsumerTransactionKey(txn, streamForThisTransaction.streamNameToLong, timestamp)
     }}
 
     consumerTransactionsKey

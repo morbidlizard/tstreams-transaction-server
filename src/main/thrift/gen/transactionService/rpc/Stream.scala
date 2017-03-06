@@ -31,7 +31,7 @@ import scala.collection.{Map, Set}
 
 object Stream extends ThriftStructCodec3[Stream] {
   private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-  val Struct = new TStruct("Stream")
+  val Struct = new TStruct("StreamWithoutKey")
   val NameField = new TField("name", TType.STRING, 1)
   val NameFieldManifest = implicitly[Manifest[String]]
   val PartitionsField = new TField("partitions", TType.I32, 2)
@@ -221,9 +221,9 @@ object Stream extends ThriftStructCodec3[Stream] {
     }
     _iprot.readStructEnd()
 
-    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct Stream")
-    if (!_got_partitions) throw new TProtocolException("Required field 'partitions' was not found in serialized data for struct Stream")
-    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct Stream")
+    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct StreamWithoutKey")
+    if (!_got_partitions) throw new TProtocolException("Required field 'partitions' was not found in serialized data for struct StreamWithoutKey")
+    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct StreamWithoutKey")
     new LazyImmutable(
       _iprot,
       _iprot.buffer,
@@ -329,9 +329,9 @@ object Stream extends ThriftStructCodec3[Stream] {
     }
     _iprot.readStructEnd()
 
-    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct Stream")
-    if (!_got_partitions) throw new TProtocolException("Required field 'partitions' was not found in serialized data for struct Stream")
-    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct Stream")
+    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct StreamWithoutKey")
+    if (!_got_partitions) throw new TProtocolException("Required field 'partitions' was not found in serialized data for struct StreamWithoutKey")
+    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct StreamWithoutKey")
     new Immutable(
       name,
       partitions,
@@ -424,8 +424,8 @@ object Stream extends ThriftStructCodec3[Stream] {
   }
 
   /**
-   * The default read-only implementation of Stream.  You typically should not need to
-   * directly reference this class; instead, use the Stream.apply method to construct
+   * The default read-only implementation of StreamWithoutKey.  You typically should not need to
+   * directly reference this class; instead, use the StreamWithoutKey.apply method to construct
    * new instances.
    */
   class Immutable(
@@ -500,8 +500,8 @@ object Stream extends ThriftStructCodec3[Stream] {
   }
 
   /**
-   * This Proxy trait allows you to extend the Stream trait with additional state or
-   * behavior and implement the read-only methods from Stream using an underlying
+   * This Proxy trait allows you to extend the StreamWithoutKey trait with additional state or
+   * behavior and implement the read-only methods from StreamWithoutKey using an underlying
    * instance.
    */
   trait Proxy extends Stream {
@@ -736,7 +736,7 @@ trait Stream
     case _ => throw new IndexOutOfBoundsException(n.toString)
   }
 
-  override def productPrefix: String = "Stream"
+  override def productPrefix: String = "StreamWithoutKey"
 
   def _codec: ThriftStructCodec3[Stream] = Stream
 }

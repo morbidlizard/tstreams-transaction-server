@@ -61,21 +61,44 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     transactionMetaEnvironment.openDatabase(null, storeName, dbConfig)
   }
 
-  private def fillOpenedTransactionsRAMTable: java.util.concurrent.ConcurrentHashMap[Key, ProducerTransactionWithoutKey] = {
-    val map = new java.util.concurrent.ConcurrentHashMap[Key, ProducerTransactionWithoutKey]()
+  private def fillOpenedTransactionsRAMTable: com.google.common.cache.Cache[Key, ProducerTransactionWithoutKey] = {
+    val secondsToLive = 300
+    val threadsToWriteNumber = 1
+    val cache = com.google.common.cache.CacheBuilder.newBuilder()
+      .concurrencyLevel(threadsToWriteNumber)
+      .expireAfterAccess(secondsToLive, TimeUnit.SECONDS)
+      .build[Key, ProducerTransactionWithoutKey]()
 
     val keyFound  = new DatabaseEntry()
     val dataFound = new DatabaseEntry()
 
     val cursor = producerTransactionsWithOpenedStateDatabase.openCursor(new DiskOrderedCursorConfig())
     while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
-      map.put(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))
+      cache.put(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))
     }
     cursor.close()
 
-    map
+    cache
   }
-  private val openedTransactionsMap: ConcurrentHashMap[Key, ProducerTransactionWithoutKey] = fillOpenedTransactionsRAMTable
+  private val openedTransactionsMap: com.google.common.cache.Cache[Key, ProducerTransactionWithoutKey] = fillOpenedTransactionsRAMTable
+  private def getOpenedTransaction(key: Key): Option[ProducerTransactionWithoutKey] = {
+    val transaction = openedTransactionsMap.getIfPresent(key)
+    if (transaction != null) Some(transaction)
+    else {
+      val keyFound  = key.toDatabaseEntry
+      val dataFound = new DatabaseEntry()
+
+      if (producerTransactionsWithOpenedStateDatabase.get(null, keyFound, dataFound, null) == OperationStatus.SUCCESS) {
+        val transactionOpt = ProducerTransactionWithoutKey.entryToObject(dataFound)
+        openedTransactionsMap.put(key, transactionOpt)
+        Some(transactionOpt)
+      }
+      else
+        None
+    }
+  }
+
+
 
 
   private final def calculateTTLForBerkeleyRecord(ttl: Long) = {
@@ -96,8 +119,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
       val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
       groupedProducerTransactions foreach { case (key, txns) =>
         scala.util.Try {
-          openedTransactionsMap.get(key) match {
-            case data: ProducerTransactionWithoutKey =>
+          getOpenedTransaction(key) match {
+            case Some(data: ProducerTransactionWithoutKey) =>
               val persistedProducerTransactionBerkeley = ProducerTransactionKey(key, data)
               if (!(persistedProducerTransactionBerkeley.state == TransactionStates.Checkpointed || persistedProducerTransactionBerkeley.state == TransactionStates.Invalid)) {
                 val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(persistedProducerTransactionBerkeley, txns)
@@ -111,7 +134,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
                 scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl))))
               }
-            case _ =>
+            case None =>
               val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(txns)
 
 
@@ -125,18 +148,18 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
               scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(dbStream.ttl))))
           }
         }
-//        match {
-//          case scala.util.Success(_) => println("adasd")
-//          case scala.util.Failure(throwable) => throwable.printStackTrace()
-//        }
+        //        match {
+        //          case scala.util.Success(_) => println("adasd")
+        //          case scala.util.Failure(throwable) => throwable.printStackTrace()
+        //        }
       }
     }
     putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), parentBerkeleyTxn)
 
-//    val isOkay = scala.util.Try(nestedBerkeleyTxn.commit()) match {
-//      case scala.util.Success(_) => true
-//      case scala.util.Failure(_) => false
-//    }
+    //    val isOkay = scala.util.Try(nestedBerkeleyTxn.commit()) match {
+    //      case scala.util.Success(_) => true
+    //      case scala.util.Failure(_) => false
+    //    }
   }
 
 

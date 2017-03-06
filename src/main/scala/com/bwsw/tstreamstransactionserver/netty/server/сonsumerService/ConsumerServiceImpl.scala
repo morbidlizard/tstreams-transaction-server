@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
@@ -9,7 +9,7 @@ import transactionService.rpc.ConsumerService
 
 import scala.concurrent.{Future => ScalaFuture, _}
 
-trait ConsumerServiceImpl extends Authenticable with CheckpointTTL {
+trait ConsumerServiceImpl extends Authenticable with StreamCache {
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
 

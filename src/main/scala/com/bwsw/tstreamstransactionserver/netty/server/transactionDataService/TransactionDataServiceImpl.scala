@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.{Logger, LoggerFactory}
 import transactionService.rpc.TransactionDataService
@@ -16,7 +16,7 @@ import scala.concurrent.{Future => ScalaFuture}
 
 trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   with Authenticable
-  with CheckpointTTL {
+  with StreamCache {
 
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions

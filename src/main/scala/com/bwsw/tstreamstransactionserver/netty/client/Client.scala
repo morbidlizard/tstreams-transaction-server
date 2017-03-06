@@ -295,9 +295,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-  /**  Putting a stream on a server by Thrift Stream structure.
+  /**  Putting a stream on a server by Thrift StreamWithoutKey structure.
     *
-    * @param stream an object of Stream structure.
+    * @param stream an object of StreamWithoutKey structure.
     *
     * @return placeholder of putStream operation that can be completed or not. If the method returns failed future it means
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
@@ -331,7 +331,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-  /** Deleting a stream by Thrift Stream structure on a server.
+  /** Deleting a stream by Thrift StreamWithoutKey structure on a server.
     *
     * @param stream a name of stream.
     *
@@ -618,9 +618,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
   def shutdown() = {
-    zKLeaderClient.close()
     if (workerGroup != null) workerGroup.shutdownGracefully()
     if (channel != null) channel.closeFuture()
+    zKLeaderClient.close()
     futurePool.shutdown()
     executionContext.shutdown()
   }

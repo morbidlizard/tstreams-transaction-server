@@ -1,11 +1,14 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
+import java.util.concurrent.atomic.AtomicLong
+
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, CheckpointTTL}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.shared.FNV
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
+import com.sleepycat.bind.tuple.{StringBinding, TupleBinding}
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
 import transactionService.rpc.StreamService
@@ -14,7 +17,7 @@ import scala.concurrent.{Future => ScalaFuture}
 
 trait StreamServiceImpl extends StreamService[ScalaFuture]
   with Authenticable
-  with CheckpointTTL {
+  with StreamCache {
 
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
@@ -39,41 +42,60 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     streamEnvironment.openDatabase(null, storeName, dbConfig)
   }
 
+  private def fillStreamRAMTable(): Unit = {
+    val keyFound  = new DatabaseEntry()
+    val dataFound = new DatabaseEntry()
+
+    val cursor = streamDatabase.openCursor(new DiskOrderedCursorConfig())
+    while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
+      val key = Key.entryToObject(keyFound)
+      val streamWithoutKey = StreamWithoutKey.entryToObject(dataFound)
+      streamCache.put(streamWithoutKey.name, KeyStream(key, streamWithoutKey))
+    }
+    cursor.close()
+  }
+  fillStreamRAMTable()
+
+
+  private val streamSequenceName = s"SEQ_${storageOpts.streamStorageName}"
+  private val streamSequenceDB = {
+    val dbConfig = new DatabaseConfig()
+      .setAllowCreate(true)
+      .setTransactional(true)
+      .setSortedDuplicates(false)
+    streamEnvironment.openDatabase(null, streamSequenceName, dbConfig)
+  }
+
+  private val streamSeq = {
+    val key = new DatabaseEntry()
+    StringBinding.stringToEntry(streamSequenceName, key)
+    streamSequenceDB.openSequence(null, key, new SequenceConfig().setAllowCreate(true))
+  }
 
   override def getStreamDatabaseObject(stream: String): KeyStream =
-    if (streamTTL.containsKey(stream)) streamTTL.get(stream)
+    if (streamCache.containsKey(stream)) streamCache.get(stream)
     else {
-      val key = Key(FNV.hash64a(stream.getBytes()).toLong)
-
-      val keyEntry = key.toDatabaseEntry
-      val streamEntry = new DatabaseEntry()
-
-      if (streamDatabase.get(null, keyEntry, streamEntry, LockMode.READ_COMMITTED) == OperationStatus.SUCCESS) {
-        logger.debug(s"Stream $stream is retrieved successfully.")
-        KeyStream(key, Stream.entryToObject(streamEntry))
-      }
-      else {
-        logger.debug(s"Stream $stream doesn't exist.")
-        throw new StreamDoesNotExist
-      }
+      logger.debug(s"StreamWithoutKey $stream doesn't exist.")
+      throw new StreamDoesNotExist
     }
 
 
   override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] =
     authenticate(token) {
-      val newStream = Stream(stream, partitions, description, ttl)
-      val newKey = Key(FNV.hash64a(stream.getBytes()).toLong)
-      streamTTL.putIfAbsent(stream, KeyStream(newKey, newStream))
-
       val transactionDB = streamEnvironment.beginTransaction(null, new TransactionConfig())
-      val result = streamDatabase.putNoOverwrite(transactionDB, newKey.toDatabaseEntry, newStream.toDatabaseEntry)
+
+      val newStream = StreamWithoutKey(stream, partitions, description, ttl)
+      val newKey    = Key(streamSeq.get(transactionDB, 1))
+
+      val result = streamDatabase.putNoOverwrite(transactionDB,  newKey.toDatabaseEntry, newStream.toDatabaseEntry)
       if (result == OperationStatus.SUCCESS) {
         transactionDB.commit()
-        logger.debug(s"Stream $stream is saved successfully.")
+        streamCache.putIfAbsent(stream, KeyStream(newKey, newStream))
+        logger.debug(s"StreamWithoutKey $stream is saved successfully.")
         true
       } else {
         transactionDB.abort()
-        logger.debug(s"Stream $stream isn't saved.")
+        logger.debug(s"StreamWithoutKey $stream isn't saved.")
         false
       }
     }(executionContext.berkeleyWriteContext)
@@ -81,29 +103,32 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   override def checkStreamExists(token: Int, stream: String): ScalaFuture[Boolean] =
     authenticate(token)(scala.util.Try(getStreamDatabaseObject(stream).stream).isSuccess)(executionContext.berkeleyReadContext)
 
-  override def getStream(token: Int, stream: String): ScalaFuture[Stream] =
+  override def getStream(token: Int, stream: String): ScalaFuture[StreamWithoutKey] =
     authenticate(token)(getStreamDatabaseObject(stream).stream)(executionContext.berkeleyReadContext)
 
   override def delStream(token: Int, stream: String): ScalaFuture[Boolean] =
     authenticate(token) {
-      val key = Key(FNV.hash64a(stream.getBytes()).toLong)
-      streamTTL.remove(stream)
-      val keyEntry = key.toDatabaseEntry
-      val transactionDB = streamEnvironment.beginTransaction(null, new TransactionConfig())
-      val result = streamDatabase.delete(transactionDB, keyEntry)
-      if (result == OperationStatus.SUCCESS) {
-        transactionDB.commit()
-        logger.debug(s"Stream $stream is removed successfully.")
-        true
-      } else {
-        logger.debug(s"Stream $stream isn't removed.")
-        transactionDB.abort()
-        false
+      scala.util.Try(getStreamDatabaseObject(stream)) match {
+        case scala.util.Success(streamObj) =>
+          val transactionDB = streamEnvironment.beginTransaction(null, new TransactionConfig())
+          val result = streamDatabase.delete(transactionDB, streamObj.key.toDatabaseEntry)
+          if (result == OperationStatus.SUCCESS) {
+            transactionDB.commit()
+            streamCache.remove(stream)
+            logger.debug(s"StreamWithoutKey $stream is removed successfully.")
+            true
+          } else {
+            logger.debug(s"StreamWithoutKey $stream isn't removed.")
+            transactionDB.abort()
+            false
+          }
+        case scala.util.Failure(throwable) => false
       }
     }(executionContext.berkeleyWriteContext)
 
-
   def closeStreamEnvironmentAndDatabase(): Unit = {
+    scala.util.Try(streamSeq.close())
+    scala.util.Try(streamSequenceDB.close())
     scala.util.Try(streamDatabase.close())
     scala.util.Try(streamEnvironment.close())
   }

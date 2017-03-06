@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import com.bwsw.tstreamstransactionserver.netty.server.CheckpointTTL
+import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
 import com.bwsw.tstreamstransactionserver.netty.server.сonsumerService.ConsumerTransactionKey
 import transactionService.rpc.TransactionStates._
@@ -9,7 +9,7 @@ import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transac
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-trait TransactionStateHandler extends CheckpointTTL {
+trait TransactionStateHandler extends StreamCache {
 
   private final def isNextProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
     (currentTxn.timestamp + currentTxn.ttl) <= nextTxn.timestamp

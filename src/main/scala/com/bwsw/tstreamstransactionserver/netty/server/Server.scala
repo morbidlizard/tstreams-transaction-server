@@ -20,10 +20,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
              serverHandler: (TransactionServer, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] = (server,context, logger) => new ServerHandler(server, context, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-  private val transactionServerSocketAddress = (System.getenv("HOST"), System.getenv("PORT0")) match {
-    case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
-    case _  => (serverOpts.host, serverOpts.port)
-  }
+  private val transactionServerSocketAddress = createTransactionServerAddress()
 
   val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
     new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
@@ -38,8 +35,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
 
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
-      case (host, port) if host != null && port != null => s"$host:$port"
-      case _ => s"${serverOpts.host}:${serverOpts.port}"
+      case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
+      case _  => (serverOpts.host, serverOpts.port)
     }
   }
 

@@ -66,3 +66,15 @@ java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-
 
 ### Docker
 
+The docker file is in the root directory. To build image: 
+
+```bash
+docker build --tag tts .
+```
+
+To run docker image you should provide a path to config directory where a file named 'config.properties' is:
+
+```bash
+docker run -v <path_to_conf_directory>:/etc/conf tts
+```
+

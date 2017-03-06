@@ -24,17 +24,18 @@ RUN echo "deb http://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list
 # see .dockerignore in root dir
 COPY ./project /opt/bin/tts/project
 COPY ./build.sbt /opt/bin/tts/
-COPY ./src /opt/bin/tts/src
+COPY ./src/main /opt/bin/tts/src/main
 
 WORKDIR /opt/bin/tts
 
-RUN mkdir -p /root/.sbt/0.13 && \
-    echo 'scalacOptions ++= Seq("-Xmax-classfile-name","100")' > /root/.sbt/0.13/local.sbt && \
-    sbt assembly && \
-    mv target/scala-2.12/tstreams-transaction-server-${version}.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-1.7.21.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-simple/jars/slf4j-simple-1.7.24.jar. && \
+RUN mkdir -p /root/.sbt/0.13
+
+RUN sbt assembly
+
+RUN mv target/scala-2.12/tstreams-transaction-server-${version}.jar . && \
+    mv /root/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-1.7.24.jar . && \
+    mv /root/.ivy2/cache/org.slf4j/slf4j-simple/jars/slf4j-simple-1.7.24.jar . && \
     sbt clean clean-files && \
     rm -rf /root/.ivy2/cache
 
-CMD java -Dconfig=/etc/conf/config.properties -classpath tstreams-transaction-server-${version}.jar:slf4j-simple-1.7.21.jar:slf4j-api-1.7.21.jar com.bwsw.tstreamstransactionserver.ServerLauncher
+CMD java -Dconfig=/etc/conf/config.properties -classpath tstreams-transaction-server-${version}.jar:slf4j-simple-1.7.24.jar:slf4j-api-1.7.24.jar com.bwsw.tstreamstransactionserver.ServerLauncher

@@ -30,7 +30,6 @@ publishMavenStyle := true
 pomIncludeRepository := { _ => false }
 
 isSnapshot := true
-coverageEnabled := true
 
 publishTo := {
   val nexus = "https://oss.sonatype.org/"

@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
+package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.sleepycat.je.{Database, Put, Transaction, WriteOptions}
 

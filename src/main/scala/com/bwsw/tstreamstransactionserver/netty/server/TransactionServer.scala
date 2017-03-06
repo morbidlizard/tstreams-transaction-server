@@ -4,7 +4,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetadataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.сonsumerService.ConsumerServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.sleepycat.je.{Environment, Transaction}
 import transactionService.rpc.ConsumerTransaction

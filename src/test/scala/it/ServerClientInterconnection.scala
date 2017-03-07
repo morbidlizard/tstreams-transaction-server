@@ -3,10 +3,9 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
-import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
+import com.bwsw.tstreamstransactionserver.options.ClientOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import org.apache.commons.io.FileUtils

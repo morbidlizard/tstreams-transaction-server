@@ -108,7 +108,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
   private def putTransactions(transactions: Seq[(Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions)
-
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions)
 
     groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
@@ -124,8 +123,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
                 val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
                 val binaryKey = key.toDatabaseEntry
 
+                openedTransactionsMap.put(ProducerTransactionWithNewState.key, ProducerTransactionWithNewState.producerTransaction)
                 if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(parentBerkeleyTxn, binaryKey, binaryTxn))
+                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn))
                 }
 
                 scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
@@ -133,21 +133,21 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
             case None =>
               val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(txns)
 
-
               val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
               val binaryKey = key.toDatabaseEntry
 
+              openedTransactionsMap.put(ProducerTransactionWithNewState.key, ProducerTransactionWithNewState.producerTransaction)
               if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(parentBerkeleyTxn, binaryKey, binaryTxn))
+                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn))
               }
 
               scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
           }
         }
-        //        match {
-        //          case scala.util.Success(_) => println("adasd")
-        //          case scala.util.Failure(throwable) => throwable.printStackTrace()
-        //        }
+//        match {
+//          case scala.util.Success(_) => println(dbProducerTransactions, "asdasdasdasdasdasdasd")
+//          case scala.util.Failure(throwable) => throwable.printStackTrace()
+//        }
       }
     }
     putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), parentBerkeleyTxn)
@@ -189,7 +189,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
   def getBigCommit(timestamp: Long, pathToFile: String) = new BigCommit(timestamp, pathToFile)
 
-  private final val comparator = UnsignedBytes.lexicographicalComparator
   def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
     authenticate(token) {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
@@ -202,13 +201,13 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
         Transaction(Some(producerTxn), None)
       }
 
-      val lastTransactionID = new Key(keyStream.streamNameToLong, partition, long2Long(to)).toDatabaseEntry.getData
+      val lastTransactionID = new Key(keyStream.streamNameToLong, partition, long2Long(to)).toDatabaseEntry
       def moveCursorToKey: Option[ProducerTransactionKey] = {
         val keyFrom = new Key(keyStream.streamNameToLong, partition, long2Long(from))
         val keyFound = keyFrom.toDatabaseEntry
         val dataFound = new DatabaseEntry()
         val toStartFrom = cursor.getSearchKeyRange(keyFound, dataFound, lockMode)
-        if (toStartFrom == OperationStatus.SUCCESS && comparator.compare(keyFound.getData, lastTransactionID) <= 0)
+        if (toStartFrom == OperationStatus.SUCCESS && producerTransactionsDatabase.compareKeys(keyFound, lastTransactionID) <= 0)
           Some(new ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))) else None
       }
 
@@ -224,7 +223,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
           val dataFound = new DatabaseEntry()
           while (
             cursor.getNext(transactionID, dataFound, lockMode) == OperationStatus.SUCCESS &&
-              (comparator.compare(transactionID.getData, lastTransactionID) <= 0)
+              (producerTransactionsDatabase.compareKeys(transactionID, lastTransactionID) <= 0)
           )
           {
             txns += ProducerTransactionKey(Key.entryToObject(transactionID), ProducerTransactionWithoutKey.entryToObject(dataFound))
@@ -239,11 +238,16 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
 
   final class TransactionsToDeleteTask(timestampToDeleteTransactions: Long) extends Runnable {
-    private val cleanAmountPerDatabaseTransaction = storageOpts.clearAmount
+//    private val cleanAmountPerDatabaseTransaction = storageOpts.clearAmount
     private val lockMode = LockMode.READ_UNCOMMITTED_ALL
 
     private def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionWithoutKey): Boolean = {
-      (producerTransactionWithoutKey.timestamp + producerTransactionWithoutKey.ttl) >= timestampToDeleteTransactions
+//      println(producerTransactionWithoutKey.timestamp, timestampToDeleteTransactions)
+      scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
+    }
+
+    private def transitToInvalidState(producerTransactionWithoutKey: ProducerTransactionWithoutKey) = {
+      ProducerTransactionWithoutKey(TransactionStates.Invalid, producerTransactionWithoutKey.quantity, 0L, timestampToDeleteTransactions)
     }
 
     override def run(): Unit = {
@@ -256,10 +260,11 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
         val dataFound = new DatabaseEntry()
 
         if (cursor.getNext(keyFound, dataFound, lockMode) == OperationStatus.SUCCESS) {
-          val producerTransaction = ProducerTransactionWithoutKey.entryToObject(dataFound)
-          val toDelete: Boolean = doesProducerTransactionExpired(producerTransaction)
+          val producerTransactionWithoutKey = ProducerTransactionWithoutKey.entryToObject(dataFound)
+          val toDelete: Boolean = doesProducerTransactionExpired(producerTransactionWithoutKey)
           if (toDelete) {
-            if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransaction as it's expired.")
+            if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionWithoutKey as it's expired.")
+            producerTransactionsDatabase.put(transactionDB, keyFound, transitToInvalidState(producerTransactionWithoutKey).toDatabaseEntry)
             cursor.delete()
             true
           } else true
@@ -273,7 +278,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
         else cursor.close()
       }
 
-//      repeat(cleanAmountPerDatabaseTransaction, cursorProducerTransactionsOpened)
       repeat(cursorProducerTransactionsOpened)
       transactionDB.commit()
     }

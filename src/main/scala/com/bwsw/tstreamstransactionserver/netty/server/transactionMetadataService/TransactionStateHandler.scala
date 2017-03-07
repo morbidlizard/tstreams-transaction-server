@@ -1,5 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
+import java.util.concurrent.TimeUnit
+
 import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{KeyStream, StreamWithoutKey}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
@@ -11,12 +13,8 @@ import scala.collection.mutable.ArrayBuffer
 
 trait TransactionStateHandler extends StreamCache {
 
-  private final def isNextProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
-    (currentTxn.timestamp + currentTxn.ttl) <= nextTxn.timestamp
-  }
-
-  final def isCheckpointedProducerTransactionExpired(producerTransaction: ProducerTransactionKey) = {
-    (producerTransaction.timestamp + producerTransaction.ttl) <= System.currentTimeMillis()
+  private final def isThisProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
+    (currentTxn.timestamp + TimeUnit.SECONDS.toMillis(currentTxn.ttl)) <= nextTxn.timestamp
   }
 
 
@@ -72,10 +70,10 @@ trait TransactionStateHandler extends StreamCache {
   @throws[IllegalArgumentException]
   private final def transiteProducerTransactiontoNewState(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): ProducerTransactionKey =
     (currentTxn.state, nextTxn.state) match {
-      case (Opened, Opened)  => currentTxn
+      case (Opened, Opened) => currentTxn
 
       case (Opened, Updated) =>
-        if (isNextProducerTransactionExpired(currentTxn, nextTxn)) transiteProducerTransactiontoInvalidState(currentTxn)
+        if (isThisProducerTransactionExpired(currentTxn, nextTxn)) transiteProducerTransactiontoInvalidState(currentTxn)
         else
           ProducerTransactionKey(
             Key(nextTxn.stream, nextTxn.partition, nextTxn.transactionID),
@@ -86,15 +84,16 @@ trait TransactionStateHandler extends StreamCache {
 
       case (Opened, Invalid) => throw new IllegalArgumentException("An opened transaction can transite to the Invalid state by Cancel state only!")
 
-      case (Opened, Checkpointed) =>  if (isNextProducerTransactionExpired(currentTxn, nextTxn))
-        transiteProducerTransactiontoInvalidState(currentTxn)
-      else
-        nextTxn
+      case (Opened, Checkpointed) =>
+        if (isThisProducerTransactionExpired(currentTxn, nextTxn))
+          transiteProducerTransactiontoInvalidState(currentTxn)
+        else
+          nextTxn
 
       case (Updated, _) => throw new IllegalArgumentException("A transaction with Updated state can't be a root of transactions chain.")
-      case (Cancel,  _) => throw new IllegalArgumentException("A transaction with Cancel state can't be a root of transactions chain.")
+      case (Cancel, _) => throw new IllegalArgumentException("A transaction with Cancel state can't be a root of transactions chain.")
 
-      case (Invalid, _)      => currentTxn
+      case (Invalid, _) => currentTxn
       case (Checkpointed, _) => currentTxn
 
       case (_, _) => throw new IllegalArgumentException("Unknown States should be implemented")

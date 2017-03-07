@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{KeyStream, StreamWithoutKey}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
 import transactionService.rpc.TransactionStates._
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transaction, TransactionStates}
@@ -130,27 +130,22 @@ trait TransactionStateHandler extends StreamCache {
     (producerTransactions, consumerTransactions)
   }
 
-  final def groupProducerTransactionsByStream(txns: Seq[(ProducerTransaction, Long)]) = txns.groupBy(txn => txn._1.stream)
-
-  final def decomposeProducerTransactionsToDatabaseRepresentation(keyStreams: Seq[KeyStream], transactions: Seq[(ProducerTransaction, Long)]) = {
-    transactions map { case (txn, timestamp) =>
-      val streamForThisTransaction = keyStreams.find(_.stream.timestamp <= timestamp).get
-//      if (txn.state == Checkpointed)
-//        // Special case for changing ttl
-//        ProducerTransactionKey(
-//          ProducerTransaction(txn.stream, txn.partition, txn.transactionID, txn.state, txn.quantity, streamForThisTransaction.ttl),
-//          streamForThisTransaction.streamNameToLong, timestamp
-//        )
-//      else
-      ProducerTransactionKey(txn, streamForThisTransaction.streamNameToLong, timestamp)
-    }
+  final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Long)]): Map[KeyStream, Seq[ProducerTransactionKey]] = {
+    txns.map { case (producerTransaction, timestamp) =>
+      val keyStreams = getStreamFromOldestToNewest(producerTransaction.stream)
+      val streamForThisTransaction = keyStreams.filter(_.stream.timestamp <= timestamp).last
+      (streamForThisTransaction, ProducerTransactionKey(producerTransaction, streamForThisTransaction.streamNameToLong, timestamp))
+    }.groupBy(txn => txn._1)
+      .withFilter(x => !x._1.stream.deleted)
+      .map { case (stream, txns) => (stream, txns.map(_._2)) }
   }
+
 
   //  @throws[StreamNotExist]
   final def decomposeConsumerTransactionsToDatabaseRepresentation(transactions: Seq[(ConsumerTransaction, Long)]) = {
     val consumerTransactionsKey = ArrayBuffer[ConsumerTransactionKey]()
     transactions foreach { case (txn, timestamp) => scala.util.Try {
-      val streamForThisTransaction = getStreamFromOldestToNewest(txn.stream).find(_.stream.timestamp <= timestamp).get
+      val streamForThisTransaction = getStreamFromOldestToNewest(txn.stream).filter(_.stream.timestamp <= timestamp).last
       consumerTransactionsKey += ConsumerTransactionKey(txn, streamForThisTransaction.streamNameToLong, timestamp)
     }}
 

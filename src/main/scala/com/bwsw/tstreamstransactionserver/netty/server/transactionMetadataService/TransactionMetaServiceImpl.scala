@@ -109,13 +109,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   private def putTransactions(transactions: Seq[(Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions)
 
-    val nestedBerkeleyTxn = parentBerkeleyTxn
+    val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions)
 
-    val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStream(producerTransactions)
-    groupedProducerTransactionsWithTimestamp.foreach { case (stream, producerTransactionsWithTimestamp) =>
-      val keyStreams = getStreamFromOldestToNewest(stream)
-
-      val dbProducerTransactions = decomposeProducerTransactionsToDatabaseRepresentation(keyStreams, producerTransactionsWithTimestamp)
+    groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
       val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
       groupedProducerTransactions foreach { case (key, txns) =>
         scala.util.Try {
@@ -129,11 +125,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
                 val binaryKey = key.toDatabaseEntry
 
                 if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(nestedBerkeleyTxn, binaryKey, binaryTxn))
+                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(parentBerkeleyTxn, binaryKey, binaryTxn))
                 }
 
-                val ttlForThisTransaction = keyStreams.find(_.stream.timestamp <= ProducerTransactionWithNewState.timestamp).get.ttl
-                scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(ttlForThisTransaction))))
+                scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
               }
             case None =>
               val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(txns)
@@ -143,11 +138,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
               val binaryKey = key.toDatabaseEntry
 
               if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(nestedBerkeleyTxn, binaryKey, binaryTxn))
+                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.putNoOverwrite(parentBerkeleyTxn, binaryKey, binaryTxn))
               }
 
-              val ttlForThisTransaction = keyStreams.find(_.stream.timestamp <= ProducerTransactionWithNewState.timestamp).get.ttl
-              scala.concurrent.blocking(producerTransactionsDatabase.put(nestedBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(ttlForThisTransaction))))
+              scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
           }
         }
         //        match {

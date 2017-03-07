@@ -127,7 +127,6 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
           val result = streamDatabase.put(transactionDB, mostRecentKeyStream.key.toDatabaseEntry, mostRecentKeyStream.stream.toDatabaseEntry)
           if (result == OperationStatus.SUCCESS) {
             transactionDB.commit()
-            streamCache.remove(stream)
             logger.debug(s"StreamWithoutKey $stream is removed successfully.")
             true
           } else {

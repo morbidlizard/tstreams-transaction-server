@@ -116,14 +116,20 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putStream(stream), secondsWait.seconds)
     Await.result(client.delStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-    val result = client.putTransactions(producerTransactions, consumerTransactions)
+    Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
 
-    assertThrows[StreamDoesNotExist] {
-      Await.result(result, secondsWait.seconds)
-    }
+    val fromID = producerTransactions.minBy(_.transactionID).transactionID
+    val toID   = producerTransactions.maxBy(_.transactionID).transactionID
+
+
+    Thread.sleep(5000)
+    val result = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds)
+
+    result shouldBe empty
+
   }
 
   it should "throw an exception when the a server isn't available for time greater than in config" in {

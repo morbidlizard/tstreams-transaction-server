@@ -51,14 +51,17 @@ You should pass a file with properties in both cases. The file should contain th
 | zk.session.timeout.ms           |   |int    | 10000| [1,...]|     
 | zk.retry.delay.ms               |   |int    | 500| [1,...]|    
 | zk.connection.timeout.ms        |   |int    | 10000| [1,...]|
+| commit.log.write.sync.policy    | Policies to work with commitlog. If 'every-n-seconds' mode is chosen then data is flushed into file when specified count of seconds from last flush operation passed. If 'every-new-file' mode is chosen then data is flushed into file when new file starts. If 'every-nth' mode is chosen then data is flushed into file when specified count of write operations passed.  |string    | every-nth| [every-n-seconds, every-nth, every-new-file]|  
+| commit.log.write.sync.value     | Seconds or count of write operations. It depends on the selected policy |int    | 10000| [1,...]|
+|incomplete.commit.log.read.policy|   |string |error |[resync-majority (mandatory for replicated mode), skip-log, try-read, error] |
 
 It isn't required to adhere the specified order of the properties, it's for example only. 
 But all properties should be defined with the exact names and appropriate types. 
 
 ### Java
 
-In addition to the properties file you should provide two dependencies through adding jars of 'slf4j-api-1.7.21' 
-and 'slf4j-simple-1.7.21' to a classpath, to launch TTS. That is run the following command:
+In addition to the properties file you should provide two dependencies through adding jars of 'slf4j-api-1.7.24' 
+and 'slf4j-simple-1.7.24' to a classpath, to launch TTS. That is run the following command:
 
 ```bash
 java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-transaction-server-<version>.jar:<path_to_slf4j_api_jar>/slf4j-api-1.7.21.jar:<path_to_slf4j_impl_jar>/slf4j-simple-1.7.21.jar com.bwsw.tstreamstransactionserver.ServerLauncher

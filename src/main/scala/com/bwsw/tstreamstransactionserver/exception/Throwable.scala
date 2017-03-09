@@ -25,7 +25,7 @@ object Throwable {
 
   class InvalidSocketAddress(message: String) extends IllegalArgumentException(message)
 
-  val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
+  val StreamDoesntNotExistMessage: String = "StreamWithoutKey doesn't exist in database!"
   class StreamDoesNotExist extends NoSuchElementException(StreamDoesntNotExistMessage)
 
 

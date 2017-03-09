@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.options
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import ClientOptions._
 import CommonOptions.ZookeeperOptions
-import org.apache.curator.framework.state.ConnectionState
+
 
 class ClientBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, connectionOpts: ConnectionOptions) {
   private val authOptions = authOpts

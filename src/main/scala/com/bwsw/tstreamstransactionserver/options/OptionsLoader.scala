@@ -4,7 +4,7 @@ import java.io.FileInputStream
 import java.util.Properties
 
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, RocksStorageOptions, ServerReplicationOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import org.rocksdb.CompressionType
 
 class OptionsLoader() {
@@ -23,7 +23,7 @@ class OptionsLoader() {
   private val serverStorageOptions = loadServerStorageOptions()
   private val serverRocksStorageOptions = loadServerRocksStorageOptions()
   private val zookeeperOptions = loadZookeeperOptions()
-
+  private val commitLogOptions = loadCommitLogOptions()
 
   private def loadBootstrapOptions() = {
     val fields = getPropertiesOf(classOf[BootstrapOptions])
@@ -61,6 +61,12 @@ class OptionsLoader() {
     val fields = getPropertiesOf(classOf[ZookeeperOptions], "zk.")
 
     castCheck(ZookeeperOptions(fields(0), fields(1), fields(2).toInt, fields(3).toInt, fields(4).toInt))
+  }
+
+  private def loadCommitLogOptions() = {
+    val fields = getPropertiesOf(classOf[CommitLogOptions])
+
+    castCheck(CommitLogOptions(CommitLogWriteSyncPolicy.withName(fields(0)), fields(1).toInt, IncompleteCommitLogReadPolicy.withName(fields(2))))
   }
 
   private def getPropertiesOf(_class: Class[_], prefix: String = "") = {
@@ -112,5 +118,9 @@ class OptionsLoader() {
 
   def getZookeeperOptions() = {
     zookeeperOptions
+  }
+
+  def getCommitLogOptions() = {
+    commitLogOptions
   }
 }

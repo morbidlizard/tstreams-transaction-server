@@ -2,6 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLogImpl}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.Logger
@@ -9,7 +10,7 @@ import transactionService.rpc.TransactionService
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
-class ServerHandler(transactionServer: TransactionServer, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
+class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLogImpl, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     invokeMethod(msg, ctx.channel().remoteAddress().toString)(context).map(message => ctx.writeAndFlush(message.toByteArray))(context)
@@ -25,11 +26,12 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
     ctx.channel().parent().close()
   }
 
-
   def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = {
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
 
+
     def logSuccessfulProcession() = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
+
     def logUnSuccessfulProcession(error: Throwable) = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is failed while processing!", error)
 
     if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is invoked.")
@@ -37,7 +39,7 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
       case `putStreamMethod` =>
         val args = Descriptors.PutStream.decodeRequest(message)
         transactionServer.putStream(args.token, args.stream, args.partitions, args.description, args.ttl)
-          .flatMap{
+          .flatMap {
             logSuccessfulProcession()
             response => ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageSeqId))
           }
@@ -50,7 +52,7 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
       case `doesStreamExistMethod` =>
         val args = Descriptors.CheckStreamExists.decodeRequest(message)
         transactionServer.checkStreamExists(args.token, args.stream)
-          .flatMap{response =>
+          .flatMap { response =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(response)))(messageSeqId))
           }
@@ -63,7 +65,7 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
       case `getStreamMethod` =>
         val args = Descriptors.GetStream.decodeRequest(message)
         transactionServer.getStream(args.token, args.stream)
-          .flatMap{response =>
+          .flatMap { response =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(response)))(messageSeqId))
           }
@@ -75,7 +77,7 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
       case `delStreamMethod` =>
         val args = Descriptors.DelStream.decodeRequest(message)
         transactionServer.delStream(args.token, args.stream)
-          .flatMap{response =>
+          .flatMap { response =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(response)))(messageSeqId))
           }
@@ -85,33 +87,29 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
           }
 
       case `putTransactionMethod` =>
-        val args = Descriptors.PutTransaction.decodeRequest(message)
-        scala.concurrent.blocking(transactionServer.putTransaction(args.token, args.transaction))
-          .flatMap{response =>
+        ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message))
+          .flatMap { isOkay =>
             logSuccessfulProcession()
-            ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(response)))(messageSeqId))
-          }
-          .recover { case error =>
-            logUnSuccessfulProcession(error)
-            Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-          }
+            ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isOkay)))(messageSeqId))
+          }.recover { case error =>
+          logUnSuccessfulProcession(error)
+          Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
+        }
 
       case `putTranscationsMethod` =>
-        val args = Descriptors.PutTransactions.decodeRequest(message)
-        scala.concurrent.blocking(transactionServer.putTransactions(args.token, args.transactions))
-          .flatMap{response =>
+        ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))
+          .flatMap { isOkay =>
             logSuccessfulProcession()
-            ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(response)))(messageSeqId))
-          }
-          .recover { case error =>
-            logUnSuccessfulProcession(error)
-            Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-          }
+            ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isOkay)))(messageSeqId))
+          }.recover { case error =>
+          logUnSuccessfulProcession(error)
+          Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
+        }
 
       case `scanTransactionsMethod` =>
         val args = Descriptors.ScanTransactions.decodeRequest(message)
         transactionServer.scanTransactions(args.token, args.stream, args.partition, args.from, args.to)
-          .flatMap{response =>
+          .flatMap { response =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(response)))(messageSeqId))
           }
@@ -123,7 +121,7 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
       case `putTransactionDataMethod` =>
         val args = Descriptors.PutTransactionData.decodeRequest(message)
         transactionServer.putTransactionData(args.token, args.stream, args.partition, args.transaction, args.data, args.from)
-          .flatMap{response =>
+          .flatMap { response =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(response)))(messageSeqId))
           }
@@ -136,7 +134,7 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
       case `getTransactionDataMethod` =>
         val args = Descriptors.GetTransactionData.decodeRequest(message)
         transactionServer.getTransactionData(args.token, args.stream, args.partition, args.transaction, args.from, args.to)
-          .flatMap{response =>
+          .flatMap { response =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(response)))(messageSeqId))
           }
@@ -147,22 +145,20 @@ class ServerHandler(transactionServer: TransactionServer, implicit val context: 
 
 
       case `setConsumerStateMethod` =>
-        val args = Descriptors.SetConsumerState.decodeRequest(message)
-        transactionServer.setConsumerState(args.token, args.name, args.stream, args.partition, args.transaction)
-          .flatMap{response =>
+        ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
+          .flatMap { isOkay =>
             logSuccessfulProcession()
-            ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(Some(response)))(messageSeqId))
-          }
-          .recover { case error =>
-            logUnSuccessfulProcession(error)
-            Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-          }
+            ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(Some(isOkay)))(messageSeqId))
+          }.recover { case error =>
+          logUnSuccessfulProcession(error)
+          Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
+        }
 
 
       case `getConsumerStateMethod` =>
         val args = Descriptors.GetConsumerState.decodeRequest(message)
         transactionServer.getConsumerState(args.token, args.name, args.stream, args.partition)
-          .flatMap{
+          .flatMap {
             logSuccessfulProcession()
             response => ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(response)))(messageSeqId))
           }

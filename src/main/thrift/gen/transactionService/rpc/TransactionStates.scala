@@ -28,8 +28,16 @@ case object TransactionStates {
 
   private[this] val _SomeUpdated = _root_.scala.Some(transactionService.rpc.TransactionStates.Updated)
   
-  case object Invalid extends transactionService.rpc.TransactionStates {
+  case object Cancel extends transactionService.rpc.TransactionStates {
     val value: Int = 3
+    val name: String = "Cancel"
+    val originalName: String = "Cancel"
+  }
+
+  private[this] val _SomeCancel = _root_.scala.Some(transactionService.rpc.TransactionStates.Cancel)
+  
+  case object Invalid extends transactionService.rpc.TransactionStates {
+    val value: Int = 4
     val name: String = "Invalid"
     val originalName: String = "Invalid"
   }
@@ -37,7 +45,7 @@ case object TransactionStates {
   private[this] val _SomeInvalid = _root_.scala.Some(transactionService.rpc.TransactionStates.Invalid)
   
   case object Checkpointed extends transactionService.rpc.TransactionStates {
-    val value: Int = 4
+    val value: Int = 5
     val name: String = "Checkpointed"
     val originalName: String = "Checkpointed"
   }
@@ -57,8 +65,9 @@ case object TransactionStates {
     value match {
       case 1 => transactionService.rpc.TransactionStates.Opened
       case 2 => transactionService.rpc.TransactionStates.Updated
-      case 3 => transactionService.rpc.TransactionStates.Invalid
-      case 4 => transactionService.rpc.TransactionStates.Checkpointed
+      case 3 => transactionService.rpc.TransactionStates.Cancel
+      case 4 => transactionService.rpc.TransactionStates.Invalid
+      case 5 => transactionService.rpc.TransactionStates.Checkpointed
       case _ => throw new NoSuchElementException(value.toString)
     }
 
@@ -82,8 +91,9 @@ case object TransactionStates {
     value match {
       case 1 => _SomeOpened
       case 2 => _SomeUpdated
-      case 3 => _SomeInvalid
-      case 4 => _SomeCheckpointed
+      case 3 => _SomeCancel
+      case 4 => _SomeInvalid
+      case 5 => _SomeCheckpointed
       case _ => _root_.scala.None
     }
 
@@ -91,6 +101,7 @@ case object TransactionStates {
     name.toLowerCase match {
       case "opened" => _SomeOpened
       case "updated" => _SomeUpdated
+      case "cancel" => _SomeCancel
       case "invalid" => _SomeInvalid
       case "checkpointed" => _SomeCheckpointed
       case _ => _root_.scala.None
@@ -99,6 +110,7 @@ case object TransactionStates {
   lazy val list: List[transactionService.rpc.TransactionStates] = scala.List[transactionService.rpc.TransactionStates](
     transactionService.rpc.TransactionStates.Opened,
     transactionService.rpc.TransactionStates.Updated,
+    transactionService.rpc.TransactionStates.Cancel,
     transactionService.rpc.TransactionStates.Invalid,
     transactionService.rpc.TransactionStates.Checkpointed
   )

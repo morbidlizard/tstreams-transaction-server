@@ -34,12 +34,17 @@ struct Transaction {
     2: optional ConsumerTransaction    consumerTransaction
 }
 
-
 struct Stream {
     1: required StreamType    name
     2: required i32           partitions
     3: optional string        description
     4: required tllType       ttl
+}
+
+struct AuthInfo {
+    1: required tokenType     token
+    2: required i32           maxMetadataPackageSize
+    3: required i32           maxDataPackageSize
 }
 
 exception ServerException {
@@ -91,7 +96,7 @@ service ConsumerService {
 
 service authService {
 
-  tokenType authenticate(1: string authKey),
+  AuthInfo authenticate(1: string authKey),
 
   bool isValid(1: tokenType token)
 }
@@ -121,7 +126,7 @@ service TransactionService {
 
   transactionIDType getConsumerState(1: tokenType token, 2: string name, 3: StreamType stream, 4: PartitionType partition) throws (1:ServerException error),
 
-  tokenType authenticate(1: string authKey),
+  AuthInfo authenticate(1: string authKey),
 
   bool isValid(1: tokenType token)
 }

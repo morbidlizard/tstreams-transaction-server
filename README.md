@@ -51,6 +51,8 @@ You should pass a file with properties in both cases. The file should contain th
 | zk.session.timeout.ms           |   |int    | 10000| [1,...]|     
 | zk.retry.delay.ms               |   |int    | 500| [1,...]|    
 | zk.connection.timeout.ms        |   |int    | 10000| [1,...]|
+| max.metadata.package.size       | The size of metadata package that client can transmit or request to/from server, i.e. calling 'scanTransactions' method. If client tries to transmit amount of data which is greater than maxMetadataPackageSize or maxDataPackageSize then it gets an exception. If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client. If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset. |int    | 10000| [1,...]|
+| max.data.package.size           | The size of data package that client can transmit or request to/from server, i.e. calling 'getTransactionData' method. If client tries to transmit amount of data which is greater than maxMetadataPackageSize or maxDataPackageSize then it gets an exception. If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client. If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset. |int    | 10000| [1,...]|
 
 It isn't required to adhere the specified order of the properties, it's for example only. 
 But all properties should be defined with the exact names and appropriate types. 

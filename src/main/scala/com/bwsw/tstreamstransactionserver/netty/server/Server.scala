@@ -16,8 +16,8 @@ import scala.concurrent.ExecutionContextExecutorService
 
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts: BootstrapOptions,
              storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
-             rocksStorageOpts: RocksStorageOptions,
-             serverHandler: (TransactionServer, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] = (server,context, logger) => new ServerHandler(server, context, logger)) {
+             rocksStorageOpts: RocksStorageOptions, packageTransmissionOpts: PackageTransmissionOptions,
+             serverHandler: (TransactionServer, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] = (server, packageTransmissionOpts, context, logger) => new ServerHandler(server, packageTransmissionOpts, context, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val transactionServerSocketAddress = createTransactionServerAddress()
@@ -36,7 +36,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
       case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
-      case _  => (serverOpts.host, serverOpts.port)
+      case _ => (serverOpts.host, serverOpts.port)
     }
   }
 
@@ -46,7 +46,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(serverHandler(transactionServer, executionContext.context, logger)))
+        .childHandler(new ServerInitializer(serverHandler(transactionServer, packageTransmissionOpts, executionContext.context, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 

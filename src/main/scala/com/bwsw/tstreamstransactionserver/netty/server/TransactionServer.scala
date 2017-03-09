@@ -10,7 +10,7 @@ import com.sleepycat.je.{Environment, Transaction}
 import transactionService.rpc.ConsumerTransaction
 
 
-class TransactionServer(override val executionContext:ServerExecutionContext,
+class TransactionServer(override val executionContext: ServerExecutionContext,
                         override val authOpts: AuthOptions,
                         override val storageOpts: StorageOptions,
                         override val rocksStorageOpts: RocksStorageOptions)

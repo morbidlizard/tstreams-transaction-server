@@ -37,4 +37,6 @@ object ServerOptions {
     }
   }
 
+  case class PackageTransmissionOptions(maxMetadataPackageSize: Int = 100000000, maxDataPackageSize: Int = 100000000)
+
 }

@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{PackageTransmissionOptions, _}
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
@@ -20,6 +20,7 @@ import scala.concurrent.duration._
 
 class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   private val rand = scala.util.Random
+
   private def getRandomStream = new transactionService.rpc.Stream {
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
@@ -31,22 +32,26 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
   private val zookeeperOptions = ZookeeperOptions(endpoints = zkTestServer.getConnectString)
   private val bootstrapOptions = BootstrapOptions()
-  private val storageOptions   = StorageOptions()
+  private val storageOptions = StorageOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
   private val rocksStorageOptions = RocksStorageOptions()
+  private val packageTransmissionOptions = PackageTransmissionOptions()
 
   private val requestTimeoutMs = 500
   @volatile private var server: Server = _
   private val serverGotRequest = new AtomicInteger(0)
-  private def serverHandler(server: TransactionServer, context: ExecutionContextExecutorService,logger: Logger) = new ServerHandler(server, context, logger){
+
+  private def serverHandler(server: TransactionServer, packageTransmissionOptions: PackageTransmissionOptions, context: ExecutionContextExecutorService, logger: Logger) = new ServerHandler(server, packageTransmissionOptions, context, logger) {
     override def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): Future[Message] = {
       serverGotRequest.getAndIncrement()
       Thread.sleep(requestTimeoutMs)
       super.invokeMethod(message, inetAddress)
     }
   }
+
   def startTransactionServer() = new Thread(() => {
-    server = new Server(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions, rocksStorageOptions, serverHandler)
+    server = new Server(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions,
+      rocksStorageOptions, packageTransmissionOptions, serverHandler)
     server.start()
   }).start()
 
@@ -71,7 +76,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     val client = new Client(connectionOpts, authOpts, zookeeperOpts) {
       // invoked on response
       override def onRequestTimeout(): Unit = {
-       clientTimeoutRequestCounter.getAndIncrement()
+        clientTimeoutRequestCounter.getAndIncrement()
       }
     }
 
@@ -85,8 +90,8 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
 
     val serverRequestCounter = serverGotRequest.get()
     val (trialsLeftBound, trialsRightBound) = {
-      val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt/(requestTimeoutMs + retryDelayMsForThat)
-      (trials - trials*15/100, trials + trials*15/100)
+      val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt / (requestTimeoutMs + retryDelayMsForThat)
+      (trials - trials * 15 / 100, trials + trials * 15 / 100)
     }
 
     serverGotRequest.set(0)
@@ -154,7 +159,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     Thread.sleep(1000)
 
     val retryDelayMsForThatMs = 100
-    val connectionTimeoutMs   = 5
+    val connectionTimeoutMs = 5
     val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
     val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(
       endpoints = zkTestServer.getConnectString
@@ -183,8 +188,8 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     client.shutdown()
 
     val (trialsLeftBound, trialsRightBound) = {
-      val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt/retryDelayMsForThatMs
-      (trials - trials*15/100, trials + trials*15/100)
+      val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt / retryDelayMsForThatMs
+      (trials - trials * 15 / 100, trials + trials * 15 / 100)
     }
 
     clientRequestCounter.get() should be >= trialsLeftBound

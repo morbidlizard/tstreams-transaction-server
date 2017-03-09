@@ -59,7 +59,7 @@ trait TransactionService[+MM[_]] extends ThriftService {
   
   def getConsumerState(token: Int, name: String, stream: String, partition: Int): MM[Long]
   
-  def authenticate(authKey: String): MM[Int]
+  def authenticate(authKey: String): MM[transactionService.rpc.AuthInfo]
   
   def isValid(token: Int): MM[Boolean]
 }
@@ -7272,13 +7272,13 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Args] = Args
     }
 
-    type SuccessType = Int
+    type SuccessType = transactionService.rpc.AuthInfo
     
     object Result extends ThriftStructCodec3[Result] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("authenticate_result")
-      val SuccessField = new TField("success", TType.I32, 0)
-      val SuccessFieldManifest = implicitly[Manifest[Int]]
+      val SuccessField = new TField("success", TType.STRUCT, 0)
+      val SuccessFieldManifest = implicitly[Manifest[transactionService.rpc.AuthInfo]]
     
       /**
        * Field information in declaration order.
@@ -7312,7 +7312,7 @@ object TransactionService { self =>
             {
               val field = original.success
               field.map { field =>
-                field
+                transactionService.rpc.AuthInfo.withoutPassthroughFields(field)
               }
             }
         )
@@ -7322,7 +7322,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Result = {
-        var success: _root_.scala.Option[Int] = _root_.scala.None
+        var success: _root_.scala.Option[transactionService.rpc.AuthInfo] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -7335,10 +7335,10 @@ object TransactionService { self =>
             _field.id match {
               case 0 =>
                 _field.`type` match {
-                  case TType.I32 =>
+                  case TType.STRUCT =>
                     success = _root_.scala.Some(readSuccessValue(_iprot))
                   case _actualType =>
-                    val _expectedType = TType.I32
+                    val _expectedType = TType.STRUCT
                     throw new TProtocolException(
                       "Received wrong type for field 'success' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
@@ -7366,43 +7366,43 @@ object TransactionService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[Int] = _root_.scala.None
+        success: _root_.scala.Option[transactionService.rpc.AuthInfo] = _root_.scala.None
       ): Result =
         new Result(
           success
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Option[Int]] = _root_.scala.Some(_item.success)
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Option[transactionService.rpc.AuthInfo]] = _root_.scala.Some(_item.success)
     
     
-      @inline private def readSuccessValue(_iprot: TProtocol): Int = {
-        _iprot.readI32()
+      @inline private def readSuccessValue(_iprot: TProtocol): transactionService.rpc.AuthInfo = {
+        transactionService.rpc.AuthInfo.decode(_iprot)
       }
     
-      @inline private def writeSuccessField(success_item: Int, _oprot: TProtocol): Unit = {
+      @inline private def writeSuccessField(success_item: transactionService.rpc.AuthInfo, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(SuccessField)
         writeSuccessValue(success_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeSuccessValue(success_item: Int, _oprot: TProtocol): Unit = {
-        _oprot.writeI32(success_item)
+      @inline private def writeSuccessValue(success_item: transactionService.rpc.AuthInfo, _oprot: TProtocol): Unit = {
+        success_item.write(_oprot)
       }
     
     
     }
     
     class Result(
-        val success: _root_.scala.Option[Int],
+        val success: _root_.scala.Option[transactionService.rpc.AuthInfo],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
-      extends ThriftResponse[Int] with ThriftStruct
-      with _root_.scala.Product1[Option[Int]]
+      extends ThriftResponse[transactionService.rpc.AuthInfo] with ThriftStruct
+      with _root_.scala.Product1[Option[transactionService.rpc.AuthInfo]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[Int] = _root_.scala.None
+        success: _root_.scala.Option[transactionService.rpc.AuthInfo] = _root_.scala.None
       ) = this(
         success,
         Map.empty
@@ -7410,7 +7410,7 @@ object TransactionService { self =>
     
       def _1 = success
     
-      def successField: Option[Int] = success
+      def successField: Option[transactionService.rpc.AuthInfo] = success
       def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq()
     
     
@@ -7426,7 +7426,7 @@ object TransactionService { self =>
       }
     
       def copy(
-        success: _root_.scala.Option[Int] = this.success,
+        success: _root_.scala.Option[transactionService.rpc.AuthInfo] = this.success,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(

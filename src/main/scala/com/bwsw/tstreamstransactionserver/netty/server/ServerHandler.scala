@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, JournaledCommitLogImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLogImpl}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.Logger
@@ -10,7 +10,7 @@ import transactionService.rpc.TransactionService
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
-class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: JournaledCommitLogImpl, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
+class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLogImpl, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     invokeMethod(msg, ctx.channel().remoteAddress().toString)(context).map(message => ctx.writeAndFlush(message.toByteArray))(context)
@@ -87,7 +87,7 @@ class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: Jo
           }
 
       case `putTransactionMethod` =>
-        ScalaFuture.successful(journaledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message))
+        ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message))
           .flatMap { isOkay =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isOkay)))(messageSeqId))
@@ -97,7 +97,7 @@ class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: Jo
         }
 
       case `putTranscationsMethod` =>
-        ScalaFuture.successful(journaledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))
+        ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))
           .flatMap { isOkay =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isOkay)))(messageSeqId))
@@ -145,7 +145,7 @@ class ServerHandler(transactionServer: TransactionServer, journaledCommitLog: Jo
 
 
       case `setConsumerStateMethod` =>
-        ScalaFuture.successful(journaledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
+        ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
           .flatMap { isOkay =>
             logSuccessfulProcession()
             ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(Some(isOkay)))(messageSeqId))

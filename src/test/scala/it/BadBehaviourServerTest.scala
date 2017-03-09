@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.JournaledCommitLogImpl
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLogImpl
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -40,7 +40,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   private val requestTimeoutMs = 500
   @volatile private var server: Server = _
   private val serverGotRequest = new AtomicInteger(0)
-  private def serverHandler(server: TransactionServer, journaledCommitLogImpl: JournaledCommitLogImpl, context: ExecutionContextExecutorService, logger: Logger) = new ServerHandler(server, journaledCommitLogImpl, context, logger){
+  private def serverHandler(server: TransactionServer, scheduledCommitLogImpl: ScheduledCommitLogImpl, context: ExecutionContextExecutorService, logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, context, logger){
     override def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): Future[Message] = {
       serverGotRequest.getAndIncrement()
       Thread.sleep(requestTimeoutMs)

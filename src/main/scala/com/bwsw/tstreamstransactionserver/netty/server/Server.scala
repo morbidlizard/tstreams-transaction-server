@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.Message
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.JournaledCommitLogImpl
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLogImpl
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
@@ -18,7 +18,7 @@ import scala.concurrent.ExecutionContextExecutorService
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts: BootstrapOptions,
              storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
              rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
-             serverHandler: (TransactionServer, JournaledCommitLogImpl, ExecutionContextExecutorService, Logger) =>
+             serverHandler: (TransactionServer, ScheduledCommitLogImpl, ExecutionContextExecutorService, Logger) =>
                SimpleChannelInboundHandler[Message] = (server, journaledCommitLogImpl, context, logger) => new ServerHandler(server, journaledCommitLogImpl, context, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -34,7 +34,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
 
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
-  private val journaledCommitLog = new JournaledCommitLogImpl(transactionServer, commitLogOptions)
+  private val journaledCommitLog = new ScheduledCommitLogImpl(transactionServer, commitLogOptions)
 
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {

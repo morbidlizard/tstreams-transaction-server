@@ -14,7 +14,7 @@ import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je._
 
-class JournaledCommitLogImpl(transactionServer: TransactionServer,
+class ScheduledCommitLogImpl(transactionServer: TransactionServer,
                              commitLogOptions: CommitLogOptions) {
   private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLog-%d").build())
   private val commitLog = createCommitLog()

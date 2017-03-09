@@ -34,6 +34,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   private var chunkWriteCount: Int = 0
   private var chunkOpenTime: Long = 0
 
+  private var currentCommitLogFileToPut: CommitLogFile = _
   private class CommitLogFile(path: String) {
     val absolutePath = new StringBuffer(path).append(FilePathManager.EXTENSION).toString
 
@@ -57,14 +58,14 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
     def flush() = outputStream.flush()
 
-    def close() = {
+    def close(): String = {
       outputStream.flush()
       outputStream.close()
       writeMD5File()
+      currentCommitLogFileToPut.absolutePath
     }
   }
 
-  private var currentCommitLogFileToPut: CommitLogFile = _
 
 
   /** Puts record and its type to an appropriate file.
@@ -118,11 +119,11 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   }
 
   /** Finishes work with current file. */
-  def close() = {
+  def close(): String = {
     if (!firstRun) {
       resetCounters()
       currentCommitLogFileToPut.close()
-    }
+    } else null
   }
 
   //  /** Return decoded messages from specified file.

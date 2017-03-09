@@ -1,41 +1,43 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.{ConcurrentHashMap, ScheduledExecutorService}
+import java.util.concurrent.Executors
 
 import com.bwsw.commitlog.CommitLog
-import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogFileIterator}
+import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
+import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.JournaledCommitLogImpl.Token
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
+import com.bwsw.tstreamstransactionserver.netty.{Message, MessageWithTimestamp}
+import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{EveryNSeconds, EveryNewFile, EveryNth}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
 import com.bwsw.tstreamstransactionserver.utils.FileUtils
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je._
-import transactionService.rpc.Transaction
 
-import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Future => ScalaFuture}
+class JournaledCommitLogImpl(transactionServer: TransactionServer,
+                             commitLogOptions: CommitLogOptions) {
+  private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLog-%d").build())
+  private val commitLog = createCommitLog()
+  @volatile private var isFileProcessable = true
+  private val barrier: ResettableCountDownLatch = new ResettableCountDownLatch(1)
 
-class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: TransactionServer, scheduledExecutor: ScheduledExecutorService) {
-  private val pathsToFilesToPutData = ConcurrentHashMap.newKeySet[String]()
-  @volatile private var canBeFileProcessed = true
+  private def createCommitLog() = {
+    val policy = commitLogOptions.commitLogWriteSyncPolicy match {
+      case EveryNth => OnCountInterval(commitLogOptions.commitLogWriteSyncValue)
+      case EveryNewFile => OnRotation
+      case EveryNSeconds => OnTimeInterval(commitLogOptions.commitLogWriteSyncValue)
+    }
 
-  private val barrier = new ResettableCountDownLatch(1)
-  private def applyBarrierOnClosingCommitLogFile():Unit = {
-    if (!canBeFileProcessed) barrier.countDown()
+    new CommitLog(Int.MaxValue, "/tmp", policy)
   }
 
-  private def releaseBarrier(): Unit = {
-    canBeFileProcessed = false
-    commitLog.close()
-    canBeFileProcessed = true
-    barrier.reset
+  private def applyBarrierOnClosingCommitLogFile(): Unit = {
+    if (!isFileProcessable) barrier.countDown()
   }
 
   def putData(messageType: Byte, message: Message, startNew: Boolean = false) = {
     applyBarrierOnClosingCommitLogFile()
-    val pathToFile = this.synchronized(commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType, startNew))
-    pathsToFilesToPutData.add(pathToFile)
+    this.synchronized(commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType, startNew))
     true
   }
 
@@ -63,12 +65,12 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
       transactionMetaEnvironment.openDatabase(null, storeName, dbConfig)
     }
 
-    val keyFound  = new DatabaseEntry()
+    val keyFound = new DatabaseEntry()
     val dataFound = new DatabaseEntry()
 
     val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[String]()
 
-    val cursor = commitLogDatabase.openCursor(new DiskOrderedCursorConfig())
+    val cursor = commitLogDatabase.openCursor(null, null)
 
     while (cursor.getNext(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
       processedCommitLogFiles += TimestampCommitLog.pathToObject(dataFound)
@@ -78,132 +80,19 @@ class JournaledCommitLogImpl(commitLog: CommitLog, transactionServer: Transactio
     commitLogDatabase.close()
     transactionMetaEnvironment.close()
 
-    //TODO commitLogFiles problems
-    processedCommitLogFiles.sorted.distinct
+    processedCommitLogFiles
   }
 
-  val catalogue = new CommitLogCatalogue("/tmp", new java.util.Date(System.currentTimeMillis()))
+  private val catalogue = new CommitLogCatalogue("/tmp", new java.util.Date(System.currentTimeMillis()))
   //TODO if there in no directory exist before method is called exception will be thrown
-//  catalogue.listAllFiles() foreach (x => println(x.getFile().getAbsolutePath))
-//  println(getProcessedCommitLogFiles)
+  //  catalogue.listAllFiles() foreach (x => println(x.getFile().getAbsolutePath))
+  //  println(getProcessedCommitLogFiles)
 
+  private val task = new CommitLogToBerkeleyWriter(commitLog, transactionServer, barrier, isFileProcessable, commitLogOptions.incompleteCommitLogReadPolicy)
 
-  private val task = new Runnable {
-    override def run(): Unit = {
-      def readRecordsFromCommitLogFile(iter: CommitLogFileIterator, recordsToReadNumber: Int): (ArrayBuffer[(Token, Seq[(Transaction, Long)])], CommitLogFileIterator) = {
-        val buffer = ArrayBuffer[(JournaledCommitLogImpl.Token, Seq[(Transaction, Long)])]()
-        var recordsToRead = recordsToReadNumber
-        while (iter.hasNext() && recordsToRead > 0) {
-          val record = iter.next()
-          val (messageType, message) = record.splitAt(1)
-          buffer += JournaledCommitLogImpl.retrieveTransactions(messageType.head, MessageWithTimestamp.fromByteArray(message))
-          recordsToRead = recordsToRead - 1
-        }
-        (buffer, iter)
-      }
-
-
-      @throws[Exception]
-      def processCommitLogFile(file: CommitLogFile, recordsToReadNumber: Int): Boolean = {
-        lazy val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
-        @tailrec
-        def helper(iterator: CommitLogFileIterator): Boolean = {
-          val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
-          val transactionsFromValidClients = records
-            .withFilter(transactionTTLWithToken => transactionServer.isValid(transactionTTLWithToken._1))
-            .flatMap(x => x._2)
-
-          bigCommit.putSomeTransactions(transactionsFromValidClients)
-
-          val isAnyElements = scala.util.Try(iter.hasNext()).getOrElse(false)
-
-          if (isAnyElements) helper(iter) else bigCommit.commit()
-         // bigCommit.commit() else bigCommit.abort()
-        }
-        val isOkay = helper(file.getIterator())
-
-        if (isOkay) {
-          val cleanTask = transactionServer.createTransactionsToDeleteTask(file.attributes.lastModifiedTime.toMillis)
-          cleanTask.run()
-          pathsToFilesToPutData.remove(file.getFile().getAbsolutePath)
-        } else throw new Exception("There is a bug; Stop server and fix code!")
-
-        isOkay
-      }
-
-      @tailrec @throws[Exception]
-      def processCommitLogFiles(commitLogFiles: List[CommitLogFile], recordsToReadNumber: Int): Unit = commitLogFiles match {
-        case Nil => ()
-        case head :: Nil =>
-          processCommitLogFile(head, recordsToReadNumber)
-        case head :: tail =>
-          processCommitLogFile(head, recordsToReadNumber)
-          processCommitLogFiles(tail, recordsToReadNumber)
-      }
-
-
-      releaseBarrier()
-      scala.util.Try {
-        import scala.collection.JavaConverters._
-        val filesToRead = pathsToFilesToPutData.asScala.map(path => new CommitLogFile(path)).filter(_.md5Exists())
-
-        println(filesToRead.map(_.getFile().getAbsolutePath))
-
-        processCommitLogFiles(filesToRead.toList, 1000000)
-
-
-      } match {
-        case scala.util.Success(x) => println("it's okay")
-        case scala.util.Failure(error) => error.printStackTrace()
-      }
-
-
-
-//      scala.util.Try {
-//        val transactionsFromValidClients = records
-//          .withFilter(transactionTTLWithToken => transactionServer.isValid(transactionTTLWithToken._1))
-//          .flatMap(x => x._2)
-//
-//        transactionServer.getBigCommit
-//        transactionServer putTransactions transactionsFromValidClients
-//
-//        val filesRead = filesToRead.map(_.path).toSet
-//
-//        pathsToFilesToPutData --= filesRead
-        //
-        //        val catalogue = new CommitLogCatalogue("/tmp", new java.util.Date(System.currentTimeMillis()))
-        //        filesRead foreach(file => catalogue.deleteFile(getFileNameWithExtension(file)))
-
-//      } match {
-//        case scala.util.Success(x) => println("it's okay")
-//        case scala.util.Failure(error) => error.printStackTrace()
-//      }
-    }
-  }
   scheduledExecutor.scheduleWithFixedDelay(task, 0, 2, java.util.concurrent.TimeUnit.SECONDS)
-}
 
-object JournaledCommitLogImpl {
-  type Token = Int
-  val putTransactionType:  Byte = 1
-  val putTransactionsType: Byte = 2
-  val setConsumerStateType: Byte = 3
-
-  private def deserializePutTransaction(message: Message)  = Descriptors.PutTransaction.decodeRequest(message)
-  private def deserializePutTransactions(message: Message) = Descriptors.PutTransactions.decodeRequest(message)
-  private def deserializeSetConsumerState(message: Message) = Descriptors.SetConsumerState.decodeRequest(message)
-
-  private def retrieveTransactions(messageType: Byte, messageWithTimestamp: MessageWithTimestamp): (Token, Seq[(Transaction,  Long)]) = messageType match {
-    case `putTransactionType`  =>
-      val txn = deserializePutTransaction(messageWithTimestamp.message)
-      (txn.token, Seq((txn.transaction, messageWithTimestamp.timestamp)))
-    case `putTransactionsType` =>
-      val txns = deserializePutTransactions(messageWithTimestamp.message)
-      (txns.token, txns.transactions.map(txn => (txn, messageWithTimestamp.timestamp)))
-    case `setConsumerStateType` =>
-      val args = deserializeSetConsumerState(messageWithTimestamp.message)
-      val consumerTransaction = transactionService.rpc.ConsumerTransaction(args.stream, args.partition, args.transaction,args.name)
-      (args.token, Seq(( Transaction(None, Some(consumerTransaction)), messageWithTimestamp.timestamp)))
+  def shutdown() = {
+    scheduledExecutor.shutdown()
   }
 }
-

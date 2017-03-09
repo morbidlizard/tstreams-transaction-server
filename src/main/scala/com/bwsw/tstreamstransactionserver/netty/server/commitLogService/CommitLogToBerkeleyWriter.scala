@@ -104,7 +104,8 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
   override def run(): Unit = {
     releaseBarrier()
 
-    pathsToFilesToPutData.foreach(path =>
+    pathsToFilesToPutData.filter(_ != null) //todo get rid of this filter. it is related to a CommitLog.close() method
+      .foreach(path =>
       scala.util.Try {
         processAccordingToPolicy(path)
       } match {

@@ -22,14 +22,15 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  val streamEnvironment = {
-    val directory = FileUtils.createDirectory(storageOpts.streamDirectory, storageOpts.path)
-    val environmentConfig = new EnvironmentConfig()
-      .setAllowCreate(true)
-      .setSharedCache(true)
-      .setTransactional(true)
-    new Environment(directory, environmentConfig)
-  }
+  val environment: Environment
+//  = {
+//    val directory = FileUtils.createDirectory(storageOpts.streamDirectory, storageOpts.path)
+//    val environmentConfig = new EnvironmentConfig()
+//      .setAllowCreate(true)
+//      .setSharedCache(true)
+//      .setTransactional(true)
+//    new Environment(directory, environmentConfig)
+//  }
 
   val streamDatabase = {
     val dbConfig = new DatabaseConfig()
@@ -37,7 +38,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       .setTransactional(true)
       .setSortedDuplicates(false)
     val storeName = storageOpts.streamStorageName
-    streamEnvironment.openDatabase(null, storeName, dbConfig)
+    environment.openDatabase(null, storeName, dbConfig)
   }
 
   private def fillStreamRAMTable(): Unit = {
@@ -64,7 +65,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       .setAllowCreate(true)
       .setTransactional(true)
       .setSortedDuplicates(false)
-    streamEnvironment.openDatabase(null, streamSequenceName, dbConfig)
+    environment.openDatabase(null, streamSequenceName, dbConfig)
   }
 
   private val streamSeq = {
@@ -83,7 +84,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 
   override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] =
     authenticate(token) {
-      val transactionDB = streamEnvironment.beginTransaction(null, new TransactionConfig())
+      val transactionDB = environment.beginTransaction(null, new TransactionConfig())
 
       val newStream = StreamWithoutKey(stream, partitions, description, ttl, System.currentTimeMillis(), deleted = false)
       val newKey    = Key(streamSeq.get(transactionDB, 1))
@@ -119,7 +120,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     authenticate(token) {
       scala.util.Try(getStreamFromOldestToNewest(stream)) match {
         case scala.util.Success(streamObjects) =>
-          val transactionDB = streamEnvironment.beginTransaction(null, new TransactionConfig())
+          val transactionDB = environment.beginTransaction(null, new TransactionConfig())
 
           val mostRecentKeyStream = streamObjects.last
           mostRecentKeyStream.stream.deleted = true
@@ -142,6 +143,6 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     scala.util.Try(streamSeq.close())
     scala.util.Try(streamSequenceDB.close())
     scala.util.Try(streamDatabase.close())
-    scala.util.Try(streamEnvironment.close())
+    scala.util.Try(environment.close())
   }
 }

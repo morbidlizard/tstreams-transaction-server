@@ -1,18 +1,18 @@
-package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
+package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{KeyStream, StreamWithoutKey}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionWithoutKey}
 import transactionService.rpc.TransactionStates._
 import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transaction, TransactionStates}
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-trait TransactionStateHandler extends StreamCache {
-
+trait TransactionStateHandler extends LastTransactionStreamPartition with StreamCache {
   private final def isThisProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
     (currentTxn.timestamp + TimeUnit.SECONDS.toMillis(currentTxn.ttl)) <= nextTxn.timestamp
   }
@@ -62,7 +62,7 @@ trait TransactionStateHandler extends StreamCache {
 
   private final def transiteProducerTransactiontoInvalidState(txn: ProducerTransactionKey) = {
     ProducerTransactionKey(
-      Key(txn.stream, txn.partition, txn.transactionID),
+      com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key(txn.stream, txn.partition, txn.transactionID),
       ProducerTransactionWithoutKey(Invalid, txn.quantity, 0L, txn.timestamp)
     )
   }
@@ -76,7 +76,7 @@ trait TransactionStateHandler extends StreamCache {
         if (isThisProducerTransactionExpired(currentTxn, nextTxn)) transiteProducerTransactiontoInvalidState(currentTxn)
         else
           ProducerTransactionKey(
-            Key(nextTxn.stream, nextTxn.partition, nextTxn.transactionID),
+            com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key(nextTxn.stream, nextTxn.partition, nextTxn.transactionID),
             ProducerTransactionWithoutKey(Opened, nextTxn.quantity, nextTxn.ttl, nextTxn.timestamp)
           )
 
@@ -115,14 +115,19 @@ trait TransactionStateHandler extends StreamCache {
       else process(transiteProducerTransactiontoNewState(head, next) :: tail)
   }
 
-  final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(Transaction, Long)]) = {
+
+  final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(transactionService.rpc.Transaction, Long)], berkeleyTransaction: com.sleepycat.je.Transaction) = {
     val producerTransactions = ArrayBuffer[(ProducerTransaction, Long)]()
     val consumerTransactions = ArrayBuffer[(ConsumerTransaction, Long)]()
 
     transactions foreach {case(transaction, timestamp) =>
       (transaction.producerTransaction, transaction.consumerTransaction) match {
-        case (Some(txn), _) => producerTransactions += ((txn, timestamp))
-        case (_, Some(txn)) => consumerTransactions += ((txn, timestamp))
+        case (Some(txn), _) =>
+          val key = Key(txn.stream, txn.partition)
+          if (!isThatTransactionOutOfOrder(key, txn.transactionID, berkeleyTransaction)) producerTransactions += ((txn, timestamp))
+        case (_, Some(txn)) =>
+          val key = Key(txn.stream, txn.partition)
+          if (!isThatTransactionOutOfOrder(key, txn.transactionID, berkeleyTransaction)) consumerTransactions += ((txn, timestamp))
         case  _ =>
       }
     }

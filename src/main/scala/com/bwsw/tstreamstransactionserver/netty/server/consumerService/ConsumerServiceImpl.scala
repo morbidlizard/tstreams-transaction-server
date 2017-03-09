@@ -15,18 +15,18 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  val consumerEnvironment: Environment
-  lazy val consumerDatabase = {
+  val environment: Environment
+  val consumerDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
 
-    consumerEnvironment.openDatabase(null, storageOpts.consumerStorageName, dbConfig)
+    environment.openDatabase(null, storageOpts.consumerStorageName, dbConfig)
   }
 
   def getConsumerState(token: Int, name: String, stream: String, partition: Int): ScalaFuture[Long] =
     authenticate(token) {
-      val transactionDB = consumerEnvironment.beginTransaction(null, null)
+      val transactionDB = environment.beginTransaction(null, null)
       val streamNameToLong = getStreamFromOldestToNewest(stream).last.streamNameToLong
       val keyEntry = Key(name, streamNameToLong, partition).toDatabaseEntry
       val consumerTransactionEntry = new DatabaseEntry()

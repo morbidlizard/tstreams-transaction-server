@@ -5,10 +5,9 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.Authenticable
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.TransactionStateHandler
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
-import com.bwsw.tstreamstransactionserver.utils.FileUtils
-import com.google.common.primitives.UnsignedBytes
-import com.sleepycat.je.{Transaction => _, _}
+import com.sleepycat.je._
 import org.slf4j.{Logger, LoggerFactory}
 import transactionService.rpc._
 
@@ -25,40 +24,22 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   val storageOpts: StorageOptions
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-
-  val directory = FileUtils.createDirectory(storageOpts.metadataDirectory, storageOpts.path)
-  private val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
-  val transactionMetaEnvironment = {
-    val environmentConfig = new EnvironmentConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-      .setSharedCache(true)
-
-//    config.berkeleyDBJEproperties foreach {
-//      case (name, value) => environmentConfig.setConfigParam(name,value)
-//    } //todo it will be deprecated soon
-
-
-    environmentConfig.setDurabilityVoid(defaultDurability)
-
-    new Environment(directory, environmentConfig)
-  }
+  val environment: Environment
 
   val producerTransactionsDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
     val storeName = storageOpts.metadataStorageName
-    transactionMetaEnvironment.openDatabase(null, storeName, dbConfig)
+    environment.openDatabase(null, storeName, dbConfig)
   }
-
 
   val producerTransactionsWithOpenedStateDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
     val storeName = storageOpts.openedTransactionsStorageName
-    transactionMetaEnvironment.openDatabase(null, storeName, dbConfig)
+    environment.openDatabase(null, storeName, dbConfig)
   }
 
   private def fillOpenedTransactionsRAMTable: com.google.common.cache.Cache[Key, ProducerTransactionWithoutKey] = {
@@ -80,9 +61,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
     cache
   }
-  private val openedTransactionsMap: com.google.common.cache.Cache[Key, ProducerTransactionWithoutKey] = fillOpenedTransactionsRAMTable
+
+  val openedTransactionsRamTable: com.google.common.cache.Cache[Key, ProducerTransactionWithoutKey] = fillOpenedTransactionsRAMTable
   private def getOpenedTransaction(key: Key): Option[ProducerTransactionWithoutKey] = {
-    val transaction = openedTransactionsMap.getIfPresent(key)
+    val transaction = openedTransactionsRamTable.getIfPresent(key)
     if (transaction != null) Some(transaction)
     else {
       val keyFound  = key.toDatabaseEntry
@@ -90,7 +72,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
       if (producerTransactionsWithOpenedStateDatabase.get(null, keyFound, dataFound, null) == OperationStatus.SUCCESS) {
         val transactionOpt = ProducerTransactionWithoutKey.entryToObject(dataFound)
-        openedTransactionsMap.put(key, transactionOpt)
+        openedTransactionsRamTable.put(key, transactionOpt)
         Some(transactionOpt)
       }
       else
@@ -99,15 +81,13 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   }
 
 
-
-
   private final def calculateTTLForBerkeleyRecord(ttl: Long) = {
-    val convertedTTL = TimeUnit.MILLISECONDS.toHours(ttl)
+    val convertedTTL = TimeUnit.SECONDS.toHours(ttl)
     if (convertedTTL == 0L) 1 else scala.math.abs(convertedTTL.toInt)
   }
 
-  private def putTransactions(transactions: Seq[(Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
-    val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions)
+  private def putTransactions(transactions: Seq[(transactionService.rpc.Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
+    val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions, parentBerkeleyTxn)
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions)
 
     groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
@@ -123,7 +103,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
                 val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
                 val binaryKey = key.toDatabaseEntry
 
-                openedTransactionsMap.put(ProducerTransactionWithNewState.key, ProducerTransactionWithNewState.producerTransaction)
+                openedTransactionsRamTable.put(ProducerTransactionWithNewState.key, ProducerTransactionWithNewState.producerTransaction)
                 if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
                   scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn))
                 }
@@ -136,7 +116,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
               val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
               val binaryKey = key.toDatabaseEntry
 
-              openedTransactionsMap.put(ProducerTransactionWithNewState.key, ProducerTransactionWithNewState.producerTransaction)
+              openedTransactionsRamTable.put(ProducerTransactionWithNewState.key, ProducerTransactionWithNewState.producerTransaction)
               if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
                 scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn))
               }
@@ -164,18 +144,18 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
       .setAllowCreate(true)
       .setTransactional(true)
     val storeName = "CommitLogStore"
-    transactionMetaEnvironment.openDatabase(null, storeName, dbConfig)
+    environment.openDatabase(null, storeName, dbConfig)
   }
 
 
   class BigCommit(timestamp: Long, pathToFile: String) {
-    private val transactionDB = transactionMetaEnvironment.beginTransaction(null, null)
-    def putSomeTransactions(transactions: Seq[(Transaction, Long)]) = putTransactions(transactions, transactionDB)
+    private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
+    def putSomeTransactions(transactions: Seq[(transactionService.rpc.Transaction, Long)]) = putTransactions(transactions, transactionDB)
 
     def commit(): Boolean = {
       val timestampCommitLog = TimestampCommitLog(timestamp, pathToFile)
       commitLogDatabase.putNoOverwrite(transactionDB, timestampCommitLog.keyToDatabaseEntry, timestampCommitLog.dataToDatabaseEntry)
-      scala.util.Try(transactionDB.commit(defaultDurability)) match {
+      scala.util.Try(transactionDB.commit()) match {
         case scala.util.Success(_) => true
         case scala.util.Failure(_) => false
       }
@@ -189,16 +169,16 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
   def getBigCommit(timestamp: Long, pathToFile: String) = new BigCommit(timestamp, pathToFile)
 
-  def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[Transaction]] =
+  def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.Transaction]] =
     authenticate(token) {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val keyStream = getStreamFromOldestToNewest(stream).last
-      val transactionDB = transactionMetaEnvironment.beginTransaction(null, null)
+      val transactionDB = environment.beginTransaction(null, null)
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
         val producerTxn = transactionService.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
-        Transaction(Some(producerTxn), None)
+        transactionService.rpc.Transaction(Some(producerTxn), None)
       }
 
       val lastTransactionID = new Key(keyStream.streamNameToLong, partition, long2Long(to)).toDatabaseEntry
@@ -215,7 +195,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
         case None =>
           cursor.close()
           transactionDB.commit()
-          ArrayBuffer[Transaction]()
+          ArrayBuffer[transactionService.rpc.Transaction]()
 
         case Some(producerTransactionKey) =>
           val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
@@ -242,7 +222,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     private val lockMode = LockMode.READ_UNCOMMITTED_ALL
 
     private def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionWithoutKey): Boolean = {
-//      println(producerTransactionWithoutKey.timestamp, timestampToDeleteTransactions)
       scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
     }
 
@@ -252,7 +231,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
     override def run(): Unit = {
       if (logger.isDebugEnabled) logger.debug(s"Cleaner of expired transactions is running.")
-      val transactionDB = transactionMetaEnvironment.beginTransaction(null, null)
+      val transactionDB = environment.beginTransaction(null, null)
       val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, null)
 
       def deleteTransactionIfExpired(cursor: Cursor): Boolean = {
@@ -264,7 +243,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
           val toDelete: Boolean = doesProducerTransactionExpired(producerTransactionWithoutKey)
           if (toDelete) {
             if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionWithoutKey as it's expired.")
-            producerTransactionsDatabase.put(transactionDB, keyFound, transitToInvalidState(producerTransactionWithoutKey).toDatabaseEntry)
+            val canceledTransactionDueExpiration = transitToInvalidState(producerTransactionWithoutKey)
+            producerTransactionsDatabase.put(transactionDB, keyFound, canceledTransactionDueExpiration.toDatabaseEntry)
+            openedTransactionsRamTable.put(Key.entryToObject(keyFound), canceledTransactionDueExpiration)
             cursor.delete()
             true
           } else true
@@ -293,6 +274,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   }
 
   def closeTransactionMetaEnvironment(): Unit = {
-    scala.util.Try(transactionMetaEnvironment.close())
+    scala.util.Try(environment.close())
   }
 }

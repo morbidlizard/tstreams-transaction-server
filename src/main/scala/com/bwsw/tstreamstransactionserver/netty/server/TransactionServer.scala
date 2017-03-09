@@ -6,23 +6,19 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.Tr
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
-
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.sleepycat.je.Environment
+import com.bwsw.tstreamstransactionserver.utils.FileUtils
+import com.sleepycat.je.{Durability, Environment, EnvironmentConfig}
 
 
 
 class TransactionServer(override val executionContext:ServerExecutionContext,
                         override val authOpts: AuthOptions,
                         override val storageOpts: StorageOptions,
-                        override val rocksStorageOpts: RocksStorageOptions)
-  extends TransactionDataServiceImpl
-    with TransactionMetaServiceImpl
-    with ConsumerServiceImpl
-    with StreamServiceImpl
+                        override val rocksStorageOpts: RocksStorageOptions
+                       )
+  extends HaveEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
 {
-
-  override val consumerEnvironment: Environment = transactionMetaEnvironment
   override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = setConsumerStates(consumerTransactions, parentBerkeleyTxn)
 
   def shutdown() = {

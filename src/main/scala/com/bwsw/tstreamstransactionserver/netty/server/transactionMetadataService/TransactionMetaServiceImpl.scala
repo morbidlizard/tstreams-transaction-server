@@ -169,8 +169,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
 
   def getBigCommit(timestamp: Long, pathToFile: String) = new BigCommit(timestamp, pathToFile)
 
-  def scanTransactions(token: Int, stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.Transaction]] =
-    authenticate(token) {
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.Transaction]] =
+    ScalaFuture {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val keyStream = getStreamFromOldestToNewest(stream).last
       val transactionDB = environment.beginTransaction(null, null)

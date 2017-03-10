@@ -2,12 +2,13 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.Message
-import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLogImpl
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
+import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
@@ -16,13 +17,15 @@ import scala.concurrent.ExecutionContextExecutorService
 
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts: BootstrapOptions,
              storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
-             rocksStorageOpts: RocksStorageOptions, packageTransmissionOpts: PackageTransmissionOptions,
-             serverHandler: (TransactionServer, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] = (server, packageTransmissionOpts, context, logger) => new ServerHandler(server, packageTransmissionOpts, context, logger)) {
+             rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
+             packageTransmissionOpts: PackageTransmissionOptions,
+             serverHandler: (TransactionServer, ScheduledCommitLogImpl, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
+             (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val transactionServerSocketAddress = createTransactionServerAddress()
 
-  val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
+  private val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
     new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
   zk.putSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2)
 
@@ -32,6 +35,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
 
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
+  private val journaledCommitLog = new ScheduledCommitLogImpl(transactionServer, commitLogOptions)
 
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
@@ -46,7 +50,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(serverHandler(transactionServer, packageTransmissionOpts, executionContext.context, logger)))
+        .childHandler(new ServerInitializer(serverHandler(transactionServer, journaledCommitLog, packageTransmissionOpts, executionContext.context, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
@@ -59,9 +63,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   }
 
   def shutdown() = {
-    zk.close()
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
+    zk.close()
+    journaledCommitLog.shutdown()
     transactionServer.shutdown()
   }
 }

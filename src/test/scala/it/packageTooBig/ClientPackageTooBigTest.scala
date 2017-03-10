@@ -2,7 +2,7 @@ package it.packageTooBig
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.exception.PackageTooBigException
+import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, PackageTransmissionOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}

@@ -3,8 +3,8 @@ package com.bwsw.tstreamstransactionserver.exception
 import java.net.SocketTimeoutException
 
 object Throwable {
-  val tokenInvalidExceptionMessage: String = "Token isn't valid."
-  class TokenInvalidException extends IllegalArgumentException(tokenInvalidExceptionMessage)
+  val TokenInvalidExceptionMessage: String = "Token isn't valid."
+  class TokenInvalidException extends IllegalArgumentException(TokenInvalidExceptionMessage)
 
   val serverConnectionExceptionMessage: String = "Can't connect to Server."
   class ServerConnectionException extends SocketTimeoutException(serverConnectionExceptionMessage)
@@ -25,13 +25,16 @@ object Throwable {
 
   class InvalidSocketAddress(message: String) extends IllegalArgumentException(message)
 
-  val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
+  val StreamDoesntNotExistMessage: String = "StreamWithoutKey doesn't exist in database!"
   class StreamDoesNotExist extends NoSuchElementException(StreamDoesntNotExistMessage)
 
+  val PackageTooBigExceptionMessagePart: String = "A size of client request is greater"
+  class PackageTooBigException(msg: String = "") extends Exception(msg)
 
-  def byText(text: String) : Throwable = text match {
-    case `tokenInvalidExceptionMessage` => new TokenInvalidException
-    case StreamDoesntNotExistMessage =>  new StreamDoesNotExist
+  def byText(text: String): Throwable = text match {
+    case TokenInvalidExceptionMessage => new TokenInvalidException
+    case StreamDoesntNotExistMessage => new StreamDoesNotExist
+    case message if message.contains(PackageTooBigExceptionMessagePart) => new PackageTooBigException(text)
     case _ => new Exception(text)
   }
 }

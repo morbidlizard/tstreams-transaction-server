@@ -3,8 +3,9 @@ namespace scala transactionService.rpc
 enum TransactionStates {
     Opened       = 1
     Updated      = 2
-    Invalid      = 3
-    Checkpointed = 4
+    Cancel       = 3
+    Invalid      = 4
+    Checkpointed = 5
 }
 
 typedef string StreamType

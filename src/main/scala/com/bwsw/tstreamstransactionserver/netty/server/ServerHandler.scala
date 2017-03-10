@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-
-import com.bwsw.tstreamstransactionserver.exception.PackageTooBigException
+import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLogImpl}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.PackageTransmissionOptions
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -11,7 +11,7 @@ import transactionService.rpc.{AuthInfo, TransactionService}
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
-class ServerHandler(transactionServer: TransactionServer, packageTransmissionOpts: PackageTransmissionOptions, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
+class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLogImpl, packageTransmissionOpts: PackageTransmissionOptions, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
   private val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
 
@@ -115,11 +115,10 @@ class ServerHandler(transactionServer: TransactionServer, packageTransmissionOpt
 
       case `putTransactionMethod` =>
         if (!isTooBigPackage) {
-          val args = Descriptors.PutTransaction.decodeRequest(message)
-          scala.concurrent.blocking(transactionServer.putTransaction(args.token, args.transaction))
-            .flatMap { response =>
+          ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message))
+            .flatMap { isOkay =>
               logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(response)))(messageSeqId))
+              ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isOkay)))(messageSeqId))
             }
             .recover { case error =>
               logUnsuccessfulProcessing(error)
@@ -132,11 +131,10 @@ class ServerHandler(transactionServer: TransactionServer, packageTransmissionOpt
 
       case `putTranscationsMethod` =>
         if (!isTooBigPackage) {
-          val args = Descriptors.PutTransactions.decodeRequest(message)
-          scala.concurrent.blocking(transactionServer.putTransactions(args.token, args.transactions))
-            .flatMap { response =>
+          ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))
+            .flatMap { isOkay =>
               logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(response)))(messageSeqId))
+              ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isOkay)))(messageSeqId))
             }
             .recover { case error =>
               logUnsuccessfulProcessing(error)
@@ -202,8 +200,7 @@ class ServerHandler(transactionServer: TransactionServer, packageTransmissionOpt
 
       case `setConsumerStateMethod` =>
         if (!isTooBigPackage) {
-          val args = Descriptors.SetConsumerState.decodeRequest(message)
-          transactionServer.setConsumerState(args.token, args.name, args.stream, args.partition, args.transaction)
+          ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
             .flatMap { response =>
               logSuccessfulProcession()
               ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(Some(response)))(messageSeqId))
@@ -216,7 +213,6 @@ class ServerHandler(transactionServer: TransactionServer, packageTransmissionOpt
           logUnsuccessfulProcessing(packageTooBigException)
           ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
         }
-
 
       case `getConsumerStateMethod` =>
         if (!isTooBigPackage) {

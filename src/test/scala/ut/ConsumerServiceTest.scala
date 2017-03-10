@@ -1,6 +1,7 @@
 package ut
 
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransaction, Key}
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionWithoutKey
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, Key}
 import org.scalatest.{FlatSpec, Matchers}
 
 class ConsumerServiceTest extends FlatSpec with Matchers {
@@ -20,13 +21,13 @@ class ConsumerServiceTest extends FlatSpec with Matchers {
   }
 
   "ConsumerTransaction" should "be serialized/deserialized" in {
-    val consumerTranasction = ConsumerTransaction(1L)
-    ConsumerTransaction.entryToObject(consumerTranasction.toDatabaseEntry) shouldBe consumerTranasction
+    val consumerTranasction = ConsumerTransactionWithoutKey(1L, Long.MaxValue)
+    ConsumerTransactionWithoutKey.entryToObject(consumerTranasction.toDatabaseEntry) shouldBe consumerTranasction
   }
 
   it should "be serialized/deserialized with negative transaction" in {
-    val consumerTranasction = ConsumerTransaction(1L)
-    ConsumerTransaction.entryToObject(consumerTranasction.toDatabaseEntry) shouldBe consumerTranasction
+    val consumerTranasction = ConsumerTransactionWithoutKey(1L, Long.MaxValue)
+    ConsumerTransactionWithoutKey.entryToObject(consumerTranasction.toDatabaseEntry) shouldBe consumerTranasction
   }
 
 }

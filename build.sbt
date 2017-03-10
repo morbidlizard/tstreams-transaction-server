@@ -55,7 +55,8 @@ parallelExecution in Test := false
 resolvers ++= Seq(
   "twitter-repo" at "https://maven.twttr.com",
   "Oracle Maven2 Repo" at "http://download.oracle.com/maven",
-  "Sonatype OSS" at "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+  "Sonatype OSS" at "https://oss.sonatype.org/service/local/staging/deploy/maven2",
+  "Sonatype snapshots OSS" at "https://oss.sonatype.org/content/repositories/snapshots"
 )
 
 libraryDependencies ++= Seq(
@@ -68,6 +69,8 @@ libraryDependencies ++= Seq(
   "org.scalactic" %% "scalactic" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "io.netty" % "netty-all" % "4.1.7.Final",
+
+  //  "com.bwsw" % "journaled-commit-log_2.12" % "1.0.0-SNAPSHOT",
 
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",
   "org.slf4j" % "slf4j-simple" % "1.7.24" % "provided",

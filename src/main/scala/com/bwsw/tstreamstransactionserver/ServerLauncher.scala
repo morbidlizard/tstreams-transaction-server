@@ -16,6 +16,7 @@ object ServerLauncher {
       .withServerRocksStorageOptions(optionsLoader.getServerRocksStorageOptions())
       .withZookeeperOptions(optionsLoader.getZookeeperOptions())
       .withPackageTransmissionOptions(optionsLoader.getPackageTransmissionOptions())
+      .withCommitLogOptions(optionsLoader.getCommitLogOptions())
       .build()
 
     server.start()

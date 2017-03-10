@@ -4,7 +4,7 @@ import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
 import Key.objectToEntry
 
-case class Key(stream: java.lang.Long, partition: java.lang.Integer, transactionID: java.lang.Long) {
+case class Key(stream: Long, partition: Int, transactionID: Long) {
   def toDatabaseEntry: DatabaseEntry = {
     val databaseEntry = new DatabaseEntry()
     objectToEntry(this, databaseEntry)
@@ -18,13 +18,13 @@ object Key extends TupleBinding[Key] {
     val stream = input.readLong()
     val partition = input.readInt()
     val transactionID = input.readLong()
-    Key(long2Long(stream), int2Integer(partition), long2Long(transactionID))
+    Key(stream, partition, transactionID)
   }
 
   override def objectToEntry(key: Key, output: TupleOutput): Unit = {
-    output.writeLong(Long2long(key.stream))
-    output.writeInt(Integer2int(key.partition))
-    output.writeLong(Long2long(key.transactionID))
+    output.writeLong(key.stream)
+    output.writeInt(key.partition)
+    output.writeLong(key.transactionID)
   }
 }
 

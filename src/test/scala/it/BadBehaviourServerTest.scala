@@ -19,7 +19,7 @@ import org.slf4j.Logger
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.concurrent.duration._
 
-class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class BadBehaviourServerTest extends FlatSpec with Matchers {
   private val rand = scala.util.Random
   private def getRandomStream = new transactionService.rpc.Stream {
     override val name: String = rand.nextInt(10000).toString

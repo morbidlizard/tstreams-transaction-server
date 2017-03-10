@@ -6,18 +6,18 @@ import java.util.concurrent.{Executors, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
-import com.bwsw.tstreamstransactionserver.exception.Throwable
+import com.bwsw.tstreamstransactionserver.exception.{PackageTooBigException, Throwable}
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext}
-import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
+import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressClass, ZKLeaderClientToGetMaster}
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import io.netty.channel._
+import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 import org.apache.curator.retry.RetryForever
@@ -169,6 +169,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
       val message = descriptor.encodeRequest(request)(messageId)
+      validateMessageSize(message)
       reqIdToRep.put(messageId, promise)
       channel.writeAndFlush(message.toByteArray)
       promise.future.map { response =>
@@ -181,6 +182,14 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     } else ScalaFuture.failed(new ServerUnreachableException)
   }
 
+  private def validateMessageSize(message: Message) = {
+    if (maxMetadataPackageSize != -1 && maxDataPackageSize != -1) {
+      if (message.length > maxMetadataPackageSize || message.length > maxDataPackageSize) {
+        throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
+          s"than maxMetadataPackageSize ($maxMetadataPackageSize) or maxDataPackageSize ($maxDataPackageSize).")
+      }
+    }
+  }
 
   private def retry[Req, Rep](f: => ScalaFuture[Rep])(previousException: Throwable, retryCount: Int): ScalaFuture[Rep] = {
     def helper(throwable: Throwable, retryCount: Int): ScalaFuture[Rep] = {
@@ -191,7 +200,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
           tryCompleteRequest(f)
       } else {
         if (throwable.getClass equals classOf[RequestTimeoutException]) {
-
           resetBarrier {
             channel.close().sync()
             reconnect()
@@ -260,6 +268,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
   private final def onRequestTimeoutDefaultBehaviour(): Unit = {
+    if (logger.isWarnEnabled)
+      logger.warn(Throwable.requestTimeoutExceptionMessage)
     TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     onRequestTimeout()
   }
@@ -272,8 +282,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
 
   @volatile private var token: Int = _
-  @volatile private var maxMetadataPackageSize: Int = _
-  @volatile private var maxDataPackageSize: Int = _
+  @volatile private var maxMetadataPackageSize: Int = -1
+  @volatile private var maxDataPackageSize: Int = -1
 
   /** Putting a stream on a server by primitive type parameters.
     *

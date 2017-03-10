@@ -1,6 +1,5 @@
 package com.bwsw.tstreamstransactionserver.exception
 
-import java.io.FileNotFoundException
 import java.net.SocketTimeoutException
 
 object Throwable {
@@ -13,6 +12,7 @@ object Throwable {
   val serverUnreachableExceptionMessage: String = "Server is unreachable."
   class ServerUnreachableException extends SocketTimeoutException(serverUnreachableExceptionMessage)
 
+  val requestTimeoutExceptionMessage: String = "Request exceeds timeout."
   class RequestTimeoutException(reqId: Int, ttl: Long) extends Exception(s"Request $reqId exceeds $ttl ms.")
 
   val zkGetMasterExceptionMessage: String = "Can't get master from ZooKeeper."

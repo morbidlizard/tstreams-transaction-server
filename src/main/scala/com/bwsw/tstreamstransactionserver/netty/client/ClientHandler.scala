@@ -21,7 +21,7 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
       val request = reqIdToRep.getIfPresent(messageSeqId)
       if (request != null) request.success(response)
       else ()
-//        retryCompletePromise(messageSeqId, response)
+      //retryCompletePromise(messageSeqId, response)
     }
 
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
@@ -71,6 +71,7 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
       }
       retryCompletePromise(messageSeqId, response)
     }
+
     invokeMethod(msg)
   }
 

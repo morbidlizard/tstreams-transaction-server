@@ -24,8 +24,8 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
     environment.openDatabase(null, storageOpts.consumerStorageName, dbConfig)
   }
 
-  def getConsumerState(token: Int, name: String, stream: String, partition: Int): ScalaFuture[Long] =
-    authenticate(token) {
+  def getConsumerState(name: String, stream: String, partition: Int): ScalaFuture[Long] =
+    ScalaFuture {
       val transactionDB = environment.beginTransaction(null, null)
       val streamNameToLong = getStreamFromOldestToNewest(stream).last.streamNameToLong
       val keyEntry = Key(name, streamNameToLong, partition).toDatabaseEntry

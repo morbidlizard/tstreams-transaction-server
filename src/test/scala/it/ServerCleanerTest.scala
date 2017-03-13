@@ -75,7 +75,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
     def ttlSec = rand.nextInt(maxTTLForProducerTransactionSec)
 
     val stream = getRandomStream
-    Await.ready(transactionService.putStream(token, stream.name, stream.partitions, stream.description, stream.ttl), secondsAwait.seconds)
+    Await.ready(transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsAwait.seconds)
 
     val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] = Array.fill(producerTxnNumber){
       val producerTransaction = getRandomProducerTransaction(stream, ttlSec)
@@ -98,7 +98,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
       Transaction(Some(invalidTransaction), None)
     }
 
-    Await.result(transactionService.scanTransactions(token, stream.name, stream.partitions, minTransactionID, maxTransactionID), secondsAwait.seconds) should contain theSameElementsAs expiredTransactions
+    Await.result(transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID), secondsAwait.seconds) should contain theSameElementsAs expiredTransactions
 
     (minTransactionID to maxTransactionID) foreach { transactionID =>
       transactionService.checkTransactionExistInOpenedTable(stream.name, stream.partitions, transactionID) shouldBe false

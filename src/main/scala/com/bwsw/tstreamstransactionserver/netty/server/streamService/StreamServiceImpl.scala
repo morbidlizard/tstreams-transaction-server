@@ -82,8 +82,8 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }
 
 
-  override def putStream(token: Int, stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] =
-    authenticate(token) {
+  override def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] =
+    ScalaFuture {
       val transactionDB = environment.beginTransaction(null, new TransactionConfig())
 
       val newStream = StreamWithoutKey(stream, partitions, description, ttl, System.currentTimeMillis(), deleted = false)
@@ -107,17 +107,17 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       }
     }(executionContext.berkeleyWriteContext)
 
-  override def checkStreamExists(token: Int, stream: String): ScalaFuture[Boolean] =
-    authenticate(token)(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)(executionContext.berkeleyReadContext)
+  override def checkStreamExists(stream: String): ScalaFuture[Boolean] =
+    ScalaFuture(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)(executionContext.berkeleyReadContext)
 
-  override def getStream(token: Int, stream: String): ScalaFuture[transactionService.rpc.Stream] =
-    authenticate(token){
+  override def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] =
+    ScalaFuture{
       val mostRecentStream = getStreamFromOldestToNewest(stream).last.stream
       if (mostRecentStream.deleted) throw new StreamDoesNotExist else mostRecentStream
     }(executionContext.berkeleyReadContext)
 
-  override def delStream(token: Int, stream: String): ScalaFuture[Boolean] =
-    authenticate(token) {
+  override def delStream(stream: String): ScalaFuture[Boolean] =
+    ScalaFuture{
       scala.util.Try(getStreamFromOldestToNewest(stream)) match {
         case scala.util.Success(streamObjects) =>
           val transactionDB = environment.beginTransaction(null, new TransactionConfig())

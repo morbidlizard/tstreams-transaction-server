@@ -20,7 +20,7 @@ import org.scalatest.{FlatSpec, Matchers}
 class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
   "Client" should "not connect to zookeeper server that isn't running" in {
-    val clientBuilder = new ClientBuilder().withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888"))
+    val clientBuilder = new ClientBuilder().withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888", connectionTimeoutMs = 2000))
     assertThrows[ZkNoConnectionException] {
       clientBuilder.build()
     }
@@ -178,6 +178,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     server.shutdown()
     startTransactionServer(host, newPort)
 
+
     Thread.sleep(1000)
     val newSocketAddress = client.currentConnectionSocketAddress()
 
@@ -190,7 +191,8 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
 
   "Server" should "not connect to zookeeper server that isn't running" in {
-    val serverBuilder = new ServerBuilder().withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888"))
+    val serverBuilder = new ServerBuilder()
+      .withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888", connectionTimeoutMs = 2000))
     assertThrows[ZkNoConnectionException] {
       serverBuilder.build()
     }

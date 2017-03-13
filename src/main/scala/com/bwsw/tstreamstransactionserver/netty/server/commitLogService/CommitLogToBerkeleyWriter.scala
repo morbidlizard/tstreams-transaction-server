@@ -3,7 +3,6 @@ package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.filesystem.{CommitLogFile, CommitLogFileIterator}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToBerkeleyWriter.Token
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
 import org.slf4j.LoggerFactory
@@ -59,13 +58,13 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
     }
   }
 
-  private def readRecordsFromCommitLogFile(iter: CommitLogFileIterator, recordsToReadNumber: Int): (ArrayBuffer[(Token, Seq[(Transaction, Long)])], CommitLogFileIterator) = {
-    val buffer = ArrayBuffer[(CommitLogToBerkeleyWriter.Token, Seq[(Transaction, Long)])]()
+  private def readRecordsFromCommitLogFile(iter: CommitLogFileIterator, recordsToReadNumber: Int): (ArrayBuffer[(Transaction, Long)], CommitLogFileIterator) = {
+    val buffer = ArrayBuffer[(Transaction, Long)]()
     var recordsToRead = recordsToReadNumber
     while (iter.hasNext() && recordsToRead > 0) {
       val record = iter.next()
       val (messageType, message) = record.splitAt(1)
-      buffer += CommitLogToBerkeleyWriter.retrieveTransactions(messageType.head, MessageWithTimestamp.fromByteArray(message))
+      buffer ++= CommitLogToBerkeleyWriter.retrieveTransactions(messageType.head, MessageWithTimestamp.fromByteArray(message))
       recordsToRead = recordsToRead - 1
     }
     (buffer, iter)
@@ -79,8 +78,6 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
     def helper(iterator: CommitLogFileIterator): Boolean = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
       val transactionsFromValidClients = records
-        .withFilter(transactionTTLWithToken => transactionServer.isValid(transactionTTLWithToken._1))
-        .flatMap(x => x._2)
 
       bigCommit.putSomeTransactions(transactionsFromValidClients)
 
@@ -123,7 +120,6 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
 }
 
 object CommitLogToBerkeleyWriter {
-  type Token = Int
   val putTransactionType: Byte = 1
   val putTransactionsType: Byte = 2
   val setConsumerStateType: Byte = 3
@@ -134,16 +130,16 @@ object CommitLogToBerkeleyWriter {
 
   private def deserializeSetConsumerState(message: Message) = Descriptors.SetConsumerState.decodeRequest(message)
 
-  private def retrieveTransactions(messageType: Byte, messageWithTimestamp: MessageWithTimestamp): (Token, Seq[(Transaction, Long)]) = messageType match {
+  private def retrieveTransactions(messageType: Byte, messageWithTimestamp: MessageWithTimestamp): Seq[(Transaction, Long)] = messageType match {
     case `putTransactionType` =>
       val txn = deserializePutTransaction(messageWithTimestamp.message)
-      (txn.token, Seq((txn.transaction, messageWithTimestamp.timestamp)))
+      Seq((txn.transaction, messageWithTimestamp.timestamp))
     case `putTransactionsType` =>
       val txns = deserializePutTransactions(messageWithTimestamp.message)
-      (txns.token, txns.transactions.map(txn => (txn, messageWithTimestamp.timestamp)))
+      txns.transactions.map(txn => (txn, messageWithTimestamp.timestamp))
     case `setConsumerStateType` =>
       val args = deserializeSetConsumerState(messageWithTimestamp.message)
       val consumerTransaction = transactionService.rpc.ConsumerTransaction(args.stream, args.partition, args.transaction, args.name)
-      (args.token, Seq((Transaction(None, Some(consumerTransaction)), messageWithTimestamp.timestamp)))
+      Seq((Transaction(None, Some(consumerTransaction)), messageWithTimestamp.timestamp))
   }
 }

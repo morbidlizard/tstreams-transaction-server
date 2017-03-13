@@ -42,193 +42,250 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     def logUnsuccessfulProcessing(error: Throwable) = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is failed while processing!", error)
 
     if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is invoked.")
+
+    implicit val (messageId, token) = (messageSeqId, message.token)
     method match {
       case `putStreamMethod` =>
-        if (!isTooBigPackage) {
-          val args = Descriptors.PutStream.decodeRequest(message)
-          transactionServer.putStream(args.token, args.stream, args.partitions, args.description, args.ttl)
-            .flatMap {
-              logSuccessfulProcession()
-              response => ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.PutStream.decodeRequest(message)
+            transactionServer.putStream(args.stream, args.partitions, args.description, args.ttl)
+              .flatMap {
+                logSuccessfulProcession()
+                response => ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageId, message.token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
 
       case `doesStreamExistMethod` =>
-        if (!isTooBigPackage) {
-          val args = Descriptors.CheckStreamExists.decodeRequest(message)
-          transactionServer.checkStreamExists(args.token, args.stream)
-            .flatMap { response =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.CheckStreamExists.decodeRequest(message)
+            transactionServer.checkStreamExists(args.stream)
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
 
       case `getStreamMethod` =>
-        if (!isTooBigPackage) {
-          val args = Descriptors.GetStream.decodeRequest(message)
-          transactionServer.getStream(args.token, args.stream)
-            .flatMap { response =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.GetStream.decodeRequest(message)
+            transactionServer.getStream(args.stream)
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `delStreamMethod` =>
-        if (!isTooBigPackage) {
-          val args = Descriptors.DelStream.decodeRequest(message)
-          transactionServer.delStream(args.token, args.stream)
-            .flatMap { response =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.DelStream.decodeRequest(message)
+            transactionServer.delStream(args.stream)
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `putTransactionMethod` =>
-        if (!isTooBigPackage) {
-          ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message))
-            .flatMap { isOkay =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isOkay)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message))
+              .flatMap { isOkay =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isOkay)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `putTranscationsMethod` =>
-        if (!isTooBigPackage) {
-          ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))
-            .flatMap { isOkay =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isOkay)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))
+              .flatMap { isOkay =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isOkay)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `scanTransactionsMethod` =>
-        if (!isTooBigPackage) {
-          val args = Descriptors.ScanTransactions.decodeRequest(message)
-          transactionServer.scanTransactions(args.token, args.stream, args.partition, args.from, args.to)
-            .flatMap { response =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.ScanTransactions.decodeRequest(message)
+            transactionServer.scanTransactions(args.stream, args.partition, args.from, args.to)
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `putTransactionDataMethod` =>
-        if (!isTooBigPackage) {
-          val args = Descriptors.PutTransactionData.decodeRequest(message)
-          transactionServer.putTransactionData(args.token, args.stream, args.partition, args.transaction, args.data, args.from)
-            .flatMap { response =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.PutTransactionData.decodeRequest(message)
+            transactionServer.putTransactionData(args.stream, args.partition, args.transaction, args.data, args.from)
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId ,token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
 
       case `getTransactionDataMethod` =>
-        if (!isTooBigPackage) {
-          val args = Descriptors.GetTransactionData.decodeRequest(message)
-          transactionServer.getTransactionData(args.token, args.stream, args.partition, args.transaction, args.from, args.to)
-            .flatMap { response =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.GetTransactionData.decodeRequest(message)
+            transactionServer.getTransactionData(args.stream, args.partition, args.transaction, args.from, args.to)
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
 
       case `setConsumerStateMethod` =>
-        if (!isTooBigPackage) {
-          ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
-            .flatMap { response =>
-              logSuccessfulProcession()
-              ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `getConsumerStateMethod` =>
-        if (!isTooBigPackage) {
-          val args = Descriptors.GetConsumerState.decodeRequest(message)
-          transactionServer.getConsumerState(args.token, args.name, args.stream, args.partition)
-            .flatMap {
-              logSuccessfulProcession()
-              response => ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(response)))(messageSeqId))
-            }
-            .recover { case error =>
-              logUnsuccessfulProcessing(error)
-              Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageSeqId)
-            }
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.GetConsumerState.decodeRequest(message)
+            transactionServer.getConsumerState(args.name, args.stream, args.partition)
+              .flatMap {
+                logSuccessfulProcession()
+                response => ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
         } else {
-          logUnsuccessfulProcessing(packageTooBigException)
-          ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageSeqId))
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `authenticateMethod` =>
@@ -236,13 +293,13 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         val response = transactionServer.authenticate(args.authKey)
         val authInfo = AuthInfo(response, packageTransmissionOpts.maxMetadataPackageSize, packageTransmissionOpts.maxDataPackageSize)
         logSuccessfulProcession()
-        ScalaFuture.successful(Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(authInfo)))(messageSeqId))
+        ScalaFuture.successful(Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(authInfo)))(messageId, token))
 
       case `isValidMethod` =>
         val args = Descriptors.IsValid.decodeRequest(message)
         val response = transactionServer.isValid(args.token)
         logSuccessfulProcession()
-        ScalaFuture.successful(Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(response)))(messageSeqId))
+        ScalaFuture.successful(Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(response)))(messageId, token))
     }
   }
 }

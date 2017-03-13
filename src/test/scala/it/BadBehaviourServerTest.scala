@@ -13,13 +13,14 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.{PackageTransmis
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
-import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.slf4j.Logger
 
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.concurrent.duration._
 
-class BadBehaviourServerTest extends FlatSpec with Matchers {
+class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterAll {
+
   private val rand = scala.util.Random
 
   private def getRandomStream = new transactionService.rpc.Stream {
@@ -29,7 +30,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers {
     override val ttl: Long = Long.MaxValue
   }
 
-  private val zkTestServer = new TestingServer(true)
+  private val zkTestServer = new TestingServer(false)
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
   private val zookeeperOptions = ZookeeperOptions(endpoints = zkTestServer.getConnectString)
   private val bootstrapOptions = BootstrapOptions()
@@ -63,6 +64,15 @@ class BadBehaviourServerTest extends FlatSpec with Matchers {
 
 
   private val secondsWait = 5
+
+
+  override def beforeAll(): Unit = {
+    zkTestServer.start()
+  }
+
+  override def afterAll(): Unit = {
+    zkTestServer.close()
+  }
 
   "Client" should "send request with such ttl that it will never converge to a stable state due to the pipeline." in {
     startTransactionServer()

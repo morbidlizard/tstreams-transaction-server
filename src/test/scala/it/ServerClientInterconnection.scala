@@ -127,6 +127,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Thread.sleep(5000)
     val result = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds)
 
+    println(result)
     result shouldBe empty
 
   }

@@ -1,8 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
+import com.google.common.cache.Cache
 import com.sleepycat.je._
 
 trait LastTransactionStreamPartition {
@@ -18,40 +19,53 @@ trait LastTransactionStreamPartition {
     environment.openDatabase(null, storeName, dbConfig)
   }
 
-  private final def fillLasTTransactionStreamPartitionTable: ConcurrentHashMap[Key, TransactionID] = {
-    val cache = new java.util.concurrent.ConcurrentHashMap[Key, TransactionID]()
+  private final def fillLastTransactionStreamPartitionTable: Cache[KeyStreamPartition, TransactionID] = {
+    val hoursToLive = 1
+    val cache = com.google.common.cache.CacheBuilder.newBuilder()
+      .expireAfterAccess(hoursToLive, TimeUnit.HOURS)
+      .build[KeyStreamPartition, TransactionID]()
 
     val keyFound = new DatabaseEntry()
     val dataFound = new DatabaseEntry()
 
     val cursor = lastTransactionDatabase.openCursor(new DiskOrderedCursorConfig())
     while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
-      cache.put(Key.entryToObject(keyFound), TransactionID.entryToObject(dataFound))
+      cache.put(KeyStreamPartition.entryToObject(keyFound), TransactionID.entryToObject(dataFound))
     }
     cursor.close()
 
     cache
   }
 
-  private final val lasTTransactionStreamPartitionRamTable = fillLasTTransactionStreamPartitionTable
+  private final val lastTransactionStreamPartitionRamTable = fillLastTransactionStreamPartitionTable
 
-  final def isThatTransactionOutOfOrder(key: Key, transactionThatId: Long, transaction: Transaction) = {
-    def updateRamTableAndDatabase() = {
-      val updatedTransactionID = new TransactionID(transactionThatId)
-      lastTransactionDatabase.put(transaction, key.toDatabaseEntry, updatedTransactionID.toDatabaseEntry)
-      lasTTransactionStreamPartitionRamTable.put(key, updatedTransactionID)
-    }
-
-    if (lasTTransactionStreamPartitionRamTable.contains(key))
-      if (lasTTransactionStreamPartitionRamTable.get(key).transaction <= transactionThatId) {
-        updateRamTableAndDatabase()
-        false
-      } else {
-        true
-      }
+  final def getLastTransactionID(stream: Long, partition: Int): Option[Long] = {
+    val key = KeyStreamPartition(stream, partition)
+    val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
+    if (lastTransactionOpt.isDefined) Some(lastTransactionOpt.get.transaction)
     else {
-      updateRamTableAndDatabase()
-      false
+      val dataFound = new DatabaseEntry()
+      if (lastTransactionDatabase.get(null, key.toDatabaseEntry, dataFound, null) == OperationStatus.SUCCESS)
+        Some(TransactionID.entryToObject(dataFound).transaction)
+      else
+        None
+    }
+  }
+
+  final def putLastTransaction(key: KeyStreamPartition, transactionId: Long, transaction: Transaction) = {
+    val updatedTransactionID = new TransactionID(transactionId)
+    lastTransactionDatabase.put(transaction, key.toDatabaseEntry, updatedTransactionID.toDatabaseEntry)
+  }
+
+  final def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transactionId: Long) = {
+    lastTransactionStreamPartitionRamTable.put(key, new TransactionID(transactionId))
+  }
+
+  final def isThatTransactionOutOfOrder(key: KeyStreamPartition, transactionThatId: Long) = {
+    val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
+    lastTransactionOpt match {
+      case Some(transactionId) => if (transactionId.transaction <= transactionThatId) false else true
+      case None => false
     }
   }
 }

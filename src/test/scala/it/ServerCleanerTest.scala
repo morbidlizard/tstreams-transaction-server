@@ -70,8 +70,6 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
       }
     }
 
-    val token = transactionService.authenticate(authOptions.key)
-
     def ttlSec = rand.nextInt(maxTTLForProducerTransactionSec)
 
     val stream = getRandomStream

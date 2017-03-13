@@ -20,6 +20,7 @@ import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorServic
 import scala.concurrent.duration._
 
 class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterAll {
+
   private val rand = scala.util.Random
 
   private def getRandomStream = new transactionService.rpc.Stream {

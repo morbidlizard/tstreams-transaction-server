@@ -178,7 +178,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     if (channel != null && channel.isActive) {
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
-      val message = descriptor.encodeRequest(request)(messageId)
+      val message = descriptor.encodeRequest(request)(messageId, token)
       validateMessageSize(message)
       reqIdToRep.put(messageId, promise)
       channel.writeAndFlush(message.toByteArray)
@@ -309,7 +309,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.PutStream,
-        TransactionService.PutStream.Args(token, stream, partitions, description, ttl)
+        TransactionService.PutStream.Args(stream, partitions, description, ttl)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -327,7 +327,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.PutStream,
-        TransactionService.PutStream.Args(token, stream.name, stream.partitions, stream.description, stream.ttl)
+        TransactionService.PutStream.Args(stream.name, stream.partitions, stream.description, stream.ttl)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -344,7 +344,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.DelStream,
-        TransactionService.DelStream.Args(token, stream)
+        TransactionService.DelStream.Args(stream)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -361,7 +361,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.DelStream,
-        TransactionService.DelStream.Args(token, stream.name)
+        TransactionService.DelStream.Args(stream.name)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -378,7 +378,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.GetStream,
-        TransactionService.GetStream.Args(token, stream)
+        TransactionService.GetStream.Args(stream)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -396,7 +396,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.CheckStreamExists,
-        TransactionService.CheckStreamExists.Args(token, stream)
+        TransactionService.CheckStreamExists.Args(stream)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -423,7 +423,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.PutTransactions,
-        TransactionService.PutTransactions.Args(token, transactions)
+        TransactionService.PutTransactions.Args(transactions)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -439,11 +439,11 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     implicit val context = futurePool.getContext
     if (logger.isInfoEnabled) logger.info(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
-    TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
+    TransactionService.PutTransaction.Args(Transaction(Some(transaction), None))
     tryCompleteRequest(
       method(
         Descriptors.PutTransaction,
-        TransactionService.PutTransaction.Args(token, Transaction(Some(transaction), None))
+        TransactionService.PutTransaction.Args(Transaction(Some(transaction), None))
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -463,7 +463,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.PutTransaction,
-        TransactionService.PutTransaction.Args(token, Transaction(None, Some(transaction)))
+        TransactionService.PutTransaction.Args(Transaction(None, Some(transaction)))
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -487,7 +487,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       tryCompleteRequest(
         method(
           Descriptors.ScanTransactions,
-          TransactionService.ScanTransactions.Args(token, stream, partition, from, to)
+          TransactionService.ScanTransactions.Args(stream, partition, from, to)
         ).flatMap(x =>
           if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message))
           else ScalaFuture.successful(x.success.get.withFilter(_.consumerTransaction.isEmpty).map(_.producerTransaction.get))
@@ -513,7 +513,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.PutTransactionData,
-        TransactionService.PutTransactionData.Args(token, stream, partition, transaction, data, from)
+        TransactionService.PutTransactionData.Args(stream, partition, transaction, data, from)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -532,7 +532,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       tryCompleteRequest(
         method(
           Descriptors.PutTransactionData,
-          TransactionService.PutTransactionData.Args(token, producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, data, from)
+          TransactionService.PutTransactionData.Args(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, data, from)
         ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
       )
     }
@@ -559,7 +559,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       tryCompleteRequest(
         method(
           Descriptors.GetTransactionData,
-          TransactionService.GetTransactionData.Args(token, stream, partition, transaction, from, to)
+          TransactionService.GetTransactionData.Args(stream, partition, transaction, from, to)
         ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(byteBuffersToSeqArrayByte(x.success.get)))
       )
     }
@@ -579,7 +579,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.SetConsumerState,
-        TransactionService.SetConsumerState.Args(token, consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID)
+        TransactionService.SetConsumerState.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool.getContext)
     )
   }
@@ -599,7 +599,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     tryCompleteRequest(
       method(
         Descriptors.GetConsumerState,
-        TransactionService.GetConsumerState.Args(token, name, stream, partition)
+        TransactionService.GetConsumerState.Args(name, stream, partition)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }

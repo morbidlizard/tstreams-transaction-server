@@ -38,7 +38,7 @@ object Descriptors {
       *
       *
       */
-    private def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Int): Message = {
+    private def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Int, token: Int): Message = {
       val buffer = new TMemoryBuffer(512)
       val oprot = protocol.getProtocol(buffer)
 
@@ -46,14 +46,14 @@ object Descriptors {
       entity.write(oprot)
       oprot.writeMessageEnd()
       val bytes = util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-      Message(bytes.length, getProtocolID(protocol), bytes)
+      Message(bytes.length, getProtocolID(protocol), bytes, token)
     }
 
     /** A method for serializing request and adding an id to id. */
-    def encodeRequest(entity: T)(messageId: Int): Message = encode(entity, protocolReq, messageId)
+    def encodeRequest(entity: T)(messageId: Int, token: Int): Message = encode(entity, protocolReq, messageId, token)
 
     /** A method for serializing response and adding an id to id. */
-    def encodeResponse(entity: R)(messageId: Int): Message = encode(entity, protocolRep, messageId)
+    def encodeResponse(entity: R)(messageId: Int, token: Int): Message = encode(entity, protocolRep, messageId, token)
 
 
     /** A method for deserialization request.

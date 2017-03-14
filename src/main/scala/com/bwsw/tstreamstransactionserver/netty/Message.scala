@@ -9,13 +9,14 @@ package com.bwsw.tstreamstransactionserver.netty
   *  @param body a binary representation of information.
   *
   */
-case class Message(length: Int, protocol: Byte, body: Array[Byte])
+case class Message(length: Int, protocol: Byte, body: Array[Byte], token: Int)
 {
   /** Serializes a message. */
   def toByteArray: Array[Byte] = java.nio.ByteBuffer
     .allocate(Message.headerSize + body.length)
     .putInt(length)
     .put(protocol)
+    .putInt(token)
     .put(body)
     .array()
 
@@ -23,18 +24,19 @@ case class Message(length: Int, protocol: Byte, body: Array[Byte])
 }
 object Message {
   /** The size of sum of length and protocol fields. */
-  val headerSize: Byte = 5
+  val headerSize: Byte = 9
   /** Deserializes a binary to message. */
   def fromByteArray(bytes: Array[Byte]): Message = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
     val length = buffer.getInt
     val protocol = buffer.get
+    val token = buffer.getInt
     val message = {
       val bytes = new Array[Byte](buffer.limit() - headerSize)
       buffer.get(bytes)
       bytes
     }
-    Message(length, protocol, message)
+    Message(length, protocol, message, token)
   }
 }
 

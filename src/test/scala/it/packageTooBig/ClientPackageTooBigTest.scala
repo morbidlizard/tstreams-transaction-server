@@ -13,8 +13,8 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 class ClientPackageTooBigTest extends FlatSpec with Matchers {
+  private val zkTestServer = new TestingServer(true)
   "Client" should "not allow to transmit amount of data that is greater than maxMetadataPackageSize or maxDataPackageSize (throw PackageTooBigException)" in {
-    val zkTestServer = new TestingServer(true)
     val packageTransmissionOptions = PackageTransmissionOptions()
 
     val server = new ServerBuilder().withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
@@ -25,13 +25,16 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
       server.start()
     }).start()
 
+    //It's needed to wait for a server bootstrap.
+    Thread.sleep(1000)
+
     val client = new ClientBuilder()
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
 
-    Await.result(client.putStream("Message to authenticate and get the package transmission options from server", 1, Some("No description"), 1), Duration(1, TimeUnit.SECONDS))
+    Await.result(client.putStream("Message to authenticate and get the package transmission options from server", 1, Some("No description"), 1), Duration(5, TimeUnit.SECONDS))
 
     assertThrows[PackageTooBigException] {
-      Await.result(client.putStream("Too big message", 1, Some(new String(new Array[Byte](packageTransmissionOptions.maxDataPackageSize))), 1), Duration(1, TimeUnit.SECONDS))
+      Await.result(client.putStream("Too big message", 1, Some(new String(new Array[Byte](packageTransmissionOptions.maxDataPackageSize))), 1), Duration(5, TimeUnit.SECONDS))
     }
 
     zkTestServer.close()

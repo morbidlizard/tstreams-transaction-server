@@ -90,7 +90,7 @@ class CommitLogQueueBootstrap(queueSize: Int) {
 
   ////code from ScheduledCommitLogImpl
   def getProcessedCommitLogFiles = {
-    val directory: File = _ //FileUtils.createDirectory(transactionServer.storageOpts.metadataDirectory, transactionServer.storageOpts.path)
+    val directory: File = null //FileUtils.createDirectory(transactionServer.storageOpts.metadataDirectory, transactionServer.storageOpts.path)
     val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
     val transactionMetaEnvironment = {
       val environmentConfig = new EnvironmentConfig()

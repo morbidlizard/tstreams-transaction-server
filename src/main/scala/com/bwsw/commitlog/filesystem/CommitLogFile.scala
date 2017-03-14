@@ -37,7 +37,7 @@ class CommitLogFile(path: String) {
   private val chunkSize = 100000
 
   /** Returns calculated MD5 of this file. */
-  def calculateMD5(): String = {
+  def calculateMD5(): Array[Byte] = {
     val fileInputStream = new FileInputStream(file)
     val stream = new BufferedInputStream(fileInputStream)
 
@@ -52,18 +52,24 @@ class CommitLogFile(path: String) {
     stream.close()
     fileInputStream.close()
 
-    new BigInteger(1, md5.digest()).toString(16)
+    new BigInteger(1, md5.digest()).toByteArray
   }
 
   /** Returns a MD5 sum from MD5 FIle */
-  private def getContentOfMD5File = Source.fromFile(md5File).getLines.mkString
+  private def getContentOfMD5File = {
+    val fileInputStream = new FileInputStream(md5File)
+    val md5Sum = new  Array[Byte](17)
+    fileInputStream.read(md5Sum)
+    fileInputStream.close()
+    md5Sum
+  }
 
 
   /** Returns existing MD5 of this file. Throws an exception otherwise. */
-  def getMD5(): String = if (!md5Exists()) throw new FileNotFoundException("No MD5 file for " + path) else getContentOfMD5File
+  def getMD5(): Array[Byte] = if (!md5Exists()) throw new FileNotFoundException("No MD5 file for " + path) else getContentOfMD5File
 
   /** Checks md5 sum of file with existing md5 sum. Throws an exception when no MD5 exists. */
-  def checkMD5(): Boolean = getMD5 == calculateMD5()
+  def checkMD5(): Boolean = getMD5 sameElements calculateMD5()
 
   /** Returns true if md5-file exists. */
   def md5Exists(): Boolean = md5File.exists()

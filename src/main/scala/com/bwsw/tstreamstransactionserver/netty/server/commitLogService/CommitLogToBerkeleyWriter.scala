@@ -70,7 +70,7 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
   @throws[Exception]
   private def processCommitLogFile(file: CommitLogFile): Boolean = {
     val recordsToReadNumber = 1
-    lazy val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
+    val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
 
     @tailrec
     def helper(iterator: CommitLogFileIterator): Boolean = {

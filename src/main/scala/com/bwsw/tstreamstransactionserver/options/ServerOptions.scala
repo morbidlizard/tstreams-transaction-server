@@ -44,6 +44,6 @@ object ServerOptions {
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
-                              maxIdleTimeBetweenRecords: Int = 60)
+                              maxIdleTimeBetweenRecords: Int = 2)
 }
 

@@ -1,6 +1,7 @@
 package it
 
 import java.io.File
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.LongAdder
 
 import com.bwsw.tstreamstransactionserver.netty.client.Client
@@ -8,6 +9,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.ClientOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
@@ -30,8 +32,12 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val storageOptions = serverBuilder.getStorageOptions()
   private val authOptions = clientBuilder.getAuthOptions()
 
+  private val maxIdleTimeBeetwenRecords = 2
   def startTransactionServer() = new Thread(() => {
-    transactionServer = serverBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
+    transactionServer = serverBuilder
+      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+      .withCommitLogOptions(CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBeetwenRecords))
+      .build()
     transactionServer.start()
   }).start()
 
@@ -127,7 +133,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Thread.sleep(5000)
     val result = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds)
 
-    println(result)
     result shouldBe empty
 
   }
@@ -195,10 +200,12 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
     )
 
-    Thread.sleep(5000)
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    Await.result(client.setConsumerState(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+
 
     val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from), secondsWait.seconds)
-    println()
     resFrom_1From.size shouldBe 1
     resFrom_1From.head.transactionID shouldBe from
 
@@ -227,8 +234,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val consumerTransaction = getRandomConsumerTransaction(stream)
 
     Await.result(client.setConsumerState(consumerTransaction), secondsWait.seconds)
-
-    Thread.sleep(5000)
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    Await.result(client.setConsumerState(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
 
     val consumerState = Await.result(client.getConsumerState(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition), secondsWait.seconds)
 

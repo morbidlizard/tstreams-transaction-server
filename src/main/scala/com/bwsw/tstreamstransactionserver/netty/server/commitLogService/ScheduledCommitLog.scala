@@ -6,9 +6,9 @@ import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
 import com.bwsw.tstreamstransactionserver.netty.{Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{EveryNSeconds, EveryNewFile, EveryNth}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{CommitLogOptions, StorageOptions}
 
-class ScheduledCommitLogImpl(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String], commitLogOptions: CommitLogOptions) {
+class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions) {
   private val commitLog = createCommitLog()
   private val maxIdleTimeBetweenRecords = commitLogOptions.maxIdleTimeBetweenRecords * 1000
   private var lastRecordTs = System.currentTimeMillis()
@@ -21,7 +21,7 @@ class ScheduledCommitLogImpl(pathsToClosedCommitLogFiles: ArrayBlockingQueue[Str
       case EveryNSeconds => OnTimeInterval(commitLogOptions.commitLogWriteSyncValue)
     }
 
-    new CommitLog(Int.MaxValue, "/tmp", policy)
+    new CommitLog(Int.MaxValue, storageOptions.path, policy)
   }
 
   def putData(messageType: Byte, message: Message) = {

@@ -1,12 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.io.File
+import java.util
 import java.util.concurrent.{ArrayBlockingQueue, Executors}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogue
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueAllDates
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.Message
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLogImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
@@ -26,7 +27,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
              storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
              rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: PackageTransmissionOptions,
-             serverHandler: (TransactionServer, ScheduledCommitLogImpl, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
+             serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -39,11 +40,45 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
     rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)
-
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
+
+  private class CommitLogQueueBootstrap(queueSize: Int) {
+    def fillQueue(): ArrayBlockingQueue[String] = {
+      val allFilesOfCatalogues = new CommitLogCatalogueAllDates(storageOpts.path).catalogues
+        .flatMap(_.listAllFiles().map(_.getFile().getPath))
+
+      import scala.collection.JavaConverters.asJavaCollectionConverter
+      val allProcessedFiles = (allFilesOfCatalogues intersect getProcessedCommitLogFiles).asJavaCollection
+
+      val maxSize = scala.math.max(allProcessedFiles.size(), queueSize)
+      val commitLogQueue = new ArrayBlockingQueue[String](maxSize)
+
+      if (allProcessedFiles.isEmpty) commitLogQueue
+      else if (commitLogQueue.addAll(allProcessedFiles)) commitLogQueue
+      else throw new Exception("Something goes wrong here")
+    } ///todo implementation. blocked by #60
+
+    ////code from ScheduledCommitLogImpl
+    def getProcessedCommitLogFiles = {
+      val commitLogDatabase = transactionServer.commitLogDatabase
+
+      val keyFound = new DatabaseEntry()
+      val dataFound = new DatabaseEntry()
+
+      val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[String]()
+      val cursor = commitLogDatabase.openCursor(null, null)
+      while (cursor.getNext(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
+        processedCommitLogFiles += TimestampCommitLog.pathToObject(dataFound)
+      }
+      cursor.close()
+
+      processedCommitLogFiles
+    }
+  }
+
   private val commitLogQueue = new CommitLogQueueBootstrap(1000).fillQueue()
-  private val scheduledCommitLogImpl = new ScheduledCommitLogImpl(commitLogQueue, commitLogOptions)
+  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions)
   private val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
   private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
 
@@ -56,7 +91,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
 
   def start(): Unit = {
     try {
-      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 2, java.util.concurrent.TimeUnit.SECONDS)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 1, java.util.concurrent.TimeUnit.SECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
@@ -81,58 +116,4 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
     zk.close()
     transactionServer.shutdown()
   }
-}
-
-class CommitLogQueueBootstrap(queueSize: Int) {
-  private val commitLogQueue = new ArrayBlockingQueue[String](queueSize)
-
-  def fillQueue(): ArrayBlockingQueue[String] = commitLogQueue ///todo implementation. blocked by #60
-
-  ////code from ScheduledCommitLogImpl
-  def getProcessedCommitLogFiles = {
-    val directory: File = null //FileUtils.createDirectory(transactionServer.storageOpts.metadataDirectory, transactionServer.storageOpts.path)
-    val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
-    val transactionMetaEnvironment = {
-      val environmentConfig = new EnvironmentConfig()
-        .setAllowCreate(true)
-        .setTransactional(true)
-        .setSharedCache(true)
-      //    config.berkeleyDBJEproperties foreach {
-      //      case (name, value) => environmentConfig.setConfigParam(name,value)
-      //    } //todo it will be deprecated soon
-
-      environmentConfig.setDurabilityVoid(defaultDurability)
-      new Environment(directory, environmentConfig)
-    }
-
-    val commitLogDatabase = {
-      val dbConfig = new DatabaseConfig()
-        .setAllowCreate(true)
-        .setTransactional(true)
-      val storeName = "CommitLogStore"
-      transactionMetaEnvironment.openDatabase(null, storeName, dbConfig)
-    }
-
-    val keyFound = new DatabaseEntry()
-    val dataFound = new DatabaseEntry()
-
-    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[String]()
-
-    val cursor = commitLogDatabase.openCursor(null, null)
-
-    while (cursor.getNext(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
-      processedCommitLogFiles += TimestampCommitLog.pathToObject(dataFound)
-    }
-    cursor.close()
-
-    commitLogDatabase.close()
-    transactionMetaEnvironment.close()
-
-    processedCommitLogFiles
-  }
-
-  private val catalogue = new CommitLogCatalogue("/tmp", new java.util.Date(System.currentTimeMillis()))
-  //TODO if there in no directory exist before method is called exception will be thrown
-  //  catalogue.listAllFiles() foreach (x => println(x.getFile().getAbsolutePath))
-  //  println(getProcessedCommitLogFiles)
 }

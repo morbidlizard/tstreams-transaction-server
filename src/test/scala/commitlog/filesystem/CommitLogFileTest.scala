@@ -63,8 +63,6 @@ class CommitLogFileTest extends FlatSpec with Matchers with BeforeAndAfterAll {
     val clfNotEmpty2 = new CommitLogFile(pathNotEmptyFile2)
     val clfNotEmpty3 = new CommitLogFile(pathNotEmptyFile3)
 
-
-    println(clfEmpty.calculateMD5().mkString)
     clfEmpty.calculateMD5() sameElements md5EmptyFile shouldBe true
     clfNotEmpty.calculateMD5() sameElements md5NotEmptyFile shouldBe true
     clfNotEmpty2.calculateMD5() sameElements md5NotEmptyFile shouldBe false

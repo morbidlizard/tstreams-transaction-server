@@ -6,7 +6,12 @@ import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.{DirectoryFileFilter, NotFileFilter, TrueFileFilter}
 
 class CommitLogCatalogueAllDates(rootPath: String) {
-  private val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
+  private val format = {
+    val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
+    format.setLenient(false)
+    format
+  }
+
   private val dataFolders = {
     import scala.collection.JavaConverters._
     val rootDirectorySizeWithSlash = rootPath.length + 1

@@ -20,7 +20,11 @@ class CommitLogCatalogue(rootPath: String, date: Date) {
   private val rootDirectory: String = rootPath
 
 
-  private val dataFolder: File = new File(rootDirectory, new SimpleDateFormat("yyyy/MM/dd").format(date))
+  private val dataFolder: File = {
+    val simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd")
+    simpleDateFormat.setLenient(false)
+    new File(rootDirectory, simpleDateFormat.format(date))
+  }
 
   /** Removes specified file and its md5 file.
     *

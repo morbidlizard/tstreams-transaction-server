@@ -4,6 +4,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueAllDates
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
@@ -72,6 +73,8 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    val commitLogCatalogueAllDates = new CommitLogCatalogueAllDates(storageOptions.path)
+    commitLogCatalogueAllDates.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
     zkTestServer.start()
   }
 
@@ -79,6 +82,8 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    val commitLogCatalogueAllDates = new CommitLogCatalogueAllDates(storageOptions.path)
+    commitLogCatalogueAllDates.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
     zkTestServer.close()
   }
 

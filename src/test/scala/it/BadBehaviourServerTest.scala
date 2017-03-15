@@ -212,4 +212,8 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
     clientRequestCounter.get() should be <= trialsRightBound
   }
 
+  it should "dsadasd" in {
+
+  }
+
 }

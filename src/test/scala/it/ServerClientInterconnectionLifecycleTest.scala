@@ -3,6 +3,7 @@ package it
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueAllDates
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions}
@@ -18,15 +19,13 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
   private val serverBuilder = new ServerBuilder()
   private val clientBuilder = new ClientBuilder()
   private val storageOptions = serverBuilder.getStorageOptions()
+  private val secondsWait = 5
 
-  override def afterEach() {
+  override def beforeEach(): Unit = {
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
-
-  private val rand = scala.util.Random
-  val secondsWait = 5
 
 
 //  it should "put stream, then delete this stream, and put it again and return correct result" in {

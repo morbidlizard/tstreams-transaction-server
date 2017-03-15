@@ -4,9 +4,9 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.LongAdder
 
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueAllDates
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
-import com.bwsw.tstreamstransactionserver.options.ClientOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
@@ -46,6 +46,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     zkTestServer = new TestingServer(true)
     startTransactionServer()
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
+    val commitLogCatalogueAllDates = new CommitLogCatalogueAllDates(storageOptions.path)
+    commitLogCatalogueAllDates.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
   }
 
   override def afterEach() {
@@ -55,6 +57,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    val commitLogCatalogueAllDates = new CommitLogCatalogueAllDates(storageOptions.path)
+    commitLogCatalogueAllDates.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {

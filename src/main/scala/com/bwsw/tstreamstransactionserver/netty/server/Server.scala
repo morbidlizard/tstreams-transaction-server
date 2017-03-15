@@ -49,7 +49,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
         .flatMap(_.listAllFiles().map(_.getFile().getPath))
 
       import scala.collection.JavaConverters.asJavaCollectionConverter
-      val allProcessedFiles = (allFilesOfCatalogues intersect getProcessedCommitLogFiles).asJavaCollection
+      val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).asJavaCollection
 
       val maxSize = scala.math.max(allProcessedFiles.size(), queueSize)
       val commitLogQueue = new ArrayBlockingQueue[String](maxSize)

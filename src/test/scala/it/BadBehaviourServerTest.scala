@@ -1,16 +1,19 @@
 package it
 
+import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueAllDates
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLogImpl
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{PackageTransmissionOptions, _}
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
+import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
@@ -45,7 +48,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   private val serverGotRequest = new AtomicInteger(0)
 
   private def serverHandler(server: TransactionServer,
-                            scheduledCommitLogImpl: ScheduledCommitLogImpl,
+                            scheduledCommitLogImpl: ScheduledCommitLog,
                             packageTransmissionOptions: PackageTransmissionOptions,
                             context: ExecutionContextExecutorService, logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, packageTransmissionOptions, context, logger) {
     override def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): Future[Message] = {
@@ -67,10 +70,20 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
 
   override def beforeAll(): Unit = {
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    val commitLogCatalogueAllDates = new CommitLogCatalogueAllDates(storageOptions.path)
+    commitLogCatalogueAllDates.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
     zkTestServer.start()
   }
 
   override def afterAll(): Unit = {
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    val commitLogCatalogueAllDates = new CommitLogCatalogueAllDates(storageOptions.path)
+    commitLogCatalogueAllDates.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
     zkTestServer.close()
   }
 
@@ -210,6 +223,10 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
     clientRequestCounter.get() should be >= trialsLeftBound
     clientRequestCounter.get() should be <= trialsRightBound
+  }
+
+  it should "dsadasd" in {
+
   }
 
 }

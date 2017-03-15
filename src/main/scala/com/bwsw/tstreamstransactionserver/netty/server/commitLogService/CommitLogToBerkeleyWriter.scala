@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import com.bwsw.commitlog.CommitLog
+import java.util.concurrent.ArrayBlockingQueue
+
 import com.bwsw.commitlog.filesystem.{CommitLogFile, CommitLogFileIterator}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
@@ -11,14 +12,10 @@ import transactionService.rpc.Transaction
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-class CommitLogToBerkeleyWriter(commitLog: CommitLog,
+class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String],
                                 transactionServer: TransactionServer,
-                                barrier: ResettableCountDownLatch,
-                                @volatile var isFileProcessable: Boolean,
                                 incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy) extends Runnable {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private var pathsToFilesToPutData = Array[String]()
-  private val recordsToReadNumber = 1000000
   private val processAccordingToPolicy = createProcessingFunction()
 
   private def createProcessingFunction() = {
@@ -28,7 +25,7 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
       case SkipLog => (path: String) => {
         val commitLogFile = new CommitLogFile(path)
         if (commitLogFile.md5Exists()) {
-          processCommitLogFile(commitLogFile, recordsToReadNumber)
+          processCommitLogFile(commitLogFile)
         } else {
           logger.warn(s"MD5 doesn't exist in a commit log file (path: '$path').")
 
@@ -39,7 +36,7 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
       case TryRead => (path: String) => {
         try {
           val commitLogFile = new CommitLogFile(path)
-          processCommitLogFile(commitLogFile, recordsToReadNumber)
+          processCommitLogFile(commitLogFile)
         } catch {
           case e: Exception =>
             logger.warn(s"Something was going wrong during processing of a commit log file (path: $path). Error message: " + e.getMessage)
@@ -49,7 +46,7 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
       case Error => (path: String) => {
         val commitLogFile = new CommitLogFile(path)
         if (commitLogFile.md5Exists()) {
-          processCommitLogFile(commitLogFile, recordsToReadNumber)
+          processCommitLogFile(commitLogFile)
         } else {
           logger.error(s"MD5 doesn't exist in a commit log file (path: '$path').")
           throw new InterruptedException(s"MD5 doesn't exist in a commit log file (path: '$path').")
@@ -71,8 +68,9 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
   }
 
   @throws[Exception]
-  private def processCommitLogFile(file: CommitLogFile, recordsToReadNumber: Int): Boolean = {
-    lazy val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
+  private def processCommitLogFile(file: CommitLogFile): Boolean = {
+    val recordsToReadNumber = 1
+    val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
 
     @tailrec
     def helper(iterator: CommitLogFileIterator): Boolean = {
@@ -92,30 +90,21 @@ class CommitLogToBerkeleyWriter(commitLog: CommitLog,
     if (isOkay) {
       val cleanTask = transactionServer.createTransactionsToDeleteTask(file.attributes.lastModifiedTime.toMillis)
       cleanTask.run()
-      pathsToFilesToPutData = pathsToFilesToPutData.tail
     } else throw new Exception("There is a bug; Stop server and fix code!")
 
     isOkay
   }
 
   override def run(): Unit = {
-    releaseBarrier()
-
-    pathsToFilesToPutData.filter(_ != null) //todo get rid of this filter. it is related to a CommitLog.close() method
-      .foreach(path =>
+    val path = pathsToClosedCommitLogFiles.poll()
+    if (path != null) {
       scala.util.Try {
         processAccordingToPolicy(path)
       } match {
         case scala.util.Success(_) => println("it's okay")
         case scala.util.Failure(error) => error.printStackTrace()
-      })
-  }
-
-  private def releaseBarrier(): Unit = {
-    isFileProcessable = false
-    pathsToFilesToPutData = pathsToFilesToPutData.+:(commitLog.close())
-    isFileProcessable = true
-    barrier.reset
+      }
+    }
   }
 }
 

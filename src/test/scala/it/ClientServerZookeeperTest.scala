@@ -1,5 +1,6 @@
 package it
 
+import java.io.File
 import java.util
 import java.util.concurrent.TimeUnit
 
@@ -7,8 +8,9 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddr
 import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.BootstrapOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.zooKeeper.InetSocketAddressClass
+import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
@@ -156,8 +158,10 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
 
     var server: Server = null
+    val storageOptions = StorageOptions()
     def startTransactionServer(newHost: String, newPort: Int) = new Thread(() => {
       server = serverBuilder
+        .withServerStorageOptions(storageOptions)
         .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
         .withBootstrapOptions(BootstrapOptions(host = newHost, port = newPort))
         .build()
@@ -185,8 +189,13 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     initialSocketAddress shouldBe InetSocketAddressClass(host, initialPort)
     newSocketAddress     shouldBe InetSocketAddressClass(host, newPort)
 
+
     zkTestServer.close()
     server.shutdown()
+
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
 
 
@@ -200,7 +209,9 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
   it should "not start on wrong inet address" in {
     val zkTestServer = new TestingServer(true)
+    val storageOptions = StorageOptions()
     val serverBuilder = new ServerBuilder()
+      .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
       .withBootstrapOptions(BootstrapOptions(host = "1270.0.0.1"))
 
@@ -208,6 +219,9 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       serverBuilder.build()
     }
     zkTestServer.close()
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
 
   it should "not start on negative port value" in {
@@ -219,12 +233,16 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()
     }
+
+
     zkTestServer.close()
   }
 
   it should "not start on port value exceeds 65535" in {
     val zkTestServer = new TestingServer(true)
+    val storageOptions = StorageOptions()
     val serverBuilder = new ServerBuilder()
+      .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
       .withBootstrapOptions(BootstrapOptions(port = 65536))
 
@@ -232,6 +250,9 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       serverBuilder.build()
     }
     zkTestServer.close()
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
 
 }

@@ -1,11 +1,17 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
+import java.util.concurrent.{ArrayBlockingQueue, Executors}
+
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueAllDates
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.Message
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLogImpl
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.sleepycat.je._
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
@@ -19,7 +25,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
              storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
              rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: PackageTransmissionOptions,
-             serverHandler: (TransactionServer, ScheduledCommitLogImpl, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
+             serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -32,10 +38,13 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
     rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)
-
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
-  private val journaledCommitLog = new ScheduledCommitLogImpl(transactionServer, commitLogOptions)
+
+  private val commitLogQueue = new CommitLogQueueBootstrap(1000, storageOpts.path, transactionServer).fillQueue()
+  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions)
+  private val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
+  private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
 
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
@@ -46,11 +55,13 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
 
   def start(): Unit = {
     try {
+      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 1, java.util.concurrent.TimeUnit.SECONDS)
+
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(serverHandler(transactionServer, journaledCommitLog, packageTransmissionOpts, executionContext.context, logger)))
+        .childHandler(new ServerInitializer(serverHandler(transactionServer, scheduledCommitLogImpl, packageTransmissionOpts, executionContext.context, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
@@ -63,10 +74,43 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   }
 
   def shutdown() = {
+    berkeleyWriterExecutor.shutdown()
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
     zk.close()
-    journaledCommitLog.shutdown()
     transactionServer.shutdown()
+  }
+}
+
+class CommitLogQueueBootstrap(queueSize: Int, rootPath: String, transactionServer: TransactionServer) {
+  def fillQueue(): ArrayBlockingQueue[String] = {
+    val allFilesOfCatalogues = new CommitLogCatalogueAllDates(rootPath).catalogues
+      .flatMap(_.listAllFiles().map(_.getFile().getPath))
+
+    import scala.collection.JavaConverters.asJavaCollectionConverter
+    val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).asJavaCollection
+
+    val maxSize = scala.math.max(allProcessedFiles.size(), queueSize)
+    val commitLogQueue = new ArrayBlockingQueue[String](maxSize)
+
+    if (allProcessedFiles.isEmpty) commitLogQueue
+    else if (commitLogQueue.addAll(allProcessedFiles)) commitLogQueue
+    else throw new Exception("Something goes wrong here")
+  }
+
+  private def getProcessedCommitLogFiles = {
+    val commitLogDatabase = transactionServer.commitLogDatabase
+
+    val keyFound = new DatabaseEntry()
+    val dataFound = new DatabaseEntry()
+
+    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[String]()
+    val cursor = commitLogDatabase.openCursor(null, null)
+    while (cursor.getNext(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
+      processedCommitLogFiles += TimestampCommitLog.pathToObject(dataFound)
+    }
+    cursor.close()
+
+    processedCommitLogFiles
   }
 }

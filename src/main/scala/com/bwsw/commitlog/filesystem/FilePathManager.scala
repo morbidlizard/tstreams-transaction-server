@@ -3,7 +3,7 @@ package com.bwsw.commitlog.filesystem
 import java.io.{File, FilenameFilter}
 import java.nio.file.Paths
 import java.text.SimpleDateFormat
-import java.util.Calendar
+import java.util.{Calendar, GregorianCalendar}
 
 /**
   * Created by Ivan Kudryavtsev on 26.01.2017.
@@ -11,7 +11,19 @@ import java.util.Calendar
 
 object FilePathManager {
   val EXTENSION = ".dat"
-  var CATALOGUE_GENERATOR = () => new SimpleDateFormat("yyyy/MM/dd").format(Calendar.getInstance.getTime)
+
+  private val calendar = {
+    val calendar = new GregorianCalendar()
+    calendar.setLenient(false)
+    calendar
+  }
+  private val simpleDateFormat = {
+    val format = new SimpleDateFormat("yyyy/MM/dd")
+    format.setCalendar(calendar)
+    format.setLenient(false)
+    format
+  }
+  var CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
 }
 
 /** Manages commitlog filesystem.

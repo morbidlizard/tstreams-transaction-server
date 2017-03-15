@@ -142,7 +142,7 @@ class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAf
       val producerTransactions = scala.util.Random.shuffle(0 to producerTransactionsNumber).map{ transactionID =>
         val transaction = getRandomProducerTransaction(stream, transactionID.toLong, Long.MaxValue)
         (transaction, System.currentTimeMillis() + rand.nextInt(100))
-      }
+      }.toList
 
       val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2)
       val transactionsWithTimestamp = producerTransactionsOrderedByTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
@@ -151,7 +151,7 @@ class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAf
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-     getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1).toList, Some(0L)) shouldBe transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions)
+     getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)) shouldBe transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions)
 
     }
     transactionService.shutdown()

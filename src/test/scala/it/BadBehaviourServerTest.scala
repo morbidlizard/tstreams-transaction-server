@@ -1,5 +1,6 @@
 package it
 
+import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -11,6 +12,7 @@ import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, Co
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{PackageTransmissionOptions, _}
 import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
+import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
@@ -67,10 +69,16 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
 
   override def beforeAll(): Unit = {
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     zkTestServer.start()
   }
 
   override def afterAll(): Unit = {
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     zkTestServer.close()
   }
 

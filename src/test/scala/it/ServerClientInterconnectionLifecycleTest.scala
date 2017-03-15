@@ -27,6 +27,8 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
 
+  override def afterEach(): Unit = beforeEach()
+
 
 //  it should "put stream, then delete this stream, and put it again and return correct result" in {
 //    val stream = transactionService.rpc.Stream("stream_test", 10, None, 100L)

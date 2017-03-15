@@ -1,7 +1,5 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import java.io.File
-import java.util
 import java.util.concurrent.{ArrayBlockingQueue, Executors}
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogueAllDates
@@ -43,41 +41,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
-  private class CommitLogQueueBootstrap(queueSize: Int) {
-    def fillQueue(): ArrayBlockingQueue[String] = {
-      val allFilesOfCatalogues = new CommitLogCatalogueAllDates(storageOpts.path).catalogues
-        .flatMap(_.listAllFiles().map(_.getFile().getPath))
-
-      import scala.collection.JavaConverters.asJavaCollectionConverter
-      val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).asJavaCollection
-
-      val maxSize = scala.math.max(allProcessedFiles.size(), queueSize)
-      val commitLogQueue = new ArrayBlockingQueue[String](maxSize)
-
-      if (allProcessedFiles.isEmpty) commitLogQueue
-      else if (commitLogQueue.addAll(allProcessedFiles)) commitLogQueue
-      else throw new Exception("Something goes wrong here")
-    } ///todo implementation. blocked by #60
-
-    ////code from ScheduledCommitLogImpl
-    def getProcessedCommitLogFiles = {
-      val commitLogDatabase = transactionServer.commitLogDatabase
-
-      val keyFound = new DatabaseEntry()
-      val dataFound = new DatabaseEntry()
-
-      val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[String]()
-      val cursor = commitLogDatabase.openCursor(null, null)
-      while (cursor.getNext(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
-        processedCommitLogFiles += TimestampCommitLog.pathToObject(dataFound)
-      }
-      cursor.close()
-
-      processedCommitLogFiles
-    }
-  }
-
-  private val commitLogQueue = new CommitLogQueueBootstrap(1000).fillQueue()
+  private val commitLogQueue = new CommitLogQueueBootstrap(1000, storageOpts.path, transactionServer).fillQueue()
   private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions)
   private val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
   private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
@@ -115,5 +79,38 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
     bossGroup.shutdownGracefully()
     zk.close()
     transactionServer.shutdown()
+  }
+}
+
+class CommitLogQueueBootstrap(queueSize: Int, rootPath: String, transactionServer: TransactionServer) {
+  def fillQueue(): ArrayBlockingQueue[String] = {
+    val allFilesOfCatalogues = new CommitLogCatalogueAllDates(rootPath).catalogues
+      .flatMap(_.listAllFiles().map(_.getFile().getPath))
+
+    import scala.collection.JavaConverters.asJavaCollectionConverter
+    val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).asJavaCollection
+
+    val maxSize = scala.math.max(allProcessedFiles.size(), queueSize)
+    val commitLogQueue = new ArrayBlockingQueue[String](maxSize)
+
+    if (allProcessedFiles.isEmpty) commitLogQueue
+    else if (commitLogQueue.addAll(allProcessedFiles)) commitLogQueue
+    else throw new Exception("Something goes wrong here")
+  }
+
+  private def getProcessedCommitLogFiles = {
+    val commitLogDatabase = transactionServer.commitLogDatabase
+
+    val keyFound = new DatabaseEntry()
+    val dataFound = new DatabaseEntry()
+
+    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[String]()
+    val cursor = commitLogDatabase.openCursor(null, null)
+    while (cursor.getNext(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
+      processedCommitLogFiles += TimestampCommitLog.pathToObject(dataFound)
+    }
+    cursor.close()
+
+    processedCommitLogFiles
   }
 }

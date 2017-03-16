@@ -83,11 +83,9 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
 
     val openedTTL = 2
-    val producerTransaction = transactionService.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
-
     val checkpointedTTL = 3
+    val producerTransaction = transactionService.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
     val producerTransactionCheckpointed = transactionService.rpc.ProducerTransaction(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-
     transiteOneTransactionToAnotherState(transactionServiceServer, producerTransaction, producerTransactionCheckpointed, producerTransactionCheckpointed, openedTTL - 1)
 
     transactionServiceServer.shutdown()
@@ -106,226 +104,119 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
 
     val openedTTL = 4
-    val producerTransaction = transactionService.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
-
     val checkpointedTTL = 2
+    val producerTransaction = transactionService.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
     val producerTransactionCheckpointed = transactionService.rpc.ProducerTransaction(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-
     transiteOneTransactionToAnotherState(transactionServiceServer, producerTransaction, producerTransactionCheckpointed, producerTransaction.copy(state = TransactionStates.Invalid, ttl = 0L), openedTTL + 1)
 
     transactionServiceServer.shutdown()
   }
+
+  it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Checkpointed Transaction" in {
+    val rocksStorageOptions = RocksStorageOptions()
+    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val transactionServiceServer = new TransactionServer(
+      executionContext = serverExecutionContext,
+      authOpts = AuthOptions(),
+      storageOpts = storageOptions,
+      rocksStorageOpts = rocksStorageOptions
+    )
+    val stream = transactionService.rpc.Stream("stream_test", 10, None, 100L)
+    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
+
+    val openedTTL = 7L
+    val updatedTTL1 = openedTTL
+    val producerTxnOpened = transactionService.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
+    val producerTxnUpdated1 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened, openedTTL - 2)
+
+    val updatedTTL2 = openedTTL
+    val producerTxnUpdated2 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL2)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated2, producerTxnOpened, updatedTTL2 - 2)
+
+    val updatedTTL3 = openedTTL
+    val producerTxnUpdated3 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened, updatedTTL3 - 2)
+
+    val checkpointedTTL = 6
+    val producerTransactionCheckpointed = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTransactionCheckpointed, checkpointedTTL - 2)
+
+    transactionServiceServer.shutdown()
+  }
+
+
+  it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
+    val rocksStorageOptions = RocksStorageOptions()
+    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val transactionServiceServer = new TransactionServer(
+      executionContext = serverExecutionContext,
+      authOpts = AuthOptions(),
+      storageOpts = storageOptions,
+      rocksStorageOpts = rocksStorageOptions
+    )
+    val stream = transactionService.rpc.Stream("stream_test", 10, None, 100L)
+    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
+
+    val openedTTL = 7L
+    val updatedTTL1 = 5L
+    val wait1 = openedTTL - 1
+    val producerTxnOpened = transactionService.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
+    val producerTxnUpdated1 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened.copy(ttl = updatedTTL1), wait1)
+
+    val updatedTTL2 = 2L
+    val wait2 = updatedTTL2 - 2
+    val producerTxnUpdated2 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL2)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated2, producerTxnOpened.copy(ttl = updatedTTL2), wait2)
+
+    val updatedTTL3 = 7L
+    val wait3 = updatedTTL3 - 2
+    val producerTxnUpdated3 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait3)
+
+    val checkpointedTTL = 2L
+    val wait4 = checkpointedTTL - 2
+    val producerTransactionCheckpointed = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait4)
+
+    transactionServiceServer.shutdown()
+  }
+
+  it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Cancel->Updated->Checkpointed. Should return Invalid Transaction(due to transaction with Cancel state)" in {
+    val rocksStorageOptions = RocksStorageOptions()
+    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val transactionServiceServer = new TransactionServer(
+      executionContext = serverExecutionContext,
+      authOpts = AuthOptions(),
+      storageOpts = storageOptions,
+      rocksStorageOpts = rocksStorageOptions
+    )
+    val stream = transactionService.rpc.Stream("stream_test", 10, None, 100L)
+    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
+
+    val openedTTL = 7L
+    val updatedTTL1 = 4L
+    val wait1 = openedTTL - 1
+    val producerTxnOpened = transactionService.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
+    val producerTxnUpdated1 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened.copy(ttl = updatedTTL1), wait1)
+
+    val updatedTTL2 = 1L
+    val wait2 = 1L
+    val producerTxnCancel2 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Cancel, -1, updatedTTL2)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened.copy(ttl = updatedTTL1), producerTxnCancel2, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait2)
+
+    val updatedTTL3 = 7L
+    val wait3 = updatedTTL3 - 2
+    val producerTxnUpdated3 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait3)
+
+    val checkpointedTTL = 2L
+    val wait4 = checkpointedTTL - 2
+    val producerTransactionCheckpointed = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
+    transiteOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait4)
+
+    transactionServiceServer.shutdown()
+  }
 }
-//
-//  it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Checkpointed Transaction" in {
-//    val rocksStorageOptions = RocksStorageOptions()
-//    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
-//    val transactionServiceServer = new TransactionServer(
-//      executionContext = serverExecutionContext,
-//      authOpts = AuthOptions(),
-//      storageOpts = storageOptions,
-//      rocksStorageOpts = rocksStorageOptions
-//    )
-//    val stream = transactionService.rpc.Stream("stream_test", 10, None, 100L)
-//    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
-//
-//    val openedTTL = 7
-//    val producerTxnOpened = transactionService.rpc.ProducerTransaction(stream.name,stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
-//    val producerTransactionAggregated = Transaction(Some(producerTxnOpened), None)
-//
-//    val commitFirst = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla1")
-//    commitFirst.putSomeTransactions(Seq((producerTransactionAggregated, System.currentTimeMillis())))
-//    commitFirst.commit()
-//
-//    TimeUnit.SECONDS.sleep(openedTTL - 2)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTransactionAggregated) shouldBe producerTransactionAggregated
-//
-//    val updatedTTL1 = openedTTL
-//    val producerTxnUpdated1 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
-//    val producerTxnUpdated1Aggregated = Transaction(Some(producerTxnUpdated1), None)
-//
-//    val secondCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla2")
-//    secondCommit.putSomeTransactions(Seq((producerTxnUpdated1Aggregated, System.currentTimeMillis())))
-//    secondCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL1 - 2)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated1Aggregated) shouldBe producerTransactionAggregated
-//
-//    val updatedTTL2 = openedTTL
-//    val producerTxnUpdated2 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL2)
-//    val producerTxnUpdated2Aggregated = Transaction(Some(producerTxnUpdated2), None)
-//
-//    val thirdCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla3")
-//    thirdCommit.putSomeTransactions(Seq((producerTxnUpdated2Aggregated, System.currentTimeMillis())))
-//    thirdCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL2 - 2)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated2Aggregated) shouldBe producerTransactionAggregated
-//
-//    val updatedTTL3 = openedTTL
-//    val producerTxnUpdated3 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-//    val producerTxnUpdated3Aggregated = Transaction(Some(producerTxnUpdated3), None)
-//
-//    val forthCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla4")
-//    forthCommit.putSomeTransactions(Seq((producerTxnUpdated3Aggregated, System.currentTimeMillis())))
-//    forthCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL3 - 2)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated3Aggregated) shouldBe producerTransactionAggregated
-//
-//    val checkpointedTTL = 6
-//    val producerTransactionCheckpointed = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-//    val producerTransactionCheckpointedAggregated = Transaction(Some(producerTransactionCheckpointed), None)
-//
-//    val fifthCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla5")
-//    fifthCommit.putSomeTransactions(Seq((producerTransactionCheckpointedAggregated, System.currentTimeMillis())))
-//    fifthCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(checkpointedTTL - 1)
-//
-//    getProducerTransactionFromServer(transactionServiceServer, producerTransactionCheckpointedAggregated) shouldBe producerTransactionCheckpointedAggregated
-//    transactionServiceServer.shutdown()
-//  }
-//
-//  it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
-//    val rocksStorageOptions = RocksStorageOptions()
-//    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
-//    val transactionServiceServer = new TransactionServer(
-//      executionContext = serverExecutionContext,
-//      authOpts = AuthOptions(),
-//      storageOpts = storageOptions,
-//      rocksStorageOpts = rocksStorageOptions
-//    )
-//    val stream = transactionService.rpc.Stream("stream_test", 10, None, 100L)
-//    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
-//
-//    val openedTTL = 6
-//    val producerTxnOpened = transactionService.rpc.ProducerTransaction(stream.name,stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
-//    val producerTransactionAggregated = Transaction(Some(producerTxnOpened), None)
-//
-//    val commitFirst = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla1")
-//    commitFirst.putSomeTransactions(Seq((producerTransactionAggregated, System.currentTimeMillis())))
-//    commitFirst.commit()
-//
-//    TimeUnit.SECONDS.sleep(openedTTL - 1)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTransactionAggregated) shouldBe producerTransactionAggregated
-//
-//    val updatedTTL1 = 4
-//    val producerTxnUpdated1 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
-//    val producerTxnUpdated1Aggregated = Transaction(Some(producerTxnUpdated1), None)
-//
-//    val secondCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla2")
-//    secondCommit.putSomeTransactions(Seq((producerTxnUpdated1Aggregated, System.currentTimeMillis())))
-//    secondCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL1 + 1)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated1Aggregated) shouldBe Transaction(Some(producerTxnOpened.copy(ttl = updatedTTL1)), None)
-//
-//    val producerTxnInvalid = Transaction(Some(transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Invalid, -1, 0)), None)
-//    val updatedTTL2 = 2
-//    val producerTxnUpdated2 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL2)
-//    val producerTxnUpdated2Aggregated = Transaction(Some(producerTxnUpdated2), None)
-//
-//    val thirdCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla3")
-//    thirdCommit.putSomeTransactions(Seq((producerTxnUpdated2Aggregated, System.currentTimeMillis())))
-//    thirdCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL2 - 2)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated2Aggregated) shouldBe producerTxnInvalid
-//
-//    val updatedTTL3 = openedTTL
-//    val producerTxnUpdated3 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-//    val producerTxnUpdated3Aggregated = Transaction(Some(producerTxnUpdated3), None)
-//
-//    val forthCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla4")
-//    forthCommit.putSomeTransactions(Seq((producerTxnUpdated3Aggregated, System.currentTimeMillis())))
-//    forthCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL3 - 1)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated3Aggregated) shouldBe producerTxnInvalid
-//
-//    val checkpointedTTL = 2
-//    val producerTransactionCheckpointed = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-//    val producerTransactionCheckpointedAggregated = Transaction(Some(producerTransactionCheckpointed), None)
-//
-//    val fifthCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla5")
-//    fifthCommit.putSomeTransactions(Seq((producerTransactionCheckpointedAggregated, System.currentTimeMillis())))
-//    fifthCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(checkpointedTTL - 1)
-//
-//    getProducerTransactionFromServer(transactionServiceServer, producerTransactionCheckpointedAggregated) shouldBe producerTxnInvalid
-//    transactionServiceServer.shutdown()
-//  }
-//
-//  it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Cancel->Updated->Checkpointed. Should return Invalid Transaction(due to transaction with Cancel state)" in {
-//    val rocksStorageOptions = RocksStorageOptions()
-//    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
-//    val transactionServiceServer = new TransactionServer(
-//      executionContext = serverExecutionContext,
-//      authOpts = AuthOptions(),
-//      storageOpts = storageOptions,
-//      rocksStorageOpts = rocksStorageOptions
-//    )
-//    val stream = transactionService.rpc.Stream("stream_test", 10, None, 100L)
-//    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
-//
-//    val openedTTL = 6
-//    val producerTxnOpened = transactionService.rpc.ProducerTransaction(stream.name,stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
-//    val producerTransactionAggregated = Transaction(Some(producerTxnOpened), None)
-//
-//    val commitFirst = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla1")
-//    commitFirst.putSomeTransactions(Seq((producerTransactionAggregated, System.currentTimeMillis())))
-//    commitFirst.commit()
-//
-//    TimeUnit.SECONDS.sleep(openedTTL - 1)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTransactionAggregated) shouldBe producerTransactionAggregated
-//
-//    val updatedTTL1 = 4
-//    val producerTxnUpdated1 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
-//    val producerTxnUpdated1Aggregated = Transaction(Some(producerTxnUpdated1), None)
-//
-//    val secondCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla2")
-//    secondCommit.putSomeTransactions(Seq((producerTxnUpdated1Aggregated, System.currentTimeMillis())))
-//    secondCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL1 + 1)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated1Aggregated) shouldBe Transaction(Some(producerTxnOpened.copy(ttl = updatedTTL1)), None)
-//
-//    val producerTxnInvalid = Transaction(Some(transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Invalid, -1, 0)), None)
-//    val updatedTTL2 = 2
-//    val producerTxnCancel = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Cancel, -4, updatedTTL2)
-//    val producerTxnUpdated2Aggregated = Transaction(Some(producerTxnCancel), None)
-//
-//    val thirdCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla3")
-//    thirdCommit.putSomeTransactions(Seq((producerTxnUpdated2Aggregated, System.currentTimeMillis())))
-//    thirdCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL2 - 2)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated2Aggregated) shouldBe producerTxnInvalid
-//
-//    val updatedTTL3 = openedTTL
-//    val producerTxnUpdated3 = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-//    val producerTxnUpdated3Aggregated = Transaction(Some(producerTxnUpdated3), None)
-//
-//    val forthCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla4")
-//    forthCommit.putSomeTransactions(Seq((producerTxnUpdated3Aggregated, System.currentTimeMillis())))
-//    forthCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(updatedTTL3 - 1)
-//    getProducerTransactionFromServer(transactionServiceServer, producerTxnUpdated3Aggregated) shouldBe producerTxnInvalid
-//
-//    val checkpointedTTL = 2
-//    val producerTransactionCheckpointed = transactionService.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-//    val producerTransactionCheckpointedAggregated = Transaction(Some(producerTransactionCheckpointed), None)
-//
-//    val fifthCommit = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla5")
-//    fifthCommit.putSomeTransactions(Seq((producerTransactionCheckpointedAggregated, System.currentTimeMillis())))
-//    fifthCommit.commit()
-//
-//    TimeUnit.SECONDS.sleep(checkpointedTTL - 1)
-//
-//    getProducerTransactionFromServer(transactionServiceServer, producerTransactionCheckpointedAggregated) shouldBe producerTxnInvalid
-//    transactionServiceServer.shutdown()
-//  }
-//}

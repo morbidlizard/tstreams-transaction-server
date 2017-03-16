@@ -60,8 +60,13 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
     var recordsToRead = recordsToReadNumber
     while (iter.hasNext() && recordsToRead > 0) {
       val record = iter.next()
-      val (messageType, message) = record.splitAt(1)
-      buffer ++= CommitLogToBerkeleyWriter.retrieveTransactions(messageType.head, MessageWithTimestamp.fromByteArray(message))
+      scala.util.Try {
+        val (messageType, message) = record.splitAt(1)
+        CommitLogToBerkeleyWriter.retrieveTransactions(messageType.head, MessageWithTimestamp.fromByteArray(message))
+      } match {
+        case scala.util.Success(transactions) => buffer ++= transactions
+        case _ =>
+      }
       recordsToRead = recordsToRead - 1
     }
     (buffer, iter)
@@ -70,27 +75,49 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
   @throws[Exception]
   private def processCommitLogFile(file: CommitLogFile): Boolean = {
     val recordsToReadNumber = 1
-    val bigCommit = transactionServer.getBigCommit(file.attributes.creationTime.toMillis, file.getFile().getAbsolutePath)
+    val bigCommit = transactionServer.getBigCommit(file.getFile().getAbsolutePath)
 
-    @tailrec
-    def helper(iterator: CommitLogFileIterator): Boolean = {
-      val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
-      val transactionsFromValidClients = records
-
-      bigCommit.putSomeTransactions(transactionsFromValidClients)
-
-      val isAnyElements = scala.util.Try(iter.hasNext()).getOrElse(false)
-
-      if (isAnyElements) helper(iter) else bigCommit.commit()
-      // bigCommit.commit() else bigCommit.abort()
+    def getFirstRecordAndReturnIterator(iterator: CommitLogFileIterator): (CommitLogFileIterator, Seq[(Transaction, Long)]) = {
+      val (records, iter) = readRecordsFromCommitLogFile(iterator, 1)
+      (iter, records)
     }
 
-    val isOkay = helper(file.getIterator())
+    @tailrec
+    def helper(iterator: CommitLogFileIterator, firstTransactionTimestamp: Long, lastTransactionTimestamp: Long): (Boolean, Long) = {
+      val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
 
-    if (isOkay) {
-      val cleanTask = transactionServer.createTransactionsToDeleteTask(file.attributes.lastModifiedTime.toMillis)
-      cleanTask.run()
-    } else throw new Exception("There is a bug; Stop server and fix code!")
+
+      bigCommit.putSomeTransactions(records)
+
+      val lastRecordTimestampOpt = records.lastOption match {
+        case Some((transaction, timestamp)) => timestamp
+        case None => lastTransactionTimestamp
+      }
+
+      val isAnyElements = iter.hasNext()
+      if (isAnyElements) helper(iter, firstTransactionTimestamp, lastRecordTimestampOpt)
+      else {
+        iter.close()
+        (bigCommit.commit(firstTransactionTimestamp), lastRecordTimestampOpt)
+      }
+    }
+
+
+    val (iter, firstRecord) = getFirstRecordAndReturnIterator(file.getIterator())
+    val isOkay = firstRecord.headOption match {
+      case Some((transaction, firstTransactionTimestamp)) =>
+        bigCommit.putSomeTransactions(firstRecord)
+        val (areTransactionsProccessed, lastTransactionTimestamp) = helper(iter, firstTransactionTimestamp, firstTransactionTimestamp)
+        if (areTransactionsProccessed) {
+          val cleanTask = transactionServer.createTransactionsToDeleteTask(lastTransactionTimestamp)
+          cleanTask.run()
+        } else throw new Exception("There is a bug; Stop server and fix code!")
+        true
+
+      case None =>
+        iter.close()
+        true
+    }
 
     isOkay
   }

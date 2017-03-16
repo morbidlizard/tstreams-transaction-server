@@ -5,7 +5,7 @@ import java.io.File
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je.{Durability, Environment, EnvironmentConfig}
 
-trait HaveEnvironment {
+trait HasEnvironment {
   val storageOpts: StorageOptions
   val environment: Environment = {
     val directory = new File(storageOpts.path, storageOpts.metadataDirectory)

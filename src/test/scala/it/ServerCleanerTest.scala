@@ -80,6 +80,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
     val stream = getRandomStream
     Await.ready(transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsAwait.seconds)
 
+    val currentTime = System.currentTimeMillis()
     val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] = Array.fill(producerTxnNumber) {
       val producerTransaction = getRandomProducerTransaction(stream, ttlSec)
       (producerTransaction, System.currentTimeMillis())
@@ -89,13 +90,11 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
-    val bigCommit = transactionService.getBigCommit(System.currentTimeMillis(), storageOptions.path)
+    val bigCommit = transactionService.getBigCommit(storageOptions.path)
     bigCommit.putSomeTransactions(transactionsWithTimestamp)
-    bigCommit.commit()
+    bigCommit.commit(currentTime)
 
-    TimeUnit.SECONDS.sleep(maxTTLForProducerTransactionSec)
-    transactionService.createTransactionsToDeleteTask(System.currentTimeMillis()).run()
-
+    transactionService.createTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec)).run()
     val expiredTransactions = producerTransactionsWithTimestamp.map { case (producerTxn, _) =>
       val invalidTransaction = ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, producerTxn.quantity, 0L)
       Transaction(Some(invalidTransaction), None)

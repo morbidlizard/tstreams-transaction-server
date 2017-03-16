@@ -89,9 +89,10 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
       val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
-      val bigCommit = transactionService.getBigCommit(System.currentTimeMillis(), storageOptions.path)
+      val currentTime = System.currentTimeMillis()
+      val bigCommit = transactionService.getBigCommit(storageOptions.path)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit()
+      bigCommit.commit(currentTime)
 
       transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get shouldBe maxTransactionID
 
@@ -150,9 +151,10 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2)
       val transactionsWithTimestamp = producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
-      val bigCommit = transactionService.getBigCommit(System.currentTimeMillis(), storageOptions.path)
+      val currentTime = System.currentTimeMillis()
+      val bigCommit = transactionService.getBigCommit(storageOptions.path)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit()
+      bigCommit.commit(currentTime)
 
       transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions) shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L))
     }

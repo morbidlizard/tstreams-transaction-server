@@ -19,11 +19,12 @@ class CommitLogFileIterator(path: String) extends Iterator[Array[Byte]] {
 
   override def hasNext(): Boolean = {
     if (stream.available() > 0) true
-    else {
-      stream.close()
-      fileInputStream.close()
-      false
-    }
+    else false
+  }
+
+  def close():Unit = {
+    stream.close()
+    fileInputStream.close()
   }
 
   override def next(): Array[Byte] = {

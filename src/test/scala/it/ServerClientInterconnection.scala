@@ -227,6 +227,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
 
+//    (res zip txns) foreach println
     res should contain theSameElementsAs txns
     res shouldBe sorted
   }

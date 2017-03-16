@@ -6,7 +6,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, TransactionStateHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.{Logger, LoggerFactory}
@@ -16,7 +16,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
-trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache
+trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
   with Authenticable
 {
   def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn :com.sleepycat.je.Transaction): Unit

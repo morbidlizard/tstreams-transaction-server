@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Future => ScalaFuture}
 import scala.language.reflectiveCalls
 
-class ServerTransactionHandlerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 
@@ -64,9 +64,9 @@ class ServerTransactionHandlerTest extends FlatSpec with Matchers with BeforeAnd
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions
     ) {
-      final def getLastTransactionIDWrapper(stream: String, partiton: Int) = {
+      final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getStreamFromOldestToNewest(stream).last
-        getLastTransactionID(streamObj.streamNameToLong, partiton)
+        getLastTransactionID(streamObj.streamNameToLong, partition)
       }
     }
 
@@ -116,9 +116,9 @@ class ServerTransactionHandlerTest extends FlatSpec with Matchers with BeforeAnd
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions
     ) {
-      final def getLastTransactionIDWrapper(stream: String, partiton: Int) = {
+      final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getStreamFromOldestToNewest(stream).last
-        getLastTransactionID(streamObj.streamNameToLong, partiton)
+        getLastTransactionID(streamObj.streamNameToLong, partition)
       }
     }
 
@@ -158,6 +158,4 @@ class ServerTransactionHandlerTest extends FlatSpec with Matchers with BeforeAnd
     }
     transactionService.shutdown()
   }
-
-
 }

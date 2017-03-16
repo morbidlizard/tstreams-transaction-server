@@ -152,12 +152,12 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
   }
 
 
-  class BigCommit(timestamp: Long, pathToFile: String) {
+  class BigCommit(pathToFile: String) {
     private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
     def putSomeTransactions(transactions: Seq[(transactionService.rpc.Transaction, Long)]) = putTransactions(transactions, transactionDB)
 
-    def commit(): Boolean = {
-      val timestampCommitLog = TimestampCommitLog(timestamp, pathToFile)
+    def commit(fileCreationTimestamp: Long): Boolean = {
+      val timestampCommitLog = TimestampCommitLog(fileCreationTimestamp, pathToFile)
       commitLogDatabase.putNoOverwrite(transactionDB, timestampCommitLog.keyToDatabaseEntry, timestampCommitLog.dataToDatabaseEntry)
       scala.util.Try(transactionDB.commit()) match {
         case scala.util.Success(_) => true
@@ -171,7 +171,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     }
   }
 
-  def getBigCommit(timestamp: Long, pathToFile: String) = new BigCommit(timestamp, pathToFile)
+  def getBigCommit(pathToFile: String) = new BigCommit(pathToFile)
 
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.Transaction]] =
     ScalaFuture {

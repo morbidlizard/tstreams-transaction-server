@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.util.concurrent.{ArrayBlockingQueue, Executors}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogueAllDates
+import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, ICommitLogCatalogue}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
@@ -41,7 +41,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
-  private val commitLogQueue = new CommitLogQueueBootstrap(1000, storageOpts.path, transactionServer).fillQueue()
+  private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path), transactionServer).fillQueue()
   private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions)
   private val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
   private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
@@ -82,13 +82,12 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
   }
 }
 
-class CommitLogQueueBootstrap(queueSize: Int, rootPath: String, transactionServer: TransactionServer) {
+class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: ICommitLogCatalogue, transactionServer: TransactionServer) {
   def fillQueue(): ArrayBlockingQueue[String] = {
-    val allFilesOfCatalogues = new CommitLogCatalogueAllDates(rootPath).catalogues
-      .flatMap(_.listAllFiles().map(_.getFile().getPath))
+    val allFilesOfCatalogues = commitLogCatalogue.catalogues.flatMap(_.listAllFiles().map(_.getFile().getPath))
 
     import scala.collection.JavaConverters.asJavaCollectionConverter
-    val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).asJavaCollection
+    val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).sorted.asJavaCollection
 
     val maxSize = scala.math.max(allProcessedFiles.size(), queueSize)
     val commitLogQueue = new ArrayBlockingQueue[String](maxSize)

@@ -13,10 +13,12 @@ import scala.annotation.tailrec
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.{Future => ScalaFuture}
+import scala.language.reflectiveCalls
 
-class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
+
   private def getRandomStream = transactionService.rpc.Stream(
     name = rand.nextInt(10000).toString,
     partitions = rand.nextInt(10000),
@@ -34,23 +36,24 @@ class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAf
   )
 
   private val storageOptions = StorageOptions(path = "/tmp")
+
   override def beforeEach(): Unit = {
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
 
-  override def afterEach() {beforeEach()}
+  override def afterEach() {
+    beforeEach()
+  }
 
-
-  "Transaction State handler" should "correctly return last transaction id per stream and partition" in {
+  it should "correctly return last transaction id per stream and partition" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
 
     val secondsAwait = 5
-    val maxTTLForProducerTransactionSec = 5
 
     val streamsNumber = 50
     val producerTxnPerStreamPartitionMaxNumber = 100
@@ -60,10 +63,10 @@ class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAf
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions
-    ){
-      final def getLastTransactionIDWrapper(stream: String, partiton: Int) = {
+    ) {
+      final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getStreamFromOldestToNewest(stream).last
-        getLastTransactionID(streamObj.streamNameToLong, partiton)
+        getLastTransactionID(streamObj.streamNameToLong, partition)
       }
     }
 
@@ -76,7 +79,7 @@ class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAf
     streams foreach { stream =>
       val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
 
-      val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] = (0 to producerTransactionsNumber).map{transactionID =>
+      val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] = (0 to producerTransactionsNumber).map { transactionID =>
         val producerTransaction = getRandomProducerTransaction(stream, transactionID.toLong, Long.MaxValue)
         (producerTransaction, System.currentTimeMillis())
       }.toArray
@@ -86,11 +89,12 @@ class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAf
 
       val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
-      val bigCommit = transactionService.getBigCommit(System.currentTimeMillis(), storageOptions.path)
+      val currentTime = System.currentTimeMillis()
+      val bigCommit = transactionService.getBigCommit(storageOptions.path)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit()
+      bigCommit.commit(currentTime)
 
-      maxTransactionID shouldBe transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
+      transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get shouldBe maxTransactionID
 
     }
     transactionService.shutdown()
@@ -112,10 +116,10 @@ class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAf
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions
-    ){
-      final def getLastTransactionIDWrapper(stream: String, partiton: Int) = {
+    ) {
+      final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getStreamFromOldestToNewest(stream).last
-        getLastTransactionID(streamObj.streamNameToLong, partiton)
+        getLastTransactionID(streamObj.streamNameToLong, partition)
       }
     }
 
@@ -139,23 +143,21 @@ class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAf
       val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
 
 
-      val producerTransactions = scala.util.Random.shuffle(0 to producerTransactionsNumber).map{ transactionID =>
+      val producerTransactions = scala.util.Random.shuffle(0 to producerTransactionsNumber).map { transactionID =>
         val transaction = getRandomProducerTransaction(stream, transactionID.toLong, Long.MaxValue)
         (transaction, System.currentTimeMillis() + rand.nextInt(100))
       }.toList
 
       val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2)
-      val transactionsWithTimestamp = producerTransactionsOrderedByTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp = producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
-      val bigCommit = transactionService.getBigCommit(System.currentTimeMillis(), storageOptions.path)
+      val currentTime = System.currentTimeMillis()
+      val bigCommit = transactionService.getBigCommit(storageOptions.path)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit()
+      bigCommit.commit(currentTime)
 
-     getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)) shouldBe transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions)
-
+      transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions) shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L))
     }
     transactionService.shutdown()
   }
-
-
 }

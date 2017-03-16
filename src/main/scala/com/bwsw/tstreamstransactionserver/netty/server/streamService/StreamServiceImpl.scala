@@ -2,9 +2,8 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasTime, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
-import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.sleepycat.bind.tuple.StringBinding
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
@@ -15,7 +14,9 @@ import scala.concurrent.{Future => ScalaFuture}
 
 trait StreamServiceImpl extends StreamService[ScalaFuture]
   with Authenticable
-  with StreamCache {
+  with StreamCache
+  with HasTime
+{
 
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
@@ -86,7 +87,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     ScalaFuture {
       val transactionDB = environment.beginTransaction(null, new TransactionConfig())
 
-      val newStream = StreamWithoutKey(stream, partitions, description, ttl, System.currentTimeMillis(), deleted = false)
+      val newStream = StreamWithoutKey(stream, partitions, description, ttl, getCurrentTime, deleted = false)
       val newKey    = Key(streamSeq.get(transactionDB, 1))
 
       val result = streamDatabase.putNoOverwrite(transactionDB,  newKey.toDatabaseEntry, newStream.toDatabaseEntry)

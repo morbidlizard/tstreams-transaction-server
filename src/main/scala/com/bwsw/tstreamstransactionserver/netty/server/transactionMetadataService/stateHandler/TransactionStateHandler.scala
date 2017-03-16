@@ -66,7 +66,7 @@ trait TransactionStateHandler extends LastTransactionStreamPartition with Stream
   }
 
   @throws[IllegalArgumentException]
-  private final def transiteProducerTransactionToNewState(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): ProducerTransactionKey =
+  private final def transiteProducerTransactionToNewState(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): ProducerTransactionKey = {
     (currentTxn.state, nextTxn.state) match {
       case (Opened, Opened) => currentTxn
 
@@ -78,7 +78,9 @@ trait TransactionStateHandler extends LastTransactionStreamPartition with Stream
             ProducerTransactionWithoutKey(Opened, nextTxn.quantity, nextTxn.ttl, nextTxn.timestamp)
           )
 
-      case (Opened, Cancel) => transiteProducerTransactiontoInvalidState(currentTxn)
+      case (Opened, Cancel) => {
+        transiteProducerTransactiontoInvalidState(currentTxn)
+      }
 
       case (Opened, Invalid) => throw new IllegalArgumentException("An opened transaction can transite to the Invalid state by Cancel state only!")
 
@@ -96,6 +98,7 @@ trait TransactionStateHandler extends LastTransactionStreamPartition with Stream
 
       case (_, _) => throw new IllegalArgumentException("Unknown States should be implemented")
     }
+  }
 
 
   @tailrec @throws[IllegalArgumentException]

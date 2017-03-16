@@ -3,7 +3,7 @@ package com.bwsw.commitlog.filesystem
 import java.io.{File, FilenameFilter}
 import java.nio.file.Paths
 import java.text.SimpleDateFormat
-import java.util.{Calendar, GregorianCalendar}
+import java.util.GregorianCalendar
 
 /**
   * Created by Ivan Kudryavtsev on 26.01.2017.
@@ -55,13 +55,15 @@ class FilePathManager(rootDir: String) {
       if(nextID >= 0) {
         nextID += 1
         val nextPath = Paths.get(rootDir, testDate, nextID.toString).toString
+
         return nextPath
       }
     }
 
     if(createPath()) {
       nextID = 0
-      return Paths.get(rootDir, testDate, nextID.toString).toString
+
+      Paths.get(rootDir, testDate, nextID.toString).toString
     } else {
       val filesDir = new File(Paths.get(rootDir, testDate).toString)
       var max = -1
@@ -70,7 +72,8 @@ class FilePathManager(rootDir: String) {
         if (Integer.parseInt(f.getName.split("\\.")(0)) > max) max = Integer.parseInt(f.getName.split("\\.")(0))
       })
       nextID = max + 1
-      return Paths.get(rootDir, testDate, nextID.toString).toString
+
+      Paths.get(rootDir, testDate, nextID.toString).toString
     }
   }
 
@@ -78,8 +81,8 @@ class FilePathManager(rootDir: String) {
     val path = new File(Paths.get(rootDir, curDate).toString)
     if(!(path.exists() && path.isDirectory())) {
       path.mkdirs()
+
       true
-    } else
-      false
+    } else false
   }
 }

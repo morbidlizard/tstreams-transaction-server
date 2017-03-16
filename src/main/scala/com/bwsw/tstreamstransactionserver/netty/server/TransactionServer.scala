@@ -17,7 +17,7 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
                         override val storageOpts: StorageOptions,
                         override val rocksStorageOpts: RocksStorageOptions
                        )
-  extends HaveEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
+  extends HasEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
 {
   override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = setConsumerStates(consumerTransactions, parentBerkeleyTxn)
 

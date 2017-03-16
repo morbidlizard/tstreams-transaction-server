@@ -13,6 +13,7 @@ import scala.annotation.tailrec
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.{Future => ScalaFuture}
+import scala.language.reflectiveCalls
 
 class ServerTransactionHadleTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 

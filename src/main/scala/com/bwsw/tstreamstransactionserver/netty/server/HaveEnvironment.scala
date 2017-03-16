@@ -1,13 +1,15 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
+import java.io.File
+
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
-import com.bwsw.tstreamstransactionserver.utils.FileUtils
 import com.sleepycat.je.{Durability, Environment, EnvironmentConfig}
 
 trait HaveEnvironment {
   val storageOpts: StorageOptions
   val environment: Environment = {
-    val directory = FileUtils.createDirectory(storageOpts.metadataDirectory, storageOpts.path)
+    val directory = new File(storageOpts.path, storageOpts.metadataDirectory)
+    directory.mkdirs()
     val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
     val environment = {
       val environmentConfig = new EnvironmentConfig()

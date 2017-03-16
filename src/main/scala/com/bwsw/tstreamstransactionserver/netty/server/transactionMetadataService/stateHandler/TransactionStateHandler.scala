@@ -2,17 +2,13 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionWithoutKey}
+import transactionService.rpc.TransactionStates
 import transactionService.rpc.TransactionStates._
-import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, Transaction, TransactionStates}
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
 
-trait TransactionStateHandler extends LastTransactionStreamPartition with StreamCache {
+trait TransactionStateHandler extends LastTransactionStreamPartition {
   //  (ts.state, update.state) match {
   //    /*
   //    from opened to *
@@ -66,7 +62,7 @@ trait TransactionStateHandler extends LastTransactionStreamPartition with Stream
   }
 
   @throws[IllegalArgumentException]
-  private final def transiteProducerTransactionToNewState(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): ProducerTransactionKey = {
+  private final def transitProducerTransactionToNewState(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): ProducerTransactionKey = {
     (currentTxn.state, nextTxn.state) match {
       case (Opened, Opened) => currentTxn
 
@@ -82,7 +78,7 @@ trait TransactionStateHandler extends LastTransactionStreamPartition with Stream
         transiteProducerTransactiontoInvalidState(currentTxn)
       }
 
-      case (Opened, Invalid) => throw new IllegalArgumentException("An opened transaction can transite to the Invalid state by Cancel state only!")
+      case (Opened, Invalid) => throw new IllegalArgumentException("An opened transaction can transit to the Invalid state by Cancel state only!")
 
       case (Opened, Checkpointed) =>
         if (isThisProducerTransactionExpired(currentTxn, nextTxn))
@@ -110,80 +106,19 @@ trait TransactionStateHandler extends LastTransactionStreamPartition with Stream
     }
     case head::next::Nil  =>
       if ((head.state == Invalid) || (head.state == Checkpointed)) head
-      else transiteProducerTransactionToNewState(head, next)
+      else transitProducerTransactionToNewState(head, next)
     case head::next::tail =>
       if ((head.state == Invalid) || (head.state == Checkpointed)) head
-      else process(transiteProducerTransactionToNewState(head, next) :: tail)
+      else process(transitProducerTransactionToNewState(head, next) :: tail)
   }
-
-
-  private type Timestamp = Long
-  final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(transactionService.rpc.Transaction, Timestamp)]) = {
-    val producerTransactions = ArrayBuffer[(ProducerTransaction, Timestamp)]()
-    val consumerTransactions = ArrayBuffer[(ConsumerTransaction, Timestamp)]()
-
-    transactions foreach {case(transaction, timestamp) =>
-      (transaction.producerTransaction, transaction.consumerTransaction) match {
-        case (Some(txn), _) =>
-          val stream = getStreamFromOldestToNewest(txn.stream).last
-          val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
-          if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
-            updateLastTransactionStreamPartitionRamTable(key, txn.transactionID)
-            producerTransactions += ((txn, timestamp))
-          }
-
-        case (_, Some(txn)) =>
-          val stream = getStreamFromOldestToNewest(txn.stream).last
-          val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
-          if (!isThatTransactionOutOfOrder(key, txn.transactionID))
-            consumerTransactions += ((txn, timestamp))
-
-        case  _ =>
-      }
-    }
-    (producerTransactions, consumerTransactions)
-  }
-
-  final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Timestamp)], berkeleyTransaction: com.sleepycat.je.Transaction): Map[KeyStream, ArrayBuffer[ProducerTransactionKey]] =
-    txns.foldLeft[scala.collection.mutable.Map[KeyStream, ArrayBuffer[ProducerTransactionKey]]](scala.collection.mutable.Map()) { case (acc, (producerTransaction, timestamp)) =>
-      val keyStreams = getStreamFromOldestToNewest(producerTransaction.stream)
-      val streamForThisTransaction = keyStreams.filter(_.stream.timestamp <= timestamp).lastOption
-      streamForThisTransaction match {
-        case Some(keyStream) if !keyStream.stream.deleted =>
-          val key = KeyStreamPartition(keyStream.streamNameToLong, producerTransaction.partition)
-          putLastTransaction(key, producerTransaction.transactionID, berkeleyTransaction)
-
-          if (acc.contains(keyStream))
-            acc(keyStream) += ProducerTransactionKey(producerTransaction, keyStream.streamNameToLong, timestamp)
-          else
-            acc += ((keyStream, ArrayBuffer(ProducerTransactionKey(producerTransaction, keyStream.streamNameToLong, timestamp))))
-
-          acc
-        case _ => acc
-      }
-    }.toMap
-
-
-  //  @throws[StreamNotExist]
-  final def decomposeConsumerTransactionsToDatabaseRepresentation(transactions: Seq[(ConsumerTransaction, Timestamp)]) = {
-    val consumerTransactionsKey = ArrayBuffer[ConsumerTransactionKey]()
-    transactions foreach { case (txn, timestamp) => scala.util.Try {
-      val streamForThisTransaction = getStreamFromOldestToNewest(txn.stream).filter(_.stream.timestamp <= timestamp).last
-      consumerTransactionsKey += ConsumerTransactionKey(txn, streamForThisTransaction.streamNameToLong, timestamp)
-    }}
-
-    consumerTransactionsKey
-  }
-
-  final def groupProducerTransactions(producerTransactions: Seq[ProducerTransactionKey]) = producerTransactions.groupBy(txn => txn.key)
 
   @throws[IllegalArgumentException]
-  final def transiteProducerTransactionToNewState(dbTransaction: ProducerTransactionKey, commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
+  final def transitProducerTransactionToNewState(dbTransaction: ProducerTransactionKey, commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
     process(dbTransaction :: commitLogTransactions.sortBy(_.timestamp).toList)
   }
 
   @throws[IllegalArgumentException]
-  final def transiteProducerTransactionToNewState(commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
+  final def transitProducerTransactionToNewState(commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
     process(commitLogTransactions.sortBy(_.timestamp).toList)
   }
 }

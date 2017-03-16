@@ -1,11 +1,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.netty.server.Authenticable
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.TransactionStateHandler
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, TransactionStateHandler}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.{Logger, LoggerFactory}
@@ -15,7 +16,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
-trait TransactionMetaServiceImpl extends TransactionStateHandler
+trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache
   with Authenticable
 {
   def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn :com.sleepycat.je.Transaction): Unit
@@ -80,6 +81,66 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
     }
   }
 
+  private type Timestamp = Long
+  private final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(transactionService.rpc.Transaction, Timestamp)]) = {
+    val producerTransactions = ArrayBuffer[(ProducerTransaction, Timestamp)]()
+    val consumerTransactions = ArrayBuffer[(ConsumerTransaction, Timestamp)]()
+
+    transactions foreach {case(transaction, timestamp) =>
+      (transaction.producerTransaction, transaction.consumerTransaction) match {
+        case (Some(txn), _) =>
+          val stream = getStreamFromOldestToNewest(txn.stream).last
+          val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
+          if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
+            updateLastTransactionStreamPartitionRamTable(key, txn.transactionID)
+            producerTransactions += ((txn, timestamp))
+          }
+
+        case (_, Some(txn)) =>
+          val stream = getStreamFromOldestToNewest(txn.stream).last
+          val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
+          if (!isThatTransactionOutOfOrder(key, txn.transactionID))
+            consumerTransactions += ((txn, timestamp))
+
+        case  _ =>
+      }
+    }
+    (producerTransactions, consumerTransactions)
+  }
+
+  private final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Timestamp)], berkeleyTransaction: com.sleepycat.je.Transaction): Map[KeyStream, ArrayBuffer[ProducerTransactionKey]] =
+    txns.foldLeft[scala.collection.mutable.Map[KeyStream, ArrayBuffer[ProducerTransactionKey]]](scala.collection.mutable.Map()) { case (acc, (producerTransaction, timestamp)) =>
+      val keyStreams = getStreamFromOldestToNewest(producerTransaction.stream)
+      val streamForThisTransaction = keyStreams.filter(_.stream.timestamp <= timestamp).lastOption
+      streamForThisTransaction match {
+        case Some(keyStream) if !keyStream.stream.deleted =>
+          val key = KeyStreamPartition(keyStream.streamNameToLong, producerTransaction.partition)
+          putLastTransaction(key, producerTransaction.transactionID, berkeleyTransaction)
+
+          if (acc.contains(keyStream))
+            acc(keyStream) += ProducerTransactionKey(producerTransaction, keyStream.streamNameToLong, timestamp)
+          else
+            acc += ((keyStream, ArrayBuffer(ProducerTransactionKey(producerTransaction, keyStream.streamNameToLong, timestamp))))
+
+          acc
+        case _ => acc
+      }
+    }.toMap
+
+
+  //  @throws[StreamNotExist]
+  private final def decomposeConsumerTransactionsToDatabaseRepresentation(transactions: Seq[(ConsumerTransaction, Timestamp)]) = {
+    val consumerTransactionsKey = ArrayBuffer[ConsumerTransactionKey]()
+    transactions foreach { case (txn, timestamp) => scala.util.Try {
+      val streamForThisTransaction = getStreamFromOldestToNewest(txn.stream).filter(_.stream.timestamp <= timestamp).last
+      consumerTransactionsKey += ConsumerTransactionKey(txn, streamForThisTransaction.streamNameToLong, timestamp)
+    }}
+
+    consumerTransactionsKey
+  }
+
+  private final def groupProducerTransactions(producerTransactions: Seq[ProducerTransactionKey]) = producerTransactions.groupBy(txn => txn.key)
+
 
   private final def calculateTTLForBerkeleyRecord(ttl: Long) = {
     val convertedTTL = TimeUnit.SECONDS.toHours(ttl)
@@ -98,7 +159,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
             case Some(data: ProducerTransactionWithoutKey) =>
               val persistedProducerTransactionBerkeley = ProducerTransactionKey(key, data)
               if (!(persistedProducerTransactionBerkeley.state == TransactionStates.Checkpointed || persistedProducerTransactionBerkeley.state == TransactionStates.Invalid)) {
-                val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(persistedProducerTransactionBerkeley, txns)
+                val ProducerTransactionWithNewState = transitProducerTransactionToNewState(persistedProducerTransactionBerkeley, txns)
 
                 val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
                 val binaryKey = key.toDatabaseEntry
@@ -113,7 +174,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler
                 scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
               }
             case None =>
-              val ProducerTransactionWithNewState = transiteProducerTransactionToNewState(txns)
+              val ProducerTransactionWithNewState = transitProducerTransactionToNewState(txns)
 
               val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
               val binaryKey = key.toDatabaseEntry

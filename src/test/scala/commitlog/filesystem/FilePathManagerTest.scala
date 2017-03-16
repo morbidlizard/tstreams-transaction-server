@@ -1,10 +1,9 @@
 package commitlog.filesystem
 
-import java.io.{File, IOException}
-import java.nio.file._
-import java.nio.file.attribute.BasicFileAttributes
+import java.io.File
 
 import com.bwsw.commitlog.filesystem.FilePathManager
+import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 /**
@@ -44,20 +43,12 @@ class FilePathManagerTest extends FlatSpec with Matchers with BeforeAndAfterAll 
     intercept[IllegalArgumentException] {
       val fpm2 = new FilePathManager("")
     }
+
+    FileUtils.deleteDirectory(new File(dir))
   }
 
   override def afterAll = {
-    List("target/1111", "target/2222").foreach(dir =>
-    Files.walkFileTree(Paths.get(dir), new SimpleFileVisitor[Path]() {
-      override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-        Files.delete(file)
-        FileVisitResult.CONTINUE
-      }
-
-      override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-        Files.delete(dir)
-        FileVisitResult.CONTINUE
-      }
-    }))
+    List("target/1111", "target/2222").foreach(dir => FileUtils.deleteDirectory(new File(dir)))
+    FilePathManager.resetCatalogueGenerator()
   }
 }

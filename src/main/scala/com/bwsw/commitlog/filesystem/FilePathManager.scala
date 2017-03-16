@@ -24,6 +24,10 @@ object FilePathManager {
     format
   }
   var CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
+
+  def resetCatalogueGenerator() = {
+    CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
+  }
 }
 
 /** Manages commitlog filesystem.

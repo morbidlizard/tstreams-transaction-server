@@ -5,18 +5,17 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.options.ServerBuilder
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import transactionService.rpc.{Transaction, TransactionStates}
 
-import scala.concurrent.duration._
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   private val serverBuilder = new ServerBuilder()
-  private val clientBuilder = new ClientBuilder()
   private val storageOptions = serverBuilder.getStorageOptions()
   private val secondsWait = 5
 

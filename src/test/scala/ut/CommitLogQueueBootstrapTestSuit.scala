@@ -4,7 +4,7 @@ import java.io.File
 import java.util.Date
 import java.util.concurrent.ArrayBlockingQueue
 
-import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogCatalogueByDate, FilePathManager}
+import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogCatalogueByDate}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{CommitLogQueueBootstrap, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions, StorageOptions}
@@ -15,13 +15,10 @@ import scala.collection.mutable.ArrayBuffer
 
 class CommitLogQueueBootstrapTestSuit extends FlatSpec with Matchers with BeforeAndAfterAll {
   //arrange
-  val pathForTesting = "target/clqb"
-  val directoryForTesting = new File(pathForTesting)
-  directoryForTesting.mkdirs()
   val authOptions = AuthOptions()
   val rocksStorageOptions = RocksStorageOptions()
   val executionContext = new ServerExecutionContext(2, 1, 1, 1)
-  val storageOptions = StorageOptions(pathForTesting)
+  val storageOptions = StorageOptions("target/clqb")
   val transactionService = new TransactionServer(executionContext, authOptions, storageOptions, rocksStorageOptions)
   val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
   val commitLogQueueBootstrap = new CommitLogQueueBootstrap(10, commitLogCatalogue, transactionService)
@@ -62,12 +59,12 @@ class CommitLogQueueBootstrapTestSuit extends FlatSpec with Matchers with Before
   }
 
   override def afterAll = {
-    FileUtils.deleteDirectory(directoryForTesting)
+    FileUtils.deleteDirectory(new File(storageOptions.path))
   }
 
   private def createCommitLogFiles(date: Date, number: Int) = {
     commitLogCatalogue.createCatalogue(date)
-    val commitLogCatalogueByDate = new CommitLogCatalogueByDate(pathForTesting, date)
+    val commitLogCatalogueByDate = new CommitLogCatalogueByDate(storageOptions.path, date)
 
     (0 until number).foreach(fileNamePrefix => {
       commitLogCatalogueByDate.createFile(fileNamePrefix.toString)
@@ -82,9 +79,6 @@ class CommitLogQueueBootstrapTestSuit extends FlatSpec with Matchers with Before
       path = orderedQueue.poll()
     }
 
-    orderedFiles.map(rawPath => {
-      val path = new File(rawPath).getParent.drop(pathForTesting.length + 1)
-      FilePathManager.getDateByPath(path)
-    })
+    orderedFiles
   }
 }

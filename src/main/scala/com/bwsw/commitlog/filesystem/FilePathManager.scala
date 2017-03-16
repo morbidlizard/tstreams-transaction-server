@@ -24,13 +24,6 @@ object FilePathManager {
     format
   }
   var CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
-
-  /**
-    * For testing purposes only
-    */
-  def getDateByPath(path: String) = {
-    simpleDateFormat.parse(path)
-  }
 }
 
 /** Manages commitlog filesystem.

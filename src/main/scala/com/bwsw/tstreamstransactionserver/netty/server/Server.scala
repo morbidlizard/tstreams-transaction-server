@@ -87,7 +87,7 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: ICommitLogCata
     val allFilesOfCatalogues = commitLogCatalogue.catalogues.flatMap(_.listAllFiles().map(_.getFile().getPath))
 
     import scala.collection.JavaConverters.asJavaCollectionConverter
-    val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).asJavaCollection
+    val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).sorted.asJavaCollection
 
     val maxSize = scala.math.max(allProcessedFiles.size(), queueSize)
     val commitLogQueue = new ArrayBlockingQueue[String](maxSize)

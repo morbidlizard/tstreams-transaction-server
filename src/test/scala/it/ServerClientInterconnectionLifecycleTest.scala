@@ -71,8 +71,9 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val producerTransaction = transactionService.rpc.ProducerTransaction(stream.name,stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
     val producerTransactionAggregated = Transaction(Some(producerTransaction), None)
 
-    val commitFirst = transactionServiceServer.getBigCommit(System.currentTimeMillis(), "/tmp/blabla1")
-    commitFirst.putSomeTransactions(Seq((producerTransactionAggregated, System.currentTimeMillis())))
+    val firstCommitTime = System.currentTimeMillis()
+    val commitFirst = transactionServiceServer.getBigCommit(firstCommitTime, "/tmp/blabla1")
+    commitFirst.putSomeTransactions(Seq((producerTransactionAggregated, firstCommitTime)))
     commitFirst.commit()
 
     TimeUnit.SECONDS.sleep(openedTTL - 1)

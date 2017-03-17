@@ -48,7 +48,7 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
     consumerTransactions.groupBy(txn => txn.key)
   }
 
-  def setConsumerStates(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit =
+  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit =
   {
     groupProducerTransactions(consumerTransactions) foreach {case (key, txns) =>
       val theLastStateTransaction = transiteConsumerTransactionToNewState(txns)

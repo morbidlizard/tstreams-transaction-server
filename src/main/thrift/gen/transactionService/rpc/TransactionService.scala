@@ -55,7 +55,7 @@ trait TransactionService[+MM[_]] extends ThriftService {
   
   def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): MM[Seq[ByteBuffer]]
   
-  def setConsumerState(name: String, stream: String, partition: Int, transaction: Long): MM[Boolean]
+  def putConsumerCheckpoint(name: String, stream: String, partition: Int, transaction: Long): MM[Boolean]
   
   def getConsumerState(name: String, stream: String, partition: Int): MM[Long]
   
@@ -5192,11 +5192,11 @@ object TransactionService { self =>
   val getTransactionData$result = GetTransactionData.Result
   type getTransactionData$result = GetTransactionData.Result
 
-  object SetConsumerState extends com.twitter.scrooge.ThriftMethod {
+  object PutConsumerCheckpoint extends com.twitter.scrooge.ThriftMethod {
     
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-      val Struct = new TStruct("setConsumerState_args")
+      val Struct = new TStruct("putConsumerCheckpoint_args")
       val NameField = new TField("name", TType.STRING, 1)
       val NameFieldManifest = implicitly[Manifest[String]]
       val StreamField = new TField("stream", TType.STRING, 2)
@@ -5562,7 +5562,7 @@ object TransactionService { self =>
     
     object Result extends ThriftStructCodec3[Result] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-      val Struct = new TStruct("setConsumerState_result")
+      val Struct = new TStruct("putConsumerCheckpoint_result")
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
       val ErrorField = new TField("error", TType.STRUCT, 1)
@@ -5820,7 +5820,7 @@ object TransactionService { self =>
     def functionToService(f: FunctionType): ServiceType = ???
     def serviceToFunction(svc: ServiceType): FunctionType = ???
 
-    val name = "setConsumerState"
+    val name = "putConsumerCheckpoint"
     val serviceName = "TransactionService"
     val argsCodec = Args
     val responseCodec = Result
@@ -5828,11 +5828,11 @@ object TransactionService { self =>
   }
 
   // Compatibility aliases.
-  val setConsumerState$args = SetConsumerState.Args
-  type setConsumerState$args = SetConsumerState.Args
+  val putConsumerCheckpoint$args = PutConsumerCheckpoint.Args
+  type putConsumerCheckpoint$args = PutConsumerCheckpoint.Args
 
-  val setConsumerState$result = SetConsumerState.Result
-  type setConsumerState$result = SetConsumerState.Result
+  val putConsumerCheckpoint$result = PutConsumerCheckpoint.Result
+  type putConsumerCheckpoint$result = PutConsumerCheckpoint.Result
 
   object GetConsumerState extends com.twitter.scrooge.ThriftMethod {
     

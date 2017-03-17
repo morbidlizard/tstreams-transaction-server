@@ -54,8 +54,8 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
         case `getTransactionDataMethod` =>
           Descriptors.GetTransactionData.decodeResponse(message)
 
-        case `setConsumerStateMethod` =>
-          Descriptors.SetConsumerState.decodeResponse(message)
+        case `putConsumerCheckpointMethod` =>
+          Descriptors.PutConsumerCheckpoint.decodeResponse(message)
 
         case `getConsumerStateMethod` =>
           Descriptors.GetConsumerState.decodeResponse(message)

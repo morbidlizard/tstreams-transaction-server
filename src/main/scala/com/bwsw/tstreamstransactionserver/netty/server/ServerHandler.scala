@@ -245,25 +245,25 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
 
 
-      case `setConsumerStateMethod` =>
+      case `putConsumerCheckpointMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
               .flatMap { response =>
                 logSuccessfulProcession()
-                ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(Some(response)))(messageId, token))
+                ScalaFuture.successful(Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(Some(response)))(messageId, token))
               }
               .recover { case error =>
                 logUnsuccessfulProcessing(error)
-                Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+                Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
               }
           } else {
             logUnsuccessfulProcessing(packageTooBigException)
-            ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+            ScalaFuture.successful(Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
           }
         } else {
           //logUnsuccessfulProcessing()
-          ScalaFuture.successful(Descriptors.SetConsumerState.encodeResponse(TransactionService.SetConsumerState.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
+          ScalaFuture.successful(Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `getConsumerStateMethod` =>

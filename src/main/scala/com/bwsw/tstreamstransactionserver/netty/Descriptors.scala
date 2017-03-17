@@ -146,7 +146,7 @@ object Descriptors {
   val scanTransactionsMethod = "scanTransactions"
   val putTransactionDataMethod = "putTransactionData"
   val getTransactionDataMethod = "getTransactionData"
-  val setConsumerStateMethod = "setConsumerState"
+  val putConsumerCheckpointMethod = "putConsumerCheckpoint"
   val getConsumerStateMethod = "getConsumerState"
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
@@ -179,8 +179,8 @@ object Descriptors {
   case object GetTransactionData extends
     Descriptor(getTransactionDataMethod, TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, protocolTBinaryFactory, protocolTCompactFactory)
 
-  case object SetConsumerState extends
-    Descriptor(setConsumerStateMethod, TransactionService.SetConsumerState.Args, TransactionService.SetConsumerState.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+  case object PutConsumerCheckpoint extends
+    Descriptor(putConsumerCheckpointMethod, TransactionService.PutConsumerCheckpoint.Args, TransactionService.PutConsumerCheckpoint.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object GetConsumerState extends
     Descriptor(getConsumerStateMethod, TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, protocolTBinaryFactory, protocolTBinaryFactory)

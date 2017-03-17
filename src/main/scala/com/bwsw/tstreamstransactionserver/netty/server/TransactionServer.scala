@@ -19,7 +19,7 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
                        )
   extends HasEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
 {
-  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = setConsumerStates(consumerTransactions, parentBerkeleyTxn)
+  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = putConsumersCheckpoints(consumerTransactions, parentBerkeleyTxn)
 
   def shutdown() = {
     executionContext.shutdown()

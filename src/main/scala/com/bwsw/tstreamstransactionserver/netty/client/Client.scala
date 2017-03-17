@@ -436,7 +436,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def putTransaction(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
+  def putProducerState(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     implicit val context = futurePool.getContext
     if (logger.isInfoEnabled) logger.info(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
     TransactionService.PutTransaction.Args(Transaction(Some(transaction), None))
@@ -448,25 +448,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-
-  /** Puts consumer transaction on a server; it's implied there was persisted stream on a server transaction belong to, otherwise
-    * the exception would be thrown.
-    *
-    * @param transaction a consumer transactions.
-    * @return placeholder of putTransaction operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
-    */
-  @throws[Exception]
-  def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    implicit val context = futurePool.getContext
-    if (logger.isInfoEnabled) logger.info(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
-    tryCompleteRequest(
-      method(
-        Descriptors.PutTransaction,
-        TransactionService.PutTransaction.Args(Transaction(None, Some(transaction)))
-      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
-    )
-  }
 
   /** Retrieves all producer transactions in a specific range [from; to); it's assumed that from >= to and they are both positive.
     *
@@ -526,8 +507,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def putTransactionData(producerTransaction: transactionService.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    putTransaction(producerTransaction) flatMap { response =>
+  def putProducerStateWithData(producerTransaction: transactionService.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
+    putProducerState(producerTransaction) flatMap { response =>
       if (logger.isInfoEnabled) logger.info(s"Putting transaction data to stream ${producerTransaction.stream}, partition ${producerTransaction.partition}, transaction ${producerTransaction.transactionID}.")
       tryCompleteRequest(
         method(
@@ -573,13 +554,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def setConsumerState(consumerTransaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
+  def putConsumerCheckpoint(consumerTransaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     if (logger.isInfoEnabled)
       logger.info(s"Setting consumer state ${consumerTransaction.name} on stream ${consumerTransaction.stream}, partition ${consumerTransaction.partition}, transaction ${consumerTransaction.transactionID}.")
     tryCompleteRequest(
       method(
-        Descriptors.SetConsumerState,
-        TransactionService.SetConsumerState.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID)
+        Descriptors.PutConsumerCheckpoint,
+        TransactionService.PutConsumerCheckpoint.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool.getContext)
     )
   }

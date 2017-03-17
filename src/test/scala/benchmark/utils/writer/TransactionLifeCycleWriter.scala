@@ -27,9 +27,9 @@ class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends
       val closedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Checkpointed, openedProducerTransaction.transactionID)
       val t = time(Await.result(
         Future.sequence(Seq(
-          client.putTransaction(openedProducerTransaction),
+          client.putProducerState(openedProducerTransaction),
           client.putTransactionData(openedProducerTransaction.stream, openedProducerTransaction.partition, openedProducerTransaction.transactionID, data, (txnCount - 1) * dataSize),
-          client.putTransaction(closedProducerTransaction))), 10.seconds))
+          client.putProducerState(closedProducerTransaction))), 10.seconds))
       (x, t)
     })
 

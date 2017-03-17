@@ -177,7 +177,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putStream(stream), secondsWait.seconds)
 
     val txn = getRandomProducerTransaction(stream)
-    Await.result(client.putTransaction(txn), secondsWait.seconds)
+    Await.result(client.putProducerState(txn), secondsWait.seconds)
 
     val amount = 5000
     val data = Array.fill(amount)(rand.nextString(10).getBytes)
@@ -205,7 +205,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     )
 
     TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
-    Await.result(client.setConsumerState(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
 
 
@@ -238,9 +238,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val consumerTransaction = getRandomConsumerTransaction(stream)
 
-    Await.result(client.setConsumerState(consumerTransaction), secondsWait.seconds)
+    Await.result(client.putConsumerCheckpoint(consumerTransaction), secondsWait.seconds)
     TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
-    Await.result(client.setConsumerState(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
 
     val consumerState = Await.result(client.getConsumerState(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition), secondsWait.seconds)

@@ -144,7 +144,7 @@ object CommitLogToBerkeleyWriter {
 
   private def deserializePutTransactions(message: Message) = Descriptors.PutTransactions.decodeRequest(message)
 
-  private def deserializeSetConsumerState(message: Message) = Descriptors.SetConsumerState.decodeRequest(message)
+  private def deserializeSetConsumerState(message: Message) = Descriptors.PutConsumerCheckpoint.decodeRequest(message)
 
   private def retrieveTransactions(messageType: Byte, messageWithTimestamp: MessageWithTimestamp): Seq[(Transaction, Long)] = messageType match {
     case `putTransactionType` =>

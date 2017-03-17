@@ -8,7 +8,7 @@ import transactionService.rpc.TransactionStates._
 
 import scala.annotation.tailrec
 
-trait TransactionStateHandler extends LastTransactionStreamPartition {
+trait TransactionStateHandler {
   //  (ts.state, update.state) match {
   //    /*
   //    from opened to *
@@ -58,7 +58,7 @@ trait TransactionStateHandler extends LastTransactionStreamPartition {
     )
   }
   private final def isThisProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
-    (currentTxn.timestamp + TimeUnit.SECONDS.toMillis(currentTxn.ttl)) <= nextTxn.timestamp
+    scala.math.abs(currentTxn.timestamp + TimeUnit.SECONDS.toMillis(currentTxn.ttl)) <= nextTxn.timestamp
   }
 
   @throws[IllegalArgumentException]
@@ -96,7 +96,6 @@ trait TransactionStateHandler extends LastTransactionStreamPartition {
     }
   }
 
-
   @tailrec @throws[IllegalArgumentException]
   private final def process(txns: List[ProducerTransactionKey]): ProducerTransactionKey = txns match {
     case Nil => throw new IllegalArgumentException
@@ -113,12 +112,25 @@ trait TransactionStateHandler extends LastTransactionStreamPartition {
   }
 
   @throws[IllegalArgumentException]
-  final def transitProducerTransactionToNewState(dbTransaction: ProducerTransactionKey, commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
-    process(dbTransaction :: commitLogTransactions.sortBy(_.timestamp).toList)
+  private final def processFirstTransaction(transaction: ProducerTransactionKey) = {
+    process(transaction::Nil)
+  }
+
+  @throws[IllegalArgumentException]
+  final def transitProducerTransactionToNewState(transactionPersistedInBerkeleyDB: ProducerTransactionKey, commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
+    val firstTransaction = processFirstTransaction(transactionPersistedInBerkeleyDB)
+    process(firstTransaction :: commitLogTransactions.sortBy(_.transactionID).sortBy(_.timestamp).toList)
   }
 
   @throws[IllegalArgumentException]
   final def transitProducerTransactionToNewState(commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
-    process(commitLogTransactions.sortBy(_.timestamp).toList)
+    if (commitLogTransactions.length > 1) {
+      val orderedCommitLogTransactionsByTimestamp = commitLogTransactions.sortBy(_.transactionID).sortBy(_.timestamp).toList
+      val (firstTransaction, otherTransactions) = (orderedCommitLogTransactionsByTimestamp.head, orderedCommitLogTransactionsByTimestamp.tail)
+      val processedFirstTransaction = processFirstTransaction(firstTransaction)
+      process(processedFirstTransaction :: otherTransactions)
+    } else {
+      processFirstTransaction(commitLogTransactions.head)
+    }
   }
 }

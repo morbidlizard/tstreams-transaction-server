@@ -4,11 +4,21 @@ import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
 import Key.objectToEntry
 
-case class Key(stream: Long, partition: Int, transactionID: Long) {
+case class Key(stream: Long, partition: Int, transactionID: Long) extends Ordered[Key]{
   def toDatabaseEntry: DatabaseEntry = {
     val databaseEntry = new DatabaseEntry()
     objectToEntry(this, databaseEntry)
     databaseEntry
+  }
+
+  override def compare(that: Key): Int = {
+    if (this.stream < that.stream) -1
+    else if (this.stream > that.stream) 1
+    else if (this.partition < that.partition) -1
+    else if (this.partition > that.partition) 1
+    else if (this.transactionID < that.transactionID) -1
+    else if (this.transactionID > that.transactionID) 1
+    else 0
   }
   override def toString: String = s"stream:$stream\tpartition:$partition\tid:$transactionID"
 }

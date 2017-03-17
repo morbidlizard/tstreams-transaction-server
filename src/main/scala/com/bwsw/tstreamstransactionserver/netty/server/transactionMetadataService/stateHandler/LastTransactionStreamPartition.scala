@@ -39,27 +39,29 @@ trait LastTransactionStreamPartition {
 
   private final val lastTransactionStreamPartitionRamTable = fillLastTransactionStreamPartitionTable
 
-  final def getLastTransactionID(stream: Long, partition: Int): Option[Long] = {
+  final def getLastTransactionID(stream: Long, partition: Int): Option[TransactionID] = {
     val key = KeyStreamPartition(stream, partition)
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
-    if (lastTransactionOpt.isDefined) Some(lastTransactionOpt.get.transaction)
+    if (lastTransactionOpt.isDefined) lastTransactionOpt
     else {
       val dataFound = new DatabaseEntry()
       if (lastTransactionDatabase.get(null, key.toDatabaseEntry, dataFound, null) == OperationStatus.SUCCESS)
-        Some(TransactionID.entryToObject(dataFound).transaction)
+        Some(TransactionID.entryToObject(dataFound))
       else
         None
     }
   }
 
-  final def putLastTransaction(key: KeyStreamPartition, transactionId: Long, transaction: Transaction) = {
-    val updatedTransactionID = new TransactionID(transactionId)
+  final def putLastTransaction(key: KeyStreamPartition, transactionId: Long, checkpointedTransactionID: Option[Long] = None, transaction: Transaction) = {
+    val updatedTransactionID = new TransactionID(transactionId, checkpointedTransactionID)
     lastTransactionDatabase.put(transaction, key.toDatabaseEntry, updatedTransactionID.toDatabaseEntry)
   }
 
-  final def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transactionId: Long) = {
-    lastTransactionStreamPartitionRamTable.put(key, new TransactionID(transactionId))
+  final def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transactionId: Long, checkpointedTransactionID: Option[Long] = None) = {
+    lastTransactionStreamPartitionRamTable.put(key, new TransactionID(transactionId, checkpointedTransactionID))
   }
+
+  final def getLastTransactionStreamPartitionRamTable(key: KeyStreamPartition) = lastTransactionStreamPartitionRamTable.getIfPresent(key)
 
   final def isThatTransactionOutOfOrder(key: KeyStreamPartition, transactionThatId: Long) = {
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))

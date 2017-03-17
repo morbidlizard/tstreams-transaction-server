@@ -96,8 +96,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     transactionService.createTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec)).run()
     val expiredTransactions = producerTransactionsWithTimestamp.map { case (producerTxn, _) =>
-      val invalidTransaction = ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, producerTxn.quantity, 0L)
-      Transaction(Some(invalidTransaction), None)
+      ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, producerTxn.quantity, 0L)
     }
 
     Await.result(transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID), secondsAwait.seconds) should contain theSameElementsAs expiredTransactions

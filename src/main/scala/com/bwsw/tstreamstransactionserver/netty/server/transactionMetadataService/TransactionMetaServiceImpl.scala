@@ -227,7 +227,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
 
   def getBigCommit(pathToFile: String) = new BigCommit(pathToFile)
 
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.Transaction]] =
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.ProducerTransaction]] =
     ScalaFuture {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val keyStream = getStreamFromOldestToNewest(stream).last
@@ -235,8 +235,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
       def producerTransactionToTransaction(txn: ProducerTransactionKey) = {
-        val producerTxn = transactionService.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
-        transactionService.rpc.Transaction(Some(producerTxn), None)
+        transactionService.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
       }
 
       val lastTransactionID = new Key(keyStream.streamNameToLong, partition, long2Long(to)).toDatabaseEntry
@@ -253,7 +252,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case None =>
           cursor.close()
           transactionDB.commit()
-          ArrayBuffer[transactionService.rpc.Transaction]()
+          ArrayBuffer[transactionService.rpc.ProducerTransaction]()
 
         case Some(producerTransactionKey) =>
           val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)

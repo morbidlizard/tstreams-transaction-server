@@ -490,7 +490,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
           TransactionService.ScanTransactions.Args(stream, partition, from, to)
         ).flatMap(x =>
           if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message))
-          else ScalaFuture.successful(x.success.get.withFilter(_.consumerTransaction.isEmpty).map(_.producerTransaction.get))
+          else ScalaFuture.successful(x.success.get)
         )
       )
     }

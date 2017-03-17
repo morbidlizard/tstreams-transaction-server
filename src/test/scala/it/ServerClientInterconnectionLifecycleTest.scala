@@ -49,12 +49,11 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     transactionServiceServer.shutdown()
   }
 
-  private final def getProducerTransactionFromServer(transactionServer: TransactionServer, txn: Transaction) = {
-    val producerTransaction = txn._1.get
+  private final def getProducerTransactionFromServer(transactionServer: TransactionServer, producerTransaction: ProducerTransaction) = {
     Await.result(
       transactionServer.scanTransactions(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, producerTransaction.transactionID),
       5.seconds
-    ).head._1.get
+    ).head
   }
 
   private final def transitOneTransactionToAnotherState(transactionServiceServer: TransactionServer, in: ProducerTransaction, toUpdateIn: ProducerTransaction, out: ProducerTransaction, timeBeetwenTransactionSec: Long) = {
@@ -70,7 +69,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     secondCommit.putSomeTransactions(Seq((toUpdateInAggregated, secondCommitTime + TimeUnit.SECONDS.toMillis(timeBeetwenTransactionSec))))
     secondCommit.commit(secondCommitTime)
 
-    getProducerTransactionFromServer(transactionServiceServer, Transaction(Some(out), None)) shouldBe out
+    getProducerTransactionFromServer(transactionServiceServer, out) shouldBe out
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Checkpointed Transaction" in {

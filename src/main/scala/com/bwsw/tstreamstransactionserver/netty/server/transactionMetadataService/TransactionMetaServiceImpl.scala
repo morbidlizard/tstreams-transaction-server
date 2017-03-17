@@ -92,7 +92,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
           val stream = getStreamFromOldestToNewest(txn.stream).last
           val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
           if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
-            updateLastTransactionStreamPartitionRamTable(key, txn.transactionID)
+            updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, None)
             producerTransactions += ((txn, timestamp))
           }
 
@@ -114,9 +114,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       val streamForThisTransaction = keyStreams.filter(_.stream.timestamp <= timestamp).lastOption
       streamForThisTransaction match {
         case Some(keyStream) if !keyStream.stream.deleted =>
-          val key = KeyStreamPartition(keyStream.streamNameToLong, producerTransaction.partition)
-          putLastTransaction(key, producerTransaction.transactionID, berkeleyTransaction)
-
           if (acc.contains(keyStream))
             acc(keyStream) += ProducerTransactionKey(producerTransaction, keyStream.streamNameToLong, timestamp)
           else
@@ -139,7 +136,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     consumerTransactionsKey
   }
 
-  private final def groupProducerTransactions(producerTransactions: Seq[ProducerTransactionKey]) = producerTransactions.groupBy(txn => txn.key)
+  private final def groupProducerTransactions(producerTransactions: Seq[ProducerTransactionKey]) = producerTransactions.toArray.groupBy(txn => txn.key)
 
 
   private final def calculateTTLForBerkeleyRecord(ttl: Long) = {
@@ -147,60 +144,56 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     if (convertedTTL == 0L) 1 else scala.math.abs(convertedTTL.toInt)
   }
 
+  private final def updateLastCheckpointedTransaction(key: stateHandler.KeyStreamPartition, producerTransactionWithNewState: ProducerTransactionKey, parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
+    val keyStreamPartition = stateHandler.KeyStreamPartition(key.stream, key.partition)
+    if (producerTransactionWithNewState.state == TransactionStates.Checkpointed) {
+      val checkpointedTransactionID = Some(producerTransactionWithNewState.transactionID)
+      val lastTransactionId = getLastTransactionStreamPartitionRamTable(keyStreamPartition).transaction
+      updateLastTransactionStreamPartitionRamTable(keyStreamPartition, lastTransactionId, checkpointedTransactionID)
+      putLastTransaction(keyStreamPartition, lastTransactionId, checkpointedTransactionID, parentBerkeleyTxn)
+      Some(producerTransactionWithNewState.transactionID)
+    }
+  }
+
   private def putTransactions(transactions: Seq[(transactionService.rpc.Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions)
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions, parentBerkeleyTxn)
-
     groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
+
       val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
+
       groupedProducerTransactions foreach { case (key, txns) =>
-        scala.util.Try {
-          getOpenedTransaction(key) match {
-            case Some(data: ProducerTransactionWithoutKey) =>
-              val persistedProducerTransactionBerkeley = ProducerTransactionKey(key, data)
-              if (!(persistedProducerTransactionBerkeley.state == TransactionStates.Checkpointed || persistedProducerTransactionBerkeley.state == TransactionStates.Invalid)) {
-                val ProducerTransactionWithNewState = transitProducerTransactionToNewState(persistedProducerTransactionBerkeley, txns)
+        val openedTransactionOpt = getOpenedTransaction(key)
 
-                val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
-                val binaryKey = key.toDatabaseEntry
+        val producerTransactionWithNewState = scala.util.Try(openedTransactionOpt match {
+          case Some(data) =>
+            val persistedProducerTransactionBerkeley = ProducerTransactionKey(key, data)
+            transitProducerTransactionToNewState(persistedProducerTransactionBerkeley, txns)
+          case None =>
+            transitProducerTransactionToNewState(txns)
+        })
 
-                openedTransactionsRamTable.put(ProducerTransactionWithNewState.key, ProducerTransactionWithNewState.producerTransaction)
-                if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn))
-                } else {
-                  scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.delete(parentBerkeleyTxn, binaryKey))
-                }
+        producerTransactionWithNewState match {
+          case scala.util.Success(producerTransactionKey) =>
+            val binaryTxn = producerTransactionKey.producerTransaction.toDatabaseEntry
+            val binaryKey = key.toDatabaseEntry
 
-                scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
-              }
-            case None =>
-              val ProducerTransactionWithNewState = transitProducerTransactionToNewState(txns)
+            updateLastCheckpointedTransaction(stateHandler.KeyStreamPartition(key.stream, key.partition), producerTransactionKey, parentBerkeleyTxn)
 
-              val binaryTxn = ProducerTransactionWithNewState.producerTransaction.toDatabaseEntry
-              val binaryKey = key.toDatabaseEntry
+            openedTransactionsRamTable.put(producerTransactionKey.key, producerTransactionKey.producerTransaction)
+            if (producerTransactionKey.state == TransactionStates.Opened) {
+              scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn))
+            } else {
+              scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.delete(parentBerkeleyTxn, binaryKey))
+            }
 
-              openedTransactionsRamTable.put(ProducerTransactionWithNewState.key, ProducerTransactionWithNewState.producerTransaction)
-              if (ProducerTransactionWithNewState.state == TransactionStates.Opened) {
-                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn))
-              } else {
-                scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.delete(parentBerkeleyTxn, binaryKey))
-              }
-
-              scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
-          }
+            scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
+          case scala.util.Failure(throwable) =>
+            //throwable.printStackTrace()
         }
-//        match {
-//          case scala.util.Success(_) => println(dbProducerTransactions, "asdasdasdasdasdasdasd")
-//          case scala.util.Failure(throwable) => throwable.printStackTrace()
-//        }
       }
     }
     putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), parentBerkeleyTxn)
-
-    //    val isOkay = scala.util.Try(nestedBerkeleyTxn.commit()) match {
-    //      case scala.util.Success(_) => true
-    //      case scala.util.Failure(_) => false
-    //    }
   }
 
 

@@ -51,12 +51,13 @@ trait TransactionStateHandler {
   //    case (TransactionStatus.`checkpointed`, _) =>
   //  }
 
-  private final def transiteProducerTransactiontoInvalidState(txn: ProducerTransactionKey) = {
+  private final def transitProducerTransactionToInvalidState(txn: ProducerTransactionKey) = {
     ProducerTransactionKey(
       com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key(txn.stream, txn.partition, txn.transactionID),
       ProducerTransactionWithoutKey(Invalid, txn.quantity, 0L, txn.timestamp)
     )
   }
+
   private final def isThisProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
     scala.math.abs(currentTxn.timestamp + TimeUnit.SECONDS.toMillis(currentTxn.ttl)) <= nextTxn.timestamp
   }
@@ -67,7 +68,7 @@ trait TransactionStateHandler {
       case (Opened, Opened) => currentTxn
 
       case (Opened, Updated) =>
-        if (isThisProducerTransactionExpired(currentTxn, nextTxn)) transiteProducerTransactiontoInvalidState(currentTxn)
+        if (isThisProducerTransactionExpired(currentTxn, nextTxn)) transitProducerTransactionToInvalidState(currentTxn)
         else
           ProducerTransactionKey(
             com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key(nextTxn.stream, nextTxn.partition, nextTxn.transactionID),
@@ -75,14 +76,14 @@ trait TransactionStateHandler {
           )
 
       case (Opened, Cancel) => {
-        transiteProducerTransactiontoInvalidState(currentTxn)
+        transitProducerTransactionToInvalidState(currentTxn)
       }
 
       case (Opened, Invalid) => throw new IllegalArgumentException("An opened transaction can transit to the Invalid state by Cancel state only!")
 
       case (Opened, Checkpointed) =>
         if (isThisProducerTransactionExpired(currentTxn, nextTxn))
-          transiteProducerTransactiontoInvalidState(currentTxn)
+          transitProducerTransactionToInvalidState(currentTxn)
         else
           nextTxn
 
@@ -96,17 +97,19 @@ trait TransactionStateHandler {
     }
   }
 
-  @tailrec @throws[IllegalArgumentException]
+
+  @tailrec
+  @throws[IllegalArgumentException]
   private final def process(txns: List[ProducerTransactionKey]): ProducerTransactionKey = txns match {
     case Nil => throw new IllegalArgumentException
-    case head::Nil => head.state match {
+    case head :: Nil => head.state match {
       case Opened => head
       case state: TransactionStates => throw new IllegalArgumentException(s"A transaction with $state state can't be a root of transactions chain.")
     }
-    case head::next::Nil  =>
+    case head :: next :: Nil =>
       if ((head.state == Invalid) || (head.state == Checkpointed)) head
       else transitProducerTransactionToNewState(head, next)
-    case head::next::tail =>
+    case head :: next :: tail =>
       if ((head.state == Invalid) || (head.state == Checkpointed)) head
       else process(transitProducerTransactionToNewState(head, next) :: tail)
   }

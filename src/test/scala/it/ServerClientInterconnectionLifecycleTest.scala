@@ -94,33 +94,6 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     transactionServiceServer.shutdown()
   }
 
-//  it should "put stream, then put producerTransaction with state: Checkpointed. " +
-//    "Should throw an exception (due an invalid transition of state machine)" in {
-//    val rocksStorageOptions = RocksStorageOptions()
-//    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
-//    val transactionServiceServer = new TransactionServer(
-//      executionContext = serverExecutionContext,
-//      authOpts = AuthOptions(),
-//      storageOpts = storageOptions,
-//      rocksStorageOpts = rocksStorageOptions
-//    )
-//    val stream = transactionService.rpc.Stream("stream_test", 10, None, 100L)
-//    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
-//
-//    val openedTTL = 2
-//    val producerTransactionWithInvalidState = transactionService.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Checkpointed, -1, openedTTL)
-//    val out = producerTransactionWithInvalidState.copy(state = TransactionStates.Invalid, ttl = 0L)
-//    val inAggregated = Transaction(Some(producerTransactionWithInvalidState), None)
-//    val firstCommitTime = System.currentTimeMillis()
-//    val commitFirst = transactionServiceServer.getBigCommit(scala.util.Random.nextString(6))
-//
-//    assertThrows[IllegalArgumentException] {
-//      commitFirst.putSomeTransactions(Seq((inAggregated, firstCommitTime)))
-//    }
-//
-//    transactionServiceServer.shutdown()
-//  }
-
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)

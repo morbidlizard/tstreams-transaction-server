@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message}
+import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message, Shared}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressClass, ZKLeaderClientToGetMaster}
@@ -166,8 +166,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** A general method for sending requests to a server and getting a response back.
     *
     * @param descriptor look at [[com.bwsw.tstreamstransactionserver.netty.Descriptors]].
-    * @param request a request that client would like to send.
-    *
+    * @param request    a request that client would like to send.
     * @return a response from server(however, it may return an exception from server).
     *
     */
@@ -314,10 +313,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-  /**  Putting a stream on a server by Thrift StreamWithoutKey structure.
+  /** Putting a stream on a server by Thrift StreamWithoutKey structure.
     *
     * @param stream an object of StreamWithoutKey structure.
-    *
     * @return placeholder of putStream operation that can be completed or not. If the method returns failed future it means
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
@@ -448,12 +446,58 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
+  /** Puts consumer transaction on a server; it's implied there was persisted stream on a server transaction belong to, otherwise
+    * the exception would be thrown.
+    *
+    * @param transaction a consumer transactions.
+    * @return placeholder of putTransaction operation that can be completed or not. If the method returns failed future it means
+    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    */
+  @throws[Exception]
+  def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
+    implicit val context = futurePool.getContext
+    if (logger.isInfoEnabled) logger.info(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
+    tryCompleteRequest(
+      method(
+        Descriptors.PutTransaction,
+        TransactionService.PutTransaction.Args(Transaction(None, Some(transaction)))
+      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
+  }
+
+  /** Retrieves a producer transaction by id
+    *
+    * @param stream      a name of stream.
+    * @param partition   a partition of stream.
+    * @param transaction a transaction id.
+    * @return placeholder of putTransaction operation that can be completed or not. If the method returns failed future it means
+    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    */
+  @throws[Exception]
+  def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[(Boolean, Option[ProducerTransaction])] = {
+    if (logger.isInfoEnabled) logger.info(s"Retrieving a producer transaction on partition '$partition' of stream '$stream' by id '$transaction'")
+    tryCompleteRequest(
+      method(
+        Descriptors.GetTransaction,
+        TransactionService.GetTransaction.Args(stream, partition, transaction)
+      ).flatMap(x =>
+        if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message))
+        else ScalaFuture.successful(x.success.map(x => {
+          if (x._2 != Shared.nullProducerTransaction) {
+            (x._1, Option(x._2))
+          } else {
+            (x._1, None)
+          }
+        }).get)
+      )
+    )
+  }
 
   /** Retrieves all producer transactions in a specific range [from; to); it's assumed that from >= to and they are both positive.
     *
     * @param stream    a name of stream.
     * @param partition a partition of stream.
-    * @param from      an inclusive bound to strat with.
+    * @param from      an inclusive bound to start with.
     * @param to        an exclusive bound to end with.
     * @return placeholder of putTransaction operation that can be completed or not. If the method returns failed future it means
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.

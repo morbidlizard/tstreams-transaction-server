@@ -177,6 +177,28 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
+      case `getTransactionMethod` =>
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.GetTransaction.decodeRequest(message)
+            transactionServer.getTransaction(args.stream, args.partition, args.transaction)
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(Some(response)))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
+        } else {
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
+        }
+
       case `scanTransactionsMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
@@ -210,7 +232,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
               }
               .recover { case error =>
                 logUnsuccessfulProcessing(error)
-                Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId ,token)
+                Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
               }
           } else {
             logUnsuccessfulProcessing(packageTooBigException)

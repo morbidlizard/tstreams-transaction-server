@@ -143,6 +143,7 @@ object Descriptors {
   val delStreamMethod = "delStream"
   val putTransactionMethod = "putTransaction"
   val putTranscationsMethod = "putTransactions"
+  val getTransactionMethod = "getTransaction"
   val scanTransactionsMethod = "scanTransactions"
   val putTransactionDataMethod = "putTransactionData"
   val getTransactionDataMethod = "getTransactionData"
@@ -169,6 +170,9 @@ object Descriptors {
 
   case object PutTransactions extends
     Descriptor(putTranscationsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, protocolTCompactFactory, protocolTBinaryFactory)
+
+  case object GetTransaction extends
+    Descriptor(getTransactionMethod, TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, protocolTBinaryFactory, protocolTCompactFactory)
 
   case object ScanTransactions extends
     Descriptor(scanTransactionsMethod, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, protocolTBinaryFactory, protocolTCompactFactory)

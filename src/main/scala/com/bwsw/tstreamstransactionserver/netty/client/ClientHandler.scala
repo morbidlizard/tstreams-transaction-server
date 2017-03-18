@@ -45,6 +45,9 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
         case `putTranscationsMethod` =>
           Descriptors.PutTransactions.decodeResponse(message)
 
+        case `getTransactionMethod` =>
+          Descriptors.GetTransaction.decodeResponse(message)
+
         case `scanTransactionsMethod` =>
           Descriptors.ScanTransactions.decodeResponse(message)
 

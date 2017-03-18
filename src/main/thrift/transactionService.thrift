@@ -50,7 +50,7 @@ struct AuthInfo {
 
 struct TransactionInfo {
     1: required bool                 exists
-    2: required ProducerTransaction  transaction
+    2: optional ProducerTransaction  transaction
 }
 
 exception ServerException {

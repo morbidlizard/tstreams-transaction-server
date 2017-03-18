@@ -54,8 +54,8 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
     ),
     new ThriftStructFieldInfo(
       TransactionField,
-      false,
       true,
+      false,
       TransactionFieldManifest,
       _root_.scala.None,
       _root_.scala.None,
@@ -72,7 +72,6 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
    * Checks that all required fields are non-null.
    */
   def validate(_item: TransactionInfo): Unit = {
-    if (_item.transaction == null) throw new TProtocolException("Required field transaction cannot be null")
   }
 
   def withoutPassthroughFields(original: TransactionInfo): TransactionInfo =
@@ -85,7 +84,9 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
       transaction =
         {
           val field = original.transaction
-          transactionService.rpc.ProducerTransaction.withoutPassthroughFields(field)
+          field.map { field =>
+            transactionService.rpc.ProducerTransaction.withoutPassthroughFields(field)
+          }
         }
     )
 
@@ -97,8 +98,7 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
 
     var exists: Boolean = false
     var _got_exists = false
-    var transaction: transactionService.rpc.ProducerTransaction = null
-    var _got_transaction = false
+    var transaction: Option[transactionService.rpc.ProducerTransaction] = None
 
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
@@ -130,8 +130,7 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
             _field.`type` match {
               case TType.STRUCT =>
     
-                transaction = readTransactionValue(_iprot)
-                _got_transaction = true
+                transaction = Some(readTransactionValue(_iprot))
               case _actualType =>
                 val _expectedType = TType.STRUCT
                 throw new TProtocolException(
@@ -152,7 +151,6 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
     _iprot.readStructEnd()
 
     if (!_got_exists) throw new TProtocolException("Required field 'exists' was not found in serialized data for struct TransactionInfo")
-    if (!_got_transaction) throw new TProtocolException("Required field 'transaction' was not found in serialized data for struct TransactionInfo")
     new LazyImmutable(
       _iprot,
       _iprot.buffer,
@@ -176,8 +174,7 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
   private[this] def eagerDecode(_iprot: TProtocol): TransactionInfo = {
     var exists: Boolean = false
     var _got_exists = false
-    var transaction: transactionService.rpc.ProducerTransaction = null
-    var _got_transaction = false
+    var transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = _root_.scala.None
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
 
@@ -205,8 +202,7 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
           case 2 =>
             _field.`type` match {
               case TType.STRUCT =>
-                transaction = readTransactionValue(_iprot)
-                _got_transaction = true
+                transaction = _root_.scala.Some(readTransactionValue(_iprot))
               case _actualType =>
                 val _expectedType = TType.STRUCT
                 throw new TProtocolException(
@@ -227,7 +223,6 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
     _iprot.readStructEnd()
 
     if (!_got_exists) throw new TProtocolException("Required field 'exists' was not found in serialized data for struct TransactionInfo")
-    if (!_got_transaction) throw new TProtocolException("Required field 'transaction' was not found in serialized data for struct TransactionInfo")
     new Immutable(
       exists,
       transaction,
@@ -240,14 +235,14 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
 
   def apply(
     exists: Boolean,
-    transaction: transactionService.rpc.ProducerTransaction
+    transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = _root_.scala.None
   ): TransactionInfo =
     new Immutable(
       exists,
       transaction
     )
 
-  def unapply(_item: TransactionInfo): _root_.scala.Option[_root_.scala.Tuple2[Boolean, transactionService.rpc.ProducerTransaction]] = _root_.scala.Some(_item.toTuple)
+  def unapply(_item: TransactionInfo): _root_.scala.Option[_root_.scala.Tuple2[Boolean, Option[transactionService.rpc.ProducerTransaction]]] = _root_.scala.Some(_item.toTuple)
 
 
   @inline private def readExistsValue(_iprot: TProtocol): Boolean = {
@@ -292,12 +287,12 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
    */
   class Immutable(
       val exists: Boolean,
-      val transaction: transactionService.rpc.ProducerTransaction,
+      val transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction],
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends TransactionInfo {
     def this(
       exists: Boolean,
-      transaction: transactionService.rpc.ProducerTransaction
+      transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = _root_.scala.None
     ) = this(
       exists,
       transaction,
@@ -315,7 +310,7 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
       _start_offset: Int,
       _end_offset: Int,
       val exists: Boolean,
-      val transaction: transactionService.rpc.ProducerTransaction,
+      val transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction],
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends TransactionInfo {
 
@@ -349,28 +344,28 @@ object TransactionInfo extends ThriftStructCodec3[TransactionInfo] {
   trait Proxy extends TransactionInfo {
     protected def _underlying_TransactionInfo: TransactionInfo
     override def exists: Boolean = _underlying_TransactionInfo.exists
-    override def transaction: transactionService.rpc.ProducerTransaction = _underlying_TransactionInfo.transaction
+    override def transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = _underlying_TransactionInfo.transaction
     override def _passthroughFields = _underlying_TransactionInfo._passthroughFields
   }
 }
 
 trait TransactionInfo
   extends ThriftStruct
-  with _root_.scala.Product2[Boolean, transactionService.rpc.ProducerTransaction]
+  with _root_.scala.Product2[Boolean, Option[transactionService.rpc.ProducerTransaction]]
   with HasThriftStructCodec3[TransactionInfo]
   with java.io.Serializable
 {
   import TransactionInfo._
 
   def exists: Boolean
-  def transaction: transactionService.rpc.ProducerTransaction
+  def transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction]
 
   def _passthroughFields: immutable$Map[Short, TFieldBlob] = immutable$Map.empty
 
   def _1 = exists
   def _2 = transaction
 
-  def toTuple: _root_.scala.Tuple2[Boolean, transactionService.rpc.ProducerTransaction] = {
+  def toTuple: _root_.scala.Tuple2[Boolean, Option[transactionService.rpc.ProducerTransaction]] = {
     (
       exists,
       transaction
@@ -399,8 +394,8 @@ trait TransactionInfo
                 _root_.scala.None
               }
             case 2 =>
-              if (transaction ne null) {
-                writeTransactionValue(transaction, _oprot)
+              if (transaction.isDefined) {
+                writeTransactionValue(transaction.get, _oprot)
                 _root_.scala.Some(TransactionInfo.TransactionField)
               } else {
                 _root_.scala.None
@@ -432,13 +427,13 @@ trait TransactionInfo
    */
   def setField(_blob: TFieldBlob): TransactionInfo = {
     var exists: Boolean = this.exists
-    var transaction: transactionService.rpc.ProducerTransaction = this.transaction
+    var transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = this.transaction
     var _passthroughFields = this._passthroughFields
     _blob.id match {
       case 1 =>
         exists = readExistsValue(_blob.read)
       case 2 =>
-        transaction = readTransactionValue(_blob.read)
+        transaction = _root_.scala.Some(readTransactionValue(_blob.read))
       case _ => _passthroughFields += (_blob.id -> _blob)
     }
     new Immutable(
@@ -455,13 +450,13 @@ trait TransactionInfo
    */
   def unsetField(_fieldId: Short): TransactionInfo = {
     var exists: Boolean = this.exists
-    var transaction: transactionService.rpc.ProducerTransaction = this.transaction
+    var transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = this.transaction
 
     _fieldId match {
       case 1 =>
         exists = false
       case 2 =>
-        transaction = null
+        transaction = _root_.scala.None
       case _ =>
     }
     new Immutable(
@@ -485,7 +480,7 @@ trait TransactionInfo
     TransactionInfo.validate(this)
     _oprot.writeStructBegin(Struct)
     writeExistsField(exists, _oprot)
-    if (transaction ne null) writeTransactionField(transaction, _oprot)
+    if (transaction.isDefined) writeTransactionField(transaction.get, _oprot)
     if (_passthroughFields.nonEmpty) {
       _passthroughFields.values.foreach { _.write(_oprot) }
     }
@@ -495,7 +490,7 @@ trait TransactionInfo
 
   def copy(
     exists: Boolean = this.exists,
-    transaction: transactionService.rpc.ProducerTransaction = this.transaction,
+    transaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = this.transaction,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
   ): TransactionInfo =
     new Immutable(

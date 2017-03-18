@@ -13,7 +13,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
+import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionInfo, TransactionStates}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -248,7 +248,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val response = Await.result(client.getTransaction(stream.name, stream.partitions, fakeTransactionID), secondsWait.seconds)
 
     //assert
-    response shouldBe (false, None)
+    response shouldBe TransactionInfo(exists = false, None)
   }
 
   it should "put a producer transaction (Opened), return it and shouldn't return a producer transaction which id is greater (getTransaction)" in {
@@ -271,8 +271,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val failedResponse = Await.result(client.getTransaction(stream.name, stream.partitions, fakeTransactionID), secondsWait.seconds)
 
     //assert
-    successResponse shouldBe (true, Some(openedProducerTransaction))
-    failedResponse shouldBe (false, None)
+    successResponse shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
+    failedResponse shouldBe TransactionInfo(exists = false, None)
   }
 
   it should "put a producer transaction (Opened), return it and shouldn't return a non-existent producer transaction which id is less (getTransaction)" in {
@@ -295,8 +295,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val failedResponse = Await.result(client.getTransaction(stream.name, stream.partitions, fakeTransactionID), secondsWait.seconds)
 
     //assert
-    successResponse shouldBe (true, Some(openedProducerTransaction))
-    failedResponse shouldBe (true, None)
+    successResponse shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
+    failedResponse shouldBe TransactionInfo(exists = true, None)
   }
 
   it should "put a producer transaction (Opened) and get it back (getTransaction)" in {
@@ -317,7 +317,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val response = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
 
     //assert
-    response shouldBe (true, Some(openedProducerTransaction))
+    response shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
   }
 
   it should "put consumerState and get it back" in {

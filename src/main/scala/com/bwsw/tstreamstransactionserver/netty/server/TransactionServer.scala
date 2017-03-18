@@ -7,8 +7,6 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.utils.FileUtils
-import com.sleepycat.je.{Durability, Environment, EnvironmentConfig}
 
 
 

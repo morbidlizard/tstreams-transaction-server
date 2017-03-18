@@ -70,7 +70,9 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
           Descriptors.IsValid.decodeResponse(message)
 
         case _ =>
-          throw new MethodDoesnotFoundException(method)
+          val throwable = new MethodDoesnotFoundException(method)
+          ctx.fireExceptionCaught(throwable)
+          throw throwable
       }
       retryCompletePromise(messageSeqId, response)
     }

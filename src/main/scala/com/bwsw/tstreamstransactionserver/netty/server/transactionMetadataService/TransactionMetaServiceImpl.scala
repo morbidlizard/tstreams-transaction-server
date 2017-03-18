@@ -93,7 +93,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case (Some(txn), _) =>
           val stream = getStreamFromOldestToNewest(txn.stream).last
           val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
-          if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
+          if (txn.state != TransactionStates.Opened) {
+            producerTransactions += ((txn, timestamp))
+          } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
             updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, None)
             producerTransactions += ((txn, timestamp))
           }
@@ -101,8 +103,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case (_, Some(txn)) =>
           val stream = getStreamFromOldestToNewest(txn.stream).last
           val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
-          if (!isThatTransactionOutOfOrder(key, txn.transactionID))
-            consumerTransactions += ((txn, timestamp))
+          consumerTransactions += ((txn, timestamp))
 
         case _ =>
       }
@@ -147,7 +148,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     if (convertedTTL == 0L) 1 else scala.math.abs(convertedTTL.toInt)
   }
 
-  private final def updateLastCheckpointedTransaction(key: stateHandler.KeyStreamPartition, producerTransactionWithNewState: ProducerTransactionKey, parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
+  private final def updateLastTransactionOpenedOrCheckpointed(key: stateHandler.KeyStreamPartition, producerTransactionWithNewState: ProducerTransactionKey, parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
     val keyStreamPartition = stateHandler.KeyStreamPartition(key.stream, key.partition)
     if (producerTransactionWithNewState.state == TransactionStates.Checkpointed) {
       val checkpointedTransactionID = Some(producerTransactionWithNewState.transactionID)
@@ -181,7 +182,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
             val binaryTxn = producerTransactionKey.producerTransaction.toDatabaseEntry
             val binaryKey = key.toDatabaseEntry
 
-            updateLastCheckpointedTransaction(stateHandler.KeyStreamPartition(key.stream, key.partition), producerTransactionKey, parentBerkeleyTxn)
+            updateLastTransactionOpenedOrCheckpointed(stateHandler.KeyStreamPartition(key.stream, key.partition), producerTransactionKey, parentBerkeleyTxn)
 
             openedTransactionsRamTable.put(producerTransactionKey.key, producerTransactionKey.producerTransaction)
             if (producerTransactionKey.state == TransactionStates.Opened) {

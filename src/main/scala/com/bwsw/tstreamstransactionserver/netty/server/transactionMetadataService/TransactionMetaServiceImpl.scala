@@ -3,7 +3,6 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.netty.Shared
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
@@ -237,30 +236,27 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     val keyStream = getStreamFromOldestToNewest(stream).last
     val lastTransactionId = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition)
     if (lastTransactionId.isEmpty || transaction > lastTransactionId.get.transaction) {
-      ScalaFuture.successful(TransactionInfo(exists = false, Shared.nullProducerTransaction))
+      ScalaFuture.successful(TransactionInfo(exists = false, None))
     } else {
       ScalaFuture {
         val keyStream = getStreamFromOldestToNewest(stream).last
-        val transactionDB = environment.beginTransaction(null, null)
-        val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
-
         val searchKey = new Key(keyStream.streamNameToLong, partition, transaction).toDatabaseEntry
         val searchData = new DatabaseEntry()
-        val operationStatus = cursor.getSearchKey(searchKey, searchData, LockMode.READ_UNCOMMITTED_ALL)
-        val maybeProducerTransactionKey = if (operationStatus == OperationStatus.SUCCESS && producerTransactionsDatabase.compareKeys(searchKey, searchKey) == 0)
+
+        val transactionDB = environment.beginTransaction(null, null)
+        val operationStatus = producerTransactionsDatabase.get(transactionDB, searchKey, searchData, null)
+        val maybeProducerTransactionKey = if (operationStatus == OperationStatus.SUCCESS)
           Some(new ProducerTransactionKey(Key.entryToObject(searchKey), ProducerTransactionWithoutKey.entryToObject(searchData))) else None
 
         maybeProducerTransactionKey match {
           case None =>
-            cursor.close()
             transactionDB.commit()
-            TransactionInfo(exists = true, Shared.nullProducerTransaction)
+            TransactionInfo(exists = true, None)
 
           case Some(producerTransactionKey) =>
-            cursor.close()
             transactionDB.commit()
 
-            TransactionInfo(exists = true, keyToProducerTransaction(producerTransactionKey, keyStream.name))
+            TransactionInfo(exists = true, Some(keyToProducerTransaction(producerTransactionKey, keyStream.name)))
         }
       }(executionContext.berkeleyReadContext)
     }

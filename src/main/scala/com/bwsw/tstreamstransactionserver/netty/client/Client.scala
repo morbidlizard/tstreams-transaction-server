@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message, Shared}
+import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressClass, ZKLeaderClientToGetMaster}
@@ -474,7 +474,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[(Boolean, Option[ProducerTransaction])] = {
+  def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[TransactionInfo] = {
     if (logger.isInfoEnabled) logger.info(s"Retrieving a producer transaction on partition '$partition' of stream '$stream' by id '$transaction'")
     tryCompleteRequest(
       method(
@@ -482,13 +482,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         TransactionService.GetTransaction.Args(stream, partition, transaction)
       ).flatMap(x =>
         if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message))
-        else ScalaFuture.successful(x.success.map(x => {
-          if (x._2 != Shared.nullProducerTransaction) {
-            (x._1, Option(x._2))
-          } else {
-            (x._1, None)
-          }
-        }).get)
+        else ScalaFuture.successful(x.success.get)
       )
     )
   }

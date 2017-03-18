@@ -200,11 +200,10 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
         Array(
           (transactionRootChain, currentTimeInc.getAndIncrement()),
           (transactionRootChain.copy(transactionID = 1L, state = TransactionStates.Checkpointed), currentTimeInc.getAndIncrement()),
-          (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement())
+          (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 3L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
         )
-
-      val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
-      val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
       val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
 
@@ -215,8 +214,8 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
       val lastTransactionIDAndCheckpointedID = transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
 
-      lastTransactionIDAndCheckpointedID.transaction shouldBe maxTransactionID
-      lastTransactionIDAndCheckpointedID.checkpointedTransactionOpt.get shouldBe maxTransactionID - 1
+      lastTransactionIDAndCheckpointedID.transaction shouldBe 3L
+      lastTransactionIDAndCheckpointedID.checkpointedTransactionOpt.get shouldBe 1L
 
     }
     transactionService.shutdown()

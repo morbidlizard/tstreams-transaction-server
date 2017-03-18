@@ -262,7 +262,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     }
   }
 
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[transactionService.rpc.ResponseScanTransactions] =
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[transactionService.rpc.ScanTransactionsInfo] =
     ScalaFuture {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val keyStream = getStreamFromOldestToNewest(stream).last
@@ -282,7 +282,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         }
       }
 
-      if (toTransactionID < from) ResponseScanTransactions(Seq(), isResponseCompleted)
+      if (toTransactionID < from) ScanTransactionsInfo(Seq(), isResponseCompleted)
       else {
         val lastTransactionID = new Key(keyStream.streamNameToLong, partition, toTransactionID).toDatabaseEntry
         def moveCursorToKey: Option[ProducerTransactionKey] = {
@@ -299,7 +299,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
           case None =>
             cursor.close()
             transactionDB.commit()
-            ResponseScanTransactions(Seq(), isResponseCompleted)
+            ScanTransactionsInfo(Seq(), isResponseCompleted)
 
           case Some(producerTransactionKey) =>
             val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
@@ -315,7 +315,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
             cursor.close()
             transactionDB.commit()
 
-            ResponseScanTransactions(txns map producerTransactionKeyToProducerTransaction, isResponseCompleted)
+            ScanTransactionsInfo(txns map producerTransactionKeyToProducerTransaction filter lambda, isResponseCompleted)
         }
       }
     }(executionContext.berkeleyReadContext)

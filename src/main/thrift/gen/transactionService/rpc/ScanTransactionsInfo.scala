@@ -29,9 +29,9 @@ import scala.collection.mutable.{
 import scala.collection.{Map, Set}
 
 
-object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransactions] {
+object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
   private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-  val Struct = new TStruct("ResponseScanTransactions")
+  val Struct = new TStruct("ScanTransactionsInfo")
   val ProducerTransactionsField = new TField("producerTransactions", TType.LIST, 1)
   val ProducerTransactionsFieldManifest = implicitly[Manifest[Seq[transactionService.rpc.ProducerTransaction]]]
   val IsResponseCompletedField = new TField("isResponseCompleted", TType.BOOL, 2)
@@ -71,11 +71,11 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
   /**
    * Checks that all required fields are non-null.
    */
-  def validate(_item: ResponseScanTransactions): Unit = {
+  def validate(_item: ScanTransactionsInfo): Unit = {
     if (_item.producerTransactions == null) throw new TProtocolException("Required field producerTransactions cannot be null")
   }
 
-  def withoutPassthroughFields(original: ResponseScanTransactions): ResponseScanTransactions =
+  def withoutPassthroughFields(original: ScanTransactionsInfo): ScanTransactionsInfo =
     new Immutable(
       producerTransactions =
         {
@@ -91,11 +91,11 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
         }
     )
 
-  override def encode(_item: ResponseScanTransactions, _oproto: TProtocol): Unit = {
+  override def encode(_item: ScanTransactionsInfo, _oproto: TProtocol): Unit = {
     _item.write(_oproto)
   }
 
-  private[this] def lazyDecode(_iprot: LazyTProtocol): ResponseScanTransactions = {
+  private[this] def lazyDecode(_iprot: LazyTProtocol): ScanTransactionsInfo = {
 
     var producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = Seq[transactionService.rpc.ProducerTransaction]()
     var _got_producerTransactions = false
@@ -153,8 +153,8 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
     }
     _iprot.readStructEnd()
 
-    if (!_got_producerTransactions) throw new TProtocolException("Required field 'producerTransactions' was not found in serialized data for struct ResponseScanTransactions")
-    if (!_got_isResponseCompleted) throw new TProtocolException("Required field 'isResponseCompleted' was not found in serialized data for struct ResponseScanTransactions")
+    if (!_got_producerTransactions) throw new TProtocolException("Required field 'producerTransactions' was not found in serialized data for struct ScanTransactionsInfo")
+    if (!_got_isResponseCompleted) throw new TProtocolException("Required field 'isResponseCompleted' was not found in serialized data for struct ScanTransactionsInfo")
     new LazyImmutable(
       _iprot,
       _iprot.buffer,
@@ -169,13 +169,13 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
     )
   }
 
-  override def decode(_iprot: TProtocol): ResponseScanTransactions =
+  override def decode(_iprot: TProtocol): ScanTransactionsInfo =
     _iprot match {
       case i: LazyTProtocol => lazyDecode(i)
       case i => eagerDecode(i)
     }
 
-  private[this] def eagerDecode(_iprot: TProtocol): ResponseScanTransactions = {
+  private[this] def eagerDecode(_iprot: TProtocol): ScanTransactionsInfo = {
     var producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = Seq[transactionService.rpc.ProducerTransaction]()
     var _got_producerTransactions = false
     var isResponseCompleted: Boolean = false
@@ -228,8 +228,8 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
     }
     _iprot.readStructEnd()
 
-    if (!_got_producerTransactions) throw new TProtocolException("Required field 'producerTransactions' was not found in serialized data for struct ResponseScanTransactions")
-    if (!_got_isResponseCompleted) throw new TProtocolException("Required field 'isResponseCompleted' was not found in serialized data for struct ResponseScanTransactions")
+    if (!_got_producerTransactions) throw new TProtocolException("Required field 'producerTransactions' was not found in serialized data for struct ScanTransactionsInfo")
+    if (!_got_isResponseCompleted) throw new TProtocolException("Required field 'isResponseCompleted' was not found in serialized data for struct ScanTransactionsInfo")
     new Immutable(
       producerTransactions,
       isResponseCompleted,
@@ -243,13 +243,13 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
   def apply(
     producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = Seq[transactionService.rpc.ProducerTransaction](),
     isResponseCompleted: Boolean
-  ): ResponseScanTransactions =
+  ): ScanTransactionsInfo =
     new Immutable(
       producerTransactions,
       isResponseCompleted
     )
 
-  def unapply(_item: ResponseScanTransactions): _root_.scala.Option[_root_.scala.Tuple2[Seq[transactionService.rpc.ProducerTransaction], Boolean]] = _root_.scala.Some(_item.toTuple)
+  def unapply(_item: ScanTransactionsInfo): _root_.scala.Option[_root_.scala.Tuple2[Seq[transactionService.rpc.ProducerTransaction], Boolean]] = _root_.scala.Some(_item.toTuple)
 
 
   @inline private def readProducerTransactionsValue(_iprot: TProtocol): Seq[transactionService.rpc.ProducerTransaction] = {
@@ -311,22 +311,22 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
   }
 
 
-  object Immutable extends ThriftStructCodec3[ResponseScanTransactions] {
-    override def encode(_item: ResponseScanTransactions, _oproto: TProtocol): Unit = { _item.write(_oproto) }
-    override def decode(_iprot: TProtocol): ResponseScanTransactions = ResponseScanTransactions.decode(_iprot)
-    override lazy val metaData: ThriftStructMetaData[ResponseScanTransactions] = ResponseScanTransactions.metaData
+  object Immutable extends ThriftStructCodec3[ScanTransactionsInfo] {
+    override def encode(_item: ScanTransactionsInfo, _oproto: TProtocol): Unit = { _item.write(_oproto) }
+    override def decode(_iprot: TProtocol): ScanTransactionsInfo = ScanTransactionsInfo.decode(_iprot)
+    override lazy val metaData: ThriftStructMetaData[ScanTransactionsInfo] = ScanTransactionsInfo.metaData
   }
 
   /**
-   * The default read-only implementation of ResponseScanTransactions.  You typically should not need to
-   * directly reference this class; instead, use the ResponseScanTransactions.apply method to construct
+   * The default read-only implementation of ScanTransactionsInfo.  You typically should not need to
+   * directly reference this class; instead, use the ScanTransactionsInfo.apply method to construct
    * new instances.
    */
   class Immutable(
       val producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
       val isResponseCompleted: Boolean,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
-    extends ResponseScanTransactions {
+    extends ScanTransactionsInfo {
     def this(
       producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = Seq[transactionService.rpc.ProducerTransaction](),
       isResponseCompleted: Boolean
@@ -349,7 +349,7 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
       val producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
       val isResponseCompleted: Boolean,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
-    extends ResponseScanTransactions {
+    extends ScanTransactionsInfo {
 
     override def write(_oprot: TProtocol): Unit = {
       _oprot match {
@@ -374,25 +374,25 @@ object ResponseScanTransactions extends ThriftStructCodec3[ResponseScanTransacti
   }
 
   /**
-   * This Proxy trait allows you to extend the ResponseScanTransactions trait with additional state or
-   * behavior and implement the read-only methods from ResponseScanTransactions using an underlying
+   * This Proxy trait allows you to extend the ScanTransactionsInfo trait with additional state or
+   * behavior and implement the read-only methods from ScanTransactionsInfo using an underlying
    * instance.
    */
-  trait Proxy extends ResponseScanTransactions {
-    protected def _underlying_ResponseScanTransactions: ResponseScanTransactions
-    override def producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = _underlying_ResponseScanTransactions.producerTransactions
-    override def isResponseCompleted: Boolean = _underlying_ResponseScanTransactions.isResponseCompleted
-    override def _passthroughFields = _underlying_ResponseScanTransactions._passthroughFields
+  trait Proxy extends ScanTransactionsInfo {
+    protected def _underlying_ScanTransactionsInfo: ScanTransactionsInfo
+    override def producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = _underlying_ScanTransactionsInfo.producerTransactions
+    override def isResponseCompleted: Boolean = _underlying_ScanTransactionsInfo.isResponseCompleted
+    override def _passthroughFields = _underlying_ScanTransactionsInfo._passthroughFields
   }
 }
 
-trait ResponseScanTransactions
+trait ScanTransactionsInfo
   extends ThriftStruct
   with _root_.scala.Product2[Seq[transactionService.rpc.ProducerTransaction], Boolean]
-  with HasThriftStructCodec3[ResponseScanTransactions]
+  with HasThriftStructCodec3[ScanTransactionsInfo]
   with java.io.Serializable
 {
-  import ResponseScanTransactions._
+  import ScanTransactionsInfo._
 
   def producerTransactions: Seq[transactionService.rpc.ProducerTransaction]
   def isResponseCompleted: Boolean
@@ -426,14 +426,14 @@ trait ResponseScanTransactions
             case 1 =>
               if (producerTransactions ne null) {
                 writeProducerTransactionsValue(producerTransactions, _oprot)
-                _root_.scala.Some(ResponseScanTransactions.ProducerTransactionsField)
+                _root_.scala.Some(ScanTransactionsInfo.ProducerTransactionsField)
               } else {
                 _root_.scala.None
               }
             case 2 =>
               if (true) {
                 writeIsResponseCompletedValue(isResponseCompleted, _oprot)
-                _root_.scala.Some(ResponseScanTransactions.IsResponseCompletedField)
+                _root_.scala.Some(ScanTransactionsInfo.IsResponseCompletedField)
               } else {
                 _root_.scala.None
               }
@@ -462,7 +462,7 @@ trait ResponseScanTransactions
    * is unknown and passthrough fields are enabled, then the blob will be stored in
    * _passthroughFields.
    */
-  def setField(_blob: TFieldBlob): ResponseScanTransactions = {
+  def setField(_blob: TFieldBlob): ScanTransactionsInfo = {
     var producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = this.producerTransactions
     var isResponseCompleted: Boolean = this.isResponseCompleted
     var _passthroughFields = this._passthroughFields
@@ -485,7 +485,7 @@ trait ResponseScanTransactions
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetField(_fieldId: Short): ResponseScanTransactions = {
+  def unsetField(_fieldId: Short): ScanTransactionsInfo = {
     var producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = this.producerTransactions
     var isResponseCompleted: Boolean = this.isResponseCompleted
 
@@ -508,13 +508,13 @@ trait ResponseScanTransactions
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetProducerTransactions: ResponseScanTransactions = unsetField(1)
+  def unsetProducerTransactions: ScanTransactionsInfo = unsetField(1)
 
-  def unsetIsResponseCompleted: ResponseScanTransactions = unsetField(2)
+  def unsetIsResponseCompleted: ScanTransactionsInfo = unsetField(2)
 
 
   override def write(_oprot: TProtocol): Unit = {
-    ResponseScanTransactions.validate(this)
+    ScanTransactionsInfo.validate(this)
     _oprot.writeStructBegin(Struct)
     if (producerTransactions ne null) writeProducerTransactionsField(producerTransactions, _oprot)
     writeIsResponseCompletedField(isResponseCompleted, _oprot)
@@ -529,23 +529,23 @@ trait ResponseScanTransactions
     producerTransactions: Seq[transactionService.rpc.ProducerTransaction] = this.producerTransactions,
     isResponseCompleted: Boolean = this.isResponseCompleted,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
-  ): ResponseScanTransactions =
+  ): ScanTransactionsInfo =
     new Immutable(
       producerTransactions,
       isResponseCompleted,
       _passthroughFields
     )
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ResponseScanTransactions]
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ScanTransactionsInfo]
 
-  private def _equals(x: ResponseScanTransactions, y: ResponseScanTransactions): Boolean =
+  private def _equals(x: ScanTransactionsInfo, y: ScanTransactionsInfo): Boolean =
       x.productArity == y.productArity &&
       x.productIterator.sameElements(y.productIterator)
 
   override def equals(other: Any): Boolean =
     canEqual(other) &&
-      _equals(this, other.asInstanceOf[ResponseScanTransactions]) &&
-      _passthroughFields == other.asInstanceOf[ResponseScanTransactions]._passthroughFields
+      _equals(this, other.asInstanceOf[ScanTransactionsInfo]) &&
+      _passthroughFields == other.asInstanceOf[ScanTransactionsInfo]._passthroughFields
 
   override def hashCode: Int = _root_.scala.runtime.ScalaRunTime._hashCode(this)
 
@@ -560,7 +560,7 @@ trait ResponseScanTransactions
     case _ => throw new IndexOutOfBoundsException(n.toString)
   }
 
-  override def productPrefix: String = "ResponseScanTransactions"
+  override def productPrefix: String = "ScanTransactionsInfo"
 
-  def _codec: ThriftStructCodec3[ResponseScanTransactions] = ResponseScanTransactions
+  def _codec: ThriftStructCodec3[ScanTransactionsInfo] = ScanTransactionsInfo
 }

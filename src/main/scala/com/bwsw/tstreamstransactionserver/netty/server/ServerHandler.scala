@@ -3,11 +3,11 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
+import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, ObjectSerializer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.PackageTransmissionOptions
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.Logger
-import transactionService.rpc.{AuthInfo, TransactionService}
+import transactionService.rpc.{AuthInfo, ProducerTransaction, TransactionService}
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
@@ -203,7 +203,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             val args = Descriptors.ScanTransactions.decodeRequest(message)
-            transactionServer.scanTransactions(args.stream, args.partition, args.from, args.to)
+            transactionServer.scanTransactions(args.stream, args.partition, args.from, args.to, ObjectSerializer.deserialize(args.lambda).asInstanceOf[ProducerTransaction => Boolean])
               .flatMap { response =>
                 logSuccessfulProcession()
                 ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(response)))(messageId, token))

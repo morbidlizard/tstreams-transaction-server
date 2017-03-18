@@ -256,4 +256,61 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     transactionService.shutdown()
   }
 
+  it should "correctly return producerTransactions with defined lambda and it's state(completed or partial) on: LT >= B: return (true, AvailableTransactions[A, B]), " +
+    "where A - from transaction bound, B - to transaction bound" in {
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val storageOptions = StorageOptions()
+    val rocksStorageOptions = RocksStorageOptions()
+    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+
+    val secondsAwait = 5
+
+    val streamsNumber = 5
+
+    val transactionService = new TransactionServer(
+      executionContext = serverExecutionContext,
+      authOpts = authOptions,
+      storageOpts = storageOptions,
+      rocksStorageOpts = rocksStorageOptions
+    )
+
+    val streams = Array.fill(streamsNumber)(getRandomStream)
+    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+      transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+
+
+    streams foreach { stream =>
+      val currentTimeInc = new AtomicLong(System.currentTimeMillis())
+      val transactionRootChain = getRandomProducerTransaction(stream, 1, Long.MaxValue)
+      val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
+        Array(
+          (transactionRootChain, currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 1L, state = TransactionStates.Checkpointed), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 3L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 3L, state = TransactionStates.Checkpointed), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 4L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 5L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
+        )
+
+      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+
+      val currentTime = System.currentTimeMillis()
+      val bigCommit = transactionService.getBigCommit(storageOptions.path)
+      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.commit(currentTime)
+
+      val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
+      val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
+
+      val result2 = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 5L, txn => txn.transactionID > 5L), 5.seconds)
+      result2.producerTransactions shouldBe empty
+      result2.isResponseCompleted  shouldBe true
+    }
+    transactionService.shutdown()
+  }
+
 }

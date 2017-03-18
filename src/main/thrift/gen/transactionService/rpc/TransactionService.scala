@@ -49,7 +49,7 @@ trait TransactionService[+MM[_]] extends ThriftService {
   
   def putTransactions(transactions: Seq[transactionService.rpc.Transaction] = Seq[transactionService.rpc.Transaction]()): MM[Boolean]
   
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): MM[Seq[transactionService.rpc.ProducerTransaction]]
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): MM[transactionService.rpc.ResponseScanTransactions]
   
   def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): MM[Boolean]
   
@@ -3420,13 +3420,13 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Args] = Args
     }
 
-    type SuccessType = Seq[transactionService.rpc.ProducerTransaction]
+    type SuccessType = transactionService.rpc.ResponseScanTransactions
     
     object Result extends ThriftStructCodec3[Result] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("scanTransactions_result")
-      val SuccessField = new TField("success", TType.LIST, 0)
-      val SuccessFieldManifest = implicitly[Manifest[Seq[transactionService.rpc.ProducerTransaction]]]
+      val SuccessField = new TField("success", TType.STRUCT, 0)
+      val SuccessFieldManifest = implicitly[Manifest[transactionService.rpc.ResponseScanTransactions]]
       val ErrorField = new TField("error", TType.STRUCT, 1)
       val ErrorFieldManifest = implicitly[Manifest[transactionService.rpc.ServerException]]
     
@@ -3440,7 +3440,7 @@ object TransactionService { self =>
           false,
           SuccessFieldManifest,
           _root_.scala.None,
-          _root_.scala.Some(implicitly[Manifest[transactionService.rpc.ProducerTransaction]]),
+          _root_.scala.None,
           immutable$Map.empty[String, String],
           immutable$Map.empty[String, String],
           None
@@ -3473,9 +3473,7 @@ object TransactionService { self =>
             {
               val field = original.success
               field.map { field =>
-                field.map { field =>
-                  transactionService.rpc.ProducerTransaction.withoutPassthroughFields(field)
-                }
+                transactionService.rpc.ResponseScanTransactions.withoutPassthroughFields(field)
               }
             },
           error =
@@ -3492,7 +3490,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Result = {
-        var success: _root_.scala.Option[Seq[transactionService.rpc.ProducerTransaction]] = _root_.scala.None
+        var success: _root_.scala.Option[transactionService.rpc.ResponseScanTransactions] = _root_.scala.None
         var error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
@@ -3506,10 +3504,10 @@ object TransactionService { self =>
             _field.id match {
               case 0 =>
                 _field.`type` match {
-                  case TType.LIST =>
+                  case TType.STRUCT =>
                     success = _root_.scala.Some(readSuccessValue(_iprot))
                   case _actualType =>
-                    val _expectedType = TType.LIST
+                    val _expectedType = TType.STRUCT
                     throw new TProtocolException(
                       "Received wrong type for field 'success' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
@@ -3551,7 +3549,7 @@ object TransactionService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[Seq[transactionService.rpc.ProducerTransaction]] = _root_.scala.None,
+        success: _root_.scala.Option[transactionService.rpc.ResponseScanTransactions] = _root_.scala.None,
         error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
@@ -3559,51 +3557,21 @@ object TransactionService { self =>
           error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Seq[transactionService.rpc.ProducerTransaction]], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[transactionService.rpc.ResponseScanTransactions], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readSuccessValue(_iprot: TProtocol): Seq[transactionService.rpc.ProducerTransaction] = {
-        val _list = _iprot.readListBegin()
-        if (_list.size == 0) {
-          _iprot.readListEnd()
-          Nil
-        } else {
-          val _rv = new mutable$ArrayBuffer[transactionService.rpc.ProducerTransaction](_list.size)
-          var _i = 0
-          while (_i < _list.size) {
-            _rv += {
-              transactionService.rpc.ProducerTransaction.decode(_iprot)
-            }
-            _i += 1
-          }
-          _iprot.readListEnd()
-          _rv
-        }
+      @inline private def readSuccessValue(_iprot: TProtocol): transactionService.rpc.ResponseScanTransactions = {
+        transactionService.rpc.ResponseScanTransactions.decode(_iprot)
       }
     
-      @inline private def writeSuccessField(success_item: Seq[transactionService.rpc.ProducerTransaction], _oprot: TProtocol): Unit = {
+      @inline private def writeSuccessField(success_item: transactionService.rpc.ResponseScanTransactions, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(SuccessField)
         writeSuccessValue(success_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeSuccessValue(success_item: Seq[transactionService.rpc.ProducerTransaction], _oprot: TProtocol): Unit = {
-        _oprot.writeListBegin(new TList(TType.STRUCT, success_item.size))
-        success_item match {
-          case _: IndexedSeq[_] =>
-            var _i = 0
-            val _size = success_item.size
-            while (_i < _size) {
-              val success_item_element = success_item(_i)
-              success_item_element.write(_oprot)
-              _i += 1
-            }
-          case _ =>
-            success_item.foreach { success_item_element =>
-              success_item_element.write(_oprot)
-            }
-        }
-        _oprot.writeListEnd()
+      @inline private def writeSuccessValue(success_item: transactionService.rpc.ResponseScanTransactions, _oprot: TProtocol): Unit = {
+        success_item.write(_oprot)
       }
     
       @inline private def readErrorValue(_iprot: TProtocol): transactionService.rpc.ServerException = {
@@ -3624,17 +3592,17 @@ object TransactionService { self =>
     }
     
     class Result(
-        val success: _root_.scala.Option[Seq[transactionService.rpc.ProducerTransaction]],
+        val success: _root_.scala.Option[transactionService.rpc.ResponseScanTransactions],
         val error: _root_.scala.Option[transactionService.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
-      extends ThriftResponse[Seq[transactionService.rpc.ProducerTransaction]] with ThriftStruct
-      with _root_.scala.Product2[Option[Seq[transactionService.rpc.ProducerTransaction]], Option[transactionService.rpc.ServerException]]
+      extends ThriftResponse[transactionService.rpc.ResponseScanTransactions] with ThriftStruct
+      with _root_.scala.Product2[Option[transactionService.rpc.ResponseScanTransactions], Option[transactionService.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[Seq[transactionService.rpc.ProducerTransaction]] = _root_.scala.None,
+        success: _root_.scala.Option[transactionService.rpc.ResponseScanTransactions] = _root_.scala.None,
         error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
@@ -3645,14 +3613,14 @@ object TransactionService { self =>
       def _1 = success
       def _2 = error
     
-      def toTuple: _root_.scala.Tuple2[Option[Seq[transactionService.rpc.ProducerTransaction]], Option[transactionService.rpc.ServerException]] = {
+      def toTuple: _root_.scala.Tuple2[Option[transactionService.rpc.ResponseScanTransactions], Option[transactionService.rpc.ServerException]] = {
         (
           success,
           error
         )
       }
     
-      def successField: Option[Seq[transactionService.rpc.ProducerTransaction]] = success
+      def successField: Option[transactionService.rpc.ResponseScanTransactions] = success
       def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(error)
     
     
@@ -3669,7 +3637,7 @@ object TransactionService { self =>
       }
     
       def copy(
-        success: _root_.scala.Option[Seq[transactionService.rpc.ProducerTransaction]] = this.success,
+        success: _root_.scala.Option[transactionService.rpc.ResponseScanTransactions] = this.success,
         error: _root_.scala.Option[transactionService.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =

@@ -141,7 +141,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
 
     Thread.sleep(5000)
-    val result = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds)
+    val result = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
 
     result shouldBe empty
 
@@ -216,20 +216,20 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
 
     val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from), secondsWait.seconds)
-    resFrom_1From.size shouldBe 1
-    resFrom_1From.head.transactionID shouldBe from
+    resFrom_1From.producerTransactions.size shouldBe 1
+    resFrom_1From.producerTransactions.head.transactionID shouldBe from
 
 
     val resFromFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, from, from), secondsWait.seconds)
-    resFromFrom.size shouldBe 1
-    resFromFrom.head.transactionID shouldBe from
+    resFromFrom.producerTransactions.size shouldBe 1
+    resFromFrom.producerTransactions.head.transactionID shouldBe from
 
 
     val resToFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, to, from), secondsWait.seconds)
-    resToFrom.size shouldBe 0
+    resToFrom.producerTransactions.size shouldBe 0
 
     val producerTransactionsByState = producerTransactions.groupBy(_.state)
-    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait.seconds)
+    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait.seconds).producerTransactions
 
     val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
 

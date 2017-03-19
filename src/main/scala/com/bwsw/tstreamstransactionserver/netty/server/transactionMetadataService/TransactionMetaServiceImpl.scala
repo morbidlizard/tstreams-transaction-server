@@ -231,9 +231,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
 
   def getBigCommit(pathToFile: String) = new BigCommit(pathToFile)
 
+
   def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[transactionService.rpc.TransactionInfo] = {
     val keyStream = getStreamFromOldestToNewest(stream).last
-    val lastTransactionId = getLastTransactionID(keyStream.streamNameToLong, partition)
+    val lastTransactionId = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition)
     if (lastTransactionId.isEmpty || transaction > lastTransactionId.get.transaction) {
       ScalaFuture.successful(TransactionInfo(exists = false, None))
     } else {
@@ -261,45 +262,61 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     }
   }
 
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.ProducerTransaction]] =
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[transactionService.rpc.ScanTransactionsInfo] =
     ScalaFuture {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val keyStream = getStreamFromOldestToNewest(stream).last
       val transactionDB = environment.beginTransaction(null, null)
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
-      val lastTransactionID = new Key(keyStream.streamNameToLong, partition, long2Long(to)).toDatabaseEntry
-
-      def moveCursorToKey: Option[ProducerTransactionKey] = {
-        val keyFrom = new Key(keyStream.streamNameToLong, partition, long2Long(from))
-        val keyFound = keyFrom.toDatabaseEntry
-        val dataFound = new DatabaseEntry()
-        val toStartFrom = cursor.getSearchKeyRange(keyFound, dataFound, lockMode)
-        if (toStartFrom == OperationStatus.SUCCESS && producerTransactionsDatabase.compareKeys(keyFound, lastTransactionID) <= 0)
-          Some(new ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound))) else None
+      def producerTransactionKeyToProducerTransaction(txn: ProducerTransactionKey) = {
+        transactionService.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
       }
 
-      moveCursorToKey match {
-        case None =>
-          cursor.close()
-          transactionDB.commit()
-          ArrayBuffer[transactionService.rpc.ProducerTransaction]()
+      val (toTransactionID, isResponseCompleted) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
+        case None => (from - 1L, false)
+        case Some(lastTransaction) => lastTransaction.transaction match {
+          case lt if lt < from => (from - 1L, false)
+          case lt if from <= lt && lt < to => (lt, false)
+          case lt if lt >= to => (to, true)
+        }
+      }
 
-        case Some(producerTransactionKey) =>
-          val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
-          val transactionID = new DatabaseEntry()
+      if (toTransactionID < from) ScanTransactionsInfo(Seq(), isResponseCompleted)
+      else {
+        val lastTransactionID = new Key(keyStream.streamNameToLong, partition, toTransactionID).toDatabaseEntry
+        def moveCursorToKey: Option[ProducerTransactionKey] = {
+          val keyFrom = new Key(keyStream.streamNameToLong, partition, from)
+          val keyFound = keyFrom.toDatabaseEntry
           val dataFound = new DatabaseEntry()
-          while (
-            cursor.getNext(transactionID, dataFound, lockMode) == OperationStatus.SUCCESS &&
-              (producerTransactionsDatabase.compareKeys(transactionID, lastTransactionID) <= 0)
-          ) {
-            txns += ProducerTransactionKey(Key.entryToObject(transactionID), ProducerTransactionWithoutKey.entryToObject(dataFound))
-          }
+          val toStartFrom = cursor.getSearchKeyRange(keyFound, dataFound, lockMode)
+          if (toStartFrom == OperationStatus.SUCCESS && producerTransactionsDatabase.compareKeys(keyFound, lastTransactionID) <= 0)
+            Some(new ProducerTransactionKey(Key.entryToObject(keyFound), ProducerTransactionWithoutKey.entryToObject(dataFound)))
+          else None
+        }
 
-          cursor.close()
-          transactionDB.commit()
+        moveCursorToKey match {
+          case None =>
+            cursor.close()
+            transactionDB.commit()
+            ScanTransactionsInfo(Seq(), isResponseCompleted)
 
-          txns.map(x => keyToProducerTransaction(x, keyStream.name))
+          case Some(producerTransactionKey) =>
+            val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
+            val transactionID = new DatabaseEntry()
+            val dataFound = new DatabaseEntry()
+            while (
+              cursor.getNext(transactionID, dataFound, lockMode) == OperationStatus.SUCCESS &&
+                (producerTransactionsDatabase.compareKeys(transactionID, lastTransactionID) <= 0)
+            ) {
+              txns += ProducerTransactionKey(Key.entryToObject(transactionID), ProducerTransactionWithoutKey.entryToObject(dataFound))
+            }
+
+            cursor.close()
+            transactionDB.commit()
+
+            ScanTransactionsInfo(txns map producerTransactionKeyToProducerTransaction filter lambda, isResponseCompleted)
+        }
       }
     }(executionContext.berkeleyReadContext)
 

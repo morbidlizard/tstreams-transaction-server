@@ -48,6 +48,12 @@ struct AuthInfo {
     3: required i32           maxDataPackageSize
 }
 
+
+struct ScanTransactionsInfo {
+    1: required list<ProducerTransaction>   producerTransactions
+    2: required bool                        isResponseCompleted
+}
+
 struct TransactionInfo {
     1: required bool                 exists
     2: optional ProducerTransaction  transaction
@@ -78,7 +84,7 @@ service TransactionMetaService {
 
    bool putTransactions(1: list<Transaction> transactions) throws (1:ServerException error),
 
-   list<ProducerTransaction> scanTransactions(1: StreamType stream, 2: PartitionType partition, 4: i64 from, 5: i64 to) throws (1:ServerException error),
+   ScanTransactionsInfo scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: i64 from, 4: i64 to, 5: list<byte> lambda) throws (1:ServerException error),
 
    TransactionInfo getTransaction(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error)
 }
@@ -123,7 +129,7 @@ service TransactionService {
 
   bool putTransactions(1: list<Transaction> transactions) throws (1:ServerException error),
 
-  list<ProducerTransaction> scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: i64 from, 4: i64 to) throws (1:ServerException error),
+  ScanTransactionsInfo scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: i64 from, 4: i64 to, 5: list<byte> lambda) throws (1:ServerException error),
 
   TransactionInfo getTransaction(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error),
 

@@ -39,7 +39,7 @@ trait LastTransactionStreamPartition {
 
   private final val lastTransactionStreamPartitionRamTable = fillLastTransactionStreamPartitionTable
 
-  final def getLastTransactionID(stream: Long, partition: Int): Option[TransactionID] = {
+  final def getLastTransactionIDAndCheckpointedID(stream: Long, partition: Int): Option[TransactionID] = {
     val key = KeyStreamPartition(stream, partition)
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     if (lastTransactionOpt.isDefined) lastTransactionOpt

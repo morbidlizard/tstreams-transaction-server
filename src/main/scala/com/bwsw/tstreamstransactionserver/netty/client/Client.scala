@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message}
+import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message, ObjectSerializer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressClass, ZKLeaderClientToGetMaster}
@@ -497,16 +497,16 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long): ScalaFuture[Seq[transactionService.rpc.ProducerTransaction]] = {
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[ScanTransactionsInfo] = {
     require(from >= 0 && to >= 0)
     if (to < from)
-      ScalaFuture.successful(Seq[transactionService.rpc.ProducerTransaction]())
+      ScalaFuture.successful(ScanTransactionsInfo(Seq(), isResponseCompleted = true))
     else {
       if (logger.isInfoEnabled) logger.info(s"Retrieving producer transactions on stream $stream in range [$from, $to]")
       tryCompleteRequest(
         method(
           Descriptors.ScanTransactions,
-          TransactionService.ScanTransactions.Args(stream, partition, from, to)
+          TransactionService.ScanTransactions.Args(stream, partition, from, to, ObjectSerializer.serialize(lambda))
         ).flatMap(x =>
           if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message))
           else ScalaFuture.successful(x.success.get)
@@ -514,6 +514,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       )
     }
   }
+
 
   /** Putting any binary data on server to a specific stream, partition, transaction id of producer tranasaction.
     *

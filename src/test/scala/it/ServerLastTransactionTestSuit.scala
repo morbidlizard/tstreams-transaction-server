@@ -67,7 +67,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getStreamFromOldestToNewest(stream).last
-        getLastTransactionID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
       }
     }
 
@@ -120,7 +120,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getStreamFromOldestToNewest(stream).last
-        getLastTransactionID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
       }
     }
 
@@ -181,7 +181,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getStreamFromOldestToNewest(stream).last
-        getLastTransactionID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
       }
     }
 
@@ -192,9 +192,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
 
     streams foreach { stream =>
-      val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
-
-      var currentTimeInc = new AtomicLong(System.currentTimeMillis())
+      val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
         Array(
@@ -240,7 +238,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getStreamFromOldestToNewest(stream).last
-        getLastTransactionID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
       }
     }
 

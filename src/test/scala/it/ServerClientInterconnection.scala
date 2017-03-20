@@ -1,18 +1,19 @@
 package it
 
 import java.io.File
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
+import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
-import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
+import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionInfo, TransactionStates}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -31,8 +32,13 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val storageOptions = serverBuilder.getStorageOptions()
   private val authOptions = clientBuilder.getAuthOptions()
 
+  private val maxIdleTimeBeetwenRecords = 2
+
   def startTransactionServer() = new Thread(() => {
-    transactionServer = serverBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
+    transactionServer = serverBuilder
+      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+      .withCommitLogOptions(CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBeetwenRecords))
+      .build()
     transactionServer.start()
   }).start()
 
@@ -41,6 +47,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     zkTestServer = new TestingServer(true)
     startTransactionServer()
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
+    val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
+    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
   }
 
   override def afterEach() {
@@ -50,6 +58,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
+    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {
@@ -66,30 +76,35 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   private val rand = scala.util.Random
 
-  private def getRandomStream = new transactionService.rpc.Stream {
-    override val name: String = rand.nextInt(10000).toString
-    override val partitions: Int = rand.nextInt(10000)
-    override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
-    override val ttl: Long = Long.MaxValue
-  }
+  private def getRandomStream =
+    new transactionService.rpc.Stream {
+      override val name: String = rand.nextInt(10000).toString
+      override val partitions: Int = rand.nextInt(10000)
+      override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
+      override val ttl: Long = Long.MaxValue
+    }
 
   private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
 
-  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream) = new ProducerTransaction {
-    override val transactionID: Long = System.nanoTime()
-    override val state: TransactionStates = TransactionStates(rand.nextInt(TransactionStates(2).value) + 1)
-    override val stream: String = streamObj.name
-    override val ttl: Long = Long.MaxValue
-    override val quantity: Int = -1
-    override val partition: Int = streamObj.partitions
-  }
+  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream,
+                                           transactionState: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1),
+                                           id: Long = System.nanoTime()) =
+    new ProducerTransaction {
+      override val transactionID: Long = id
+      override val state: TransactionStates = transactionState
+      override val stream: String = streamObj.name
+      override val ttl: Long = Long.MaxValue
+      override val quantity: Int = -1
+      override val partition: Int = streamObj.partitions
+    }
 
-  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) = new ConsumerTransaction {
-    override val transactionID: Long = scala.util.Random.nextLong()
-    override val name: String = rand.nextInt(10000).toString
-    override val stream: String = streamObj.name
-    override val partition: Int = streamObj.partitions
-  }
+  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =
+    new ConsumerTransaction {
+      override val transactionID: Long = scala.util.Random.nextLong()
+      override val name: String = rand.nextInt(10000).toString
+      override val stream: String = streamObj.name
+      override val partition: Int = streamObj.partitions
+    }
 
 
   val secondsWait = 5
@@ -116,14 +131,20 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putStream(stream), secondsWait.seconds)
     Await.result(client.delStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-    val result = client.putTransactions(producerTransactions, consumerTransactions)
+    Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
 
-    assertThrows[StreamDoesNotExist] {
-      Await.result(result, secondsWait.seconds)
-    }
+    val fromID = producerTransactions.minBy(_.transactionID).transactionID
+    val toID = producerTransactions.maxBy(_.transactionID).transactionID
+
+
+    Thread.sleep(5000)
+    val result = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
+
+    result shouldBe empty
+
   }
 
   it should "throw an exception when the a server isn't available for time greater than in config" in {
@@ -162,7 +183,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putStream(stream), secondsWait.seconds)
 
     val txn = getRandomProducerTransaction(stream)
-    Await.result(client.putTransaction(txn), secondsWait.seconds)
+    Await.result(client.putProducerState(txn), secondsWait.seconds)
 
     val amount = 5000
     val data = Array.fill(amount)(rand.nextString(10).getBytes)
@@ -178,36 +199,125 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(15)(getRandomProducerTransaction(stream))
+    val producerTransactions = Array.fill(30)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-    Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait.seconds)
+    Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
 
-    val statesAllowed = Array(TransactionStates.Opened, TransactionStates.Checkpointed)
+    val statesAllowed = Array(TransactionStates.Opened, TransactionStates.Updated)
     val (from, to) = (
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).minBy(_.transactionID).transactionID,
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
     )
 
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+
+
     val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from), secondsWait.seconds)
-    resFrom_1From.size shouldBe 1
-    resFrom_1From.head.transactionID shouldBe from
+    resFrom_1From.producerTransactions.size shouldBe 1
+    resFrom_1From.producerTransactions.head.transactionID shouldBe from
+
 
     val resFromFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, from, from), secondsWait.seconds)
-    resFromFrom.size shouldBe 1
-    resFromFrom.head.transactionID shouldBe from
+    resFromFrom.producerTransactions.size shouldBe 1
+    resFromFrom.producerTransactions.head.transactionID shouldBe from
 
 
     val resToFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, to, from), secondsWait.seconds)
-    resToFrom.size shouldBe 0
+    resToFrom.producerTransactions.size shouldBe 0
 
     val producerTransactionsByState = producerTransactions.groupBy(_.state)
-    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait.seconds)
+    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait.seconds).producerTransactions
 
     val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
 
+    //    (res zip txns) foreach println
     res should contain theSameElementsAs txns
     res shouldBe sorted
+  }
+
+  "getTransaction" should "not get a producer transaction if there's no transaction" in {
+    //arrange
+    val stream = getRandomStream
+    val fakeTransactionID = System.nanoTime()
+
+    //act
+    Await.result(client.putStream(stream), secondsWait.seconds)
+    val response = Await.result(client.getTransaction(stream.name, stream.partitions, fakeTransactionID), secondsWait.seconds)
+
+    //assert
+    response shouldBe TransactionInfo(exists = false, None)
+  }
+
+  it should "put a producer transaction (Opened), return it and shouldn't return a producer transaction which id is greater (getTransaction)" in {
+    //arrange
+    val stream = getRandomStream
+    val openedProducerTransaction = getRandomProducerTransaction(stream, TransactionStates.Opened)
+    val fakeTransactionID = openedProducerTransaction.transactionID + 1
+
+    //act
+    Await.result(client.putStream(stream), secondsWait.seconds)
+    Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
+
+    //it's required to close a current commit log file
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    //it's required to a CommitLogWriter writes the producer transactions to db
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+
+    val successResponse = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
+    val failedResponse = Await.result(client.getTransaction(stream.name, stream.partitions, fakeTransactionID), secondsWait.seconds)
+
+    //assert
+    successResponse shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
+    failedResponse shouldBe TransactionInfo(exists = false, None)
+  }
+
+  it should "put a producer transaction (Opened), return it and shouldn't return a non-existent producer transaction which id is less (getTransaction)" in {
+    //arrange
+    val stream = getRandomStream
+    val openedProducerTransaction = getRandomProducerTransaction(stream, TransactionStates.Opened)
+    val fakeTransactionID = openedProducerTransaction.transactionID - 1
+
+    //act
+    Await.result(client.putStream(stream), secondsWait.seconds)
+    Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
+
+    //it's required to close a current commit log file
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    //it's required to a CommitLogWriter writes the producer transactions to db
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+
+    val successResponse = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
+    val failedResponse = Await.result(client.getTransaction(stream.name, stream.partitions, fakeTransactionID), secondsWait.seconds)
+
+    //assert
+    successResponse shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
+    failedResponse shouldBe TransactionInfo(exists = true, None)
+  }
+
+  it should "put a producer transaction (Opened) and get it back (getTransaction)" in {
+    //arrange
+    val stream = getRandomStream
+    val openedProducerTransaction = getRandomProducerTransaction(stream, TransactionStates.Opened)
+
+    //act
+    Await.result(client.putStream(stream), secondsWait.seconds)
+    Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
+
+    //it's required to close a current commit log file
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    //it's required to a CommitLogWriter writes the producer transactions to db
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+
+    val response = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
+
+    //assert
+    response shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
   }
 
   it should "put consumerState and get it back" in {
@@ -216,7 +326,10 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val consumerTransaction = getRandomConsumerTransaction(stream)
 
-    Await.result(client.setConsumerState(consumerTransaction), secondsWait.seconds)
+    Await.result(client.putConsumerCheckpoint(consumerTransaction), secondsWait.seconds)
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
 
     val consumerState = Await.result(client.getConsumerState(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition), secondsWait.seconds)
 

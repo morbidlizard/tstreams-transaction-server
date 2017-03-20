@@ -1,11 +1,11 @@
-package com.bwsw.tstreamstransactionserver.netty.server.сonsumerService
+package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
 import ConsumerTransaction.objectToEntry
 
 
-case class ConsumerTransaction(transactionId: java.lang.Long) {
+case class ConsumerTransaction(transactionId: Long) {
   def toDatabaseEntry: DatabaseEntry = {
     val databaseEntry = new DatabaseEntry()
     objectToEntry(this, databaseEntry)

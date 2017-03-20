@@ -38,7 +38,7 @@ object Descriptors {
       *
       *
       */
-    private def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Int): Message = {
+    private def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Int, token: Int): Message = {
       val buffer = new TMemoryBuffer(512)
       val oprot = protocol.getProtocol(buffer)
 
@@ -46,14 +46,14 @@ object Descriptors {
       entity.write(oprot)
       oprot.writeMessageEnd()
       val bytes = util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-      Message(bytes.length, getProtocolID(protocol), bytes)
+      Message(bytes.length, getProtocolID(protocol), bytes, token)
     }
 
     /** A method for serializing request and adding an id to id. */
-    def encodeRequest(entity: T)(messageId: Int): Message = encode(entity, protocolReq, messageId)
+    def encodeRequest(entity: T)(messageId: Int, token: Int): Message = encode(entity, protocolReq, messageId, token)
 
     /** A method for serializing response and adding an id to id. */
-    def encodeResponse(entity: R)(messageId: Int): Message = encode(entity, protocolRep, messageId)
+    def encodeResponse(entity: R)(messageId: Int, token: Int): Message = encode(entity, protocolRep, messageId, token)
 
 
     /** A method for deserialization request.
@@ -143,10 +143,11 @@ object Descriptors {
   val delStreamMethod = "delStream"
   val putTransactionMethod = "putTransaction"
   val putTranscationsMethod = "putTransactions"
+  val getTransactionMethod = "getTransaction"
   val scanTransactionsMethod = "scanTransactions"
   val putTransactionDataMethod = "putTransactionData"
   val getTransactionDataMethod = "getTransactionData"
-  val setConsumerStateMethod = "setConsumerState"
+  val putConsumerCheckpointMethod = "putConsumerCheckpoint"
   val getConsumerStateMethod = "getConsumerState"
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
@@ -170,6 +171,9 @@ object Descriptors {
   case object PutTransactions extends
     Descriptor(putTranscationsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, protocolTCompactFactory, protocolTBinaryFactory)
 
+  case object GetTransaction extends
+    Descriptor(getTransactionMethod, TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, protocolTBinaryFactory, protocolTCompactFactory)
+
   case object ScanTransactions extends
     Descriptor(scanTransactionsMethod, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, protocolTBinaryFactory, protocolTCompactFactory)
 
@@ -179,8 +183,8 @@ object Descriptors {
   case object GetTransactionData extends
     Descriptor(getTransactionDataMethod, TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, protocolTBinaryFactory, protocolTCompactFactory)
 
-  case object SetConsumerState extends
-    Descriptor(setConsumerStateMethod, TransactionService.SetConsumerState.Args, TransactionService.SetConsumerState.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+  case object PutConsumerCheckpoint extends
+    Descriptor(putConsumerCheckpointMethod, TransactionService.PutConsumerCheckpoint.Args, TransactionService.PutConsumerCheckpoint.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object GetConsumerState extends
     Descriptor(getConsumerStateMethod, TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, protocolTBinaryFactory, protocolTBinaryFactory)

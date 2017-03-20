@@ -21,7 +21,7 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
       val request = reqIdToRep.getIfPresent(messageSeqId)
       if (request != null) request.success(response)
       else ()
-//        retryCompletePromise(messageSeqId, response)
+      //retryCompletePromise(messageSeqId, response)
     }
 
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
@@ -45,6 +45,9 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
         case `putTranscationsMethod` =>
           Descriptors.PutTransactions.decodeResponse(message)
 
+        case `getTransactionMethod` =>
+          Descriptors.GetTransaction.decodeResponse(message)
+
         case `scanTransactionsMethod` =>
           Descriptors.ScanTransactions.decodeResponse(message)
 
@@ -54,8 +57,8 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
         case `getTransactionDataMethod` =>
           Descriptors.GetTransactionData.decodeResponse(message)
 
-        case `setConsumerStateMethod` =>
-          Descriptors.SetConsumerState.decodeResponse(message)
+        case `putConsumerCheckpointMethod` =>
+          Descriptors.PutConsumerCheckpoint.decodeResponse(message)
 
         case `getConsumerStateMethod` =>
           Descriptors.GetConsumerState.decodeResponse(message)
@@ -67,10 +70,13 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
           Descriptors.IsValid.decodeResponse(message)
 
         case _ =>
-          throw new MethodDoesnotFoundException(method)
+          val throwable = new MethodDoesnotFoundException(method)
+          ctx.fireExceptionCaught(throwable)
+          throw throwable
       }
       retryCompletePromise(messageSeqId, response)
     }
+
     invokeMethod(msg)
   }
 

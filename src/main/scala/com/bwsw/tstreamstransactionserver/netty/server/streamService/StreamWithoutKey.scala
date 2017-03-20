@@ -4,9 +4,9 @@ import com.sleepycat.bind.tuple.TupleBinding
 import com.sleepycat.bind.tuple.TupleInput
 import com.sleepycat.bind.tuple.TupleOutput
 import com.sleepycat.je.DatabaseEntry
-import Stream.objectToEntry
+import StreamWithoutKey.objectToEntry
 
-case class Stream(name: String, partitions: Int, description: Option[String], ttl: Long)
+case class StreamWithoutKey(name: String, partitions: Int, description: Option[String], ttl: Long, timestamp: Long, @volatile var deleted: Boolean)
   extends transactionService.rpc.Stream
 {
   def toDatabaseEntry: DatabaseEntry = {
@@ -16,25 +16,29 @@ case class Stream(name: String, partitions: Int, description: Option[String], tt
   }
 }
 
-object Stream extends TupleBinding[Stream]
+object StreamWithoutKey extends TupleBinding[StreamWithoutKey]
 {
-  override def entryToObject(input: TupleInput): Stream = {
+  override def entryToObject(input: TupleInput): StreamWithoutKey = {
     val partitions       = input.readInt()
-    val ttl              = input.readLong()
     val name             = input.readString()
     val description      = input.readString() match {
       case null => None
       case str => Some(str)
     }
-    Stream(name, partitions, description, ttl)
+    val ttl              = input.readLong()
+    val timestamp        = input.readLong()
+    val deleted          = input.readBoolean()
+    StreamWithoutKey(name, partitions, description, ttl, timestamp, deleted)
   }
-  override def objectToEntry(stream: Stream, output: TupleOutput): Unit = {
+  override def objectToEntry(stream: StreamWithoutKey, output: TupleOutput): Unit = {
     output.writeInt(stream.partitions)
-    output.writeLong(stream.ttl)
     output.writeString(stream.name)
     stream.description match {
       case Some(description) => output.writeString(description)
       case None => output.writeString(null: String)
     }
+    output.writeLong(stream.ttl)
+    output.writeLong(stream.timestamp)
+    output.writeBoolean(stream.deleted)
   }
 }

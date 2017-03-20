@@ -7,7 +7,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object MultipleTransactionLifeCyclesTest extends Launcher {
   override val streamName = "stream"
-  override val clients = 8
+  override val clients = 2
   private val txnCount = 1000000
   private val dataSize = 1
   private val clientThreads = ArrayBuffer[Thread]()

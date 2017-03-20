@@ -7,10 +7,10 @@ import com.google.common.cache.CacheBuilder
 trait AuthServiceImpl {
   val authOpts: AuthOptions
 
-  val random = scala.util.Random
-  val usersToken = CacheBuilder.newBuilder()
+  private val random = scala.util.Random
+  private val usersToken = CacheBuilder.newBuilder()
     .maximumSize(authOpts.activeTokensNumber)
-    .expireAfterAccess(authOpts.tokenTTL, java.util.concurrent.TimeUnit.SECONDS)
+    .expireAfterAccess(authOpts.tokenTtl, java.util.concurrent.TimeUnit.SECONDS)
     .build[java.lang.Integer, String]()
 
 

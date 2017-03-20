@@ -1,17 +1,20 @@
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
-import java.io.Closeable
+import java.io.{Closeable, File}
 
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.utils.FileUtils
+import org.apache.commons.io.FileUtils
 import org.rocksdb._
 
 class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksStorageOptions, name: String, ttl: Int = -1) extends Closeable {
   RocksDB.loadLibrary()
 
   private val client =  {
-    val path = FileUtils.createDirectory(s"${storageOptions.dataDirectory}/$name", storageOptions.path).getAbsolutePath
-    TtlDB.open(rocksStorageOpts.getDBOptions(), path, ttl, false)
+    val file = new File(s"${storageOptions.path}/${storageOptions.dataDirectory}/$name")
+    FileUtils.forceMkdir(file)
+
+    val path = file.getAbsolutePath
+    TtlDB.open(rocksStorageOpts.createDBOptions(), path, ttl, false)
   }
 
   def get(key: Array[Byte]) = client.get(key)

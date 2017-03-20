@@ -30,12 +30,13 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     if (logger.isInfoEnabled) logger.info(s"${ctx.channel().remoteAddress().toString} is inactive")
+    super.channelInactive(ctx)
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     cause.printStackTrace()
     ctx.channel().close()
-    ctx.channel().parent().close()
+   // ctx.channel().parent().close()
   }
 
   protected def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = {

@@ -70,8 +70,8 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   override def getStreamFromOldestToNewest(stream: String): ArrayBuffer[KeyStream] =
     if (streamCache.containsKey(stream)) streamCache.get(stream)
     else {
-      logger.debug(s"Stream $stream doesn't exist.")
-      throw new StreamDoesNotExist
+      if (logger.isDebugEnabled()) logger.debug(s"Stream $stream doesn't exist.")
+      throw new StreamDoesNotExist(stream)
     }
 
 
@@ -106,7 +106,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   override def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] =
     ScalaFuture{
       val mostRecentStream = getStreamFromOldestToNewest(stream).last.stream
-      if (mostRecentStream.deleted) throw new StreamDoesNotExist else mostRecentStream
+      if (mostRecentStream.deleted) throw new StreamDoesNotExist(stream) else mostRecentStream
     }(executionContext.berkeleyReadContext)
 
   override def delStream(stream: String): ScalaFuture[Boolean] =

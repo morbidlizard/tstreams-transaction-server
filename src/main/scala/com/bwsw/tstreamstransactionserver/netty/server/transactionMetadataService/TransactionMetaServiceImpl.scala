@@ -43,7 +43,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   }
 
   private def fillOpenedTransactionsRAMTable: com.google.common.cache.Cache[Key, ProducerTransactionWithoutKey] = {
-    val secondsToLive = 300
+    if (logger.isDebugEnabled) logger.debug("Filling cache with Opened Transactions table.")
+    val secondsToLive = 180
     val threadsToWriteNumber = 1
     val cache = com.google.common.cache.CacheBuilder.newBuilder()
       .concurrencyLevel(threadsToWriteNumber)
@@ -84,6 +85,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   private type Timestamp = Long
 
   private final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(transactionService.rpc.Transaction, Timestamp)]) = {
+    if (logger.isDebugEnabled) logger.debug("Decomposing transactions to producer and consumer transactions")
+
     val producerTransactions = ArrayBuffer[(ProducerTransaction, Timestamp)]()
     val consumerTransactions = ArrayBuffer[(ConsumerTransaction, Timestamp)]()
 
@@ -96,6 +99,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
             producerTransactions += ((txn, timestamp))
           } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
             updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, None)
+            if (logger.isDebugEnabled) logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
             producerTransactions += ((txn, timestamp))
           }
 
@@ -110,7 +114,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     (producerTransactions, consumerTransactions)
   }
 
-  private final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Timestamp)], berkeleyTransaction: com.sleepycat.je.Transaction): Map[KeyStream, ArrayBuffer[ProducerTransactionKey]] =
+  private final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Timestamp)], berkeleyTransaction: com.sleepycat.je.Transaction): Map[KeyStream, ArrayBuffer[ProducerTransactionKey]] = {
+    if (logger.isDebugEnabled) logger.debug("Mapping all producer transactions streams attrbute to long representation(ID), grouping them by stream and partition, checking that the stream isn't deleted in order to process producer transactions.")
     txns.foldLeft[scala.collection.mutable.Map[KeyStream, ArrayBuffer[ProducerTransactionKey]]](scala.collection.mutable.Map()) { case (acc, (producerTransaction, timestamp)) =>
       val keyStreams = getStreamFromOldestToNewest(producerTransaction.stream)
       val streamForThisTransaction = keyStreams.filter(_.stream.timestamp <= timestamp).lastOption
@@ -125,9 +130,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case _ => acc
       }
     }.toMap
+  }
 
 
-  //  @throws[StreamNotExist]
   private final def decomposeConsumerTransactionsToDatabaseRepresentation(transactions: Seq[(ConsumerTransaction, Timestamp)]) = {
     val consumerTransactionsKey = ArrayBuffer[ConsumerTransactionKey]()
     transactions foreach { case (txn, timestamp) => scala.util.Try {
@@ -172,8 +177,12 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         val producerTransactionWithNewState = scala.util.Try(openedTransactionOpt match {
           case Some(data) =>
             val persistedProducerTransactionBerkeley = ProducerTransactionKey(key, data)
+            if (logger.isDebugEnabled) logger.debug(s"Transiting producer transaction on stream: ${persistedProducerTransactionBerkeley.stream}" +
+              s"partition ${persistedProducerTransactionBerkeley.partition}, transaction ${persistedProducerTransactionBerkeley.transactionID} " +
+              s"with state ${persistedProducerTransactionBerkeley.state} to new state")
             transitProducerTransactionToNewState(persistedProducerTransactionBerkeley, txns)
           case None =>
+            if (logger.isDebugEnabled) logger.debug(s"Trying to put new producer transaction.")
             transitProducerTransactionToNewState(txns)
         })
 
@@ -213,7 +222,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   class BigCommit(pathToFile: String) {
     private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
 
-    def putSomeTransactions(transactions: Seq[(transactionService.rpc.Transaction, Long)]) = putTransactions(transactions, transactionDB)
+    def putSomeTransactions(transactions: Seq[(transactionService.rpc.Transaction, Long)]) = {
+      if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
+      putTransactions(transactions, transactionDB)
+    }
 
     def commit(fileCreationTimestamp: Long): Boolean = {
       val timestampCommitLog = TimestampCommitLog(fileCreationTimestamp, pathToFile)
@@ -282,14 +294,18 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         transactionService.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
       }
 
-      val (toTransactionID, isResponseCompleted) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
-        case None => (from - 1L, false)
+      val (lastOpenedTransaction, toTransactionID, isResponseCompleted) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
+        case None => (-1L, from - 1L, false)
         case Some(lastTransaction) => lastTransaction.transaction match {
-          case lt if lt < from => (from - 1L, false)
-          case lt if from <= lt && lt < to => (lt, false)
-          case lt if lt >= to => (to, true)
+          case lt if lt < from => (lt, from - 1L, false)
+          case lt if from <= lt && lt < to => (lt, lt, false)
+          case lt if lt >= to => (lt, to, true)
         }
       }
+
+      if (logger.isDebugEnabled) logger.debug(s"Trying to retrieve transactions on stream $stream, partition: $partition in range [$from, $to]." +
+        s"Actually as lt is ${if (lastOpenedTransaction == -1) "not exist" else lastOpenedTransaction} the range is [$from, $toTransactionID] and request " +
+        s"is ${if (isResponseCompleted) "completed" else "partial"}.")
 
       if (toTransactionID < from) ScanTransactionsInfo(Seq(), isResponseCompleted)
       else {

@@ -9,7 +9,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnectio
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
-import org.slf4j
+import org.slf4j.LoggerFactory
 import transactionService.rpc.TransactionDataService
 
 import scala.collection.mutable.ArrayBuffer
@@ -23,8 +23,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   val storageOpts: StorageOptions
   val rocksStorageOpts: RocksStorageOptions
 
-//  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
 
   private def calculateTTL(ttl: Long): Int = {
@@ -38,7 +37,9 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   private def getStorage(keyStream: KeyStream, ttl: Long) = {
     val key = StorageName(keyStream.key.streamNameToLong.toString)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
-      new RocksDbConnection(storageOpts, rocksStorageOpts, key.toString, calculateTTL(ttl))
+      val calculatedTTL = calculateTTL(ttl)
+      if (logger.isDebugEnabled) logger.debug(s"Creating new database[stream: ${keyStream.name}, ttl(in hrs): $calculatedTTL] for persisting and reading transactions data.")
+      new RocksDbConnection(storageOpts, rocksStorageOpts, key.toString, calculatedTTL)
     })
   }
 
@@ -58,10 +59,10 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       }
       val isOkay = batch.write()
 
-//      if (isOkay)
-//        logger.debug(s"$stream $partition $transaction. Successfully saved transaction data.")
-//      else
-//        logger.debug(s"$stream $partition $transaction. Transaction data hasn't been saved.")
+      if (isOkay && logger.isDebugEnabled)
+        logger.debug(s"On stream $stream, partition: $partition, transaction $transaction saved transaction data successfully.")
+      else
+        logger.debug(s"On stream $stream, partition: $partition, transaction $transaction transaction data wasn't saved.")
 
       isOkay
     }(executionContext.rocksWriteContext)

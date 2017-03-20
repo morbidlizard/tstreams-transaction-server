@@ -68,6 +68,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   private final val expiredRequestInvalidator = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("ExpiredRequestInvalidator-%d").build())
   private final val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]] = CacheBuilder.newBuilder()
     .concurrencyLevel(clientOpts.threadPool)
+    .maximumSize(20000L)
     .expireAfterWrite(clientOpts.requestTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
     .removalListener(new RemovalListener[java.lang.Integer, ScalaPromise[ThriftStruct]] {
       override def onRemoval(notification: RemovalNotification[java.lang.Integer, ScalaPromise[ThriftStruct]]): Unit = {
@@ -445,7 +446,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   @throws[Exception]
   def putProducerState(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     implicit val context = futurePool.getContext
-    if (logger.isInfoEnabled) logger.info(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
+    if (logger.isDebugEnabled) logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
     TransactionService.PutTransaction.Args(Transaction(Some(transaction), None))
     tryCompleteRequest(
       method(
@@ -560,7 +561,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   @throws[Exception]
   def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int) = {
-    if (logger.isInfoEnabled) logger.info(s"Putting transaction data to stream $stream, partition $partition, transaction $transaction.")
+    if (logger.isDebugEnabled) logger.debug(s"Putting transaction data to stream $stream, partition $partition, transaction $transaction.")
     tryCompleteRequest(
       method(
         Descriptors.PutTransactionData,

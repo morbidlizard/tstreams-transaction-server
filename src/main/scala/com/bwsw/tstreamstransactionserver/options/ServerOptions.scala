@@ -8,7 +8,7 @@ object ServerOptions {
 
   case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 4)
 
-  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTtl: Int = 120)
+  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTtl: Int = 300)
 
   case class StorageOptions(path: String = "/tmp", clearDelayMs: Int = 10, clearAmount: Int = 200,
                             streamDirectory: String = "stream", consumerDirectory: String = "consumer",

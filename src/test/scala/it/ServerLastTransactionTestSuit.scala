@@ -131,7 +131,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
 
     streams foreach { stream =>
-      val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
+      val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber) + 1
 
       var currentTimeInc = System.currentTimeMillis()
       val producerTransactionsWithTimestampWithoutChecpointed: Array[(ProducerTransaction, Long)] = (0 until producerTransactionsNumber).map { transactionID =>
@@ -169,9 +169,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
 
     val secondsAwait = 5
-
     val streamsNumber = 1
-    val producerTxnPerStreamPartitionMaxNumber = 100
 
     val transactionService = new TransactionServer(
       executionContext = serverExecutionContext,

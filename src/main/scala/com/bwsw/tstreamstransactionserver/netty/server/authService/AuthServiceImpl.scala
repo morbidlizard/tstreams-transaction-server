@@ -13,12 +13,10 @@ trait AuthServiceImpl {
     .expireAfterAccess(authOpts.tokenTtl, java.util.concurrent.TimeUnit.SECONDS)
     .build[java.lang.Integer, String]()
 
-
   def authenticate(authKey: String): Int = {
     if (authKey == authOpts.key) {
       val token = random.nextInt(Integer.MAX_VALUE)
       usersToken.put(token, authKey)
-
       token
     } else -1
   }

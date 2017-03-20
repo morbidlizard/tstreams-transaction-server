@@ -28,7 +28,6 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
           processCommitLogFile(commitLogFile)
         } else {
           logger.warn(s"MD5 doesn't exist in a commit log file (path: '$path').")
-
           true
         }
       }
@@ -85,8 +84,6 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
     @tailrec
     def helper(iterator: CommitLogFileIterator, firstTransactionTimestamp: Long, lastTransactionTimestamp: Long): (Boolean, Long) = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
-
-
       bigCommit.putSomeTransactions(records)
 
       val lastRecordTimestampOpt = records.lastOption match {
@@ -102,13 +99,13 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
       }
     }
 
-
     val (iter, firstRecord) = getFirstRecordAndReturnIterator(file.getIterator())
     val isOkay = firstRecord.headOption match {
       case Some((transaction, firstTransactionTimestamp)) =>
         bigCommit.putSomeTransactions(firstRecord)
         val (areTransactionsProccessed, lastTransactionTimestamp) = helper(iter, firstTransactionTimestamp, firstTransactionTimestamp)
         if (areTransactionsProccessed) {
+          if (logger.isDebugEnabled) logger.debug(s"${file.getFile().getPath} is processed successfully and all records from the file are persisted!")
           val cleanTask = transactionServer.createTransactionsToDeleteTask(lastTransactionTimestamp)
           cleanTask.run()
         } else throw new Exception("There is a bug; Stop server and fix code!")
@@ -128,7 +125,7 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
       scala.util.Try {
         processAccordingToPolicy(path)
       } match {
-        case scala.util.Success(_) => println("it's okay")
+        case scala.util.Success(_) =>
         case scala.util.Failure(error) => error.printStackTrace()
       }
     }

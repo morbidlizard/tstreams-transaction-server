@@ -16,7 +16,12 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
-    invokeMethod(msg, ctx.channel().remoteAddress().toString)(context).map(message => ctx.writeAndFlush(message.toByteArray))(context)
+    invokeMethod(msg, ctx.channel().remoteAddress().toString)(context).map{message =>
+      val binaryMessage = message.toByteArray
+      val buf = ctx.alloc().directBuffer(binaryMessage.length)
+      buf.writeBytes(binaryMessage)
+      ctx.writeAndFlush(buf, ctx.voidPromise())
+    }(context)
   }
 
   private def isTooBigMessage(message: Message) = {
@@ -68,7 +73,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
 
 
-      case `doesStreamExistMethod` =>
+      case `checkStreamExists` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             val args = Descriptors.CheckStreamExists.decodeRequest(message)
@@ -192,11 +197,33 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
               }
           } else {
             logUnsuccessfulProcessing(packageTooBigException)
-            ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+            ScalaFuture.successful(Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
           }
         } else {
           //logUnsuccessfulProcessing()
-          ScalaFuture.successful(Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
+          ScalaFuture.successful(Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
+        }
+
+      case `getLastCheckpointedTransactionMethod` =>
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val args = Descriptors.GetLastCheckpointedTransaction.decodeRequest(message)
+            transactionServer.getLastCheckpoitnedTransaction(args.stream, args.partition)
+              .flatMap { response =>
+                logSuccessfulProcession()
+                ScalaFuture.successful(Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(response))(messageId, token))
+              }
+              .recover { case error =>
+                logUnsuccessfulProcessing(error)
+                Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(transactionService.rpc.ServerException(error.getMessage))))(messageId, token)
+              }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(transactionService.rpc.ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
+        } else {
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(transactionService.rpc.ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `scanTransactionsMethod` =>

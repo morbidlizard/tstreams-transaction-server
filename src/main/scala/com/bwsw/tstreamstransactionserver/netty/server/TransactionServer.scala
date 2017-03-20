@@ -22,13 +22,13 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
   def shutdown() = {
     executionContext.shutdown()
 
-    closeStreamEnvironmentAndDatabase()
-
+    closeStreamDatabase()
+    closeLastTransactionStreamPartitionDatabase()
+    closeTransactionDataDatabases()
     closeConsumerDatabase()
-
     closeTransactionMetaDatabases()
+    
     closeTransactionMetaEnvironment()
 
-    closeTransactionDataDatabases()
   }
 }

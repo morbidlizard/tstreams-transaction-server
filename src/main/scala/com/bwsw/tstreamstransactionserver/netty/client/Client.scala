@@ -71,7 +71,10 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     .expireAfterWrite(clientOpts.requestTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
     .removalListener(new RemovalListener[java.lang.Integer, ScalaPromise[ThriftStruct]] {
       override def onRemoval(notification: RemovalNotification[java.lang.Integer, ScalaPromise[ThriftStruct]]): Unit = {
-        notification.getValue.tryFailure(new RequestTimeoutException(notification.getKey, clientOpts.requestTimeoutMs))
+        val throwable = new RequestTimeoutException(notification.getKey, clientOpts.requestTimeoutMs)
+        if (notification.getValue.tryFailure(throwable)) {
+          if (logger.isWarnEnabled) logger.warn(throwable.getMessage)
+        }
       }
     }
     ).build[java.lang.Integer, ScalaPromise[ThriftStruct]]()
@@ -101,19 +104,19 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         channelToUse
       case scala.util.Failure(throwable) =>
         workerGroup.shutdownGracefully().get()
-        onServerConnectionLostDefaultBehaviour()
+        onServerConnectionLostDefaultBehaviour("")
         connect()
     }
   }
 
 
-  final def currentConnectionSocketAddress(): InetSocketAddressClass = {
+  final def currentConnectionSocketAddress: InetSocketAddressClass = {
     val socketAddress = channel.remoteAddress().asInstanceOf[InetSocketAddress]
     InetSocketAddressClass(socketAddress.getAddress.getHostAddress, socketAddress.getPort)
   }
 
   final def reconnect(): Unit = {
-    Thread.sleep(clientOpts.retryDelayMs)
+    TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     channel = connect()
   }
 
@@ -126,15 +129,16 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   private def getInetAddressFromZookeeper(times: Int): (String, Int) = {
     if (times > 0 && zKLeaderClient.master.isEmpty) {
       TimeUnit.MILLISECONDS.sleep(zookeeperOpts.retryDelayMs)
-      if (logger.isInfoEnabled) logger.info("Retrying to get master server from zookeeper server.")
+      if (logger.isInfoEnabled) logger.info(s"Retrying to get master server from zookeeper servers: ${zookeeperOpts.endpoints}.")
       getInetAddressFromZookeeper(times - 1)
     } else {
       zKLeaderClient.master match {
         case Some(master) => (master.address, master.port)
         case None => {
-          if (logger.isErrorEnabled) logger.error(Throwable.zkGetMasterExceptionMessage)
+          val throwable = new ZkGetMasterException(zookeeperOpts.endpoints)
+          if (logger.isWarnEnabled()) logger.warn(throwable.getMessage)
           shutdown()
-          throw new ZkGetMasterException
+          throw throwable
         }
       }
     }
@@ -171,7 +175,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *
     */
   @throws[ServerUnreachableException]
-  private def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)
+  private final def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)
                                                               (implicit context: concurrent.ExecutionContext): ScalaFuture[Rep] = {
     applyBarrierIfItIsRequired()
     if (channel != null && channel.isActive) {
@@ -179,8 +183,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val promise = ScalaPromise[ThriftStruct]
       val message = descriptor.encodeRequest(request)(messageId, token)
       validateMessageSize(message)
+
+      val binaryMessage = message.toByteArray
+      val buf = channel.alloc().directBuffer(binaryMessage.length)
+      buf.writeBytes(binaryMessage)
+      channel.writeAndFlush(buf)
+
       reqIdToRep.put(messageId, promise)
-      channel.writeAndFlush(message.toByteArray)
       promise.future.map { response =>
         reqIdToRep.invalidate(messageId)
         response.asInstanceOf[Rep]
@@ -188,7 +197,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         reqIdToRep.invalidate(messageId)
         ScalaFuture.failed(error)
       }
-    } else ScalaFuture.failed(new ServerUnreachableException)
+    } else ScalaFuture.failed(new ServerUnreachableException(currentConnectionSocketAddress.toString))
   }
 
   private def validateMessageSize(message: Message) = {
@@ -200,7 +209,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private def retry[Req, Rep](f: => ScalaFuture[Rep])(previousException: Throwable, retryCount: Int): ScalaFuture[Rep] = {
+  private final def retry[Req, Rep](f: => ScalaFuture[Rep])(previousException: Throwable, retryCount: Int): ScalaFuture[Rep] = {
     def helper(throwable: Throwable, retryCount: Int): ScalaFuture[Rep] = {
       if (retryCount > 0) {
         if (throwable.getClass equals previousException.getClass)
@@ -222,14 +231,14 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     f recoverWith {
       case tokenInvalidThrowable: TokenInvalidException =>
         if (logger.isWarnEnabled)
-          logger.warn("Token isn't valid. Retrying get one.")
+          logger.warn(s"Token $token isn't valid. Retrying to get one from $currentConnectionSocketAddress.")
         resetBarrier(authenticate()) flatMap { _ =>
           TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
           helper(tokenInvalidThrowable, retryCount - 1)
         }
 
       case serverUnreachableThrowable: ServerUnreachableException =>
-        scala.util.Try(onServerConnectionLostDefaultBehaviour()) match {
+        scala.util.Try(onServerConnectionLostDefaultBehaviour(currentConnectionSocketAddress.toString)) match {
           case scala.util.Success(_) => helper(serverUnreachableThrowable, retryCount)
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
@@ -246,7 +255,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   private final def tryCompleteRequest[Req, Rep](f: => ScalaFuture[Rep]) = {
     f recoverWith {
       case concreteThrowable: TokenInvalidException =>
-        if (logger.isWarnEnabled) logger.warn("Token isn't valid. Retrying get one.")
+        logger.warn(s"Token $token isn't valid. Retrying to get one from $currentConnectionSocketAddress.")
 
         resetBarrier(authenticate()) flatMap { _ =>
           TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
@@ -254,7 +263,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         }
 
       case concreteThrowable: ServerUnreachableException =>
-        scala.util.Try(onServerConnectionLostDefaultBehaviour()) match {
+        scala.util.Try(onServerConnectionLostDefaultBehaviour(currentConnectionSocketAddress.toString)) match {
           case scala.util.Success(_) => retry(f)(concreteThrowable, Int.MaxValue)
           case scala.util.Failure(throwable) => ScalaFuture.failed(throwable)
         }
@@ -268,16 +277,15 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private final def onServerConnectionLostDefaultBehaviour(): Unit = {
-    if (logger.isWarnEnabled)
-      logger.warn(s"${Throwable.serverUnreachableExceptionMessage}. Retrying to reconnect server.")
+  private final def onServerConnectionLostDefaultBehaviour(connectionSocket: String): Unit = {
+    if (logger.isWarnEnabled) {
+      logger.warn(s"${Throwable.serverUnreachableExceptionMessage}. Retrying to reconnect server $connectionSocket.")
+    }
     TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     onServerConnectionLost()
   }
 
   private final def onRequestTimeoutDefaultBehaviour(): Unit = {
-    if (logger.isWarnEnabled)
-      logger.warn(Throwable.requestTimeoutExceptionMessage)
     TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     onRequestTimeout()
   }
@@ -411,11 +419,12 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   @throws[Exception]
   def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
                       consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
-    if (logger.isInfoEnabled) logger.info("putTransactions method is invoked.")
-
     val transactions =
       (producerTransactions map (txn => Transaction(Some(txn), None))) ++
         (consumerTransactions map (txn => Transaction(None, Some(txn))))
+
+    if (logger.isDebugEnabled)
+      logger.debug(s"putTransactions method is invoked: $transactions.")
 
     implicit val context = futurePool.getContext
     tryCompleteRequest(
@@ -470,7 +479,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @param stream      a name of stream.
     * @param partition   a partition of stream.
     * @param transaction a transaction id.
-    * @return placeholder of putTransaction operation that can be completed or not. If the method returns failed future it means
+    * @return placeholder of getTransaction operation that can be completed or not. If the method returns failed future it means
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
@@ -486,6 +495,28 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       )
     )
   }
+
+
+  /** Retrieves last checkpointed transaction in a specific stream on certain partition; If the result is -1 it will mean there is no checkpointed transaction at all.
+    *
+    * @param stream    a name of stream.
+    * @param partition a partition of stream.
+    * @return placeholder of getLastCheckpointedTransaction operation that can be completed or not. If the method returns failed future it means
+    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    */
+  def getLastCheckpointedTransaction(stream: String, partition: Int): ScalaFuture[Long] = {
+    if (logger.isInfoEnabled) logger.info(s"Retrieving a last checkpointed transaction on partition '$partition' of stream '$stream")
+    tryCompleteRequest(
+      method(
+        Descriptors.GetLastCheckpointedTransaction,
+        TransactionService.GetLastCheckpointedTransaction.Args(stream, partition)
+      ).flatMap(x =>
+        if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message))
+        else ScalaFuture.successful(x.success.getOrElse(-1L))
+      )
+    )
+  }
+
 
   /** Retrieves all producer transactions in a specific range [from; to); it's assumed that from >= to and they are both positive.
     *
@@ -604,7 +635,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-  /** Retrieves a consumer state on a specific consumer transaction name, stream, partition from a server.
+  /** Retrieves a consumer state on a specific consumer transaction name, stream, partition from a server; If the result is -1 it will mean there is no checkpoint at all.
     *
     * @param name      a consumer transaction name.
     * @param stream    a stream.

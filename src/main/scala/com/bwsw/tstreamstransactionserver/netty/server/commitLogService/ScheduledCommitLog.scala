@@ -7,8 +7,11 @@ import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnT
 import com.bwsw.tstreamstransactionserver.netty.{Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{EveryNSeconds, EveryNewFile, EveryNth}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{CommitLogOptions, StorageOptions}
+import org.slf4j.LoggerFactory
 
 class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions) {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
   private val commitLog = createCommitLog()
   private val maxIdleTimeBetweenRecords = commitLogOptions.maxIdleTimeBetweenRecords * 1000
   private var lastRecordTs = System.currentTimeMillis()
@@ -34,6 +37,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String]
     } else {
       this.synchronized({
         val newCommitLogFile = commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType, startNew = true)
+        if (logger.isDebugEnabled) logger.debug(s"Starting to write to the new commit log file: $newCommitLogFile")
         pathsToClosedCommitLogFiles.put(currentCommitLogFile)
         currentCommitLogFile = newCommitLogFile
       })

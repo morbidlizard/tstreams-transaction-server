@@ -10,35 +10,38 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
   * Created by Ivan Kudryavtsev on 27.01.17.
   */
 class FilePathManagerTest extends FlatSpec with Matchers with BeforeAndAfterAll {
+  private val sep = File.separator
+
   it should "return proper paths" in {
     val fpm = new FilePathManager("target")
 
-    FilePathManager.CATALOGUE_GENERATOR = () => "1111/22/33"
-    fpm.getNextPath() shouldBe "target/1111/22/33/0"
-    fpm.getNextPath() shouldBe "target/1111/22/33/1"
-    fpm.getNextPath() shouldBe "target/1111/22/33/2"
+    FilePathManager.CATALOGUE_GENERATOR = () => s"1111${sep}22${sep}33"
+    fpm.getNextPath() shouldBe s"target${sep}1111${sep}22${sep}33${sep}0"
+    fpm.getNextPath() shouldBe s"target${sep}1111${sep}22${sep}33${sep}1"
+    fpm.getNextPath() shouldBe s"target${sep}1111${sep}22${sep}33${sep}2"
 
-    FilePathManager.CATALOGUE_GENERATOR = () => "1111/22/34"
-    fpm.getNextPath() shouldBe "target/1111/22/34/0"
-    fpm.getNextPath() shouldBe "target/1111/22/34/1"
+    FilePathManager.CATALOGUE_GENERATOR = () => s"1111${sep}22${sep}34"
+    fpm.getNextPath() shouldBe s"target${sep}1111${sep}22${sep}34${sep}0"
+    fpm.getNextPath() shouldBe s"target${sep}1111${sep}22${sep}34${sep}1"
 
-    FilePathManager.CATALOGUE_GENERATOR = () => "2222/22/34"
-    fpm.getNextPath() shouldBe "target/2222/22/34/0"
-    fpm.getNextPath() shouldBe "target/2222/22/34/1"
+    FilePathManager.CATALOGUE_GENERATOR = () => s"2222${sep}22${sep}34"
+    fpm.getNextPath() shouldBe s"target${sep}2222${sep}22${sep}34${sep}0"
+    fpm.getNextPath() shouldBe s"target${sep}2222${sep}22${sep}34${sep}1"
 
-    new File("target/2222/22/35").mkdirs()
-    new File("target/2222/22/35/0.dat").createNewFile()
-    new File("target/2222/22/35/1.dat").createNewFile()
-    FilePathManager.CATALOGUE_GENERATOR = () => "2222/22/35"
-    fpm.getNextPath() shouldBe "target/2222/22/35/2"
+    new File(s"target${sep}2222${sep}22${sep}35").mkdirs()
+    new File(s"target${sep}2222${sep}22${sep}35${sep}0.dat").createNewFile()
+    new File(s"target${sep}2222${sep}22${sep}35${sep}1.dat").createNewFile()
+    FilePathManager.CATALOGUE_GENERATOR = () => s"2222${sep}22${sep}35"
+    fpm.getNextPath() shouldBe s"target${sep}2222${sep}22${sep}35${sep}2"
   }
 
   it should "throw an exception if path is not a dir" in {
-    val dir = "target/fpm"
+
+    val dir = s"target${sep}fpm"
     new File(dir).mkdirs()
-    new File("target/fpm/0.dat").createNewFile()
+    new File(s"target${sep}fpm${sep}0.dat").createNewFile()
     intercept[IllegalArgumentException] {
-      val fpm1 = new FilePathManager("target/fpm/0.dat")
+      val fpm1 = new FilePathManager(s"target${sep}fpm${sep}0.dat")
     }
     intercept[IllegalArgumentException] {
       val fpm2 = new FilePathManager("")
@@ -48,7 +51,7 @@ class FilePathManagerTest extends FlatSpec with Matchers with BeforeAndAfterAll 
   }
 
   override def afterAll = {
-    List("target/1111", "target/2222").foreach(dir => FileUtils.deleteDirectory(new File(dir)))
+    List(s"target${sep}1111", s"target${sep}2222").foreach(dir => FileUtils.deleteDirectory(new File(dir)))
     FilePathManager.resetCatalogueGenerator()
   }
 }

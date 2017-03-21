@@ -16,7 +16,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
-trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
+trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
   with Authenticable {
   def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit
 
@@ -30,7 +30,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-    val storeName = storageOpts.metadataStorageName
+    val storeName = "TransactionStore"//storageOpts.metadataStorageName
     environment.openDatabase(null, storeName, dbConfig)
   }
 
@@ -38,7 +38,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
-    val storeName = storageOpts.openedTransactionsStorageName
+    val storeName = "TransactionOpenStore"//storageOpts.openedTransactionsStorageName
     environment.openDatabase(null, storeName, dbConfig)
   }
 

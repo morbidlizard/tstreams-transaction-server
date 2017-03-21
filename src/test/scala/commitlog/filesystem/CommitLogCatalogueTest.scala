@@ -3,15 +3,22 @@ package commitlog.filesystem
 import java.io.File
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogue
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import org.apache.commons.io.FileUtils
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpec, Matchers}
 
-class CommitLogCatalogueTest extends FlatSpec with Matchers with BeforeAndAfterAll {
+class CommitLogCatalogueTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+  private val sep = File.separator
+
+  override def beforeEach(): Unit = {
+    FileUtils.deleteDirectory(new File(s"target${sep}clct"))
+  }
+  override def afterEach(): Unit = beforeEach()
 
   it should "list all files in directory" in {
-    val firstDir = "target/clct/1990/05/08"
-    val secondDir = "target/clct/1990/05/09"
-    val thirdDir = "target/clct/1990/05/10"
-    val forthDir = "target/clct/1991/05/08"
+    val firstDir = s"target${sep}clct${sep}1990${sep}05${sep}08"
+    val secondDir = s"target${sep}clct${sep}1990${sep}05${sep}09"
+    val thirdDir = s"target${sep}clct${sep}1990${sep}05${sep}10"
+    val forthDir = s"target${sep}clct${sep}1991${sep}05${sep}08"
 
     val dirs = Seq(
       new File(firstDir),
@@ -23,14 +30,14 @@ class CommitLogCatalogueTest extends FlatSpec with Matchers with BeforeAndAfterA
     dirs foreach (_.mkdirs())
 
     val files = Seq(
-      new File(s"$firstDir/0.dat").createNewFile(),
-      new File(s"$firstDir/1.dat").createNewFile(),
-      new File(s"$secondDir/0.dat").createNewFile(),
-      new File(s"$thirdDir/0.dat").createNewFile(),
-      new File(s"$forthDir/0.dat").createNewFile()
+      new File(s"$firstDir${sep}0.dat").createNewFile(),
+      new File(s"$firstDir${sep}1.dat").createNewFile(),
+      new File(s"$secondDir${sep}0.dat").createNewFile(),
+      new File(s"$thirdDir${sep}0.dat").createNewFile(),
+      new File(s"$forthDir${sep}0.dat").createNewFile()
     )
 
-    val allFiles = new CommitLogCatalogue("target/clct")
+    val allFiles = new CommitLogCatalogue(s"target${sep}clct")
     allFiles.catalogues.flatMap(_.listAllFiles()).length shouldBe files.length
 
     dirs foreach (_.delete())

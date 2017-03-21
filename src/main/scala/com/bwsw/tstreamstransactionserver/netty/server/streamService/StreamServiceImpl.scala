@@ -25,12 +25,13 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 
   val environment: Environment
 
-  val streamDatabase = {
+  private val streamStoreName = "StreamStore"
+  private val streamDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
       .setSortedDuplicates(false)
-    val storeName = storageOpts.streamStorageName
+    val storeName = streamStoreName//storageOpts.streamStorageName
     environment.openDatabase(null, storeName, dbConfig)
   }
 
@@ -52,7 +53,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   fillStreamRAMTable()
 
 
-  private val streamSequenceName = s"SEQ_${storageOpts.streamStorageName}"
+  private val streamSequenceName = s"SEQ_$streamStoreName"
   private val streamSequenceDB = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
@@ -101,7 +102,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }(executionContext.berkeleyWriteContext)
 
   override def checkStreamExists(stream: String): ScalaFuture[Boolean] =
-    ScalaFuture(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)(executionContext.berkeleyReadContext)
+    ScalaFuture.successful(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)
 
   override def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] =
     ScalaFuture{

@@ -103,8 +103,8 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
     val isOkay = firstRecord.headOption match {
       case Some((transaction, firstTransactionTimestamp)) =>
         bigCommit.putSomeTransactions(firstRecord)
-        val (areTransactionsProccessed, lastTransactionTimestamp) = helper(iter, firstTransactionTimestamp, firstTransactionTimestamp)
-        if (areTransactionsProccessed) {
+        val (areTransactionsProcessed, lastTransactionTimestamp) = helper(iter, firstTransactionTimestamp, firstTransactionTimestamp)
+        if (areTransactionsProcessed) {
           if (logger.isDebugEnabled) logger.debug(s"${file.getFile().getPath} is processed successfully and all records from the file are persisted!")
           val cleanTask = transactionServer.createTransactionsToDeleteTask(lastTransactionTimestamp)
           cleanTask.run()

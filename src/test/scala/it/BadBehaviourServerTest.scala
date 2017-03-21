@@ -70,7 +70,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
 
   override def beforeAll(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
@@ -79,7 +79,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   }
 
   override def afterAll(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)

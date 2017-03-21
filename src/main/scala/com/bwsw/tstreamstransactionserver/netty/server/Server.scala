@@ -55,7 +55,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
 
   def start(): Unit = {
     try {
-      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 1, java.util.concurrent.TimeUnit.SECONDS)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)

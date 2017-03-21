@@ -17,8 +17,13 @@ object FilePathManager {
     calendar.setLenient(false)
     calendar
   }
-  private val simpleDateFormat = {
-    val format = new SimpleDateFormat("yyyy/MM/dd")
+  val simpleDateFormat = {
+    val format = new SimpleDateFormat(
+      new StringBuffer("yyyy").append(File.separatorChar)
+        .append("MM").append(File.separatorChar)
+        .append("dd")
+        .toString
+    )
     format.setCalendar(calendar)
     format.setLenient(false)
     format

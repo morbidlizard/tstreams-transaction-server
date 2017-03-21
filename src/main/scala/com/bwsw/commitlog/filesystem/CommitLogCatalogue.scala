@@ -11,12 +11,6 @@ trait ICommitLogCatalogue {
 }
 
 class CommitLogCatalogue(rootPath: String) extends ICommitLogCatalogue {
-  private val formatter = {
-    val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
-    format.setLenient(false)
-    format
-  }
-
   private def dataFolders = {
     import scala.collection.JavaConverters._
     val rootDirectorySizeWithSlash = rootPath.length + 1
@@ -24,19 +18,19 @@ class CommitLogCatalogue(rootPath: String) extends ICommitLogCatalogue {
     allFolders.asScala
       .map(path => path.getPath.drop(rootDirectorySizeWithSlash))
       .filter { path =>
-        scala.util.Try(formatter.parseObject(path)).isSuccess
+        scala.util.Try(FilePathManager.simpleDateFormat.parseObject(path)).isSuccess
       }.toSeq
   }
 
   def catalogues = {
-    dataFolders.map(dataFolder => new CommitLogCatalogueByDate(rootPath, formatter.parse(dataFolder)))
+    dataFolders.map(dataFolder => new CommitLogCatalogueByDate(rootPath, FilePathManager.simpleDateFormat.parse(dataFolder)))
   }
 
   /**
     * For testing purposes only
     */
   def createCatalogue(date: Date) = {
-    val directoryPath = formatter.format(date)
-    new File(rootPath + "/" + directoryPath).mkdirs()
+    val directoryPath = FilePathManager.simpleDateFormat.format(date)
+    new File(rootPath + File.separator + directoryPath).mkdirs()
   }
 }

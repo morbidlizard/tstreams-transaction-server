@@ -6,16 +6,15 @@ import org.rocksdb.{CompressionType, Options}
 
 object ServerOptions {
 
+
   case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 4)
 
-  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTtl: Int = 300)
+  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTTL: Int = 300)
 
-  case class StorageOptions(path: String = "/tmp", clearDelayMs: Int = 10, clearAmount: Int = 200,
-                            streamDirectory: String = "stream", consumerDirectory: String = "consumer",
+  case class StorageOptions(path: String = "/tmp",
                             dataDirectory: String = "transaction_data", metadataDirectory: String = "transaction_metadata",
-                            streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
-                            metadataStorageName: String = "TransactionStore",
-                            openedTransactionsStorageName: String = "TransactionOpenStore",
+                            /**streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
+                            metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",*/
                             berkeleyReadThreadPool: Int = 2)
 
   case class ServerReplicationOptions(endpoints: String = "127.0.0.1:8071", name: String = "server", group: String = "group")
@@ -44,6 +43,8 @@ object ServerOptions {
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
-                              maxIdleTimeBetweenRecords: Int = 2)
+                              maxIdleTimeBetweenRecords: Int = 2,
+                              commitLogToBerkeleyDBTaskDelayMs: Int = 500
+                             )
 }
 

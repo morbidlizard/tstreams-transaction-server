@@ -21,7 +21,7 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
       .setAllowCreate(true)
       .setTransactional(true)
 
-    environment.openDatabase(null, storageOpts.consumerStorageName, dbConfig)
+    environment.openDatabase(null, "ConsumerStore"/*storageOpts.consumerStorageName*/, dbConfig)
   }
 
   def getConsumerState(name: String, stream: String, partition: Int): ScalaFuture[Long] =

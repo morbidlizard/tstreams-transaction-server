@@ -2,11 +2,10 @@ package com.bwsw.tstreamstransactionserver.netty
 
 import java.util
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.MethodDoesnotFoundException
 import com.twitter.scrooge.{ThriftStruct, ThriftStructCodec3}
 import org.apache.thrift.protocol._
 import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
-import transactionService.rpc.TransactionService
+import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
 object Descriptors {
 

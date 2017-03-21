@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
 import org.slf4j.LoggerFactory
-import transactionService.rpc.Transaction
+import com.bwsw.tstreamstransactionserver.rpc.Transaction
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
@@ -152,7 +152,7 @@ object CommitLogToBerkeleyWriter {
       txns.transactions.map(txn => (txn, messageWithTimestamp.timestamp))
     case `setConsumerStateType` =>
       val args = deserializeSetConsumerState(messageWithTimestamp.message)
-      val consumerTransaction = transactionService.rpc.ConsumerTransaction(args.stream, args.partition, args.transaction, args.name)
+      val consumerTransaction = com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction(args.stream, args.partition, args.transaction, args.name)
       Seq((Transaction(None, Some(consumerTransaction)), messageWithTimestamp.timestamp))
   }
 }

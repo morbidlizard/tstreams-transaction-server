@@ -2,7 +2,7 @@ package ut
 
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{Key, ProducerTransactionWithoutKey}
 import org.scalatest.{FlatSpec, Matchers}
-import transactionService.rpc.TransactionStates
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 
 class TransactionMetaServiceTest extends FlatSpec with Matchers {
 

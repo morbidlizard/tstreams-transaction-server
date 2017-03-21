@@ -4,7 +4,7 @@
  *   rev: afb71130ca59bc14afcef7aea788ee179657a43b
  *   built at: 20170310-160841
  */
-package transactionService.rpc
+package com.bwsw.tstreamstransactionserver.rpc
 
 import com.twitter.scrooge.{
   HasThriftStructCodec3,

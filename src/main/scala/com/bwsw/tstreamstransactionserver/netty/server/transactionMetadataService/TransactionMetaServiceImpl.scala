@@ -10,7 +10,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.{Logger, LoggerFactory}
-import transactionService.rpc._
+import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
@@ -84,7 +84,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
 
   private type Timestamp = Long
 
-  private final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(transactionService.rpc.Transaction, Timestamp)]) = {
+  private final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Timestamp)]) = {
     if (logger.isDebugEnabled) logger.debug("Decomposing transactions to producer and consumer transactions")
 
     val producerTransactions = ArrayBuffer[(ProducerTransaction, Timestamp)]()
@@ -164,7 +164,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     }
   }
 
-  private def putTransactions(transactions: Seq[(transactionService.rpc.Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
+  private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions)
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions, parentBerkeleyTxn)
     groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
@@ -222,7 +222,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   class BigCommit(pathToFile: String) {
     private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
 
-    def putSomeTransactions(transactions: Seq[(transactionService.rpc.Transaction, Long)]) = {
+    def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]) = {
       if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
       putTransactions(transactions, transactionDB)
     }
@@ -245,7 +245,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   def getBigCommit(pathToFile: String) = new BigCommit(pathToFile)
 
 
-  def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[transactionService.rpc.TransactionInfo] = {
+  def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = {
     val keyStream = getStreamFromOldestToNewest(stream).last
     val lastTransactionId = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition)
     if (lastTransactionId.isEmpty || transaction > lastTransactionId.get.transaction) {
@@ -275,15 +275,15 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     }
   }
 
-  final def getLastCheckpoitnedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture.successful{
+  final def getLastCheckpoitnedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture{
     val keyStream = getStreamFromOldestToNewest(stream).last
     getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
       case Some(lastID) => lastID.checkpointedTransactionOpt
       case None => None
     }
-  }
+  }(executionContext.berkeleyReadContext)
 
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[transactionService.rpc.ScanTransactionsInfo] =
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo] =
     ScalaFuture {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val keyStream = getStreamFromOldestToNewest(stream).last
@@ -291,7 +291,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
       def producerTransactionKeyToProducerTransaction(txn: ProducerTransactionKey) = {
-        transactionService.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
+        com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
       }
 
       val (lastOpenedTransaction, toTransactionID, isResponseCompleted) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
@@ -346,7 +346,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     }(executionContext.berkeleyReadContext)
 
   private def keyToProducerTransaction(txn: ProducerTransactionKey, stream: String) = {
-    transactionService.rpc.ProducerTransaction(stream, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
+    com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(stream, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
   }
 
   final class TransactionsToDeleteTask(timestampToDeleteTransactions: Long) extends Runnable {

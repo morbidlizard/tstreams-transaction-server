@@ -1,4 +1,4 @@
-namespace scala transactionService.rpc
+namespace scala com.bwsw.tstreamstransactionserver.rpc
 
 enum TransactionStates {
     Opened       = 1

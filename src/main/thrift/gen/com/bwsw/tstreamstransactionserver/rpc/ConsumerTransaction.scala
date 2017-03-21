@@ -4,7 +4,7 @@
  *   rev: afb71130ca59bc14afcef7aea788ee179657a43b
  *   built at: 20170310-160841
  */
-package transactionService.rpc
+package com.bwsw.tstreamstransactionserver.rpc
 
 import com.twitter.scrooge.{
   HasThriftStructCodec3,
@@ -29,22 +29,17 @@ import scala.collection.mutable.{
 import scala.collection.{Map, Set}
 
 
-object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
+object ConsumerTransaction extends ThriftStructCodec3[ConsumerTransaction] {
   private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-  val Struct = new TStruct("ProducerTransaction")
+  val Struct = new TStruct("ConsumerTransaction")
   val StreamField = new TField("stream", TType.STRING, 1)
   val StreamFieldManifest = implicitly[Manifest[String]]
   val PartitionField = new TField("partition", TType.I32, 2)
   val PartitionFieldManifest = implicitly[Manifest[Int]]
   val TransactionIDField = new TField("transactionID", TType.I64, 3)
   val TransactionIDFieldManifest = implicitly[Manifest[Long]]
-  val StateField = new TField("state", TType.ENUM, 4)
-  val StateFieldI32 = new TField("state", TType.I32, 4)
-  val StateFieldManifest = implicitly[Manifest[transactionService.rpc.TransactionStates]]
-  val QuantityField = new TField("quantity", TType.I32, 5)
-  val QuantityFieldManifest = implicitly[Manifest[Int]]
-  val TtlField = new TField("ttl", TType.I64, 6)
-  val TtlFieldManifest = implicitly[Manifest[Long]]
+  val NameField = new TField("name", TType.STRING, 4)
+  val NameFieldManifest = implicitly[Manifest[String]]
 
   /**
    * Field information in declaration order.
@@ -84,32 +79,10 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       None
     ),
     new ThriftStructFieldInfo(
-      StateField,
+      NameField,
       false,
       true,
-      StateFieldManifest,
-      _root_.scala.None,
-      _root_.scala.None,
-      immutable$Map.empty[String, String],
-      immutable$Map.empty[String, String],
-      None
-    ),
-    new ThriftStructFieldInfo(
-      QuantityField,
-      false,
-      true,
-      QuantityFieldManifest,
-      _root_.scala.None,
-      _root_.scala.None,
-      immutable$Map.empty[String, String],
-      immutable$Map.empty[String, String],
-      None
-    ),
-    new ThriftStructFieldInfo(
-      TtlField,
-      false,
-      true,
-      TtlFieldManifest,
+      NameFieldManifest,
       _root_.scala.None,
       _root_.scala.None,
       immutable$Map.empty[String, String],
@@ -124,12 +97,12 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
   /**
    * Checks that all required fields are non-null.
    */
-  def validate(_item: ProducerTransaction): Unit = {
+  def validate(_item: ConsumerTransaction): Unit = {
     if (_item.stream == null) throw new TProtocolException("Required field stream cannot be null")
-    if (_item.state == null) throw new TProtocolException("Required field state cannot be null")
+    if (_item.name == null) throw new TProtocolException("Required field name cannot be null")
   }
 
-  def withoutPassthroughFields(original: ProducerTransaction): ProducerTransaction =
+  def withoutPassthroughFields(original: ConsumerTransaction): ConsumerTransaction =
     new Immutable(
       stream =
         {
@@ -146,28 +119,18 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
           val field = original.transactionID
           field
         },
-      state =
+      name =
         {
-          val field = original.state
-          field
-        },
-      quantity =
-        {
-          val field = original.quantity
-          field
-        },
-      ttl =
-        {
-          val field = original.ttl
+          val field = original.name
           field
         }
     )
 
-  override def encode(_item: ProducerTransaction, _oproto: TProtocol): Unit = {
+  override def encode(_item: ConsumerTransaction, _oproto: TProtocol): Unit = {
     _item.write(_oproto)
   }
 
-  private[this] def lazyDecode(_iprot: LazyTProtocol): ProducerTransaction = {
+  private[this] def lazyDecode(_iprot: LazyTProtocol): ConsumerTransaction = {
 
     var streamOffset: Int = -1
     var _got_stream = false
@@ -175,12 +138,8 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     var _got_partition = false
     var transactionID: Long = 0L
     var _got_transactionID = false
-    var state: transactionService.rpc.TransactionStates = null
-    var _got_state = false
-    var quantity: Int = 0
-    var _got_quantity = false
-    var ttl: Long = 0L
-    var _got_ttl = false
+    var nameOffset: Int = -1
+    var _got_name = false
 
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
@@ -240,44 +199,14 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
             }
           case 4 =>
             _field.`type` match {
-              case TType.I32 | TType.ENUM =>
+              case TType.STRING =>
+                nameOffset = _iprot.offsetSkipString
     
-                state = readStateValue(_iprot)
-                _got_state = true
+                _got_name = true
               case _actualType =>
-                val _expectedType = TType.ENUM
+                val _expectedType = TType.STRING
                 throw new TProtocolException(
-                  "Received wrong type for field 'state' (expected=%s, actual=%s).".format(
-                    ttypeToString(_expectedType),
-                    ttypeToString(_actualType)
-                  )
-                )
-            }
-          case 5 =>
-            _field.`type` match {
-              case TType.I32 =>
-    
-                quantity = readQuantityValue(_iprot)
-                _got_quantity = true
-              case _actualType =>
-                val _expectedType = TType.I32
-                throw new TProtocolException(
-                  "Received wrong type for field 'quantity' (expected=%s, actual=%s).".format(
-                    ttypeToString(_expectedType),
-                    ttypeToString(_actualType)
-                  )
-                )
-            }
-          case 6 =>
-            _field.`type` match {
-              case TType.I64 =>
-    
-                ttl = readTtlValue(_iprot)
-                _got_ttl = true
-              case _actualType =>
-                val _expectedType = TType.I64
-                throw new TProtocolException(
-                  "Received wrong type for field 'ttl' (expected=%s, actual=%s).".format(
+                  "Received wrong type for field 'name' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -293,12 +222,10 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     }
     _iprot.readStructEnd()
 
-    if (!_got_stream) throw new TProtocolException("Required field 'stream' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_partition) throw new TProtocolException("Required field 'partition' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_transactionID) throw new TProtocolException("Required field 'transactionID' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_state) throw new TProtocolException("Required field 'state' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_quantity) throw new TProtocolException("Required field 'quantity' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct ProducerTransaction")
+    if (!_got_stream) throw new TProtocolException("Required field 'stream' was not found in serialized data for struct ConsumerTransaction")
+    if (!_got_partition) throw new TProtocolException("Required field 'partition' was not found in serialized data for struct ConsumerTransaction")
+    if (!_got_transactionID) throw new TProtocolException("Required field 'transactionID' was not found in serialized data for struct ConsumerTransaction")
+    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct ConsumerTransaction")
     new LazyImmutable(
       _iprot,
       _iprot.buffer,
@@ -307,9 +234,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       streamOffset,
       partition,
       transactionID,
-      state,
-      quantity,
-      ttl,
+      nameOffset,
       if (_passthroughFields == null)
         NoPassthroughFields
       else
@@ -317,25 +242,21 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     )
   }
 
-  override def decode(_iprot: TProtocol): ProducerTransaction =
+  override def decode(_iprot: TProtocol): ConsumerTransaction =
     _iprot match {
       case i: LazyTProtocol => lazyDecode(i)
       case i => eagerDecode(i)
     }
 
-  private[this] def eagerDecode(_iprot: TProtocol): ProducerTransaction = {
+  private[this] def eagerDecode(_iprot: TProtocol): ConsumerTransaction = {
     var stream: String = null
     var _got_stream = false
     var partition: Int = 0
     var _got_partition = false
     var transactionID: Long = 0L
     var _got_transactionID = false
-    var state: transactionService.rpc.TransactionStates = null
-    var _got_state = false
-    var quantity: Int = 0
-    var _got_quantity = false
-    var ttl: Long = 0L
-    var _got_ttl = false
+    var name: String = null
+    var _got_name = false
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
 
@@ -390,41 +311,13 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
             }
           case 4 =>
             _field.`type` match {
-              case TType.I32 | TType.ENUM =>
-                state = readStateValue(_iprot)
-                _got_state = true
+              case TType.STRING =>
+                name = readNameValue(_iprot)
+                _got_name = true
               case _actualType =>
-                val _expectedType = TType.ENUM
+                val _expectedType = TType.STRING
                 throw new TProtocolException(
-                  "Received wrong type for field 'state' (expected=%s, actual=%s).".format(
-                    ttypeToString(_expectedType),
-                    ttypeToString(_actualType)
-                  )
-                )
-            }
-          case 5 =>
-            _field.`type` match {
-              case TType.I32 =>
-                quantity = readQuantityValue(_iprot)
-                _got_quantity = true
-              case _actualType =>
-                val _expectedType = TType.I32
-                throw new TProtocolException(
-                  "Received wrong type for field 'quantity' (expected=%s, actual=%s).".format(
-                    ttypeToString(_expectedType),
-                    ttypeToString(_actualType)
-                  )
-                )
-            }
-          case 6 =>
-            _field.`type` match {
-              case TType.I64 =>
-                ttl = readTtlValue(_iprot)
-                _got_ttl = true
-              case _actualType =>
-                val _expectedType = TType.I64
-                throw new TProtocolException(
-                  "Received wrong type for field 'ttl' (expected=%s, actual=%s).".format(
+                  "Received wrong type for field 'name' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -440,19 +333,15 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     }
     _iprot.readStructEnd()
 
-    if (!_got_stream) throw new TProtocolException("Required field 'stream' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_partition) throw new TProtocolException("Required field 'partition' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_transactionID) throw new TProtocolException("Required field 'transactionID' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_state) throw new TProtocolException("Required field 'state' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_quantity) throw new TProtocolException("Required field 'quantity' was not found in serialized data for struct ProducerTransaction")
-    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct ProducerTransaction")
+    if (!_got_stream) throw new TProtocolException("Required field 'stream' was not found in serialized data for struct ConsumerTransaction")
+    if (!_got_partition) throw new TProtocolException("Required field 'partition' was not found in serialized data for struct ConsumerTransaction")
+    if (!_got_transactionID) throw new TProtocolException("Required field 'transactionID' was not found in serialized data for struct ConsumerTransaction")
+    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct ConsumerTransaction")
     new Immutable(
       stream,
       partition,
       transactionID,
-      state,
-      quantity,
-      ttl,
+      name,
       if (_passthroughFields == null)
         NoPassthroughFields
       else
@@ -464,20 +353,16 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     stream: String,
     partition: Int,
     transactionID: Long,
-    state: transactionService.rpc.TransactionStates,
-    quantity: Int,
-    ttl: Long
-  ): ProducerTransaction =
+    name: String
+  ): ConsumerTransaction =
     new Immutable(
       stream,
       partition,
       transactionID,
-      state,
-      quantity,
-      ttl
+      name
     )
 
-  def unapply(_item: ProducerTransaction): _root_.scala.Option[_root_.scala.Tuple6[String, Int, Long, transactionService.rpc.TransactionStates, Int, Long]] = _root_.scala.Some(_item.toTuple)
+  def unapply(_item: ConsumerTransaction): _root_.scala.Option[_root_.scala.Tuple4[String, Int, Long, String]] = _root_.scala.Some(_item.toTuple)
 
 
   @inline private def readStreamValue(_iprot: TProtocol): String = {
@@ -522,83 +407,49 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     _oprot.writeI64(transactionID_item)
   }
 
-  @inline private def readStateValue(_iprot: TProtocol): transactionService.rpc.TransactionStates = {
-    transactionService.rpc.TransactionStates.getOrUnknown(_iprot.readI32())
+  @inline private def readNameValue(_iprot: TProtocol): String = {
+    _iprot.readString()
   }
 
-  @inline private def writeStateField(state_item: transactionService.rpc.TransactionStates, _oprot: TProtocol): Unit = {
-    _oprot.writeFieldBegin(StateFieldI32)
-    writeStateValue(state_item, _oprot)
+  @inline private def writeNameField(name_item: String, _oprot: TProtocol): Unit = {
+    _oprot.writeFieldBegin(NameField)
+    writeNameValue(name_item, _oprot)
     _oprot.writeFieldEnd()
   }
 
-  @inline private def writeStateValue(state_item: transactionService.rpc.TransactionStates, _oprot: TProtocol): Unit = {
-    _oprot.writeI32(state_item.value)
-  }
-
-  @inline private def readQuantityValue(_iprot: TProtocol): Int = {
-    _iprot.readI32()
-  }
-
-  @inline private def writeQuantityField(quantity_item: Int, _oprot: TProtocol): Unit = {
-    _oprot.writeFieldBegin(QuantityField)
-    writeQuantityValue(quantity_item, _oprot)
-    _oprot.writeFieldEnd()
-  }
-
-  @inline private def writeQuantityValue(quantity_item: Int, _oprot: TProtocol): Unit = {
-    _oprot.writeI32(quantity_item)
-  }
-
-  @inline private def readTtlValue(_iprot: TProtocol): Long = {
-    _iprot.readI64()
-  }
-
-  @inline private def writeTtlField(ttl_item: Long, _oprot: TProtocol): Unit = {
-    _oprot.writeFieldBegin(TtlField)
-    writeTtlValue(ttl_item, _oprot)
-    _oprot.writeFieldEnd()
-  }
-
-  @inline private def writeTtlValue(ttl_item: Long, _oprot: TProtocol): Unit = {
-    _oprot.writeI64(ttl_item)
+  @inline private def writeNameValue(name_item: String, _oprot: TProtocol): Unit = {
+    _oprot.writeString(name_item)
   }
 
 
-  object Immutable extends ThriftStructCodec3[ProducerTransaction] {
-    override def encode(_item: ProducerTransaction, _oproto: TProtocol): Unit = { _item.write(_oproto) }
-    override def decode(_iprot: TProtocol): ProducerTransaction = ProducerTransaction.decode(_iprot)
-    override lazy val metaData: ThriftStructMetaData[ProducerTransaction] = ProducerTransaction.metaData
+  object Immutable extends ThriftStructCodec3[ConsumerTransaction] {
+    override def encode(_item: ConsumerTransaction, _oproto: TProtocol): Unit = { _item.write(_oproto) }
+    override def decode(_iprot: TProtocol): ConsumerTransaction = ConsumerTransaction.decode(_iprot)
+    override lazy val metaData: ThriftStructMetaData[ConsumerTransaction] = ConsumerTransaction.metaData
   }
 
   /**
-   * The default read-only implementation of ProducerTransaction.  You typically should not need to
-   * directly reference this class; instead, use the ProducerTransaction.apply method to construct
+   * The default read-only implementation of ConsumerTransaction.  You typically should not need to
+   * directly reference this class; instead, use the ConsumerTransaction.apply method to construct
    * new instances.
    */
   class Immutable(
       val stream: String,
       val partition: Int,
       val transactionID: Long,
-      val state: transactionService.rpc.TransactionStates,
-      val quantity: Int,
-      val ttl: Long,
+      val name: String,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
-    extends ProducerTransaction {
+    extends ConsumerTransaction {
     def this(
       stream: String,
       partition: Int,
       transactionID: Long,
-      state: transactionService.rpc.TransactionStates,
-      quantity: Int,
-      ttl: Long
+      name: String
     ) = this(
       stream,
       partition,
       transactionID,
-      state,
-      quantity,
-      ttl,
+      name,
       Map.empty
     )
   }
@@ -615,11 +466,9 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       streamOffset: Int,
       val partition: Int,
       val transactionID: Long,
-      val state: transactionService.rpc.TransactionStates,
-      val quantity: Int,
-      val ttl: Long,
+      nameOffset: Int,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
-    extends ProducerTransaction {
+    extends ConsumerTransaction {
 
     override def write(_oprot: TProtocol): Unit = {
       _oprot match {
@@ -633,6 +482,12 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
         null
       else {
         _proto.decodeString(_buf, streamOffset)
+      }
+    lazy val name: String =
+      if (nameOffset == -1)
+        null
+      else {
+        _proto.decodeString(_buf, nameOffset)
       }
 
     /**
@@ -650,54 +505,46 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
   }
 
   /**
-   * This Proxy trait allows you to extend the ProducerTransaction trait with additional state or
-   * behavior and implement the read-only methods from ProducerTransaction using an underlying
+   * This Proxy trait allows you to extend the ConsumerTransaction trait with additional state or
+   * behavior and implement the read-only methods from ConsumerTransaction using an underlying
    * instance.
    */
-  trait Proxy extends ProducerTransaction {
-    protected def _underlying_ProducerTransaction: ProducerTransaction
-    override def stream: String = _underlying_ProducerTransaction.stream
-    override def partition: Int = _underlying_ProducerTransaction.partition
-    override def transactionID: Long = _underlying_ProducerTransaction.transactionID
-    override def state: transactionService.rpc.TransactionStates = _underlying_ProducerTransaction.state
-    override def quantity: Int = _underlying_ProducerTransaction.quantity
-    override def ttl: Long = _underlying_ProducerTransaction.ttl
-    override def _passthroughFields = _underlying_ProducerTransaction._passthroughFields
+  trait Proxy extends ConsumerTransaction {
+    protected def _underlying_ConsumerTransaction: ConsumerTransaction
+    override def stream: String = _underlying_ConsumerTransaction.stream
+    override def partition: Int = _underlying_ConsumerTransaction.partition
+    override def transactionID: Long = _underlying_ConsumerTransaction.transactionID
+    override def name: String = _underlying_ConsumerTransaction.name
+    override def _passthroughFields = _underlying_ConsumerTransaction._passthroughFields
   }
 }
 
-trait ProducerTransaction
+trait ConsumerTransaction
   extends ThriftStruct
-  with _root_.scala.Product6[String, Int, Long, transactionService.rpc.TransactionStates, Int, Long]
-  with HasThriftStructCodec3[ProducerTransaction]
+  with _root_.scala.Product4[String, Int, Long, String]
+  with HasThriftStructCodec3[ConsumerTransaction]
   with java.io.Serializable
 {
-  import ProducerTransaction._
+  import ConsumerTransaction._
 
   def stream: String
   def partition: Int
   def transactionID: Long
-  def state: transactionService.rpc.TransactionStates
-  def quantity: Int
-  def ttl: Long
+  def name: String
 
   def _passthroughFields: immutable$Map[Short, TFieldBlob] = immutable$Map.empty
 
   def _1 = stream
   def _2 = partition
   def _3 = transactionID
-  def _4 = state
-  def _5 = quantity
-  def _6 = ttl
+  def _4 = name
 
-  def toTuple: _root_.scala.Tuple6[String, Int, Long, transactionService.rpc.TransactionStates, Int, Long] = {
+  def toTuple: _root_.scala.Tuple4[String, Int, Long, String] = {
     (
       stream,
       partition,
       transactionID,
-      state,
-      quantity,
-      ttl
+      name
     )
   }
 
@@ -718,42 +565,28 @@ trait ProducerTransaction
             case 1 =>
               if (stream ne null) {
                 writeStreamValue(stream, _oprot)
-                _root_.scala.Some(ProducerTransaction.StreamField)
+                _root_.scala.Some(ConsumerTransaction.StreamField)
               } else {
                 _root_.scala.None
               }
             case 2 =>
               if (true) {
                 writePartitionValue(partition, _oprot)
-                _root_.scala.Some(ProducerTransaction.PartitionField)
+                _root_.scala.Some(ConsumerTransaction.PartitionField)
               } else {
                 _root_.scala.None
               }
             case 3 =>
               if (true) {
                 writeTransactionIDValue(transactionID, _oprot)
-                _root_.scala.Some(ProducerTransaction.TransactionIDField)
+                _root_.scala.Some(ConsumerTransaction.TransactionIDField)
               } else {
                 _root_.scala.None
               }
             case 4 =>
-              if (state ne null) {
-                writeStateValue(state, _oprot)
-                _root_.scala.Some(ProducerTransaction.StateField)
-              } else {
-                _root_.scala.None
-              }
-            case 5 =>
-              if (true) {
-                writeQuantityValue(quantity, _oprot)
-                _root_.scala.Some(ProducerTransaction.QuantityField)
-              } else {
-                _root_.scala.None
-              }
-            case 6 =>
-              if (true) {
-                writeTtlValue(ttl, _oprot)
-                _root_.scala.Some(ProducerTransaction.TtlField)
+              if (name ne null) {
+                writeNameValue(name, _oprot)
+                _root_.scala.Some(ConsumerTransaction.NameField)
               } else {
                 _root_.scala.None
               }
@@ -782,13 +615,11 @@ trait ProducerTransaction
    * is unknown and passthrough fields are enabled, then the blob will be stored in
    * _passthroughFields.
    */
-  def setField(_blob: TFieldBlob): ProducerTransaction = {
+  def setField(_blob: TFieldBlob): ConsumerTransaction = {
     var stream: String = this.stream
     var partition: Int = this.partition
     var transactionID: Long = this.transactionID
-    var state: transactionService.rpc.TransactionStates = this.state
-    var quantity: Int = this.quantity
-    var ttl: Long = this.ttl
+    var name: String = this.name
     var _passthroughFields = this._passthroughFields
     _blob.id match {
       case 1 =>
@@ -798,20 +629,14 @@ trait ProducerTransaction
       case 3 =>
         transactionID = readTransactionIDValue(_blob.read)
       case 4 =>
-        state = readStateValue(_blob.read)
-      case 5 =>
-        quantity = readQuantityValue(_blob.read)
-      case 6 =>
-        ttl = readTtlValue(_blob.read)
+        name = readNameValue(_blob.read)
       case _ => _passthroughFields += (_blob.id -> _blob)
     }
     new Immutable(
       stream,
       partition,
       transactionID,
-      state,
-      quantity,
-      ttl,
+      name,
       _passthroughFields
     )
   }
@@ -821,13 +646,11 @@ trait ProducerTransaction
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetField(_fieldId: Short): ProducerTransaction = {
+  def unsetField(_fieldId: Short): ConsumerTransaction = {
     var stream: String = this.stream
     var partition: Int = this.partition
     var transactionID: Long = this.transactionID
-    var state: transactionService.rpc.TransactionStates = this.state
-    var quantity: Int = this.quantity
-    var ttl: Long = this.ttl
+    var name: String = this.name
 
     _fieldId match {
       case 1 =>
@@ -837,20 +660,14 @@ trait ProducerTransaction
       case 3 =>
         transactionID = 0L
       case 4 =>
-        state = null
-      case 5 =>
-        quantity = 0
-      case 6 =>
-        ttl = 0L
+        name = null
       case _ =>
     }
     new Immutable(
       stream,
       partition,
       transactionID,
-      state,
-      quantity,
-      ttl,
+      name,
       _passthroughFields - _fieldId
     )
   }
@@ -860,28 +677,22 @@ trait ProducerTransaction
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetStream: ProducerTransaction = unsetField(1)
+  def unsetStream: ConsumerTransaction = unsetField(1)
 
-  def unsetPartition: ProducerTransaction = unsetField(2)
+  def unsetPartition: ConsumerTransaction = unsetField(2)
 
-  def unsetTransactionID: ProducerTransaction = unsetField(3)
+  def unsetTransactionID: ConsumerTransaction = unsetField(3)
 
-  def unsetState: ProducerTransaction = unsetField(4)
-
-  def unsetQuantity: ProducerTransaction = unsetField(5)
-
-  def unsetTtl: ProducerTransaction = unsetField(6)
+  def unsetName: ConsumerTransaction = unsetField(4)
 
 
   override def write(_oprot: TProtocol): Unit = {
-    ProducerTransaction.validate(this)
+    ConsumerTransaction.validate(this)
     _oprot.writeStructBegin(Struct)
     if (stream ne null) writeStreamField(stream, _oprot)
     writePartitionField(partition, _oprot)
     writeTransactionIDField(transactionID, _oprot)
-    if (state ne null) writeStateField(state, _oprot)
-    writeQuantityField(quantity, _oprot)
-    writeTtlField(ttl, _oprot)
+    if (name ne null) writeNameField(name, _oprot)
     if (_passthroughFields.nonEmpty) {
       _passthroughFields.values.foreach { _.write(_oprot) }
     }
@@ -893,50 +704,44 @@ trait ProducerTransaction
     stream: String = this.stream,
     partition: Int = this.partition,
     transactionID: Long = this.transactionID,
-    state: transactionService.rpc.TransactionStates = this.state,
-    quantity: Int = this.quantity,
-    ttl: Long = this.ttl,
+    name: String = this.name,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
-  ): ProducerTransaction =
+  ): ConsumerTransaction =
     new Immutable(
       stream,
       partition,
       transactionID,
-      state,
-      quantity,
-      ttl,
+      name,
       _passthroughFields
     )
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ProducerTransaction]
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ConsumerTransaction]
 
-  private def _equals(x: ProducerTransaction, y: ProducerTransaction): Boolean =
+  private def _equals(x: ConsumerTransaction, y: ConsumerTransaction): Boolean =
       x.productArity == y.productArity &&
       x.productIterator.sameElements(y.productIterator)
 
   override def equals(other: Any): Boolean =
     canEqual(other) &&
-      _equals(this, other.asInstanceOf[ProducerTransaction]) &&
-      _passthroughFields == other.asInstanceOf[ProducerTransaction]._passthroughFields
+      _equals(this, other.asInstanceOf[ConsumerTransaction]) &&
+      _passthroughFields == other.asInstanceOf[ConsumerTransaction]._passthroughFields
 
   override def hashCode: Int = _root_.scala.runtime.ScalaRunTime._hashCode(this)
 
   override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
 
 
-  override def productArity: Int = 6
+  override def productArity: Int = 4
 
   override def productElement(n: Int): Any = n match {
     case 0 => this.stream
     case 1 => this.partition
     case 2 => this.transactionID
-    case 3 => this.state
-    case 4 => this.quantity
-    case 5 => this.ttl
+    case 3 => this.name
     case _ => throw new IndexOutOfBoundsException(n.toString)
   }
 
-  override def productPrefix: String = "ProducerTransaction"
+  override def productPrefix: String = "ConsumerTransaction"
 
-  def _codec: ThriftStructCodec3[ProducerTransaction] = ProducerTransaction
+  def _codec: ThriftStructCodec3[ConsumerTransaction] = ConsumerTransaction
 }

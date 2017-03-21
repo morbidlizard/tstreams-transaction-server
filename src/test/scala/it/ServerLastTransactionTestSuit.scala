@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import transactionService.rpc.{ProducerTransaction, Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 
 import scala.annotation.tailrec
 import scala.concurrent.Await
@@ -20,14 +20,14 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
   private val rand = scala.util.Random
 
-  private def getRandomStream = transactionService.rpc.Stream(
+  private def getRandomStream = com.bwsw.tstreamstransactionserver.rpc.Stream(
     name = rand.nextInt(10000).toString,
     partitions = rand.nextInt(10000),
     description = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None,
     ttl = Long.MaxValue
   )
 
-  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream, txnID: Long, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream, txnID: Long, ttlTxn: Long) = ProducerTransaction(
     stream = streamObj.name,
     partition = streamObj.partitions,
     transactionID = txnID,

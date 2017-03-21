@@ -4,7 +4,7 @@
  *   rev: afb71130ca59bc14afcef7aea788ee179657a43b
  *   built at: 20170310-160841
  */
-package transactionService.rpc
+package com.bwsw.tstreamstransactionserver.rpc
 
 import com.twitter.scrooge.{
   HasThriftStructCodec3,
@@ -33,9 +33,9 @@ object Transaction extends ThriftStructCodec3[Transaction] {
   private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
   val Struct = new TStruct("Transaction")
   val ProducerTransactionField = new TField("producerTransaction", TType.STRUCT, 1)
-  val ProducerTransactionFieldManifest = implicitly[Manifest[transactionService.rpc.ProducerTransaction]]
+  val ProducerTransactionFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]]
   val ConsumerTransactionField = new TField("consumerTransaction", TType.STRUCT, 2)
-  val ConsumerTransactionFieldManifest = implicitly[Manifest[transactionService.rpc.ConsumerTransaction]]
+  val ConsumerTransactionFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction]]
 
   /**
    * Field information in declaration order.
@@ -80,14 +80,14 @@ object Transaction extends ThriftStructCodec3[Transaction] {
         {
           val field = original.producerTransaction
           field.map { field =>
-            transactionService.rpc.ProducerTransaction.withoutPassthroughFields(field)
+            com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction.withoutPassthroughFields(field)
           }
         },
       consumerTransaction =
         {
           val field = original.consumerTransaction
           field.map { field =>
-            transactionService.rpc.ConsumerTransaction.withoutPassthroughFields(field)
+            com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction.withoutPassthroughFields(field)
           }
         }
     )
@@ -98,8 +98,8 @@ object Transaction extends ThriftStructCodec3[Transaction] {
 
   private[this] def lazyDecode(_iprot: LazyTProtocol): Transaction = {
 
-    var producerTransaction: Option[transactionService.rpc.ProducerTransaction] = None
-    var consumerTransaction: Option[transactionService.rpc.ConsumerTransaction] = None
+    var producerTransaction: Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = None
+    var consumerTransaction: Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction] = None
 
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
@@ -171,8 +171,8 @@ object Transaction extends ThriftStructCodec3[Transaction] {
     }
 
   private[this] def eagerDecode(_iprot: TProtocol): Transaction = {
-    var producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = _root_.scala.None
-    var consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction] = _root_.scala.None
+    var producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = _root_.scala.None
+    var consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction] = _root_.scala.None
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
 
@@ -230,42 +230,42 @@ object Transaction extends ThriftStructCodec3[Transaction] {
   }
 
   def apply(
-    producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = _root_.scala.None,
-    consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction] = _root_.scala.None
+    producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = _root_.scala.None,
+    consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction] = _root_.scala.None
   ): Transaction =
     new Immutable(
       producerTransaction,
       consumerTransaction
     )
 
-  def unapply(_item: Transaction): _root_.scala.Option[_root_.scala.Tuple2[Option[transactionService.rpc.ProducerTransaction], Option[transactionService.rpc.ConsumerTransaction]]] = _root_.scala.Some(_item.toTuple)
+  def unapply(_item: Transaction): _root_.scala.Option[_root_.scala.Tuple2[Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction], Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction]]] = _root_.scala.Some(_item.toTuple)
 
 
-  @inline private def readProducerTransactionValue(_iprot: TProtocol): transactionService.rpc.ProducerTransaction = {
-    transactionService.rpc.ProducerTransaction.decode(_iprot)
+  @inline private def readProducerTransactionValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction = {
+    com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction.decode(_iprot)
   }
 
-  @inline private def writeProducerTransactionField(producerTransaction_item: transactionService.rpc.ProducerTransaction, _oprot: TProtocol): Unit = {
+  @inline private def writeProducerTransactionField(producerTransaction_item: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, _oprot: TProtocol): Unit = {
     _oprot.writeFieldBegin(ProducerTransactionField)
     writeProducerTransactionValue(producerTransaction_item, _oprot)
     _oprot.writeFieldEnd()
   }
 
-  @inline private def writeProducerTransactionValue(producerTransaction_item: transactionService.rpc.ProducerTransaction, _oprot: TProtocol): Unit = {
+  @inline private def writeProducerTransactionValue(producerTransaction_item: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, _oprot: TProtocol): Unit = {
     producerTransaction_item.write(_oprot)
   }
 
-  @inline private def readConsumerTransactionValue(_iprot: TProtocol): transactionService.rpc.ConsumerTransaction = {
-    transactionService.rpc.ConsumerTransaction.decode(_iprot)
+  @inline private def readConsumerTransactionValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction = {
+    com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction.decode(_iprot)
   }
 
-  @inline private def writeConsumerTransactionField(consumerTransaction_item: transactionService.rpc.ConsumerTransaction, _oprot: TProtocol): Unit = {
+  @inline private def writeConsumerTransactionField(consumerTransaction_item: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction, _oprot: TProtocol): Unit = {
     _oprot.writeFieldBegin(ConsumerTransactionField)
     writeConsumerTransactionValue(consumerTransaction_item, _oprot)
     _oprot.writeFieldEnd()
   }
 
-  @inline private def writeConsumerTransactionValue(consumerTransaction_item: transactionService.rpc.ConsumerTransaction, _oprot: TProtocol): Unit = {
+  @inline private def writeConsumerTransactionValue(consumerTransaction_item: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction, _oprot: TProtocol): Unit = {
     consumerTransaction_item.write(_oprot)
   }
 
@@ -282,13 +282,13 @@ object Transaction extends ThriftStructCodec3[Transaction] {
    * new instances.
    */
   class Immutable(
-      val producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction],
-      val consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction],
+      val producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction],
+      val consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction],
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends Transaction {
     def this(
-      producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = _root_.scala.None,
-      consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction] = _root_.scala.None
+      producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = _root_.scala.None,
+      consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction] = _root_.scala.None
     ) = this(
       producerTransaction,
       consumerTransaction,
@@ -305,8 +305,8 @@ object Transaction extends ThriftStructCodec3[Transaction] {
       _buf: Array[Byte],
       _start_offset: Int,
       _end_offset: Int,
-      val producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction],
-      val consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction],
+      val producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction],
+      val consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction],
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends Transaction {
 
@@ -339,29 +339,29 @@ object Transaction extends ThriftStructCodec3[Transaction] {
    */
   trait Proxy extends Transaction {
     protected def _underlying_Transaction: Transaction
-    override def producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = _underlying_Transaction.producerTransaction
-    override def consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction] = _underlying_Transaction.consumerTransaction
+    override def producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = _underlying_Transaction.producerTransaction
+    override def consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction] = _underlying_Transaction.consumerTransaction
     override def _passthroughFields = _underlying_Transaction._passthroughFields
   }
 }
 
 trait Transaction
   extends ThriftStruct
-  with _root_.scala.Product2[Option[transactionService.rpc.ProducerTransaction], Option[transactionService.rpc.ConsumerTransaction]]
+  with _root_.scala.Product2[Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction], Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction]]
   with HasThriftStructCodec3[Transaction]
   with java.io.Serializable
 {
   import Transaction._
 
-  def producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction]
-  def consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction]
+  def producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]
+  def consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction]
 
   def _passthroughFields: immutable$Map[Short, TFieldBlob] = immutable$Map.empty
 
   def _1 = producerTransaction
   def _2 = consumerTransaction
 
-  def toTuple: _root_.scala.Tuple2[Option[transactionService.rpc.ProducerTransaction], Option[transactionService.rpc.ConsumerTransaction]] = {
+  def toTuple: _root_.scala.Tuple2[Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction], Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction]] = {
     (
       producerTransaction,
       consumerTransaction
@@ -422,8 +422,8 @@ trait Transaction
    * _passthroughFields.
    */
   def setField(_blob: TFieldBlob): Transaction = {
-    var producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = this.producerTransaction
-    var consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction] = this.consumerTransaction
+    var producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = this.producerTransaction
+    var consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction] = this.consumerTransaction
     var _passthroughFields = this._passthroughFields
     _blob.id match {
       case 1 =>
@@ -445,8 +445,8 @@ trait Transaction
    * from the passthroughFields map, if present.
    */
   def unsetField(_fieldId: Short): Transaction = {
-    var producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = this.producerTransaction
-    var consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction] = this.consumerTransaction
+    var producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = this.producerTransaction
+    var consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction] = this.consumerTransaction
 
     _fieldId match {
       case 1 =>
@@ -485,8 +485,8 @@ trait Transaction
   }
 
   def copy(
-    producerTransaction: _root_.scala.Option[transactionService.rpc.ProducerTransaction] = this.producerTransaction,
-    consumerTransaction: _root_.scala.Option[transactionService.rpc.ConsumerTransaction] = this.consumerTransaction,
+    producerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = this.producerTransaction,
+    consumerTransaction: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction] = this.consumerTransaction,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
   ): Transaction =
     new Immutable(

@@ -22,7 +22,7 @@ import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
-import transactionService.rpc.{TransactionService, _}
+import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, _}
 
 import scala.annotation.tailrec
 import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
@@ -329,7 +329,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def putStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
+  def putStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Boolean] = {
     if (logger.isInfoEnabled) logger.info(s"Putting stream ${stream.name} with ${stream.partitions} partitions, ttl ${stream.ttl} and description.")
     tryCompleteRequest(
       method(
@@ -363,7 +363,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def delStream(stream: transactionService.rpc.Stream): ScalaFuture[Boolean] = {
+  def delStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Boolean] = {
     if (logger.isInfoEnabled) logger.info(s"Deleting stream ${stream.name}.")
     tryCompleteRequest(
       method(
@@ -380,7 +380,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] = {
+  def getStream(stream: String): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] = {
     if (logger.isInfoEnabled) logger.info(s"Retrieving stream $stream.")
     tryCompleteRequest(
       method(
@@ -418,8 +418,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def putTransactions(producerTransactions: Seq[transactionService.rpc.ProducerTransaction],
-                      consumerTransactions: Seq[transactionService.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
+  def putTransactions(producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction],
+                      consumerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction]): ScalaFuture[Boolean] = {
     val transactions =
       (producerTransactions map (txn => Transaction(Some(txn), None))) ++
         (consumerTransactions map (txn => Transaction(None, Some(txn))))
@@ -444,7 +444,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def putProducerState(transaction: transactionService.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
+  def putProducerState(transaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     implicit val context = futurePool.getContext
     if (logger.isDebugEnabled) logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
     TransactionService.PutTransaction.Args(Transaction(Some(transaction), None))
@@ -464,7 +464,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def putTransaction(transaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
+  def putTransaction(transaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     implicit val context = futurePool.getContext
     if (logger.isInfoEnabled) logger.info(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
     tryCompleteRequest(
@@ -578,7 +578,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def putProducerStateWithData(producerTransaction: transactionService.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
+  def putProducerStateWithData(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
     putProducerState(producerTransaction) flatMap { response =>
       if (logger.isInfoEnabled) logger.info(s"Putting transaction data to stream ${producerTransaction.stream}, partition ${producerTransaction.partition}, transaction ${producerTransaction.transactionID}.")
       tryCompleteRequest(
@@ -625,7 +625,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
-  def putConsumerCheckpoint(consumerTransaction: transactionService.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
+  def putConsumerCheckpoint(consumerTransaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     if (logger.isInfoEnabled)
       logger.info(s"Setting consumer state ${consumerTransaction.name} on stream ${consumerTransaction.stream}, partition ${consumerTransaction.partition}, transaction ${consumerTransaction.transactionID}.")
     tryCompleteRequest(

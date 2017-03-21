@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.bind.tuple.StringBinding
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
-import transactionService.rpc.StreamService
+import com.bwsw.tstreamstransactionserver.rpc.StreamService
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
@@ -104,7 +104,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   override def checkStreamExists(stream: String): ScalaFuture[Boolean] =
     ScalaFuture.successful(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)
 
-  override def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] =
+  override def getStream(stream: String): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] =
     ScalaFuture{
       val mostRecentStream = getStreamFromOldestToNewest(stream).last.stream
       if (mostRecentStream.deleted) throw new StreamDoesNotExist(stream) else mostRecentStream

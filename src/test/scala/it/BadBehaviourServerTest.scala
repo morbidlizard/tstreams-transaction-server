@@ -26,7 +26,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
   private val rand = scala.util.Random
 
-  private def getRandomStream = new transactionService.rpc.Stream {
+  private def getRandomStream = new com.bwsw.tstreamstransactionserver.rpc.Stream {
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
@@ -37,8 +37,9 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
   private val zookeeperOptions = ZookeeperOptions(endpoints = zkTestServer.getConnectString)
   private val bootstrapOptions = BootstrapOptions()
-  private val storageOptions = StorageOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
+  private val storageOptions = StorageOptions()
+  private val berkeleyStorageOptions = BerkeleyStorageOptions()
   private val rocksStorageOptions = RocksStorageOptions()
   private val packageTransmissionOptions = PackageTransmissionOptions()
   private val commitLogOptions = CommitLogOptions()
@@ -59,8 +60,13 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   }
 
   def startTransactionServer() = new Thread(() => {
-    server = new Server(authOptions, zookeeperOptions, bootstrapOptions, storageOptions, serverReplicationOptions,
-      rocksStorageOptions, commitLogOptions, packageTransmissionOptions, serverHandler)
+    server = new Server(
+      authOptions, zookeeperOptions,
+      bootstrapOptions, serverReplicationOptions,
+      storageOptions, berkeleyStorageOptions, rocksStorageOptions, commitLogOptions,
+      packageTransmissionOptions,
+      serverHandler
+    )
 
     server.start()
   }).start()

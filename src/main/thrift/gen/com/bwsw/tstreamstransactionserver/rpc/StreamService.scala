@@ -4,7 +4,7 @@
  *   rev: afb71130ca59bc14afcef7aea788ee179657a43b
  *   built at: 20170310-160841
  */
-package transactionService.rpc
+package com.bwsw.tstreamstransactionserver.rpc
 
 import com.twitter.scrooge.{
   LazyTProtocol,
@@ -41,7 +41,7 @@ trait StreamService[+MM[_]] extends ThriftService {
   
   def checkStreamExists(stream: String): MM[Boolean]
   
-  def getStream(stream: String): MM[transactionService.rpc.Stream]
+  def getStream(stream: String): MM[com.bwsw.tstreamstransactionserver.rpc.Stream]
   
   def delStream(stream: String): MM[Boolean]
 }
@@ -427,7 +427,7 @@ object StreamService { self =>
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
       val ErrorField = new TField("error", TType.STRUCT, 1)
-      val ErrorFieldManifest = implicitly[Manifest[transactionService.rpc.ServerException]]
+      val ErrorFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
     
       /**
        * Field information in declaration order.
@@ -479,7 +479,7 @@ object StreamService { self =>
             {
               val field = original.error
               field.map { field =>
-                transactionService.rpc.ServerException.withoutPassthroughFields(field)
+                com.bwsw.tstreamstransactionserver.rpc.ServerException.withoutPassthroughFields(field)
               }
             }
         )
@@ -490,7 +490,7 @@ object StreamService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Boolean] = _root_.scala.None
-        var error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        var error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -549,14 +549,14 @@ object StreamService { self =>
     
       def apply(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
           success,
           error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Boolean], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
@@ -573,17 +573,17 @@ object StreamService { self =>
         _oprot.writeBool(success_item)
       }
     
-      @inline private def readErrorValue(_iprot: TProtocol): transactionService.rpc.ServerException = {
-        transactionService.rpc.ServerException.decode(_iprot)
+      @inline private def readErrorValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ServerException = {
+        com.bwsw.tstreamstransactionserver.rpc.ServerException.decode(_iprot)
       }
     
-      @inline private def writeErrorField(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+      @inline private def writeErrorField(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(ErrorField)
         writeErrorValue(error_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeErrorValue(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+      @inline private def writeErrorValue(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
         error_item.write(_oprot)
       }
     
@@ -592,17 +592,17 @@ object StreamService { self =>
     
     class Result(
         val success: _root_.scala.Option[Boolean],
-        val error: _root_.scala.Option[transactionService.rpc.ServerException],
+        val error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Boolean] with ThriftStruct
-      with _root_.scala.Product2[Option[Boolean], Option[transactionService.rpc.ServerException]]
+      with _root_.scala.Product2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
         error,
@@ -612,7 +612,7 @@ object StreamService { self =>
       def _1 = success
       def _2 = error
     
-      def toTuple: _root_.scala.Tuple2[Option[Boolean], Option[transactionService.rpc.ServerException]] = {
+      def toTuple: _root_.scala.Tuple2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]] = {
         (
           success,
           error
@@ -637,7 +637,7 @@ object StreamService { self =>
     
       def copy(
         success: _root_.scala.Option[Boolean] = this.success,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = this.error,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
@@ -893,7 +893,7 @@ object StreamService { self =>
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
       val ErrorField = new TField("error", TType.STRUCT, 1)
-      val ErrorFieldManifest = implicitly[Manifest[transactionService.rpc.ServerException]]
+      val ErrorFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
     
       /**
        * Field information in declaration order.
@@ -945,7 +945,7 @@ object StreamService { self =>
             {
               val field = original.error
               field.map { field =>
-                transactionService.rpc.ServerException.withoutPassthroughFields(field)
+                com.bwsw.tstreamstransactionserver.rpc.ServerException.withoutPassthroughFields(field)
               }
             }
         )
@@ -956,7 +956,7 @@ object StreamService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Boolean] = _root_.scala.None
-        var error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        var error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1015,14 +1015,14 @@ object StreamService { self =>
     
       def apply(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
           success,
           error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Boolean], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
@@ -1039,17 +1039,17 @@ object StreamService { self =>
         _oprot.writeBool(success_item)
       }
     
-      @inline private def readErrorValue(_iprot: TProtocol): transactionService.rpc.ServerException = {
-        transactionService.rpc.ServerException.decode(_iprot)
+      @inline private def readErrorValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ServerException = {
+        com.bwsw.tstreamstransactionserver.rpc.ServerException.decode(_iprot)
       }
     
-      @inline private def writeErrorField(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+      @inline private def writeErrorField(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(ErrorField)
         writeErrorValue(error_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeErrorValue(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+      @inline private def writeErrorValue(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
         error_item.write(_oprot)
       }
     
@@ -1058,17 +1058,17 @@ object StreamService { self =>
     
     class Result(
         val success: _root_.scala.Option[Boolean],
-        val error: _root_.scala.Option[transactionService.rpc.ServerException],
+        val error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Boolean] with ThriftStruct
-      with _root_.scala.Product2[Option[Boolean], Option[transactionService.rpc.ServerException]]
+      with _root_.scala.Product2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
         error,
@@ -1078,7 +1078,7 @@ object StreamService { self =>
       def _1 = success
       def _2 = error
     
-      def toTuple: _root_.scala.Tuple2[Option[Boolean], Option[transactionService.rpc.ServerException]] = {
+      def toTuple: _root_.scala.Tuple2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]] = {
         (
           success,
           error
@@ -1103,7 +1103,7 @@ object StreamService { self =>
     
       def copy(
         success: _root_.scala.Option[Boolean] = this.success,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = this.error,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
@@ -1351,15 +1351,15 @@ object StreamService { self =>
       def _codec: ThriftStructCodec3[Args] = Args
     }
 
-    type SuccessType = transactionService.rpc.Stream
+    type SuccessType = com.bwsw.tstreamstransactionserver.rpc.Stream
     
     object Result extends ThriftStructCodec3[Result] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("getStream_result")
       val SuccessField = new TField("success", TType.STRUCT, 0)
-      val SuccessFieldManifest = implicitly[Manifest[transactionService.rpc.Stream]]
+      val SuccessFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.Stream]]
       val ErrorField = new TField("error", TType.STRUCT, 1)
-      val ErrorFieldManifest = implicitly[Manifest[transactionService.rpc.ServerException]]
+      val ErrorFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
     
       /**
        * Field information in declaration order.
@@ -1404,14 +1404,14 @@ object StreamService { self =>
             {
               val field = original.success
               field.map { field =>
-                transactionService.rpc.Stream.withoutPassthroughFields(field)
+                com.bwsw.tstreamstransactionserver.rpc.Stream.withoutPassthroughFields(field)
               }
             },
           error =
             {
               val field = original.error
               field.map { field =>
-                transactionService.rpc.ServerException.withoutPassthroughFields(field)
+                com.bwsw.tstreamstransactionserver.rpc.ServerException.withoutPassthroughFields(field)
               }
             }
         )
@@ -1421,8 +1421,8 @@ object StreamService { self =>
       }
     
       override def decode(_iprot: TProtocol): Result = {
-        var success: _root_.scala.Option[transactionService.rpc.Stream] = _root_.scala.None
-        var error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        var success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.Stream] = _root_.scala.None
+        var error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1480,42 +1480,42 @@ object StreamService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[transactionService.rpc.Stream] = _root_.scala.None,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.Stream] = _root_.scala.None,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
           success,
           error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[transactionService.rpc.Stream], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[com.bwsw.tstreamstransactionserver.rpc.Stream], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readSuccessValue(_iprot: TProtocol): transactionService.rpc.Stream = {
-        transactionService.rpc.Stream.decode(_iprot)
+      @inline private def readSuccessValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.Stream = {
+        com.bwsw.tstreamstransactionserver.rpc.Stream.decode(_iprot)
       }
     
-      @inline private def writeSuccessField(success_item: transactionService.rpc.Stream, _oprot: TProtocol): Unit = {
+      @inline private def writeSuccessField(success_item: com.bwsw.tstreamstransactionserver.rpc.Stream, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(SuccessField)
         writeSuccessValue(success_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeSuccessValue(success_item: transactionService.rpc.Stream, _oprot: TProtocol): Unit = {
+      @inline private def writeSuccessValue(success_item: com.bwsw.tstreamstransactionserver.rpc.Stream, _oprot: TProtocol): Unit = {
         success_item.write(_oprot)
       }
     
-      @inline private def readErrorValue(_iprot: TProtocol): transactionService.rpc.ServerException = {
-        transactionService.rpc.ServerException.decode(_iprot)
+      @inline private def readErrorValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ServerException = {
+        com.bwsw.tstreamstransactionserver.rpc.ServerException.decode(_iprot)
       }
     
-      @inline private def writeErrorField(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+      @inline private def writeErrorField(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(ErrorField)
         writeErrorValue(error_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeErrorValue(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+      @inline private def writeErrorValue(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
         error_item.write(_oprot)
       }
     
@@ -1523,18 +1523,18 @@ object StreamService { self =>
     }
     
     class Result(
-        val success: _root_.scala.Option[transactionService.rpc.Stream],
-        val error: _root_.scala.Option[transactionService.rpc.ServerException],
+        val success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.Stream],
+        val error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
-      extends ThriftResponse[transactionService.rpc.Stream] with ThriftStruct
-      with _root_.scala.Product2[Option[transactionService.rpc.Stream], Option[transactionService.rpc.ServerException]]
+      extends ThriftResponse[com.bwsw.tstreamstransactionserver.rpc.Stream] with ThriftStruct
+      with _root_.scala.Product2[Option[com.bwsw.tstreamstransactionserver.rpc.Stream], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[transactionService.rpc.Stream] = _root_.scala.None,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.Stream] = _root_.scala.None,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
         error,
@@ -1544,14 +1544,14 @@ object StreamService { self =>
       def _1 = success
       def _2 = error
     
-      def toTuple: _root_.scala.Tuple2[Option[transactionService.rpc.Stream], Option[transactionService.rpc.ServerException]] = {
+      def toTuple: _root_.scala.Tuple2[Option[com.bwsw.tstreamstransactionserver.rpc.Stream], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]] = {
         (
           success,
           error
         )
       }
     
-      def successField: Option[transactionService.rpc.Stream] = success
+      def successField: Option[com.bwsw.tstreamstransactionserver.rpc.Stream] = success
       def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(error)
     
     
@@ -1568,8 +1568,8 @@ object StreamService { self =>
       }
     
       def copy(
-        success: _root_.scala.Option[transactionService.rpc.Stream] = this.success,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = this.error,
+        success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.Stream] = this.success,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(
@@ -1825,7 +1825,7 @@ object StreamService { self =>
       val SuccessField = new TField("success", TType.BOOL, 0)
       val SuccessFieldManifest = implicitly[Manifest[Boolean]]
       val ErrorField = new TField("error", TType.STRUCT, 1)
-      val ErrorFieldManifest = implicitly[Manifest[transactionService.rpc.ServerException]]
+      val ErrorFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
     
       /**
        * Field information in declaration order.
@@ -1877,7 +1877,7 @@ object StreamService { self =>
             {
               val field = original.error
               field.map { field =>
-                transactionService.rpc.ServerException.withoutPassthroughFields(field)
+                com.bwsw.tstreamstransactionserver.rpc.ServerException.withoutPassthroughFields(field)
               }
             }
         )
@@ -1888,7 +1888,7 @@ object StreamService { self =>
     
       override def decode(_iprot: TProtocol): Result = {
         var success: _root_.scala.Option[Boolean] = _root_.scala.None
-        var error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        var error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1947,14 +1947,14 @@ object StreamService { self =>
     
       def apply(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
           success,
           error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Boolean], Option[transactionService.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
     
     
       @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
@@ -1971,17 +1971,17 @@ object StreamService { self =>
         _oprot.writeBool(success_item)
       }
     
-      @inline private def readErrorValue(_iprot: TProtocol): transactionService.rpc.ServerException = {
-        transactionService.rpc.ServerException.decode(_iprot)
+      @inline private def readErrorValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ServerException = {
+        com.bwsw.tstreamstransactionserver.rpc.ServerException.decode(_iprot)
       }
     
-      @inline private def writeErrorField(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+      @inline private def writeErrorField(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(ErrorField)
         writeErrorValue(error_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeErrorValue(error_item: transactionService.rpc.ServerException, _oprot: TProtocol): Unit = {
+      @inline private def writeErrorValue(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
         error_item.write(_oprot)
       }
     
@@ -1990,17 +1990,17 @@ object StreamService { self =>
     
     class Result(
         val success: _root_.scala.Option[Boolean],
-        val error: _root_.scala.Option[transactionService.rpc.ServerException],
+        val error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftResponse[Boolean] with ThriftStruct
-      with _root_.scala.Product2[Option[Boolean], Option[transactionService.rpc.ServerException]]
+      with _root_.scala.Product2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
         success: _root_.scala.Option[Boolean] = _root_.scala.None,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = _root_.scala.None
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
         error,
@@ -2010,7 +2010,7 @@ object StreamService { self =>
       def _1 = success
       def _2 = error
     
-      def toTuple: _root_.scala.Tuple2[Option[Boolean], Option[transactionService.rpc.ServerException]] = {
+      def toTuple: _root_.scala.Tuple2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]] = {
         (
           success,
           error
@@ -2035,7 +2035,7 @@ object StreamService { self =>
     
       def copy(
         success: _root_.scala.Option[Boolean] = this.success,
-        error: _root_.scala.Option[transactionService.rpc.ServerException] = this.error,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
         new Result(

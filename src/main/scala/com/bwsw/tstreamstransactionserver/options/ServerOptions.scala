@@ -107,18 +107,20 @@ object ServerOptions {
     */
   case class PackageTransmissionOptions(maxMetadataPackageSize: Int = 100000000, maxDataPackageSize: Int = 100000000)
 
-  /**
+  /** The options are applied when processing commit log files.
     *
     * @param commitLogWriteSyncPolicy policies to work with commitlog.
     *                                 If 'every-n-seconds' mode is chosen then data is flushed into file when specified count of seconds from last flush operation passed.
     *                                 If 'every-new-file' mode is chosen then data is flushed into file when new file starts.
     *                                 If 'every-nth' mode is chosen then data is flushed into file when specified count of write operations passed.
-    * @param commitLogWriteSyncValue  count of write operations or count of seconds between flush operations. It depends on the selected policy
-    * @param incompleteCommitLogReadPolicy policies to read from commitlog.
+    * @param commitLogWriteSyncValue  count of write operations or count of seconds between flush operations. It depends on the selected policy.
+    * @param incompleteCommitLogReadPolicy policies to read from commitlog files.
     *                                      If 'resync-majority' mode is chosen then ???(not implemented yet).
-    *                                      If 'skip-log' mode is chosen then
-    * @param maxIdleTimeBetweenRecords max count of seconds that will pass from last commit log record to close a current commit log file and open a new one
-    * @param commitLogToBerkeleyDBTaskDelayMs
+    *                                      If 'skip-log' mode is chosen commit log files than haven't md5 file are not read.
+    *                                      If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read.
+    *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
+    * @param maxIdleTimeBetweenRecords max count of seconds that will pass from last commit log record to close a current commit log file and open a new one.
+    * @param commitLogToBerkeleyDBTaskDelayMs the time through a next commit log file is processed if there is one.
     */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,

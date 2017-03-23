@@ -24,7 +24,7 @@ object ServerOptions {
 
   /** The options are used to define folders for databases.
     *
-    * @param path              the path where there are folders of Commit log, berkeley environment and rocksdb databases.
+    * @param path              the path where folders of Commit log, berkeley environment and rocksdb databases would be placed.
     * @param dataDirectory     the path where rocksdb databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     * @param metadataDirectory the path where a berkeley environment and it's databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     */
@@ -36,7 +36,7 @@ object ServerOptions {
 
   /** The options for berkeley db je.
     *
-    * @param berkeleyReadThreadPool the number of threads of pool are used to do read operations from berkeley databases.
+    * @param berkeleyReadThreadPool the number of threads of pool are used to do read operations from BerkeleyDB je databases.
     *                               Used for [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.scanTransactions]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getTransaction]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getLastCheckpoitnedTransaction]],
@@ -54,16 +54,24 @@ object ServerOptions {
     */
   case class ServerReplicationOptions(endpoints: String = "127.0.0.1:8071", name: String = "server", group: String = "group")
 
-  /**
+  /** The options are applied on creation Rocksdb database.
+    * For all rocksDB options look: https: //github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h
+    * For performance optimization intuition: https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
     *
-    * @param writeThreadPool
-    * @param readThreadPool
-    * @param ttlAddMs
-    * @param createIfMissing
-    * @param maxBackgroundCompactions
-    * @param allowOsBuffer
-    * @param compression
-    * @param useFsync
+    *
+    * @param writeThreadPool the number of threads of pool are used to do write operations from Rocksdb databases.
+    *                        Used for [[com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl.putTransactionData]]
+    * @param readThreadPool the number of threads of pool are used to do read operations from Rocksdb databases.
+    *                       Used for [[com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl.getTransactionData]]
+    * @param ttlAddMs the time to add to [[com.bwsw.tstreamstransactionserver.rpc.Stream.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
+    * @param createIfMissing if true, the database will be created if it is missing.
+    * @param maxBackgroundCompactions is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.
+    * @param allowOsBuffer if false, we will not buffer files in OS cache. Look at: https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
+    * @param compression Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION].
+    *                    If it's unimportant use a LZ4_COMPRESSION as default value.
+    * @param useFsync if true, then every store to stable storage will issue a fsync.
+    *                 If false, then every store to stable storage will issue a fdatasync.
+    *                 This parameter should be set to true while storing data to filesystem like ext3 that can lose files after a reboot.
     */
   case class RocksStorageOptions(writeThreadPool: Int = 4, readThreadPool: Int = 2, ttlAddMs: Int = 50,
                                  createIfMissing: Boolean = true, maxBackgroundCompactions: Int = 1,
@@ -76,7 +84,8 @@ object ServerOptions {
                         compression: CompressionType = this.compression,
                         useFsync: Boolean = this.useFsync): Options = {
 
-      new Options().setCreateIfMissing(createIfMissing)
+      new Options()
+        .setCreateIfMissing(createIfMissing)
         .setMaxBackgroundCompactions(maxBackgroundCompactions)
         .setAllowOsBuffer(allowOsBuffer)
         .setCompressionType(compression)
@@ -84,14 +93,38 @@ object ServerOptions {
     }
   }
 
+  /** The options are applied when client transmit transactions or producer transactions data to server. On setting options also take into consideration [[com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions.requestTimeoutMs]].
+    *
+    * @param maxMetadataPackageSize the size of metadata package that client can transmit or request to/from server, i.e. calling 'scanTransactions' method.
+    *                               If client tries to transmit amount of data which is greater than maxMetadataPackageSize or maxDataPackageSize then it gets an exception.
+    *                               If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client.
+    *                               If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset.
+    *
+    * @param maxDataPackageSize the size of data package that client can transmit or request to/from server, i.e. calling 'getTransactionData' method.
+    *                           If client tries to transmit amount of data which is greater than maxMetadataPackageSize or maxDataPackageSize then it gets an exception.
+    *                           If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client.
+    *                           If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset.
+    */
   case class PackageTransmissionOptions(maxMetadataPackageSize: Int = 100000000, maxDataPackageSize: Int = 100000000)
 
+  /**
+    *
+    * @param commitLogWriteSyncPolicy policies to work with commitlog.
+    *                                 If 'every-n-seconds' mode is chosen then data is flushed into file when specified count of seconds from last flush operation passed.
+    *                                 If 'every-new-file' mode is chosen then data is flushed into file when new file starts.
+    *                                 If 'every-nth' mode is chosen then data is flushed into file when specified count of write operations passed.
+    * @param commitLogWriteSyncValue  count of write operations or count of seconds between flush operations. It depends on the selected policy
+    * @param incompleteCommitLogReadPolicy policies to read from commitlog.
+    *                                      If 'resync-majority' mode is chosen then ???(not implemented yet).
+    *                                      If 'skip-log' mode is chosen then
+    * @param maxIdleTimeBetweenRecords max count of seconds that will pass from last commit log record to close a current commit log file and open a new one
+    * @param commitLogToBerkeleyDBTaskDelayMs
+    */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
                               maxIdleTimeBetweenRecords: Int = 2,
                               commitLogToBerkeleyDBTaskDelayMs: Int = 500
                              )
-
 }
 

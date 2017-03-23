@@ -5,7 +5,6 @@ import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCac
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
-import transactionService.rpc.ConsumerService
 
 import scala.concurrent.{Future => ScalaFuture, _}
 

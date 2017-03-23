@@ -11,7 +11,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import transactionService.rpc.{ProducerTransaction, Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import scala.language.reflectiveCalls
 import scala.concurrent.duration._
 import scala.concurrent.Await
@@ -20,7 +20,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 
-  private def getRandomStream = transactionService.rpc.Stream(
+  private def getRandomStream = com.bwsw.tstreamstransactionserver.rpc.Stream(
     name = rand.nextInt(10000).toString,
     partitions = rand.nextInt(10000),
     description = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None,
@@ -29,7 +29,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val txnCounter = new AtomicLong(0)
 
-  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream, ttlTxn: Long) = ProducerTransaction(
     stream = streamObj.name,
     partition = streamObj.partitions,
     transactionID = txnCounter.getAndIncrement(),
@@ -41,7 +41,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   private val storageOptions = StorageOptions(path = "/tmp")
 
   override def beforeEach(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }

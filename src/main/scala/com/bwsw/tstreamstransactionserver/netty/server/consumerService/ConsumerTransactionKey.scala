@@ -16,7 +16,7 @@ case class ConsumerTransactionKey(key: Key, consumerTransaction: ConsumerTransac
 }
 
 object ConsumerTransactionKey {
-  def apply(txn: transactionService.rpc.ConsumerTransaction, streamNameToLong: java.lang.Long, timestamp: Long): ConsumerTransactionKey = {
+  def apply(txn: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction, streamNameToLong: java.lang.Long, timestamp: Long): ConsumerTransactionKey = {
     val key = Key(txn.name, streamNameToLong, txn.partition)
     val producerTransaction = ConsumerTransactionWithoutKey(txn.transactionID, timestamp)
     ConsumerTransactionKey(key, producerTransaction)

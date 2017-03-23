@@ -178,13 +178,13 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     Thread.sleep(1000)
     val client = clientBuilder.build()
 
-    val initialSocketAddress = client.currentConnectionSocketAddress()
+    val initialSocketAddress = client.currentConnectionSocketAddress
     server.shutdown()
     startTransactionServer(host, newPort)
 
 
     Thread.sleep(1000)
-    val newSocketAddress = client.currentConnectionSocketAddress()
+    val newSocketAddress = client.currentConnectionSocketAddress
 
     initialSocketAddress shouldBe InetSocketAddressClass(host, initialPort)
     newSocketAddress     shouldBe InetSocketAddressClass(host, newPort)
@@ -193,7 +193,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     zkTestServer.close()
     server.shutdown()
 
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
@@ -219,7 +219,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       serverBuilder.build()
     }
     zkTestServer.close()
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
@@ -250,7 +250,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       serverBuilder.build()
     }
     zkTestServer.close()
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }

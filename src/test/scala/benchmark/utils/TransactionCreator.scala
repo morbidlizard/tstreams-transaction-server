@@ -1,6 +1,6 @@
 package benchmark.utils
 
-import transactionService.rpc.{ProducerTransaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 
 import scala.collection.immutable.IndexedSeq
 

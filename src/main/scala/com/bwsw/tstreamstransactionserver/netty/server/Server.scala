@@ -21,9 +21,9 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.ExecutionContextExecutorService
 
-class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts: BootstrapOptions,
-             storageOpts: StorageOptions, serverReplicationOpts: ServerReplicationOptions,
-             rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
+class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
+             serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
+             storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: PackageTransmissionOptions,
              serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger)) {
@@ -35,7 +35,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
     new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
   zk.putSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2)
 
-  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, storageOpts.berkeleyReadThreadPool,
+  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, berkeleyStorageOptions.berkeleyReadThreadPool,
     rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)
   private val bossGroup = new EpollEventLoopGroup(1)
@@ -55,7 +55,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, serverOpts:
 
   def start(): Unit = {
     try {
-      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 1, java.util.concurrent.TimeUnit.SECONDS)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)

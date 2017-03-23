@@ -10,13 +10,13 @@ object Throwable {
   class ServerConnectionException extends SocketTimeoutException(serverConnectionExceptionMessage)
 
   val serverUnreachableExceptionMessage: String = "Server is unreachable."
-  class ServerUnreachableException extends SocketTimeoutException(serverUnreachableExceptionMessage)
+  class ServerUnreachableException(socket: String) extends SocketTimeoutException(s"Server $socket is unreachable.")
 
-  val requestTimeoutExceptionMessage: String = "Request exceeds timeout."
+//  val requestTimeoutExceptionMessage: String = "Request exceeds timeout."
   class RequestTimeoutException(reqId: Int, ttl: Long) extends Exception(s"Request $reqId exceeds $ttl ms.")
 
   val zkGetMasterExceptionMessage: String = "Can't get master from ZooKeeper."
-  class ZkGetMasterException extends Exception(zkGetMasterExceptionMessage)
+  class ZkGetMasterException(endpoints: String) extends Exception(s"Can't get master from ZooKeeper servers: $endpoints.")
 
   val zkNoConnectionExceptionMessage: String = "Can't connect to ZooKeeper server(s): "
   class ZkNoConnectionException(endpoints: String) extends Exception(new StringBuilder(zkNoConnectionExceptionMessage).append(endpoints).append('!').toString())
@@ -25,15 +25,15 @@ object Throwable {
 
   class InvalidSocketAddress(message: String) extends IllegalArgumentException(message)
 
-  val StreamDoesntNotExistMessage: String = "StreamWithoutKey doesn't exist in database!"
-  class StreamDoesNotExist extends NoSuchElementException(StreamDoesntNotExistMessage)
+  val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
+  class StreamDoesNotExist(stream: String) extends NoSuchElementException(s"Stream $stream doesn't exist in database!")
 
   val PackageTooBigExceptionMessagePart: String = "A size of client request is greater"
   class PackageTooBigException(msg: String = "") extends Exception(msg)
 
   def byText(text: String): Throwable = text match {
     case TokenInvalidExceptionMessage => new TokenInvalidException
-    case StreamDoesntNotExistMessage => new StreamDoesNotExist
+    case message if message.matches(s"Stream ([.]*) doesn't exist in database!") => new StreamDoesNotExist(message)
     case message if message.contains(PackageTooBigExceptionMessagePart) => new PackageTooBigException(text)
     case _ => new Exception(text)
   }

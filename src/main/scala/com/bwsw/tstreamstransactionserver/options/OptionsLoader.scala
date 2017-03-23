@@ -17,12 +17,13 @@ class OptionsLoader() {
   private val props = new Properties()
   props.load(new FileInputStream(System.getProperty(CommonOptions.propertyFileName)))
 
-  private val bootstrapOptions = loadBootstrapOptions()
   private val serverAuthOptions = loadServerAuthOptions()
+  private val zookeeperOptions = loadZookeeperOptions()
+  private val bootstrapOptions = loadBootstrapOptions()
   private val serverReplicationOptions = loadServerReplicationOptions()
   private val serverStorageOptions = loadServerStorageOptions()
+  private val berkeleyStorageOptions = loadServerBerkeleyStorageOptions()
   private val serverRocksStorageOptions = loadServerRocksStorageOptions()
-  private val zookeeperOptions = loadZookeeperOptions()
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
   private val commitLogOptions = loadCommitLogOptions()
 
@@ -41,8 +42,13 @@ class OptionsLoader() {
   private def loadServerStorageOptions() = {
     val fields = getPropertiesOf(classOf[StorageOptions])
 
-    castCheck(StorageOptions(fields(0), fields(1).toInt, fields(2).toInt, fields(3), fields(4), fields(5), fields(6), fields(7),
-      fields(8), fields(9), fields(10), fields(11).toInt))
+    castCheck(StorageOptions(fields(0), fields(1), fields(2)))
+  }
+
+  private def loadServerBerkeleyStorageOptions() = {
+    val fields = getPropertiesOf(classOf[BerkeleyStorageOptions])
+
+    castCheck(BerkeleyStorageOptions(fields(0).toInt))
   }
 
   private def loadServerReplicationOptions() = {
@@ -103,28 +109,32 @@ class OptionsLoader() {
     }
   }
 
-  def getBootstrapOptions() = {
-    bootstrapOptions
-  }
-
   def getServerAuthOptions() = {
     serverAuthOptions
   }
 
-  def getServerStorageOptions() = {
-    serverStorageOptions
+  def getZookeeperOptions() = {
+    zookeeperOptions
+  }
+
+  def getBootstrapOptions() = {
+    bootstrapOptions
   }
 
   def getServerReplicationOptions() = {
     serverReplicationOptions
   }
 
-  def getServerRocksStorageOptions() = {
-    serverRocksStorageOptions
+  def getServerStorageOptions() = {
+    serverStorageOptions
   }
 
-  def getZookeeperOptions() = {
-    zookeeperOptions
+  def getBerkeleyStoragaeOptions() = {
+    berkeleyStorageOptions
+  }
+
+  def getServerRocksStorageOptions() = {
+    serverRocksStorageOptions
   }
 
   def getPackageTransmissionOptions() = {

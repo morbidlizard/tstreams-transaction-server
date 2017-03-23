@@ -13,7 +13,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import transactionService.rpc.{ConsumerTransaction, ProducerTransaction, TransactionInfo, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionInfo, TransactionStates}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -55,7 +55,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     client.shutdown()
     transactionServer.shutdown()
     zkTestServer.close()
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
@@ -77,16 +77,16 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val rand = scala.util.Random
 
   private def getRandomStream =
-    new transactionService.rpc.Stream {
+    new com.bwsw.tstreamstransactionserver.rpc.Stream {
       override val name: String = rand.nextInt(10000).toString
       override val partitions: Int = rand.nextInt(10000)
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
       override val ttl: Long = Long.MaxValue
     }
 
-  private def chooseStreamRandomly(streams: IndexedSeq[transactionService.rpc.Stream]) = streams(rand.nextInt(streams.length))
+  private def chooseStreamRandomly(streams: IndexedSeq[com.bwsw.tstreamstransactionserver.rpc.Stream]) = streams(rand.nextInt(streams.length))
 
-  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream,
+  private def getRandomProducerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream,
                                            transactionState: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1),
                                            id: Long = System.nanoTime()) =
     new ProducerTransaction {
@@ -98,7 +98,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       override val partition: Int = streamObj.partitions
     }
 
-  private def getRandomConsumerTransaction(streamObj: transactionService.rpc.Stream) =
+  private def getRandomConsumerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream) =
     new ConsumerTransaction {
       override val transactionID: Long = scala.util.Random.nextLong()
       override val name: String = rand.nextInt(10000).toString
@@ -233,7 +233,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val txns = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
 
-    //    (res zip txns) foreach println
     res should contain theSameElementsAs txns
     res shouldBe sorted
   }

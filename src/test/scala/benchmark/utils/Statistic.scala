@@ -24,7 +24,7 @@ object Statistic {
 
 
 object CI extends App {
-  val lines = Source.fromFile("5_1000000TransactionLifeCycleWriterOSMC.csv").getLines
+  val lines = Source.fromFile("78_1000000TransactionMetadataWriterOSOC.csv").getLines
   val time = lines.drop(1).map(x => x.split(",")(1).trim.toInt).toTraversable
   val mean = Statistic.mean(time)
   val stddev = Statistic.stddev(time)

@@ -70,4 +70,8 @@ trait LastTransactionStreamPartition {
       case None => false
     }
   }
+
+  def closeLastTransactionStreamPartitionDatabase() = {
+    scala.util.Try(lastTransactionDatabase.close())
+  }
 }

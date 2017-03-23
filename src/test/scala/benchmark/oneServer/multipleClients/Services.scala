@@ -7,7 +7,7 @@ object Services extends Installer {
   private val clients = 16
 
   def main(args: Array[String]) {
-//    clearDB()
+    clearDB()
     startTransactionServer()
     Thread.sleep(1000L)
 //    createStream(streamName, clients)

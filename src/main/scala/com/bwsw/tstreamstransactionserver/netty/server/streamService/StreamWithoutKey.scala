@@ -7,7 +7,7 @@ import com.sleepycat.je.DatabaseEntry
 import StreamWithoutKey.objectToEntry
 
 case class StreamWithoutKey(name: String, partitions: Int, description: Option[String], ttl: Long, timestamp: Long, @volatile var deleted: Boolean)
-  extends transactionService.rpc.Stream
+  extends com.bwsw.tstreamstransactionserver.rpc.Stream
 {
   def toDatabaseEntry: DatabaseEntry = {
     val databaseEntry = new DatabaseEntry()

@@ -17,11 +17,8 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
     import Descriptors._
 
     def retryCompletePromise(messageSeqId: Int, response: ThriftStruct): Unit = {
-      reqIdToRep.cleanUp()
       val request = reqIdToRep.getIfPresent(messageSeqId)
       if (request != null) request.success(response)
-      else ()
-      //retryCompletePromise(messageSeqId, response)
     }
 
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
@@ -30,7 +27,7 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
         case `putStreamMethod` =>
           Descriptors.PutStream.decodeResponse(message)
 
-        case `doesStreamExistMethod` =>
+        case `checkStreamExists` =>
           Descriptors.CheckStreamExists.decodeResponse(message)
 
         case `getStreamMethod` =>
@@ -47,6 +44,9 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
 
         case `getTransactionMethod` =>
           Descriptors.GetTransaction.decodeResponse(message)
+
+        case `getLastCheckpointedTransactionMethod` =>
+          Descriptors.GetLastCheckpointedTransaction.decodeResponse(message)
 
         case `scanTransactionsMethod` =>
           Descriptors.ScanTransactions.decodeResponse(message)
@@ -83,7 +83,7 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
 
     reqIdToRep.asMap().values()
-      .forEach(request => if (!request.isCompleted) request.tryFailure(new ServerUnreachableException))
+      .forEach(request => if (!request.isCompleted) request.tryFailure(new ServerUnreachableException(ctx.name())))
 
     ctx.channel().eventLoop().execute(() => client.reconnect())
 

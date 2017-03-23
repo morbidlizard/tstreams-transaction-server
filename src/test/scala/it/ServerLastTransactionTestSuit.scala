@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import transactionService.rpc.{ProducerTransaction, Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 
 import scala.annotation.tailrec
 import scala.concurrent.Await
@@ -20,14 +20,14 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
   private val rand = scala.util.Random
 
-  private def getRandomStream = transactionService.rpc.Stream(
+  private def getRandomStream = com.bwsw.tstreamstransactionserver.rpc.Stream(
     name = rand.nextInt(10000).toString,
     partitions = rand.nextInt(10000),
     description = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None,
     ttl = Long.MaxValue
   )
 
-  private def getRandomProducerTransaction(streamObj: transactionService.rpc.Stream, txnID: Long, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream, txnID: Long, ttlTxn: Long) = ProducerTransaction(
     stream = streamObj.name,
     partition = streamObj.partitions,
     transactionID = txnID,
@@ -39,7 +39,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
   private val storageOptions = StorageOptions(path = "/tmp")
 
   override def beforeEach(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.streamDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
@@ -131,7 +131,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
 
     streams foreach { stream =>
-      val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
+      val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber) + 1
 
       var currentTimeInc = System.currentTimeMillis()
       val producerTransactionsWithTimestampWithoutChecpointed: Array[(ProducerTransaction, Long)] = (0 until producerTransactionsNumber).map { transactionID =>
@@ -169,9 +169,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
 
     val secondsAwait = 5
-
     val streamsNumber = 1
-    val producerTxnPerStreamPartitionMaxNumber = 100
 
     val transactionService = new TransactionServer(
       executionContext = serverExecutionContext,

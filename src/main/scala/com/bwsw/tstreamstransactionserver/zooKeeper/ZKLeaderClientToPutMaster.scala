@@ -34,10 +34,8 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
 
   def putSocketAddress(inetAddress: String, port: Int) = {
     val socketAddress =
-      if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536)
-        s"$inetAddress:$port"
-      else
-        throw new InvalidSocketAddress(s"Invalid socket address $inetAddress:$port")
+      if (ZKLeaderClientToPutMaster.isValidSocketAddress(inetAddress, port)) s"$inetAddress:$port"
+      else throw new InvalidSocketAddress(s"Invalid socket address $inetAddress:$port")
 
     scala.util.Try(client.delete().deletingChildrenIfNeeded().forPath(prefix))
     scala.util.Try{
@@ -52,4 +50,11 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
   }
 
   override def close(): Unit = client.close()
+}
+
+object ZKLeaderClientToPutMaster {
+  def isValidSocketAddress(inetAddress: String, port: Int) = {
+    if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536) true
+    else false
+  }
 }

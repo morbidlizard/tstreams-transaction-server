@@ -6,10 +6,9 @@ import java.util.concurrent.atomic.LongAdder
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.Server
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.netty.server.{HasTime, Server}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
@@ -26,39 +25,65 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   var transactionServer: Server = _
 
   val clientsNum = 2
-
-  private val serverBuilder = new ServerBuilder()
   private val clientBuilder = new ClientBuilder()
-  private val storageOptions = serverBuilder.getStorageOptions()
-  private val authOptions = clientBuilder.getAuthOptions()
 
-  private val maxIdleTimeBeetwenRecords = 2
+  private object TestTimer extends HasTime {
+    private val initialTime = System.currentTimeMillis()
+    private var currentTime = initialTime
+
+    override def getCurrentTime: Long = currentTime
+    def resetTimer(): Unit = currentTime = initialTime
+    def updateTimer(newTime: Long) = currentTime = newTime
+  }
+
+  private val maxIdleTimeBeetwenRecords = 1
+  private val commitLogToBerkeleyDBTaskDelay = 100
+
+  private val serverAuthOptions = ServerOptions.AuthOptions()
+  private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
+  private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
+  private val serverStorageOptions = ServerOptions.StorageOptions()
+  private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
+  private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBeetwenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue)
+  private val serverPackageTransmissionOptions = ServerOptions.PackageTransmissionOptions()
 
   def startTransactionServer() = new Thread(() => {
-    transactionServer = serverBuilder
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withCommitLogOptions(CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBeetwenRecords))
-      .build()
+    val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+    transactionServer = new Server(
+      authOpts = serverAuthOptions,
+      zookeeperOpts = serverZookeeperOptions,
+      serverOpts = serverBootstrapOptions,
+      serverReplicationOpts = serverReplicationOptions,
+      storageOpts = serverStorageOptions,
+      berkeleyStorageOptions = serverBerkeleyStorageOptions,
+      rocksStorageOpts = serverRocksStorageOptions,
+      commitLogOptions = serverCommitLogOptions,
+      packageTransmissionOpts = serverPackageTransmissionOptions,
+      timer = TestTimer
+    )
     transactionServer.start()
   }).start()
 
 
   override def beforeEach(): Unit = {
+    TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
     startTransactionServer()
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
-    val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
+    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
     commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
   }
 
   override def afterEach() {
+    TestTimer.resetTimer()
     client.shutdown()
     transactionServer.shutdown()
     zkTestServer.close()
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.metadataDirectory))
+    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
     commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
   }
 
@@ -140,7 +165,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val toID = producerTransactions.maxBy(_.transactionID).transactionID
 
 
-    Thread.sleep(5000)
     val result = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
 
     result shouldBe empty
@@ -169,10 +193,11 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
+
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    Thread.sleep(clientBuilder.getConnectionOptions().connectionTimeoutMs * 3 / 5)
+    TimeUnit.MILLISECONDS.sleep(clientBuilder.getConnectionOptions().connectionTimeoutMs * 3 / 5)
     startTransactionServer()
 
     Await.result(resultInFuture, secondsWait.seconds) shouldBe true
@@ -210,9 +235,10 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
     )
 
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    transactionServer.berkeleyWriter.run()
 
 
     val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from), secondsWait.seconds)
@@ -261,10 +287,10 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogWriter writes the producer transactions to db
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    transactionServer.berkeleyWriter.run()
 
     val successResponse = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
     val failedResponse = Await.result(client.getTransaction(stream.name, stream.partitions, fakeTransactionID), secondsWait.seconds)
@@ -285,10 +311,10 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogWriter writes the producer transactions to db
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    transactionServer.berkeleyWriter.run()
 
     val successResponse = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
     val failedResponse = Await.result(client.getTransaction(stream.name, stream.partitions, fakeTransactionID), secondsWait.seconds)
@@ -308,10 +334,10 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogWriter writes the producer transactions to db
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    transactionServer.berkeleyWriter.run()
 
     val response = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
 
@@ -326,9 +352,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val consumerTransaction = getRandomConsumerTransaction(stream)
 
     Await.result(client.putConsumerCheckpoint(consumerTransaction), secondsWait.seconds)
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    TimeUnit.SECONDS.sleep(maxIdleTimeBeetwenRecords)
+    transactionServer.berkeleyWriter.run()
 
     val consumerState = Await.result(client.getConsumerState(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition), secondsWait.seconds)
 

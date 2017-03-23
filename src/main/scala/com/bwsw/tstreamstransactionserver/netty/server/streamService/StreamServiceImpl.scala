@@ -15,7 +15,6 @@ import scala.concurrent.{Future => ScalaFuture}
 trait StreamServiceImpl extends StreamService[ScalaFuture]
   with Authenticable
   with StreamCache
-  with HasTime
 {
 
   val executionContext: ServerExecutionContext
@@ -24,6 +23,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   val environment: Environment
+  val timer: HasTime
 
   private val streamStoreName = "StreamStore"
   private val streamDatabase = {
@@ -80,7 +80,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     ScalaFuture {
       val transactionDB = environment.beginTransaction(null, new TransactionConfig())
 
-      val newStream = StreamWithoutKey(stream, partitions, description, ttl, getCurrentTime, deleted = false)
+      val newStream = StreamWithoutKey(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
       val newKey    = Key(streamSeq.get(transactionDB, 1))
 
       val result = streamDatabase.putNoOverwrite(transactionDB,  newKey.toDatabaseEntry, newStream.toDatabaseEntry)

@@ -25,9 +25,6 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
       server.start()
     }).start()
 
-    //It's needed to wait for a server bootstrap.
-    Thread.sleep(1000)
-
     val client = new ClientBuilder()
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
 

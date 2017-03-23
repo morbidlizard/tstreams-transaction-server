@@ -95,7 +95,6 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
   "Client" should "send request with such ttl that it will never converge to a stable state due to the pipeline." in {
     startTransactionServer()
-    Thread.sleep(300)
 
     val retryDelayMsForThat = 100
 
@@ -140,7 +139,6 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
   it should "throw an user defined exception on overriding onRequestTimeout method" in {
     startTransactionServer()
-    Thread.sleep(300)
 
     val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
     val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -191,7 +189,6 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
   it should "throw timeout exception as client try to send request to server that is shutdown and counter of lost events should be predictable" in {
     startTransactionServer()
-    Thread.sleep(1000)
 
     val retryDelayMsForThatMs = 100
     val connectionTimeoutMs = 5

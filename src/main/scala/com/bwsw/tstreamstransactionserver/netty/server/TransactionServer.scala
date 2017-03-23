@@ -13,7 +13,8 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 class TransactionServer(override val executionContext: ServerExecutionContext,
                         override val authOpts: AuthOptions,
                         override val storageOpts: StorageOptions,
-                        override val rocksStorageOpts: RocksStorageOptions
+                        override val rocksStorageOpts: RocksStorageOptions,
+                        override val timer: HasTime = new HasTime{}
                        )
   extends HasEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
 {

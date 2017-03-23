@@ -18,7 +18,7 @@ class CommitLogQueueBootstrapTestSuit extends FlatSpec with Matchers with Before
   val authOptions = AuthOptions()
   val rocksStorageOptions = RocksStorageOptions()
   val executionContext = new ServerExecutionContext(2, 1, 1, 1)
-  val storageOptions = StorageOptions("target/clqb")
+  val storageOptions = StorageOptions(new StringBuffer().append("target").append(File.separatorChar).append("clqb").toString)
   val transactionService = new TransactionServer(executionContext, authOptions, storageOptions, rocksStorageOptions)
   val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
   val commitLogQueueBootstrap = new CommitLogQueueBootstrap(10, commitLogCatalogue, transactionService)

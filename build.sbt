@@ -61,10 +61,10 @@ resolvers ++= Seq(
 
 libraryDependencies ++= Seq(
   "commons-io" % "commons-io" % "2.5",
-  "com.twitter" %% "scrooge-core" % "4.14.0",
+  "com.twitter" %% "scrooge-core" % "4.15.0",
   ("com.twitter" % "libthrift" % "0.5.0-7")
     .exclude("org.slf4j", "slf4j-api"),
-  "org.rocksdb" % "rocksdbjni" % "4.11.2",
+  "org.rocksdb" % "rocksdbjni" % "4.13.5",
   "com.sleepycat" % "je" % "7.0.6",
   "org.scalactic" %% "scalactic" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
@@ -75,13 +75,13 @@ libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",
   "org.slf4j" % "slf4j-simple" % "1.7.24" % "provided",
 
-  ("org.apache.curator" % "curator-framework" % "2.11.1")
+  ("org.apache.curator" % "curator-framework" % "2.12.0")
     .exclude("log4j", "log4j")
     .exclude("org.slf4j", "slf4j-api"),
-  ("org.apache.curator" % "curator-test" % "2.11.1")
+  ("org.apache.curator" % "curator-test" % "2.12.0")
     .exclude("log4j", "log4j")
     .exclude("org.slf4j", "slf4j-api"),
-  ("org.apache.curator" % "curator-recipes" % "2.11.1")
+  ("org.apache.curator" % "curator-recipes" % "2.12.0")
     .exclude("log4j", "log4j")
     .exclude("org.slf4j", "slf4j-api")
 )

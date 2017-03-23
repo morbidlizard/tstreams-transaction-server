@@ -5,7 +5,7 @@ import java.util
 import com.twitter.scrooge.{ThriftStruct, ThriftStructCodec3}
 import org.apache.thrift.protocol._
 import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
-import transactionService.rpc.TransactionService
+import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
 object Descriptors {
 
@@ -137,13 +137,15 @@ object Descriptors {
     case 1 => protocolTBinaryFactory
   }
 
+  /** All methods names should be unique */
   val putStreamMethod = "putStream"
-  val doesStreamExistMethod = "doesStreamExist"
+  val checkStreamExists = "checkStreamExist"
   val getStreamMethod = "getStream"
   val delStreamMethod = "delStream"
   val putTransactionMethod = "putTransaction"
   val putTranscationsMethod = "putTransactions"
   val getTransactionMethod = "getTransaction"
+  val getLastCheckpointedTransactionMethod = "getLastCheckpointedTransaction"
   val scanTransactionsMethod = "scanTransactions"
   val putTransactionDataMethod = "putTransactionData"
   val getTransactionDataMethod = "getTransactionData"
@@ -157,7 +159,7 @@ object Descriptors {
     Descriptor(putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object CheckStreamExists extends
-    Descriptor(doesStreamExistMethod, TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(checkStreamExists, TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object GetStream extends
     Descriptor(getStreamMethod, TransactionService.GetStream.Args, TransactionService.GetStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
@@ -173,6 +175,9 @@ object Descriptors {
 
   case object GetTransaction extends
     Descriptor(getTransactionMethod, TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, protocolTBinaryFactory, protocolTCompactFactory)
+
+  case object GetLastCheckpointedTransaction extends
+    Descriptor(getLastCheckpointedTransactionMethod, TransactionService.GetLastCheckpointedTransaction.Args, TransactionService.GetLastCheckpointedTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object ScanTransactions extends
     Descriptor(scanTransactionsMethod, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, protocolTBinaryFactory, protocolTCompactFactory)

@@ -1,4 +1,4 @@
-namespace scala transactionService.rpc
+namespace scala com.bwsw.tstreamstransactionserver.rpc
 
 enum TransactionStates {
     Opened       = 1
@@ -86,7 +86,9 @@ service TransactionMetaService {
 
    ScanTransactionsInfo scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: i64 from, 4: i64 to, 5: list<byte> lambda) throws (1:ServerException error),
 
-   TransactionInfo getTransaction(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error)
+   TransactionInfo getTransaction(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error),
+
+   transactionIDType getLastCheckpointedTransaction(1: StreamType stream, 2: PartitionType partition) throws (1:ServerException error)
 }
 
 
@@ -132,6 +134,8 @@ service TransactionService {
   ScanTransactionsInfo scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: i64 from, 4: i64 to, 5: list<byte> lambda) throws (1:ServerException error),
 
   TransactionInfo getTransaction(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error),
+
+  transactionIDType getLastCheckpointedTransaction(1: StreamType stream, 2: PartitionType partition) throws (1:ServerException error),
 
   bool putTransactionData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data, 5: i32 from) throws (1:ServerException error),
 

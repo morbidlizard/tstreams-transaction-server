@@ -25,9 +25,10 @@ class CommitLogCatalogueByDate(rootPath: String, date: Date) {
 
 
   private val dataFolder: File = {
-    val simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd")
-    simpleDateFormat.setLenient(false)
-    new File(rootDirectory, simpleDateFormat.format(date))
+    val simpleDateFormat = FilePathManager.simpleDateFormat
+    val datePath = simpleDateFormat.format(date)
+    val file = new File(rootDirectory, datePath)
+    if (file.isDirectory) file else throw new IllegalArgumentException(s"Path ${file.getPath} is not directory!")
   }
 
   /**

@@ -6,13 +6,14 @@ import java.nio.file.attribute.BasicFileAttributes
 
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
+import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 /**
   * Created by Ivan Kudryavtsev on 27.01.17.
   */
 class CommitLogTest extends FlatSpec with Matchers with BeforeAndAfterAll {
-  val dir = "target/clt"
+  val dir = new StringBuffer().append("target").append(File.separatorChar).append("clt").toString
   val rec = "sample record".map(_.toByte).toArray
 
   override def beforeAll() = {

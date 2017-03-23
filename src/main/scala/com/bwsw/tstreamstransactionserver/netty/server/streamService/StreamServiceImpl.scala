@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.bind.tuple.StringBinding
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
-import transactionService.rpc.StreamService
+import com.bwsw.tstreamstransactionserver.rpc.StreamService
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
@@ -24,21 +24,14 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   val environment: Environment
-//  = {
-//    val directory = FileUtils.createDirectory(storageOpts.streamDirectory, storageOpts.path)
-//    val environmentConfig = new EnvironmentConfig()
-//      .setAllowCreate(true)
-//      .setSharedCache(true)
-//      .setTransactional(true)
-//    new Environment(directory, environmentConfig)
-//  }
 
-  val streamDatabase = {
+  private val streamStoreName = "StreamStore"
+  private val streamDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
       .setSortedDuplicates(false)
-    val storeName = storageOpts.streamStorageName
+    val storeName = streamStoreName//storageOpts.streamStorageName
     environment.openDatabase(null, storeName, dbConfig)
   }
 
@@ -60,7 +53,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   fillStreamRAMTable()
 
 
-  private val streamSequenceName = s"SEQ_${storageOpts.streamStorageName}"
+  private val streamSequenceName = s"SEQ_$streamStoreName"
   private val streamSequenceDB = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
@@ -78,8 +71,8 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   override def getStreamFromOldestToNewest(stream: String): ArrayBuffer[KeyStream] =
     if (streamCache.containsKey(stream)) streamCache.get(stream)
     else {
-      logger.debug(s"StreamWithoutKey $stream doesn't exist.")
-      throw new StreamDoesNotExist
+      if (logger.isDebugEnabled()) logger.debug(s"Stream $stream doesn't exist.")
+      throw new StreamDoesNotExist(stream)
     }
 
 
@@ -99,22 +92,22 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
         else
           streamCache.put(stream, ArrayBuffer(KeyStream(newKey, newStream)))
 
-        logger.debug(s"StreamWithoutKey $stream is saved successfully.")
+        if (logger.isDebugEnabled()) logger.debug(s"Stream $stream with number of partitons $partitions, with $ttl and $description is saved successfully.")
         true
       } else {
         transactionDB.abort()
-        logger.debug(s"StreamWithoutKey $stream isn't saved.")
+        if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't saved.")
         false
       }
     }(executionContext.berkeleyWriteContext)
 
   override def checkStreamExists(stream: String): ScalaFuture[Boolean] =
-    ScalaFuture(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)(executionContext.berkeleyReadContext)
+    ScalaFuture.successful(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)
 
-  override def getStream(stream: String): ScalaFuture[transactionService.rpc.Stream] =
+  override def getStream(stream: String): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] =
     ScalaFuture{
       val mostRecentStream = getStreamFromOldestToNewest(stream).last.stream
-      if (mostRecentStream.deleted) throw new StreamDoesNotExist else mostRecentStream
+      if (mostRecentStream.deleted) throw new StreamDoesNotExist(stream) else mostRecentStream
     }(executionContext.berkeleyReadContext)
 
   override def delStream(stream: String): ScalaFuture[Boolean] =
@@ -129,10 +122,10 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
           val result = streamDatabase.put(transactionDB, mostRecentKeyStream.key.toDatabaseEntry, mostRecentKeyStream.stream.toDatabaseEntry)
           if (result == OperationStatus.SUCCESS) {
             transactionDB.commit()
-            logger.debug(s"StreamWithoutKey $stream is removed successfully.")
+            if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
             true
           } else {
-            logger.debug(s"StreamWithoutKey $stream isn't removed.")
+            if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")
             transactionDB.abort()
             false
           }
@@ -140,10 +133,9 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       }
     }(executionContext.berkeleyWriteContext)
 
-  def closeStreamEnvironmentAndDatabase(): Unit = {
+  def closeStreamDatabase(): Unit = {
     scala.util.Try(streamSeq.close())
     scala.util.Try(streamSequenceDB.close())
     scala.util.Try(streamDatabase.close())
-    scala.util.Try(environment.close())
   }
 }

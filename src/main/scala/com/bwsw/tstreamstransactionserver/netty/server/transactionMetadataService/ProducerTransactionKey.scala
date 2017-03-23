@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.sleepycat.je.{Database, Put, Transaction, WriteOptions}
-import transactionService.rpc.TransactionStates
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 
 case class ProducerTransactionKey(key: Key, producerTransaction: ProducerTransactionWithoutKey) {
   def stream: Long = key.stream
@@ -18,7 +18,7 @@ case class ProducerTransactionKey(key: Key, producerTransaction: ProducerTransac
   override  def toString: String = s"Producer transaction: ${key.toString}, state: $state"
 }
 object ProducerTransactionKey {
-  def apply(txn: transactionService.rpc.ProducerTransaction, streamNameToLong: Long, timestamp: Long): ProducerTransactionKey = {
+  def apply(txn: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, streamNameToLong: Long, timestamp: Long): ProducerTransactionKey = {
     val key = Key(streamNameToLong, txn.partition, txn.transactionID)
     val producerTransaction = ProducerTransactionWithoutKey(txn.state, txn.quantity, txn.ttl, timestamp)
     ProducerTransactionKey(key, producerTransaction)

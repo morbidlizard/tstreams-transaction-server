@@ -3,8 +3,8 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionWithoutKey}
-import transactionService.rpc.TransactionStates
-import transactionService.rpc.TransactionStates._
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
 
 import scala.annotation.tailrec
 

@@ -5,7 +5,6 @@ import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCac
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
-import transactionService.rpc.ConsumerService
 
 import scala.concurrent.{Future => ScalaFuture, _}
 
@@ -21,7 +20,7 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
       .setAllowCreate(true)
       .setTransactional(true)
 
-    environment.openDatabase(null, storageOpts.consumerStorageName, dbConfig)
+    environment.openDatabase(null, "ConsumerStore"/*storageOpts.consumerStorageName*/, dbConfig)
   }
 
   def getConsumerState(name: String, stream: String, partition: Int): ScalaFuture[Long] =
@@ -33,7 +32,10 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
       val result: Long =
         if (consumerDatabase.get(transactionDB, keyEntry, consumerTransactionEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS)
           ConsumerTransactionWithoutKey.entryToObject(consumerTransactionEntry).transactionId
-        else -1L
+        else {
+          if (logger.isDebugEnabled()) logger.debug(s"There is no checkpointed consumer transaction on stream $name, partition $partition with name: $name. Returning -1")
+          -1L
+        }
 
       transactionDB.commit()
       result
@@ -50,6 +52,7 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
 
   def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit =
   {
+    if (logger.isDebugEnabled()) logger.debug(s"Trying to commit consumer transactions: $consumerTransactions")
     groupProducerTransactions(consumerTransactions) foreach {case (key, txns) =>
       val theLastStateTransaction = transiteConsumerTransactionToNewState(txns)
       val binaryKey = key.toDatabaseEntry

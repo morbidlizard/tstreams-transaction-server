@@ -2,7 +2,7 @@ package benchmark.utils.writer
 
 import benchmark.utils.{CsvWriter, TimeMeasure, TransactionCreator}
 import com.bwsw.tstreamstransactionserver.options.ClientBuilder
-import transactionService.rpc.TransactionStates
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}

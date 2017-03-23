@@ -58,7 +58,7 @@ class CommitLogFile(path: String) {
   /** Returns a MD5 sum from MD5 FIle */
   private def getContentOfMD5File = {
     val fileInputStream = new FileInputStream(md5File)
-    val md5Sum = new  Array[Byte](17)
+    val md5Sum = new Array[Byte](17)
     fileInputStream.read(md5Sum)
     fileInputStream.close()
     md5Sum

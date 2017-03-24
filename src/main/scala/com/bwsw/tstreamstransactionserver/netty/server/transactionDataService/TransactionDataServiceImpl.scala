@@ -44,7 +44,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   }
 
   override def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
-    val streamObj = getMostRecentStream(stream)
+    val streamObj = getStreamFromOldestToNewest(stream).last
     val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
     ScalaFuture {
       val batch = rocksDB.newBatch
@@ -70,7 +70,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
 
   override def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[ByteBuffer]] = {
-    val streamObj = getMostRecentStream(stream)
+    val streamObj = getStreamFromOldestToNewest(stream).last
     val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
     ScalaFuture {
       val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary

@@ -133,7 +133,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
     //Client hook works only on a request, so, if request fails - the hook would stop to work.
     //Taking in account all of the above, counter of clientTimeoutRequestCounter may show that it send one request less.
-    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 1
+    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 2 //authenticate gives one more request
   }
 
   it should "throw an user defined exception on overriding onRequestTimeout method" in {

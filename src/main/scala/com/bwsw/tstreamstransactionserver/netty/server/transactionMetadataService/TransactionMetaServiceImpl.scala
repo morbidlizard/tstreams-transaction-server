@@ -93,21 +93,28 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     transactions foreach { case (transaction, timestamp) =>
       (transaction.producerTransaction, transaction.consumerTransaction) match {
         case (Some(txn), _) =>
-          val stream = getStreamFromOldestToNewest(txn.stream).last
-          val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
-          if (txn.state != TransactionStates.Opened) {
-            producerTransactions += ((txn, timestamp))
-          } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
-            updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, None)
-            if (logger.isDebugEnabled) logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
-            producerTransactions += ((txn, timestamp))
+          //even if producer transaction is belonged to deleted stream we can omit such transaction, as client shouldn't see it.
+          scala.util.Try(getMostRecentStream(txn.stream)) match {
+            case scala.util.Success(recentStream) =>
+              val key = KeyStreamPartition(recentStream.streamNameToLong, txn.partition)
+              if (txn.state != TransactionStates.Opened) {
+                producerTransactions += ((txn, timestamp))
+              } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
+                updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, None)
+                if (logger.isDebugEnabled) logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
+                producerTransactions += ((txn, timestamp))
+              }
+            case _ => //It doesn't matter
           }
 
         case (_, Some(txn)) =>
-          val stream = getStreamFromOldestToNewest(txn.stream).last
-          val key = KeyStreamPartition(stream.streamNameToLong, txn.partition)
-          consumerTransactions += ((txn, timestamp))
-
+          scala.util.Try(getMostRecentStream(txn.stream)) match {
+            //even if consumer transaction is belonged to deleted stream we can omit such transaction, as client shouldn't see it.
+            case scala.util.Success(recentStream) =>
+              val key = KeyStreamPartition(recentStream.streamNameToLong, txn.partition)
+              consumerTransactions += ((txn, timestamp))
+            case _ => //It doesn't matter
+          }
         case _ =>
       }
     }
@@ -118,6 +125,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     if (logger.isDebugEnabled) logger.debug("Mapping all producer transactions streams attrbute to long representation(ID), grouping them by stream and partition, checking that the stream isn't deleted in order to process producer transactions.")
     txns.foldLeft[scala.collection.mutable.Map[KeyStream, ArrayBuffer[ProducerTransactionKey]]](scala.collection.mutable.Map()) { case (acc, (producerTransaction, timestamp)) =>
       val keyStreams = getStreamFromOldestToNewest(producerTransaction.stream)
+      //it's okay that one looking for a stream that correspond to the transaction, as client can create/delete new streams.
       val streamForThisTransaction = keyStreams.filter(_.stream.timestamp <= timestamp).lastOption
       streamForThisTransaction match {
         case Some(keyStream) if !keyStream.stream.deleted =>
@@ -136,11 +144,11 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   private final def decomposeConsumerTransactionsToDatabaseRepresentation(transactions: Seq[(ConsumerTransaction, Timestamp)]) = {
     val consumerTransactionsKey = ArrayBuffer[ConsumerTransactionKey]()
     transactions foreach { case (txn, timestamp) => scala.util.Try {
-      val streamForThisTransaction = getStreamFromOldestToNewest(txn.stream).filter(_.stream.timestamp <= timestamp).last
-      consumerTransactionsKey += ConsumerTransactionKey(txn, streamForThisTransaction.streamNameToLong, timestamp)
+      //it's okay that one looking for a stream that correspond to the transaction, as client can create/delete new streams.
+      val streamForThisTransactionOpt = getStreamFromOldestToNewest(txn.stream).filter(_.stream.timestamp <= timestamp).lastOption
+      streamForThisTransactionOpt foreach (streamForThisTransaction => consumerTransactionsKey += ConsumerTransactionKey(txn, streamForThisTransaction.streamNameToLong, timestamp))
     }
     }
-
     consumerTransactionsKey
   }
 
@@ -246,13 +254,12 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
 
 
   def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = {
-    val keyStream = getStreamFromOldestToNewest(stream).last
+    val keyStream = getMostRecentStream(stream)
     val lastTransactionId = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition)
     if (lastTransactionId.isEmpty || transaction > lastTransactionId.get.transaction) {
       ScalaFuture.successful(TransactionInfo(exists = false, None))
     } else {
       ScalaFuture {
-        val keyStream = getStreamFromOldestToNewest(stream).last
         val searchKey = new Key(keyStream.streamNameToLong, partition, transaction).toDatabaseEntry
         val searchData = new DatabaseEntry()
 
@@ -276,7 +283,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   }
 
   final def getLastCheckpoitnedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture{
-    val keyStream = getStreamFromOldestToNewest(stream).last
+    val keyStream = getMostRecentStream(stream)
     getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
       case Some(lastID) => lastID.checkpointedTransactionOpt
       case None => None
@@ -286,7 +293,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo] =
     ScalaFuture {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
-      val keyStream = getStreamFromOldestToNewest(stream).last
+      val keyStream = getMostRecentStream(stream)
       val transactionDB = environment.beginTransaction(null, null)
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
 
@@ -295,12 +302,12 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
       }
 
       val (lastOpenedTransaction, toTransactionID, isResponseCompleted) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
-        case None => (-1L, from - 1L, false)
         case Some(lastTransaction) => lastTransaction.transaction match {
           case lt if lt < from => (lt, from - 1L, false)
           case lt if from <= lt && lt < to => (lt, lt, false)
           case lt if lt >= to => (lt, to, true)
         }
+        case None => (-1L, from - 1L, false)
       }
 
       if (logger.isDebugEnabled) logger.debug(s"Trying to retrieve transactions on stream $stream, partition: $partition in range [$from, $to]." +

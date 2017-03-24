@@ -10,7 +10,6 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitL
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je._
 import io.netty.bootstrap.ServerBootstrap

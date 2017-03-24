@@ -33,7 +33,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     override def getCurrentTime: Long = currentTime
     def resetTimer(): Unit = currentTime = initialTime
-    def updateTimer(newTime: Long) = currentTime = newTime
+    def updateTime(newTime: Long) = currentTime = newTime
   }
 
   private val maxIdleTimeBeetwenRecords = 1
@@ -154,21 +154,29 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
-    Await.result(client.delStream(stream), secondsWait.seconds)
-
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
 
+    //it's required to close a current commit log file
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+
+    //it's required to a CommitLogWriter writes the producer transactions to db
+    transactionServer.berkeleyWriter.run()
+
     val fromID = producerTransactions.minBy(_.transactionID).transactionID
     val toID = producerTransactions.maxBy(_.transactionID).transactionID
 
+    val resultBeforeDeleting = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
+    resultBeforeDeleting should not be empty
 
-    val result = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
-
-    result shouldBe empty
-
+    Await.result(client.delStream(stream), secondsWait.seconds)
+    assertThrows[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist] {
+      Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
+    }
   }
 
   it should "throw an exception when the a server isn't available for time greater than in config" in {
@@ -235,7 +243,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
     )
 
-    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
 
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     transactionServer.berkeleyWriter.run()
@@ -287,8 +295,10 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+
     //it's required to a CommitLogWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
@@ -311,7 +321,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -334,7 +344,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -352,7 +362,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val consumerTransaction = getRandomConsumerTransaction(stream)
 
     Await.result(client.putConsumerCheckpoint(consumerTransaction), secondsWait.seconds)
-    TestTimer.updateTimer(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     transactionServer.berkeleyWriter.run()
 

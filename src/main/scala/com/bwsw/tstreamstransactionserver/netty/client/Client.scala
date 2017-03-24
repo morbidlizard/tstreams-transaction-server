@@ -8,10 +8,9 @@ import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message, ObjectSerializer}
+import com.bwsw.tstreamstransactionserver.netty._
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressClass, ZKLeaderClientToGetMaster}
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
@@ -114,8 +113,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     InetSocketAddressClass(socketAddress.getAddress.getHostAddress, socketAddress.getPort)
   }
 
-  final def reconnect(): Unit = {
-    TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+  private[client] def reconnect(): Unit = {
+    TimeUnit.MILLISECONDS.sleep(500)
     channel = connect()
   }
 

@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.zooKeeper
+package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.io.Closeable
 import java.util
@@ -8,8 +8,8 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddr
 import com.google.common.net.InetAddresses
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
-import org.apache.zookeeper.{CreateMode, ZooDefs}
 import org.apache.zookeeper.data.ACL
 import org.slf4j.LoggerFactory
 

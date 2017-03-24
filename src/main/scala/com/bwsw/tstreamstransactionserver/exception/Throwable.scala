@@ -25,15 +25,17 @@ object Throwable {
 
   class InvalidSocketAddress(message: String) extends IllegalArgumentException(message)
 
-  val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
-  class StreamDoesNotExist(stream: String) extends NoSuchElementException(s"Stream $stream doesn't exist in database!")
+//  val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
+  class StreamDoesNotExist(stream: String, isPartialMessage: Boolean = true) extends {
+    val message = if (isPartialMessage) s"Stream $stream doesn't exist in database!" else stream
+  } with NoSuchElementException(message)
 
   val PackageTooBigExceptionMessagePart: String = "A size of client request is greater"
   class PackageTooBigException(msg: String = "") extends Exception(msg)
 
   def byText(text: String): Throwable = text match {
     case TokenInvalidExceptionMessage => new TokenInvalidException
-    case message if message.matches(s"Stream ([.]*) doesn't exist in database!") => new StreamDoesNotExist(message)
+    case message if message.matches(s"Stream (.*) doesn't exist in database!") => new StreamDoesNotExist(message, isPartialMessage = false)
     case message if message.contains(PackageTooBigExceptionMessagePart) => new PackageTooBigException(text)
     case _ => new Exception(text)
   }

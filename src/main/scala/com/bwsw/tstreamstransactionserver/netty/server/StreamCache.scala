@@ -1,10 +1,27 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
+import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ArrayBuffer
 
 trait StreamCache {
-  val streamCache = new java.util.concurrent.ConcurrentHashMap[String, ArrayBuffer[KeyStream]]()
-  def getStreamFromOldestToNewest(stream: String): ArrayBuffer[KeyStream]
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+
+  private[server] val streamCache = new java.util.concurrent.ConcurrentHashMap[String, ArrayBuffer[KeyStream]]()
+  protected[server] def getStreamFromOldestToNewest(stream: String): ArrayBuffer[KeyStream]
+
+  @throws[StreamDoesNotExist]
+  final def getMostRecentStream(stream: String): KeyStream = {
+    val streams = getStreamFromOldestToNewest(stream)
+    val recentNotDeletedStreamOpt = streams.lastOption
+    recentNotDeletedStreamOpt match {
+      case Some(streamObj) if !streamObj.stream.deleted => streamObj
+      case _ =>
+        val streamDoesntExistThrowable = new StreamDoesNotExist(stream)
+        if (logger.isDebugEnabled()) logger.debug(streamDoesntExistThrowable.getMessage)
+        throw streamDoesntExistThrowable
+    }
+  }
 }

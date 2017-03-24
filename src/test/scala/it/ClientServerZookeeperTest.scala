@@ -5,11 +5,11 @@ import java.util
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkGetMasterException, ZkNoConnectionException}
+import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
 import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.zooKeeper.InetSocketAddressClass
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever
@@ -148,7 +148,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     zkTestServer.close()
   }
 
-
+  //error prone test as uses thread sleeps to change state of a client connection.
   it should "connect to server, and when the server shutdown, starts on another port — client should reconnect properly" in {
     val zkTestServer = new TestingServer(true)
 

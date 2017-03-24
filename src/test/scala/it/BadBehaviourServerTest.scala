@@ -8,11 +8,10 @@ import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer, ZKLeaderClientToPutMaster}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{PackageTransmissionOptions, _}
-import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer

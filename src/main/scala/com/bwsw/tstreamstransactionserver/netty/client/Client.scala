@@ -8,10 +8,9 @@ import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, ExecutionContext, Message, ObjectSerializer}
+import com.bwsw.tstreamstransactionserver.netty._
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.zooKeeper.{InetSocketAddressClass, ZKLeaderClientToGetMaster}
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
@@ -114,8 +113,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     InetSocketAddressClass(socketAddress.getAddress.getHostAddress, socketAddress.getPort)
   }
 
-  final def reconnect(): Unit = {
-    TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+  private[client] def reconnect(): Unit = {
+    TimeUnit.MILLISECONDS.sleep(500)
     channel = connect()
   }
 
@@ -296,9 +295,10 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   protected def onRequestTimeout(): Unit = {}
 
 
-  @volatile private var token: Int = _
+  @volatile private var token: Int = -1
   @volatile private var maxMetadataPackageSize: Int = -1
   @volatile private var maxDataPackageSize: Int = -1
+  authenticate()
 
   /** Putting a stream on a server by primitive type parameters.
     *
@@ -445,11 +445,11 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   def putProducerState(transaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     implicit val context = futurePool.getContext
     if (logger.isDebugEnabled) logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
-    TransactionService.PutTransaction.Args(Transaction(Some(transaction), None))
+    val producerTransactionToTransaction = Transaction(Some(transaction), None)
     tryCompleteRequest(
       method(
         Descriptors.PutTransaction,
-        TransactionService.PutTransaction.Args(Transaction(Some(transaction), None))
+        TransactionService.PutTransaction.Args(producerTransactionToTransaction)
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
@@ -653,6 +653,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
+
 
   /** Retrieves a token for that allow a client send requests to server.
     *

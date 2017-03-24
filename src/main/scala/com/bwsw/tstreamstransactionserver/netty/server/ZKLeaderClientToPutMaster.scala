@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.zooKeeper
+package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.io.Closeable
 import java.util
@@ -8,8 +8,8 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddr
 import com.google.common.net.InetAddresses
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
-import org.apache.zookeeper.{CreateMode, ZooDefs}
 import org.apache.zookeeper.data.ACL
 import org.slf4j.LoggerFactory
 
@@ -34,10 +34,8 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
 
   def putSocketAddress(inetAddress: String, port: Int) = {
     val socketAddress =
-      if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536)
-        s"$inetAddress:$port"
-      else
-        throw new InvalidSocketAddress(s"Invalid socket address $inetAddress:$port")
+      if (ZKLeaderClientToPutMaster.isValidSocketAddress(inetAddress, port)) s"$inetAddress:$port"
+      else throw new InvalidSocketAddress(s"Invalid socket address $inetAddress:$port")
 
     scala.util.Try(client.delete().deletingChildrenIfNeeded().forPath(prefix))
     scala.util.Try{
@@ -52,4 +50,11 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
   }
 
   override def close(): Unit = client.close()
+}
+
+object ZKLeaderClientToPutMaster {
+  def isValidSocketAddress(inetAddress: String, port: Int) = {
+    if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536) true
+    else false
+  }
 }

@@ -66,7 +66,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       rocksStorageOpts = rocksStorageOptions
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
-        val streamObj = getStreamFromOldestToNewest(stream).last
+        val streamObj = getMostRecentStream(stream)
         getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
       }
     }
@@ -119,7 +119,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       rocksStorageOpts = rocksStorageOptions
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
-        val streamObj = getStreamFromOldestToNewest(stream).last
+        val streamObj = getMostRecentStream(stream)
         getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
       }
     }
@@ -178,7 +178,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       rocksStorageOpts = rocksStorageOptions
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
-        val streamObj = getStreamFromOldestToNewest(stream).last
+        val streamObj = getMostRecentStream(stream)
         getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
       }
     }
@@ -235,7 +235,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       rocksStorageOpts = rocksStorageOptions
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
-        val streamObj = getStreamFromOldestToNewest(stream).last
+        val streamObj = getMostRecentStream(stream)
         getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
       }
     }

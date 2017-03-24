@@ -1,15 +1,15 @@
-package com.bwsw.tstreamstransactionserver.zooKeeper
+package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.io.Closeable
-import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ZkNoConnectionException
+import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
 import com.google.common.net.InetAddresses
 import org.apache.curator.RetryPolicy
+import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
 import org.apache.curator.framework.state.ConnectionStateListener
-import org.apache.curator.framework.CuratorFrameworkFactory
 import org.slf4j.LoggerFactory
 
 
@@ -17,9 +17,9 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
   extends NodeCacheListener with Closeable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  @volatile var master: Option[InetSocketAddressClass] = None
+  @volatile private[client] var master: Option[InetSocketAddressClass] = None
 
-  val client = {
+  val connection = {
     val connection = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(sessionTimeoutMillis)
       .connectionTimeoutMs(connectionTimeoutMillis)
@@ -34,14 +34,14 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
     if (isConnected) connection else throw new ZkNoConnectionException(endpoints)
   }
 
-  val nodeToWatch = new NodeCache(client, prefix, false)
+  private val nodeToWatch = new NodeCache(connection, prefix, false)
   nodeToWatch.getListenable.addListener(this)
 
   def start() = nodeToWatch.start()
 
   override def close(): Unit = {
     nodeToWatch.close()
-    client.close()
+    connection.close()
   }
 
   override def nodeChanged(): Unit = {

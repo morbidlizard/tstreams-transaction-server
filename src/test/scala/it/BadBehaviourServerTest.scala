@@ -8,11 +8,10 @@ import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer, ZKLeaderClientToPutMaster}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{PackageTransmissionOptions, _}
-import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
@@ -95,7 +94,6 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
   "Client" should "send request with such ttl that it will never converge to a stable state due to the pipeline." in {
     startTransactionServer()
-    Thread.sleep(300)
 
     val retryDelayMsForThat = 100
 
@@ -135,12 +133,11 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
     //Client hook works only on a request, so, if request fails - the hook would stop to work.
     //Taking in account all of the above, counter of clientTimeoutRequestCounter may show that it send one request less.
-    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 1
+    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 2 //authenticate gives one more request
   }
 
   it should "throw an user defined exception on overriding onRequestTimeout method" in {
     startTransactionServer()
-    Thread.sleep(300)
 
     val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
     val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -191,7 +188,6 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
   it should "throw timeout exception as client try to send request to server that is shutdown and counter of lost events should be predictable" in {
     startTransactionServer()
-    Thread.sleep(1000)
 
     val retryDelayMsForThatMs = 100
     val connectionTimeoutMs = 5

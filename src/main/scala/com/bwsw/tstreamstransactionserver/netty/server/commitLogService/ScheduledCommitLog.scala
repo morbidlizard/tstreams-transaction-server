@@ -4,17 +4,18 @@ import java.util.concurrent.ArrayBlockingQueue
 
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
+import com.bwsw.tstreamstransactionserver.netty.server.HasTime
 import com.bwsw.tstreamstransactionserver.netty.{Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{EveryNSeconds, EveryNewFile, EveryNth}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{CommitLogOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
-class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions) {
+class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions) extends HasTime {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val commitLog = createCommitLog()
   private val maxIdleTimeBetweenRecords = commitLogOptions.maxIdleTimeBetweenRecords * 1000
-  private var lastRecordTs = System.currentTimeMillis()
+  private var lastRecordTs = getCurrentTime
   private var currentCommitLogFile: String = _
 
   private def createCommitLog() = {
@@ -28,15 +29,15 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String]
   }
 
   def putData(messageType: Byte, message: Message) = {
-    val currentTime = System.currentTimeMillis()
+    val currentTime = getCurrentTime
     if (currentTime - lastRecordTs < maxIdleTimeBetweenRecords || currentCommitLogFile == null)
     {
       this.synchronized({
-        currentCommitLogFile = commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType)
+        currentCommitLogFile = commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
       })
     } else {
       this.synchronized({
-        val newCommitLogFile = commitLog.putRec(MessageWithTimestamp(message).toByteArray, messageType, startNew = true)
+        val newCommitLogFile = commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType, startNew = true)
         if (logger.isDebugEnabled) logger.debug(s"Starting to write to the new commit log file: $newCommitLogFile")
         pathsToClosedCommitLogFiles.put(currentCommitLogFile)
         currentCommitLogFile = newCommitLogFile

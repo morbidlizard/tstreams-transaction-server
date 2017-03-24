@@ -51,19 +51,19 @@ trait TransactionStateHandler {
   //    case (TransactionStatus.`checkpointed`, _) =>
   //  }
 
-  private final def transitProducerTransactionToInvalidState(txn: ProducerTransactionKey) = {
+  private def transitProducerTransactionToInvalidState(txn: ProducerTransactionKey) = {
     ProducerTransactionKey(
       com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key(txn.stream, txn.partition, txn.transactionID),
       ProducerTransactionWithoutKey(Invalid, txn.quantity, 0L, txn.timestamp)
     )
   }
 
-  private final def isThisProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
+  private def isThisProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
     scala.math.abs(currentTxn.timestamp + TimeUnit.SECONDS.toMillis(currentTxn.ttl)) <= nextTxn.timestamp
   }
 
   @throws[IllegalArgumentException]
-  private final def transitProducerTransactionToNewState(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): ProducerTransactionKey = {
+  private def transitProducerTransactionToNewState(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): ProducerTransactionKey = {
     (currentTxn.state, nextTxn.state) match {
       case (Opened, Opened) => currentTxn
 
@@ -100,7 +100,7 @@ trait TransactionStateHandler {
 
   @tailrec
   @throws[IllegalArgumentException]
-  private final def process(txns: List[ProducerTransactionKey]): ProducerTransactionKey = txns match {
+  private def process(txns: List[ProducerTransactionKey]): ProducerTransactionKey = txns match {
     case Nil => throw new IllegalArgumentException
     case head :: Nil => head.state match {
       case Opened => head
@@ -115,7 +115,7 @@ trait TransactionStateHandler {
   }
 
   @throws[IllegalArgumentException]
-  private final def processFirstTransaction(transaction: ProducerTransactionKey) = {
+  private def processFirstTransaction(transaction: ProducerTransactionKey) = {
     process(transaction::Nil)
   }
 

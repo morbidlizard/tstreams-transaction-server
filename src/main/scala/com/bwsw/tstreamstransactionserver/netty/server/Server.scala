@@ -4,12 +4,12 @@ import java.util.concurrent.{ArrayBlockingQueue, Executors}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, ICommitLogCatalogue}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.zooKeeper.ZKLeaderClientToPutMaster
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je._
 import io.netty.bootstrap.ServerBootstrap
@@ -26,25 +26,26 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
              storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: PackageTransmissionOptions,
              serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
-             (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger)) {
+             (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger),
+             timer: HasTime = new HasTime{}
+            ) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-  private val transactionServerSocketAddress = createTransactionServerAddress()
 
-  private val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
-    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
-  zk.putSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2)
+  private val transactionServerSocketAddress = createTransactionServerAddress()
+  if (!ZKLeaderClientToPutMaster.isValidSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2))
+    throw new InvalidSocketAddress(s"Invalid socket address ${transactionServerSocketAddress._1}:${transactionServerSocketAddress._2}")
 
   private val executionContext = new ServerExecutionContext(serverOpts.threadPool, berkeleyStorageOptions.berkeleyReadThreadPool,
     rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
-  private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts)
-  private val bossGroup = new EpollEventLoopGroup(1)
-  private val workerGroup = new EpollEventLoopGroup()
+  private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
 
-  private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path), transactionServer).fillQueue()
-  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions)
-  private val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
   private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
+  private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path), transactionServer).fillQueue()
+  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions){
+    override def getCurrentTime: Long = timer.getCurrentTime
+  }
+  val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
 
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
@@ -53,6 +54,11 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     }
   }
 
+  val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
+    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
+
+  val bossGroup = new EpollEventLoopGroup(1)
+  val workerGroup = new EpollEventLoopGroup()
   def start(): Unit = {
     try {
       berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -65,8 +71,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
-
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
+
+      zk.putSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2)
+
       f.channel().closeFuture().sync()
     } finally {
       shutdown()

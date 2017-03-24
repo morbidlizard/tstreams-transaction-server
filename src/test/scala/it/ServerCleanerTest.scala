@@ -69,7 +69,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
       rocksStorageOpts = rocksStorageOptions
     ) {
       def checkTransactionExistInOpenedTable(stream: String, partition: Int, transactionId: Long) = {
-        val streamObj = getStreamFromOldestToNewest(stream).last
+        val streamObj = getMostRecentStream(stream)
         val txn = getOpenedTransaction(Key(streamObj.streamNameToLong, partition, transactionId))
         txn.isDefined
       }

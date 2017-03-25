@@ -18,9 +18,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     invokeMethod(msg, ctx.channel().remoteAddress().toString)(context).map{message =>
       val binaryMessage = message.toByteArray
-      val buf = ctx.alloc().directBuffer(binaryMessage.length)
-      buf.writeBytes(binaryMessage)
-      ctx.writeAndFlush(buf, ctx.voidPromise())
+      ctx.writeAndFlush(binaryMessage, ctx.voidPromise())
     }(context)
   }
 
@@ -50,6 +48,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is invoked.")
 
     implicit val (messageId, token) = (messageSeqId, message.token)
+
     method match {
       case `putStreamMethod` =>
         if (transactionServer.isValid(message.token)) {

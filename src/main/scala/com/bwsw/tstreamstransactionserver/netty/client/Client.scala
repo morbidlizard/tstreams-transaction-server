@@ -65,6 +65,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   private final val expiredRequestInvalidator = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("ExpiredRequestInvalidator-%d").build())
   private final val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]] = CacheBuilder.newBuilder()
+    .initialCapacity(15000)
     .concurrencyLevel(clientOpts.threadPool)
     .expireAfterWrite(clientOpts.requestTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
     .removalListener(new RemovalListener[java.lang.Integer, ScalaPromise[ThriftStruct]] {
@@ -142,28 +143,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private val barrier = new ResettableCountDownLatch(1)
-  @volatile private var isChannelCanBeUsed = true
-
-  private def applyBarrierIfItIsRequired(): Unit = {
-    if (!isChannelCanBeUsed) barrier.countDown()
-  }
-
-  private def resetBarrier(f: => Unit) = {
-    isChannelCanBeUsed = false
-    f
-    isChannelCanBeUsed = true
-    barrier.reset
-  }
-
-  private def resetBarrier(f: => ScalaFuture[Unit]) = {
-    isChannelCanBeUsed = false
-    f map { _ =>
-      isChannelCanBeUsed = true
-      barrier.reset
-    }
-  }
-
 
   /** A general method for sending requests to a server and getting a response back.
     *
@@ -175,19 +154,16 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   @throws[ServerUnreachableException]
   private final def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)
                                                               (implicit context: concurrent.ExecutionContext): ScalaFuture[Rep] = {
-    applyBarrierIfItIsRequired()
     if (channel != null && channel.isActive) {
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
       val message = descriptor.encodeRequest(request)(messageId, token)
       validateMessageSize(message)
 
-      val binaryMessage = message.toByteArray
-      val buf = channel.alloc().directBuffer(binaryMessage.length)
-      buf.writeBytes(binaryMessage)
-      channel.writeAndFlush(buf)
-
+      channel.write(message.toByteArray)
       reqIdToRep.put(messageId, promise)
+      channel.flush()
+
       promise.future.map { response =>
         reqIdToRep.invalidate(messageId)
         response.asInstanceOf[Rep]
@@ -216,11 +192,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
           tryCompleteRequest(f)
       } else {
         if (throwable.getClass equals classOf[RequestTimeoutException]) {
-          resetBarrier {
-            channel.close().sync()
-            reconnect()
-          }
-
+          channel.close().sync()
+          reconnect()
           tryCompleteRequest(f)
         } else ScalaFuture.failed(throwable)
       }
@@ -230,11 +203,11 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       case tokenInvalidThrowable: TokenInvalidException =>
         if (logger.isWarnEnabled)
           logger.warn(s"Token $token isn't valid. Retrying to get one from $currentConnectionSocketAddress.")
-        resetBarrier(authenticate()) flatMap { _ =>
+
+        authenticate() flatMap{_ =>
           TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
           helper(tokenInvalidThrowable, retryCount - 1)
         }
-
       case serverUnreachableThrowable: ServerUnreachableException =>
         scala.util.Try(onServerConnectionLostDefaultBehaviour(currentConnectionSocketAddress.toString)) match {
           case scala.util.Success(_) => helper(serverUnreachableThrowable, retryCount)
@@ -255,11 +228,10 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       case concreteThrowable: TokenInvalidException =>
         logger.warn(s"Token $token isn't valid. Retrying to get one from $currentConnectionSocketAddress.")
 
-        resetBarrier(authenticate()) flatMap { _ =>
+        authenticate() flatMap { _ =>
           TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
           retry(f)(concreteThrowable, clientOpts.requestTimeoutRetryCount)
         }
-
       case concreteThrowable: ServerUnreachableException =>
         scala.util.Try(onServerConnectionLostDefaultBehaviour(currentConnectionSocketAddress.toString)) match {
           case scala.util.Success(_) => retry(f)(concreteThrowable, Int.MaxValue)

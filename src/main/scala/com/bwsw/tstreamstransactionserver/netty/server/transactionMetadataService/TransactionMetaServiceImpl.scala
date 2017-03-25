@@ -100,7 +100,10 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
               if (txn.state != TransactionStates.Opened) {
                 producerTransactions += ((txn, timestamp))
               } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
-                updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, None)
+                // updating RAM table, not database.
+                val lastTransaction = getLastTransactionIDAndCheckpointedID(key.stream, key.partition)
+                val checkpointedTransactionOpt  = if (lastTransaction.isDefined) lastTransaction.get.checkpointedTransactionOpt else None
+                updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, checkpointedTransactionOpt)
                 if (logger.isDebugEnabled) logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
                 producerTransactions += ((txn, timestamp))
               }
@@ -160,15 +163,35 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     if (convertedTTL == 0L) 1 else scala.math.abs(convertedTTL.toInt)
   }
 
-  private final def updateLastTransactionOpenedOrCheckpointed(key: stateHandler.KeyStreamPartition, producerTransactionWithNewState: ProducerTransactionKey, parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
+  private final def updateLastOpenedOrCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition, producerTransactionWithNewState: ProducerTransactionKey, parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
     val keyStreamPartition = stateHandler.KeyStreamPartition(key.stream, key.partition)
-    if (producerTransactionWithNewState.state == TransactionStates.Checkpointed) {
-      val checkpointedTransactionID = Some(producerTransactionWithNewState.transactionID)
-      val lastTransactionId = getLastTransactionStreamPartitionRamTable(keyStreamPartition).transaction
-      updateLastTransactionStreamPartitionRamTable(keyStreamPartition, lastTransactionId, checkpointedTransactionID)
-      putLastTransaction(keyStreamPartition, lastTransactionId, checkpointedTransactionID, parentBerkeleyTxn)
-      if (logger.isDebugEnabled()) logger.debug(s"On stream:${key.stream} partition:${key.partition} last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now.")
-      Some(producerTransactionWithNewState.transactionID)
+    val lastTransaction = getLastTransactionIDAndCheckpointedID(key.stream, key.partition)
+    (producerTransactionWithNewState.state, lastTransaction) match {
+
+      case (TransactionStates.Checkpointed, Some(lastOpenedAndCheckpointedTransaction)) =>
+        val checkpointedTransactionID = Some(producerTransactionWithNewState.transactionID)
+        val lastOpenedTransactionId = lastOpenedAndCheckpointedTransaction.transaction
+        updateLastTransactionStreamPartitionRamTable(keyStreamPartition, lastOpenedTransactionId, checkpointedTransactionID)
+        putLastTransaction(keyStreamPartition, lastOpenedTransactionId, checkpointedTransactionID, parentBerkeleyTxn)
+        if (logger.isDebugEnabled())
+          logger.debug(s"On stream:${key.stream} partition:${key.partition} opened transaction is $lastOpenedTransactionId, last checkpointed transaction is $checkpointedTransactionID now.")
+
+      case (TransactionStates.Opened, Some(lastOpenedAndCheckpointedTransaction)) =>
+        val checkpointedTransactionID = lastOpenedAndCheckpointedTransaction.checkpointedTransactionOpt
+        val lastOpenedTransactionId = lastOpenedAndCheckpointedTransaction.transaction
+        updateLastTransactionStreamPartitionRamTable(keyStreamPartition, lastOpenedTransactionId, checkpointedTransactionID)
+        putLastTransaction(keyStreamPartition, lastOpenedTransactionId, checkpointedTransactionID, parentBerkeleyTxn)
+        if (logger.isDebugEnabled())
+          logger.debug(s"On stream:${key.stream} partition:${key.partition} opened transaction is $lastOpenedTransactionId, last checkpointed transaction is $checkpointedTransactionID now.")
+
+      case (TransactionStates.Opened, None) =>
+        val lastOpenedTransactionId = producerTransactionWithNewState.transactionID
+        updateLastTransactionStreamPartitionRamTable(keyStreamPartition, lastOpenedTransactionId, None)
+        putLastTransaction(keyStreamPartition, lastOpenedTransactionId, None, parentBerkeleyTxn)
+        if (logger.isDebugEnabled())
+          logger.debug(s"On stream:${key.stream} partition:${key.partition} opened transaction is $lastOpenedTransactionId, there is no last checkpointed transaction now.")
+
+      case _ => //we don't need other cases
     }
   }
 
@@ -180,8 +203,13 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
       val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
 
       groupedProducerTransactions foreach { case (key, txns) =>
-        val openedTransactionOpt = getOpenedTransaction(key)
+        //putting a last opened transaction whether it has correct state in transaction chain or not to database.
+        val lastOpenedTransactionIndex = txns.lastIndexWhere(_.state == TransactionStates.Opened)
+        if (lastOpenedTransactionIndex != -1)
+          updateLastOpenedOrCheckpointedTransactionAndPutToDatabase(stateHandler.KeyStreamPartition(key.stream, key.partition), txns(lastOpenedTransactionIndex), parentBerkeleyTxn)
 
+        //retrieving an opened transaction from database if it exist
+        val openedTransactionOpt = getOpenedTransaction(key)
         val producerTransactionWithNewState = scala.util.Try(openedTransactionOpt match {
           case Some(data) =>
             val persistedProducerTransactionBerkeley = ProducerTransactionKey(key, data)
@@ -199,7 +227,8 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
             val binaryTxn = producerTransactionKey.producerTransaction.toDatabaseEntry
             val binaryKey = key.toDatabaseEntry
 
-            updateLastTransactionOpenedOrCheckpointed(stateHandler.KeyStreamPartition(key.stream, key.partition), producerTransactionKey, parentBerkeleyTxn)
+
+            updateLastOpenedOrCheckpointedTransactionAndPutToDatabase(stateHandler.KeyStreamPartition(key.stream, key.partition), producerTransactionKey, parentBerkeleyTxn)
 
             openedTransactionsRamTable.put(producerTransactionKey.key, producerTransactionKey.producerTransaction)
             if (producerTransactionKey.state == TransactionStates.Opened) {

@@ -355,7 +355,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     response shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
   }
 
-  it should "put consumerState and get it back" in {
+  it should "put consumerCheckpoint and get transaction id back" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -380,9 +380,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     def addDataLength(stream: String, partition: Int, dataLength: Int): Unit = {
       val valueToAdd = if (dataCounter.containsKey((stream, partition))) dataLength else 0
-      dataCounter.computeIfAbsent((stream, partition), new java.util.function.Function[(String, Int), LongAdder] {
-        override def apply(t: (String, Int)): LongAdder = new LongAdder()
-      }).add(valueToAdd)
+      dataCounter.computeIfAbsent((stream, partition), (t: (String, Int)) => new LongAdder()).add(valueToAdd)
     }
 
     def getDataLength(stream: String, partition: Int) = dataCounter.get((stream, partition)).intValue()

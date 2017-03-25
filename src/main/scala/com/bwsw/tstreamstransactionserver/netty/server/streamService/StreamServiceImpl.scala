@@ -81,25 +81,34 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     ScalaFuture {
       val transactionDB = environment.beginTransaction(null, new TransactionConfig())
 
-      val newStream = StreamWithoutKey(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
-      val newKey    = Key(streamSeq.get(transactionDB, 1))
+      val isOkay = if (streamCache.containsKey(stream)) {
+        val streams = streamCache.get(stream)
+        val mostRecentKeyStream = streams.last
 
-      val result = streamDatabase.putNoOverwrite(transactionDB,  newKey.toDatabaseEntry, newStream.toDatabaseEntry)
-      if (result == OperationStatus.SUCCESS) {
-        transactionDB.commit()
+        if (mostRecentKeyStream.stream.deleted) {
+          val newKey = Key(streamSeq.get(transactionDB, 1))
+          val newStream = StreamWithoutKey(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
+          streamCache.get(stream) += KeyStream(newKey, newStream)
+          streamDatabase.putNoOverwrite(transactionDB, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
+        } else false
+      }
+      else {
+        val newKey = Key(streamSeq.get(transactionDB, 1))
+        val newStream = StreamWithoutKey(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
+        streamCache.put(stream, ArrayBuffer(KeyStream(newKey, newStream)))
+        streamDatabase.putNoOverwrite(transactionDB, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
+      }
 
-        if (streamCache.containsKey(stream))
-           streamCache.get(stream) += KeyStream(newKey, newStream)
-        else
-          streamCache.put(stream, ArrayBuffer(KeyStream(newKey, newStream)))
-
+      if (isOkay) {
         if (logger.isDebugEnabled()) logger.debug(s"Stream $stream with number of partitons $partitions, with $ttl and $description is saved successfully.")
+        transactionDB.commit()
         true
       } else {
-        transactionDB.abort()
         if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't saved.")
+        transactionDB.abort()
         false
       }
+
     }(executionContext.berkeleyWriteContext)
 
   override def checkStreamExists(stream: String): ScalaFuture[Boolean] =

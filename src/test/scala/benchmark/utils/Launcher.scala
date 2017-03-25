@@ -7,7 +7,7 @@ trait Launcher extends Installer {
   def launch() = {
     clearDB()
     startTransactionServer()
-    Thread.sleep(2000L)
+    Thread.sleep(500L)
     createStream(streamName, clients)
     launchClients()
     deleteStream(streamName)

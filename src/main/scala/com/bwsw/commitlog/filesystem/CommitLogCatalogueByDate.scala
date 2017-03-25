@@ -21,13 +21,10 @@ class CommitLogCatalogueByDate(rootPath: String, date: Date) {
   //todo + CommitLogFile существует в двух реализациях: private класс(внутри CommitLog) и обычный класс. Требуется рефакторинг
   import CommitLogCatalogueByDate._
 
-  private val rootDirectory: String = rootPath
-
-
-  private val dataFolder: File = {
+  val dataFolder: File = {
     val simpleDateFormat = FilePathManager.simpleDateFormat
     val datePath = simpleDateFormat.format(date)
-    val file = new File(rootDirectory, datePath)
+    val file = new File(rootPath, datePath)
     if (file.isDirectory) file else throw new IllegalArgumentException(s"Path ${file.getPath} is not directory!")
   }
 

@@ -186,7 +186,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
     zKLeaderClientToPutMaster.close()
   }
 
-  it should "throw timeout exception as client try to send request to server that is shutdown and counter of lost events should be predictable" in {
+  it should "throw a timeout exception as client tries to send a request to server that is shutdown and counter of lost events should be predictable" in {
     startTransactionServer()
 
     val retryDelayMsForThatMs = 100
@@ -225,5 +225,5 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
     clientRequestCounter.get() should be >= trialsLeftBound
     clientRequestCounter.get() should be <= trialsRightBound
-  }
+  } //todo test doesn't work after removing Thread.sleep from the client connect method
 }

@@ -45,6 +45,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions){
     override def getCurrentTime: Long = timer.getCurrentTime
   }
+
+  /**
+    * this variable is public for testing purposes only
+    */
   val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
 
   private def createTransactionServerAddress() = {

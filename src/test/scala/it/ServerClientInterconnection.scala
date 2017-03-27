@@ -164,7 +164,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
 
-    //it's required to a CommitLogWriter writes the producer transactions to db
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     val fromID = producerTransactions.minBy(_.transactionID).transactionID
@@ -299,7 +299,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
 
-    //it's required to a CommitLogWriter writes the producer transactions to db
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     val successResponse = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
@@ -323,7 +323,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    //it's required to a CommitLogWriter writes the producer transactions to db
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     val successResponse = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
@@ -346,7 +346,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    //it's required to a CommitLogWriter writes the producer transactions to db
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     val response = Await.result(client.getTransaction(stream.name, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
@@ -355,7 +355,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     response shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
   }
 
-  it should "put consumerCheckpoint and get transaction id back" in {
+  it should "put consumerCheckpoint and get a transaction id back" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -371,7 +371,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     consumerState shouldBe consumerTransaction.transactionID
   }
 
-  "Server" should "not have problems with many clients" in {
+  "Server" should "not have any problems with many clients" in {
     val clients = Array.fill(clientsNum)(clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build())
     val streams = Array.fill(10000)(getRandomStream)
     Await.result(client.putStream(chooseStreamRandomly(streams)), secondsWait.seconds)

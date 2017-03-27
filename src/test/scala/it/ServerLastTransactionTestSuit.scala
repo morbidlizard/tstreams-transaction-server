@@ -96,7 +96,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       bigCommit.commit(currentTime)
 
       val lastTransactionIDAndCheckpointedID = transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
-      lastTransactionIDAndCheckpointedID.transaction shouldBe maxTransactionID
+      lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
     }
     transactionService.shutdown()
   }
@@ -155,8 +155,8 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
       val lastTransactionIDAndCheckpointedID = transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
 
-      lastTransactionIDAndCheckpointedID.transaction shouldBe maxTransactionID
-      lastTransactionIDAndCheckpointedID.checkpointedTransactionOpt.get shouldBe maxTransactionID
+      lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
+      lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe maxTransactionID
 
     }
     transactionService.shutdown()
@@ -210,8 +210,8 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
       val lastTransactionIDAndCheckpointedID = transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
 
-      lastTransactionIDAndCheckpointedID.transaction shouldBe 3L
-      lastTransactionIDAndCheckpointedID.checkpointedTransactionOpt.get shouldBe 1L
+      lastTransactionIDAndCheckpointedID.opened.id shouldBe 3L
+      lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe 1L
 
     }
     transactionService.shutdown()
@@ -260,12 +260,12 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
 
 
-      val producerTransactions = scala.util.Random.shuffle(0 to producerTransactionsNumber).map { transactionID =>
+      val producerTransactions = scala.util.Random.shuffle(0 to producerTransactionsNumber).toArray.map { transactionID =>
         val transaction = getRandomProducerTransaction(stream, transactionID.toLong, Long.MaxValue)
         (transaction, System.currentTimeMillis() + rand.nextInt(100))
-      }.toList
+      }
 
-      val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2)
+      val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2).toList
       val transactionsWithTimestamp = producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
       val currentTime = System.currentTimeMillis()
@@ -273,7 +273,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit(currentTime)
 
-      transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get.transaction shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get
+      transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get.opened.id shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get
     }
     transactionService.shutdown()
   }

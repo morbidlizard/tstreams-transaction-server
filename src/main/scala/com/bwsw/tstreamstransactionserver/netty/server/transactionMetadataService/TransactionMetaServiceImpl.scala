@@ -84,7 +84,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
 
   private type Timestamp = Long
 
-  private final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Timestamp)]) = {
+  private final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Timestamp)], berkeleyTransaction: com.sleepycat.je.Transaction) = {
     if (logger.isDebugEnabled) logger.debug("Decomposing transactions to producer and consumer transactions")
 
     val producerTransactions = ArrayBuffer[(ProducerTransaction, Timestamp)]()
@@ -100,10 +100,9 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
               if (txn.state != TransactionStates.Opened) {
                 producerTransactions += ((txn, timestamp))
               } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
-                // updating RAM table, not database.
-                val lastTransaction = getLastTransactionIDAndCheckpointedID(key.stream, key.partition)
-                val checkpointedTransactionOpt  = if (lastTransaction.isDefined) lastTransaction.get.checkpointedTransactionOpt else None
-                updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, checkpointedTransactionOpt)
+                // updating RAM table, and last opened transaction database.
+                updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, isOpenedTransaction = true)
+                putLastTransaction(key, txn.transactionID, isOpenedTransaction = true, berkeleyTransaction)
                 if (logger.isDebugEnabled) logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
                 producerTransactions += ((txn, timestamp))
               }
@@ -163,52 +162,22 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     if (convertedTTL == 0L) 1 else scala.math.abs(convertedTTL.toInt)
   }
 
-  private final def updateLastOpenedOrCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition, producerTransactionWithNewState: ProducerTransactionKey, parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
-    val keyStreamPartition = stateHandler.KeyStreamPartition(key.stream, key.partition)
-    val lastTransaction = getLastTransactionIDAndCheckpointedID(key.stream, key.partition)
-    (producerTransactionWithNewState.state, lastTransaction) match {
-
-      case (TransactionStates.Checkpointed, Some(lastOpenedAndCheckpointedTransaction)) =>
-        val checkpointedTransactionID = Some(producerTransactionWithNewState.transactionID)
-        val lastOpenedTransactionId = lastOpenedAndCheckpointedTransaction.transaction
-        updateLastTransactionStreamPartitionRamTable(keyStreamPartition, lastOpenedTransactionId, checkpointedTransactionID)
-        putLastTransaction(keyStreamPartition, lastOpenedTransactionId, checkpointedTransactionID, parentBerkeleyTxn)
-        if (logger.isDebugEnabled())
-          logger.debug(s"On stream:${key.stream} partition:${key.partition} opened transaction is $lastOpenedTransactionId, last checkpointed transaction is $checkpointedTransactionID now.")
-
-      case (TransactionStates.Opened, Some(lastOpenedAndCheckpointedTransaction)) =>
-        val checkpointedTransactionID = lastOpenedAndCheckpointedTransaction.checkpointedTransactionOpt
-        val lastOpenedTransactionId = lastOpenedAndCheckpointedTransaction.transaction
-        updateLastTransactionStreamPartitionRamTable(keyStreamPartition, lastOpenedTransactionId, checkpointedTransactionID)
-        putLastTransaction(keyStreamPartition, lastOpenedTransactionId, checkpointedTransactionID, parentBerkeleyTxn)
-        if (logger.isDebugEnabled())
-          logger.debug(s"On stream:${key.stream} partition:${key.partition} opened transaction is $lastOpenedTransactionId, last checkpointed transaction is $checkpointedTransactionID now.")
-
-      case (TransactionStates.Opened, None) =>
-        val lastOpenedTransactionId = producerTransactionWithNewState.transactionID
-        updateLastTransactionStreamPartitionRamTable(keyStreamPartition, lastOpenedTransactionId, None)
-        putLastTransaction(keyStreamPartition, lastOpenedTransactionId, None, parentBerkeleyTxn)
-        if (logger.isDebugEnabled())
-          logger.debug(s"On stream:${key.stream} partition:${key.partition} opened transaction is $lastOpenedTransactionId, there is no last checkpointed transaction now.")
-
-      case _ => //we don't need other cases
-    }
+  private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition, producerTransactionWithNewState: ProducerTransactionKey, parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
+    updateLastTransactionStreamPartitionRamTable(key, producerTransactionWithNewState.transactionID, isOpenedTransaction = false)
+    putLastTransaction(key, producerTransactionWithNewState.transactionID, isOpenedTransaction = false, parentBerkeleyTxn)
+    if (logger.isDebugEnabled())
+      logger.debug(s"On stream:${key.stream} partition:${key.partition} last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now.")
   }
 
-  private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = {
-    val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions)
-    val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions, parentBerkeleyTxn)
+  private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], berkeleyTransaction: com.sleepycat.je.Transaction): Unit = {
+    val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions, berkeleyTransaction)
+    val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions, berkeleyTransaction)
     groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
 
       val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
 
       groupedProducerTransactions foreach { case (key, txns) =>
-        //putting a last opened transaction whether it has correct state in transaction chain or not to database.
-        val lastOpenedTransactionIndex = txns.lastIndexWhere(_.state == TransactionStates.Opened)
-        if (lastOpenedTransactionIndex != -1)
-          updateLastOpenedOrCheckpointedTransactionAndPutToDatabase(stateHandler.KeyStreamPartition(key.stream, key.partition), txns(lastOpenedTransactionIndex), parentBerkeleyTxn)
-
-        //retrieving an opened transaction from database if it exist
+        //retrieving an opened transaction from opened transaction database if it exist
         val openedTransactionOpt = getOpenedTransaction(key)
         val producerTransactionWithNewState = scala.util.Try(openedTransactionOpt match {
           case Some(data) =>
@@ -227,23 +196,24 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
             val binaryTxn = producerTransactionKey.producerTransaction.toDatabaseEntry
             val binaryKey = key.toDatabaseEntry
 
-
-            updateLastOpenedOrCheckpointedTransactionAndPutToDatabase(stateHandler.KeyStreamPartition(key.stream, key.partition), producerTransactionKey, parentBerkeleyTxn)
+            if (producerTransactionKey.state == TransactionStates.Checkpointed) {
+              updateLastCheckpointedTransactionAndPutToDatabase(stateHandler.KeyStreamPartition(key.stream, key.partition), producerTransactionKey, berkeleyTransaction)
+            }
 
             openedTransactionsRamTable.put(producerTransactionKey.key, producerTransactionKey.producerTransaction)
             if (producerTransactionKey.state == TransactionStates.Opened) {
-              scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn))
+              scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(berkeleyTransaction, binaryKey, binaryTxn))
             } else {
-              scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.delete(parentBerkeleyTxn, binaryKey))
+              scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.delete(berkeleyTransaction, binaryKey))
             }
 
-            scala.concurrent.blocking(producerTransactionsDatabase.put(parentBerkeleyTxn, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
+            scala.concurrent.blocking(producerTransactionsDatabase.put(berkeleyTransaction, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
           case scala.util.Failure(throwable) =>
           //throwable.printStackTrace()
         }
       }
     }
-    putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), parentBerkeleyTxn)
+    putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), berkeleyTransaction)
   }
 
 
@@ -284,8 +254,8 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
 
   def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = {
     val keyStream = getMostRecentStream(stream)
-    val lastTransactionId = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition)
-    if (lastTransactionId.isEmpty || transaction > lastTransactionId.get.transaction) {
+    val lastTransaction = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition)
+    if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
       ScalaFuture.successful(TransactionInfo(exists = false, None))
     } else {
       ScalaFuture {
@@ -314,7 +284,10 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   final def getLastCheckpoitnedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture{
     val keyStream = getMostRecentStream(stream)
     getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
-      case Some(lastID) => lastID.checkpointedTransactionOpt
+      case Some(last) => last.checkpointed match {
+        case Some(checkpointed) => Some(checkpointed.id)
+        case None => None
+      }
       case None => None
     }
   }(executionContext.berkeleyReadContext)
@@ -331,7 +304,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
       }
 
       val (lastOpenedTransaction, toTransactionID, isResponseCompleted) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
-        case Some(lastTransaction) => lastTransaction.transaction match {
+        case Some(lastTransaction) => lastTransaction.opened.id match {
           case lt if lt < from => (lt, from - 1L, false)
           case lt if from <= lt && lt < to => (lt, lt, false)
           case lt if lt >= to => (lt, to, true)

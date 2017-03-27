@@ -248,7 +248,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
   }
 
-  it should "put transaction data, another one put the data with intersecting keys, overwriting values and get true on calling that method." in {
+  it should "put transaction data, another one put the data with intersecting keys, overwrite values and get true on calling that method." in {
     val stream = getRandomStream
 
     val dataAmount = 10

@@ -28,8 +28,8 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
   private def calculateTTL(ttl: Long): Int = {
     val convertedTTL = TimeUnit.SECONDS.toHours(ttl + ttlToAdd)
-    if (convertedTTL == 0L) TimeUnit.HOURS.toSeconds(1L).toInt
-    else scala.math.abs(TimeUnit.HOURS.toSeconds(convertedTTL)).toInt
+    if (convertedTTL == 0L) scala.math.abs(TimeUnit.HOURS.toSeconds(1L).toInt)
+    else scala.math.abs(TimeUnit.HOURS.toSeconds(convertedTTL).toInt)
   }
 
   val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
@@ -38,7 +38,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
     val key = StorageName(keyStream.key.streamNameToLong.toString)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
       val calculatedTTL = calculateTTL(ttl)
-      if (logger.isDebugEnabled) logger.debug(s"Creating new database[stream: ${keyStream.name}, ttl(in hrs): $calculatedTTL] for persisting and reading transactions data.")
+      if (logger.isDebugEnabled()) logger.debug(s"Creating new database[stream: ${keyStream.name}, ttl(in hrs): $calculatedTTL] for persisting and reading transactions data.")
       new RocksDbConnection(storageOpts, rocksStorageOpts, key.toString, calculatedTTL)
     })
   }
@@ -51,6 +51,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
       val rangeDataToSave = from until (from + data.length)
       val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(partition, transaction), seqId).toBinary)
+
       (keys zip data) foreach { case (key, datum) =>
         val sizeOfSlicedData = datum.limit() - datum.position()
         val bytes = new Array[Byte](sizeOfSlicedData)

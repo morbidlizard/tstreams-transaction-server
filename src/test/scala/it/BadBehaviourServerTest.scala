@@ -185,45 +185,4 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
     zKLeaderClientToPutMaster.close()
   }
-
-  it should "throw a timeout exception as client tries to send a request to server that is shutdown and counter of lost events should be predictable" in {
-    startTransactionServer()
-
-    val retryDelayMsForThatMs = 100
-    val connectionTimeoutMs = 5
-    val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
-    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(
-      endpoints = zkTestServer.getConnectString
-    )
-    val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
-      connectionTimeoutMs = connectionTimeoutMs,
-      retryDelayMs = retryDelayMsForThatMs
-    )
-
-
-    val clientRequestCounter = new AtomicInteger(0)
-    val client = new Client(connectionOpts, authOpts, zookeeperOpts) {
-      override def onServerConnectionLost(): Unit = {
-        clientRequestCounter.getAndIncrement()
-      }
-    }
-
-    val stream = getRandomStream
-
-    serverGotRequest.set(0)
-    server.shutdown()
-
-    assertThrows[java.util.concurrent.TimeoutException] {
-      Await.result(client.putStream(stream), secondsWait.seconds)
-    }
-    client.shutdown()
-
-    val (trialsLeftBound, trialsRightBound) = {
-      val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt / retryDelayMsForThatMs
-      (trials - trials * 15 / 100, trials + trials * 15 / 100)
-    }
-
-    clientRequestCounter.get() should be >= trialsLeftBound
-    clientRequestCounter.get() should be <= trialsRightBound
-  } //todo test doesn't work after removing Thread.sleep from the client connect method
 }

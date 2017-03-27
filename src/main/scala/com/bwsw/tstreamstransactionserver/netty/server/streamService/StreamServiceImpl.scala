@@ -133,6 +133,9 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
           if (result == OperationStatus.SUCCESS) {
             transactionDB.commit()
             if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
+
+
+
             true
           } else {
             if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")

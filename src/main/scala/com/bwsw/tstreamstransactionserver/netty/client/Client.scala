@@ -1,6 +1,5 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, TimeUnit}
 
@@ -11,6 +10,7 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutExc
 import com.bwsw.tstreamstransactionserver.netty._
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, _}
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
@@ -21,7 +21,6 @@ import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
-import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, _}
 
 import scala.annotation.tailrec
 import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
@@ -109,13 +108,10 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
 
-  final def currentConnectionSocketAddress: InetSocketAddressClass = {
-    val socketAddress = channel.remoteAddress().asInstanceOf[InetSocketAddress]
-    InetSocketAddressClass(socketAddress.getAddress.getHostAddress, socketAddress.getPort)
-  }
+  final def currentConnectionSocketAddress: Option[InetSocketAddressClass] = zKLeaderClient.master
+
 
   private[client] def reconnect(): Unit = {
-    TimeUnit.MILLISECONDS.sleep(500)
     channel = connect()
   }
 

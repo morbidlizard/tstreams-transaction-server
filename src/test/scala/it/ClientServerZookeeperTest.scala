@@ -178,17 +178,16 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     Thread.sleep(500)
     val client = clientBuilder.build()
 
-    val initialSocketAddress = client.currentConnectionSocketAddress
+    val initialSocketAddress = client.currentConnectionSocketAddress.get
     server.shutdown()
     startTransactionServer(host, newPort)
 
 
     Thread.sleep(500)
-    val newSocketAddress = client.currentConnectionSocketAddress
+    val newSocketAddress = client.currentConnectionSocketAddress.get
 
     initialSocketAddress shouldBe InetSocketAddressClass(host, initialPort)
     newSocketAddress     shouldBe InetSocketAddressClass(host, newPort)
-
 
     zkTestServer.close()
     server.shutdown()

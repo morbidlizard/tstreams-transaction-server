@@ -45,22 +45,24 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
   }
 
   override def nodeChanged(): Unit = {
-    Option(nodeToWatch.getCurrentData) foreach { node =>
-      val addressPort = new String(node.getData)
-      val splitIndex = addressPort.lastIndexOf(':')
-      if (splitIndex != -1) {
-        val (address, port) = addressPort.splitAt(splitIndex)
-        val portToInt = scala.util.Try(port.tail.toInt)
-        if (InetAddresses.isInetAddress(address) && portToInt.isSuccess && portToInt.get > 0 && portToInt.get < 65536)
-          master = Some(InetSocketAddressClass(address, portToInt.get))
-        else {
+    Option(nodeToWatch.getCurrentData) match {
+      case Some(node) =>
+        val addressPort = new String(node.getData)
+        val splitIndex = addressPort.lastIndexOf(':')
+        if (splitIndex != -1) {
+          val (address, port) = addressPort.splitAt(splitIndex)
+          val portToInt = scala.util.Try(port.tail.toInt)
+          if (InetAddresses.isInetAddress(address) && portToInt.isSuccess && portToInt.get > 0 && portToInt.get < 65536)
+            master = Some(InetSocketAddressClass(address, portToInt.get))
+          else {
+            master = None
+            if (logger.isInfoEnabled) logger.info(s"$prefix data is corrupted!")
+          }
+        } else {
           master = None
           if (logger.isInfoEnabled) logger.info(s"$prefix data is corrupted!")
         }
-      } else {
-        master = None
-        if (logger.isInfoEnabled) logger.info(s"$prefix data is corrupted!")
-      }
+      case None => master = None
     }
   }
 }

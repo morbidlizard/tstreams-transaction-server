@@ -31,7 +31,9 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     private var currentTime = initialTime
 
     override def getCurrentTime: Long = currentTime
+
     def resetTimer(): Unit = currentTime = initialTime
+
     def updateTime(newTime: Long) = currentTime = newTime
   }
 
@@ -69,7 +71,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
     startTransactionServer()
-    (0 until clientsNum) foreach(index => clients(index) = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build())
+    (0 until clientsNum) foreach (index => clients(index) = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build())
     val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
     commitLogCatalogue.catalogues.foreach(catalogue => FileUtils.deleteDirectory(catalogue.dataFolder))
   }
@@ -163,24 +165,25 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     }
   }
 
-  "One client" should "put stream, then another client should delete it and put with the same name. After that the first client tries to put transactions and it's okay." in {
+  "One client" should "put stream, then another client should delete it and put with the same name. " +
+    "After that the first client should put transactions and get them back in the properly quantity." in {
     val stream = getRandomStream
-
+    val txnNumber = 100
     val firstClient = clients(0)
     val secondClient = clients(1)
 
     Await.result(firstClient.putStream(stream), secondsWait.seconds)
-    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
+    val producerTransactions = Array.fill(txnNumber)(getRandomProducerTransaction(stream, TransactionStates.Opened))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
 
-    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe false
     Await.result(secondClient.delStream(streamUpdated), secondsWait.seconds) shouldBe true
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe true
 
-    Await.result(firstClient.getStream(stream.name), secondsWait.seconds) should not be stream
-    Await.result(firstClient.getStream(stream.name), secondsWait.seconds) shouldBe streamUpdated
+    val currentStream = Await.result(firstClient.getStream(stream.name), secondsWait.seconds)
+    currentStream should not be stream
+    currentStream shouldBe streamUpdated
 
     //transactions are processed in the async mode
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
@@ -191,14 +194,15 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
-    val fromID = producerTransactions.minBy(_.transactionID).transactionID
-    val toID = producerTransactions.maxBy(_.transactionID).transactionID
+    val fromID = producerTransactions.head.transactionID
+    val toID = producerTransactions.last.transactionID
 
-    Await.result(firstClient.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions should not be empty
+    Await.result(firstClient.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions should have size txnNumber
   }
 
 
-  "One client" should "put stream, then another client should put transactions. After that the first client tries to put transactions." in {
+  "One client" should "put stream, then another client should put transactions. " +
+    "After that the first client tries to put transactions." in {
     val stream = getRandomStream
 
     val firstClient = clients(0)

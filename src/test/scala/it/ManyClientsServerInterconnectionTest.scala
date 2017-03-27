@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{HasTime, Server}
+import com.bwsw.tstreamstransactionserver.netty.server.{Time, Server}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
@@ -25,7 +25,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
   private val clientBuilder = new ClientBuilder()
 
-  private object TestTimer extends HasTime {
+  private object TestTimer extends Time {
     private val initialTime = System.currentTimeMillis()
     private var currentTime = initialTime
 

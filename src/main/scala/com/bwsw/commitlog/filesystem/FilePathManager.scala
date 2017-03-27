@@ -10,13 +10,15 @@ import java.util.GregorianCalendar
   */
 
 object FilePathManager {
-  val EXTENSION = ".dat"
+  val DATAEXTENSION = ".dat"
+  val MD5EXTENSION = ".md5"
 
   private val calendar = {
     val calendar = new GregorianCalendar()
     calendar.setLenient(false)
     calendar
   }
+
   val simpleDateFormat = {
     val format = new SimpleDateFormat(
       new StringBuffer("yyyy").append(File.separatorChar)
@@ -28,6 +30,7 @@ object FilePathManager {
     format.setLenient(false)
     format
   }
+
   var CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
 
   def resetCatalogueGenerator() = {
@@ -45,7 +48,7 @@ class FilePathManager(rootDir: String) {
   private var nextID: Int = -1
   private val datFilter = new FilenameFilter() {
     override def accept(dir: File, name: String): Boolean = {
-      name.toLowerCase().endsWith(FilePathManager.EXTENSION)
+      name.toLowerCase().endsWith(FilePathManager.DATAEXTENSION)
     }
   }
 

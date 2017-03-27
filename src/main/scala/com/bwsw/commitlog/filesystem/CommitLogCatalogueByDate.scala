@@ -1,13 +1,7 @@
 package com.bwsw.commitlog.filesystem
 
 import java.io.File
-import java.text.SimpleDateFormat
 import java.util.Date
-
-object CommitLogCatalogueByDate {
-  val MD5EXTENSION = ".md5"
-  val DATAEXTENSION = ".dat"
-}
 
 /** Represents catalogue of specified date.
   *
@@ -15,11 +9,7 @@ object CommitLogCatalogueByDate {
   * @param date     date to link this object with
   */
 class CommitLogCatalogueByDate(rootPath: String, date: Date) {
-  //todo данный класс и CommitLogCatalogue связаны, как минимум, форматом создания папок.
-  //todo Нужно либо объединить эти два класса, либо вынести формат в объект.
-  //todo Позже обнаружила, что с FilePathManager имеется общая функциональность
-  //todo + CommitLogFile существует в двух реализациях: private класс(внутри CommitLog) и обычный класс. Требуется рефакторинг
-  import CommitLogCatalogueByDate._
+  import FilePathManager._
 
   val dataFolder: File = {
     val simpleDateFormat = FilePathManager.simpleDateFormat

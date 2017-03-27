@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasTime, StreamCache}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, Time, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.bind.tuple.StringBinding
 import com.sleepycat.je._
@@ -23,7 +23,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   val environment: Environment
-  val timer: HasTime
+  val timer: Time
 
   private val streamStoreName = "StreamStore"
   private val streamDatabase = {

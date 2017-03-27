@@ -27,7 +27,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
              packageTransmissionOpts: PackageTransmissionOptions,
              serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger),
-             timer: HasTime = new HasTime{}
+             timer: Time = new Time{}
             ) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)

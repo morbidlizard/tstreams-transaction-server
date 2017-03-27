@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.LongAdder
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{HasTime, Server}
+import com.bwsw.tstreamstransactionserver.netty.server.{Time, Server}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import org.apache.commons.io.FileUtils
@@ -27,7 +27,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   val clientsNum = 2
   private val clientBuilder = new ClientBuilder()
 
-  private object TestTimer extends HasTime {
+  private object TestTimer extends Time {
     private val initialTime = System.currentTimeMillis()
     private var currentTime = initialTime
 

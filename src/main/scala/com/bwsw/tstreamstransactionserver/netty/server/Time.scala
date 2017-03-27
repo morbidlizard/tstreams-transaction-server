@@ -1,5 +1,5 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-trait HasTime {
+trait Time {
   def getCurrentTime: Long = System.currentTimeMillis()
 }

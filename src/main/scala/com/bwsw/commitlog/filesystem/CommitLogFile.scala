@@ -6,15 +6,14 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, Paths}
 import java.security.MessageDigest
 
-import scala.io.Source
-
 /** Represents commitlog file with data.
   *
   * @param path full path to file
   */
 class CommitLogFile(path: String) {
+  //todo CommitLogFile существует в двух реализациях: private класс(внутри CommitLog) и этот класс. Требуется рефакторинг (может достаточно переименования)
   private val file = new File(path)
-  private val md5File = new File(file.toString.split('.')(0) + ".md5")
+  private val md5File = new File(file.toString.split('.')(0) + FilePathManager.MD5EXTENSION)
 
   class Attributes {
     private val attr = Files.readAttributes(Paths.get(file.getAbsolutePath), classOf[BasicFileAttributes])

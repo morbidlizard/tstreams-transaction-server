@@ -128,8 +128,6 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
 
     streams foreach { stream =>
-      val currentTimeInc = new AtomicLong(System.currentTimeMillis())
-      val transactionRootChain = getRandomProducerTransaction(stream, 1, Long.MaxValue)
       val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 2L , 4L), 5.seconds)
 
       result.producerTransactions shouldBe empty

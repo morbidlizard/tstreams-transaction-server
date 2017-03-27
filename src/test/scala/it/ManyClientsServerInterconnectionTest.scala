@@ -201,8 +201,8 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   }
 
 
-  "One client" should "put stream, then another client should put transactions. " +
-    "After that the first client tries to put transactions." in {
+  "One client" should "put stream, then another client should put transactions on a stream on a partition. " +
+    "After that the first client tries to put transactions on the stream on the partition and clients should see the same last checkpointed transaction." in {
     val stream = getRandomStream
 
     val firstClient = clients(0)
@@ -217,6 +217,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     //transactions are processed in the async mode
     val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
+
     Await.result(secondClient.putProducerState(producerTransaction1), secondsWait.seconds) shouldBe true
     Await.result(secondClient.putProducerState(producerTransaction1.copy(state = TransactionStates.Checkpointed)), secondsWait.seconds) shouldBe true
     Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe -1L
@@ -250,7 +251,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
   }
 
-  it should "put transaction data, another one put the data with intersecting keys, overwrite values and get true on calling that method." in {
+  it should "put transaction data, another one put the data with intersecting keys, and, as consequence, overwrite values." in {
     val stream = getRandomStream
 
     val dataAmount = 10
@@ -269,10 +270,6 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(secondClient.putTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, data2, 0), secondsWait.seconds) shouldBe true
     val data2Retrieved = Await.result(secondClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, 0, 10), secondsWait.seconds)
 
-    data1 should contain theSameElementsInOrderAs data1Retrieved
-    data2 should contain theSameElementsInOrderAs data2Retrieved
-
-    data1 should not contain theSameElementsInOrderAs(data2Retrieved)
-    data2 should not contain theSameElementsInOrderAs(data1Retrieved)
+    data1Retrieved should not contain theSameElementsInOrderAs(data2Retrieved)
   }
 }

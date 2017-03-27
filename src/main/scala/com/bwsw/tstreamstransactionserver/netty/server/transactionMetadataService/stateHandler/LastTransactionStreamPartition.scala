@@ -28,7 +28,6 @@ trait LastTransactionStreamPartition {
     environment.openDatabase(null, storeName, dbConfig)
   }
 
-
   private final def fillLastTransactionStreamPartitionTable: Cache[KeyStreamPartition, LastOpenedAndCheckpointedTransaction] = {
     val hoursToLive = 1
     val cache = com.google.common.cache.CacheBuilder.newBuilder()

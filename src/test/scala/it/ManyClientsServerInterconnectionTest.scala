@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{HasTime, Server}
+import com.bwsw.tstreamstransactionserver.netty.server.{Time, Server}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
@@ -26,7 +26,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
   private val clientBuilder = new ClientBuilder()
 
-  private object TestTimer extends HasTime {
+  private object TestTimer extends Time {
     private val initialTime = System.currentTimeMillis()
     private var currentTime = initialTime
 
@@ -108,8 +108,6 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       override val ttl: Long = Long.MaxValue
     }
 
-  private def chooseStreamRandomly(streams: IndexedSeq[com.bwsw.tstreamstransactionserver.rpc.Stream]) = streams(rand.nextInt(streams.length))
-
   private def getRandomProducerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream,
                                            transactionState: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1),
                                            id: Long = System.nanoTime()) =
@@ -133,7 +131,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
   val secondsWait = 5
 
-  "One client" should "put stream, then another client delete it, then then first client tries to put transactions but get throwable." in {
+  "One client" should "put stream, then another client should delete it. After that the first client tries to put transactions and gets an exception." in {
     val stream = getRandomStream
 
     val firstClient = clients(0)
@@ -143,18 +141,18 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-    val streamUpdated = stream.copy(description = Some("I overwrite previous one."))
+    val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
 
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe false
     Await.result(secondClient.delStream(streamUpdated), secondsWait.seconds) shouldBe true
 
-    //transactions are proccessed async
+    //transactions are processed in the async mode
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    //it's required to a CommitLogWriter writes the producer transactions to db
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     val fromID = producerTransactions.minBy(_.transactionID).transactionID
@@ -165,7 +163,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     }
   }
 
-  it should "put stream, then another client delete it, put with same name, then then first client tries to put transactions and it's okay." in {
+  "One client" should "put stream, then another client should delete it and put with the same name. After that the first client tries to put transactions and it's okay." in {
     val stream = getRandomStream
 
     val firstClient = clients(0)
@@ -175,7 +173,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
-    val streamUpdated = stream.copy(description = Some("I overwrite previous one."))
+    val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
 
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe false
     Await.result(secondClient.delStream(streamUpdated), secondsWait.seconds) shouldBe true
@@ -184,13 +182,13 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(firstClient.getStream(stream.name), secondsWait.seconds) should not be stream
     Await.result(firstClient.getStream(stream.name), secondsWait.seconds) shouldBe streamUpdated
 
-    //transactions are proccessed async
+    //transactions are processed in the async mode
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    //it's required to a CommitLogWriter writes the producer transactions to db
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     val fromID = producerTransactions.minBy(_.transactionID).transactionID
@@ -200,7 +198,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   }
 
 
-  it should "put stream, then another client put transactions, then first client tries to put transactions." in {
+  "One client" should "put stream, then another client should put transactions. After that the first client tries to put transactions." in {
     val stream = getRandomStream
 
     val firstClient = clients(0)
@@ -208,12 +206,12 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
-    val streamUpdated = stream.copy(description = Some("I overwrite previous one."))
+    val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe false
 
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
 
-    //transactions are proccessed async
+    //transactions are processed in the async mode
     val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
     Await.result(secondClient.putProducerState(producerTransaction1), secondsWait.seconds) shouldBe true
     Await.result(secondClient.putProducerState(producerTransaction1.copy(state = TransactionStates.Checkpointed)), secondsWait.seconds) shouldBe true
@@ -223,7 +221,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    //it's required to a CommitLogWriter writes the producer transactions to db
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
@@ -241,7 +239,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    //it's required to a CommitLogWriter writes the producer transactions to db
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID

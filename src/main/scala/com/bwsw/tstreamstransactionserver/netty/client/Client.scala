@@ -130,6 +130,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       zKLeaderClient.master match {
         case Some(master) => (master.address, master.port)
         case None => {
+          println("Asdasdasdasd")
           val throwable = new ZkGetMasterException(zookeeperOpts.endpoints)
           if (logger.isWarnEnabled()) logger.warn(throwable.getMessage)
           shutdown()

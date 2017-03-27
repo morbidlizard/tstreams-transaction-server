@@ -27,7 +27,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
              packageTransmissionOpts: PackageTransmissionOptions,
              serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger),
-             timer: HasTime = new HasTime{}
+             timer: Time = new Time{}
             ) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -45,6 +45,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions){
     override def getCurrentTime: Long = timer.getCurrentTime
   }
+
+  /**
+    * this variable is public for testing purposes only
+    */
   val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
 
   private def createTransactionServerAddress() = {

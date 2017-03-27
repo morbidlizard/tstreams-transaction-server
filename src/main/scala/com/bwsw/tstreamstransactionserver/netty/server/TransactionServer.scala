@@ -14,7 +14,7 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
                         override val authOpts: AuthOptions,
                         override val storageOpts: StorageOptions,
                         override val rocksStorageOpts: RocksStorageOptions,
-                        override val timer: HasTime = new HasTime{}
+                        override val timer: Time = new Time{}
                        )
   extends HasEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
 {

@@ -9,10 +9,6 @@ import java.util.Base64.Encoder
 import com.bwsw.commitlog.CommitLogFlushPolicy.{ICommitLogFlushPolicy, OnCountInterval, OnRotation, OnTimeInterval}
 import com.bwsw.commitlog.filesystem.FilePathManager
 
-object CommitLog {
-  val MD5EXTENSION = ".md5"
-}
-
 /** Logger which stores records continuously in files in specified location.
   *
   * Stores data in files placed YYYY/mm/dd/{serial number}.dat. If it works correctly, md5-files placed
@@ -36,13 +32,13 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
   private var currentCommitLogFileToPut: CommitLogFile = _
   private class CommitLogFile(path: String) {
-    val absolutePath = new StringBuffer(path).append(FilePathManager.EXTENSION).toString
+    val absolutePath = new StringBuffer(path).append(FilePathManager.DATAEXTENSION).toString
 
     private val md5: MessageDigest = MessageDigest.getInstance("MD5")
     private def writeMD5File() = {
       val fileMD5 = new BigInteger(1, md5.digest()).toByteArray
 
-      new FileOutputStream(new StringBuffer(path).append(CommitLog.MD5EXTENSION).toString) {
+      new FileOutputStream(new StringBuffer(path).append(FilePathManager.MD5EXTENSION).toString) {
         write(fileMD5)
         close()
       }

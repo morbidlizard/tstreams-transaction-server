@@ -9,12 +9,10 @@ import org.rocksdb._
 class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksStorageOptions, name: String, ttl: Int = -1) extends Closeable {
   RocksDB.loadLibrary()
 
+  private val file = new File(s"${storageOptions.path}/${storageOptions.dataDirectory}/$name")
   private val client =  {
-    val file = new File(s"${storageOptions.path}/${storageOptions.dataDirectory}/$name")
     FileUtils.forceMkdir(file)
-
-    val path = file.getAbsolutePath
-    TtlDB.open(rocksStorageOpts.createDBOptions(), path, ttl, false)
+    TtlDB.open(rocksStorageOpts.createDBOptions(), file.getAbsolutePath, ttl, false)
   }
 
   def get(key: Array[Byte]) = client.get(key)
@@ -23,6 +21,11 @@ class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksS
 
   def iterator = client.newIterator()
   override def close(): Unit = client.close()
+
+  final def closeAndDeleteFodler(): Unit = {
+    client.close()
+    file.delete()
+  }
 
   def newBatch = new Batch
   class Batch() {

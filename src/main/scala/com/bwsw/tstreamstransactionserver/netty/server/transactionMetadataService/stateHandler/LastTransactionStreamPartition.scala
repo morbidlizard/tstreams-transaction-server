@@ -83,7 +83,39 @@ trait LastTransactionStreamPartition {
     }
   }
 
-  final def putLastTransaction(key: KeyStreamPartition, transactionId: Long, isOpenedTransaction: Boolean, transaction: com.sleepycat.je.Transaction) = {
+  final def deleteLastOpenedAndCheckpointedTransactions(stream: Long, transaction: com.sleepycat.je.Transaction) = {
+    val from = KeyStreamPartition(stream, 0).toDatabaseEntry
+    val to   = KeyStreamPartition(stream, Int.MaxValue).toDatabaseEntry
+
+    val lockMode = LockMode.READ_UNCOMMITTED
+
+    val dataFound = new DatabaseEntry()
+
+    var binaryKey = from
+    val lastTransactionDatabaseCursor = lastTransactionDatabase.openCursor(transaction, new CursorConfig())
+    if (lastTransactionDatabaseCursor.getSearchKeyRange(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS &&
+      lastTransactionDatabase.compareKeys(binaryKey, from) >= 0 && lastTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
+      lastTransactionDatabaseCursor.delete()
+      while (lastTransactionDatabaseCursor.getNext(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS && lastTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
+        lastTransactionDatabaseCursor.delete()
+      }
+    }
+    lastTransactionDatabaseCursor.close()
+
+    binaryKey = from
+    val lastCheckpointedTransactionDatabaseCursor = lastCheckpointedTransactionDatabase.openCursor(transaction, new CursorConfig())
+    if (lastCheckpointedTransactionDatabaseCursor.getSearchKeyRange(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS &&
+      lastCheckpointedTransactionDatabase.compareKeys(binaryKey, from) >= 0 && lastCheckpointedTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
+      lastCheckpointedTransactionDatabaseCursor.delete()
+      while (lastCheckpointedTransactionDatabaseCursor.getNext(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS && lastCheckpointedTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
+        lastCheckpointedTransactionDatabaseCursor.delete()
+      }
+    }
+    binaryKey = null
+    lastCheckpointedTransactionDatabaseCursor.close()
+  }
+
+  private[transactionMetadataService] final def putLastTransaction(key: KeyStreamPartition, transactionId: Long, isOpenedTransaction: Boolean, transaction: com.sleepycat.je.Transaction) = {
     val updatedTransactionID = new TransactionID(transactionId)
     if (isOpenedTransaction)
       lastTransactionDatabase.put(transaction, key.toDatabaseEntry, updatedTransactionID.toDatabaseEntry)
@@ -91,7 +123,7 @@ trait LastTransactionStreamPartition {
       lastCheckpointedTransactionDatabase.put(transaction, key.toDatabaseEntry, updatedTransactionID.toDatabaseEntry)
   }
 
-  final def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transaction: Long, isOpenedTransaction: Boolean) = {
+  private[transactionMetadataService] def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transaction: Long, isOpenedTransaction: Boolean) = {
     val lastOpenedAndCheckpointedTransaction = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     lastOpenedAndCheckpointedTransaction match {
       case Some(x) =>
@@ -104,11 +136,11 @@ trait LastTransactionStreamPartition {
     }
   }
 
-  final def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, openedTransaction: Long, checkpointedTransaction: Long) = {
+  private[transactionMetadataService] final def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, openedTransaction: Long, checkpointedTransaction: Long) = {
     lastTransactionStreamPartitionRamTable.put(key, LastOpenedAndCheckpointedTransaction(TransactionID(openedTransaction), Some(TransactionID(checkpointedTransaction))))
   }
 
-  final def isThatTransactionOutOfOrder(key: KeyStreamPartition, transactionThatId: Long) = {
+  private[transactionMetadataService] final def isThatTransactionOutOfOrder(key: KeyStreamPartition, transactionThatId: Long) = {
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     lastTransactionOpt match {
       case Some(transactionId) => if (transactionId.opened.id <= transactionThatId) false else true
@@ -116,7 +148,8 @@ trait LastTransactionStreamPartition {
     }
   }
 
-  def closeLastTransactionStreamPartitionDatabase() = {
+  def closeLastTransactionStreamPartitionDatabases() = {
     scala.util.Try(lastTransactionDatabase.close())
+    scala.util.Try(lastCheckpointedTransactionDatabase.close())
   }
 }

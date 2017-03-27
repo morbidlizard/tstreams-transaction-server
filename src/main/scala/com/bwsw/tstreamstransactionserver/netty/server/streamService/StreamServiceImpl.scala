@@ -2,7 +2,8 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, Time, StreamCache}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache, Time}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.bind.tuple.StringBinding
 import com.sleepycat.je._
@@ -24,6 +25,9 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 
   val environment: Environment
   val timer: Time
+
+  def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit
+  def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, transaction: com.sleepycat.je.Transaction): Unit
 
   private val streamStoreName = "StreamStore"
   private val streamDatabase = {
@@ -131,11 +135,10 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 
           val result = streamDatabase.put(transactionDB, mostRecentKeyStream.key.toDatabaseEntry, mostRecentKeyStream.stream.toDatabaseEntry)
           if (result == OperationStatus.SUCCESS) {
+            removeLastOpenedAndCheckpointedTransactionRecords(mostRecentKeyStream.streamNameToLong, transactionDB)
             transactionDB.commit()
+            closeRocksDBConnectionAndDeleteFolder(mostRecentKeyStream.streamNameToLong)
             if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
-
-
-
             true
           } else {
             if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")

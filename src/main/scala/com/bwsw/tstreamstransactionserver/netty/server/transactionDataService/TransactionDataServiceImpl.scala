@@ -32,7 +32,12 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
     else scala.math.abs(TimeUnit.HOURS.toSeconds(convertedTTL).toInt)
   }
 
-  val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
+  private val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
+
+  final def removeRocksDBDatabaseAndDeleteFolder(stream: Long): Unit = {
+    val key = StorageName(stream.toString)
+    Option(rocksDBStorageToStream.get(key)) foreach (x => x.closeAndDeleteFodler())
+  }
 
   private def getStorage(keyStream: KeyStream, ttl: Long) = {
     val key = StorageName(keyStream.key.streamNameToLong.toString)

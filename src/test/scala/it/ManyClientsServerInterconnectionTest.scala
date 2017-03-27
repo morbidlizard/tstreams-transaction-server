@@ -15,6 +15,7 @@ import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   val clientsNum = 2
@@ -247,5 +248,29 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
   }
 
+  it should "put transaction data, another one put the data with intersecting keys, overwriting values and get true on calling that method." in {
+    val stream = getRandomStream
 
+    val dataAmount = 10
+
+    val firstClient = clients(0)
+    val secondClient = clients(1)
+
+    Await.result(firstClient.putStream(stream), secondsWait.seconds)
+    val producerTransaction = getRandomProducerTransaction(stream)
+
+    val data1 = Array.fill(dataAmount)(("a" + new String(rand.nextInt(100000).toString)).getBytes)
+    Await.result(firstClient.putTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, data1, 0), secondsWait.seconds) shouldBe true
+    val data1Retrieved = Await.result(firstClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, 0, 10), secondsWait.seconds)
+
+    val data2 = Array.fill(dataAmount)(("b" + new String(rand.nextInt(100000).toString)).getBytes)
+    Await.result(secondClient.putTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, data2, 0), secondsWait.seconds) shouldBe true
+    val data2Retrieved = Await.result(secondClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, 0, 10), secondsWait.seconds)
+
+    data1 should contain theSameElementsInOrderAs data1Retrieved
+    data2 should contain theSameElementsInOrderAs data2Retrieved
+
+    data1 should not contain theSameElementsInOrderAs(data2Retrieved)
+    data2 should not contain theSameElementsInOrderAs(data1Retrieved)
+  }
 }

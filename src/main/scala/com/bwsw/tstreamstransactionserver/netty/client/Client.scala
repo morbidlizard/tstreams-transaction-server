@@ -323,7 +323,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-  /** Deleting a stream by Thrift StreamWithoutKey structure on a server.
+  /** Deleting a stream by Thrift Stream structure on a server.
     *
     * @param stream a name of stream.
     * @return placeholder of delStream operation that can be completed or not. If the method returns failed future it means
@@ -486,20 +486,22 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
 
-  /** Retrieves all producer transactions in a specific range [from; to); it's assumed that from >= to and they are both positive.
+  /** Retrieves all producer transactions in a specific range [from, to]; it's assumed that from >= to and they are both positive.
     *
     * @param stream    a name of stream.
     * @param partition a partition of stream.
     * @param from      an inclusive bound to start with.
-    * @param to        an exclusive bound to end with.
+    * @param to        an inclusive bound to end with.
     * @return placeholder of putTransaction operation that can be completed or not. If the method returns failed future it means
     *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
     */
   @throws[Exception]
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[ScanTransactionsInfo] = {
     require(from >= 0 && to >= 0)
-    if (to < from)
-      ScalaFuture.successful(ScanTransactionsInfo(Seq(), isResponseCompleted = true))
+    if (to < from) {
+      val lastOpenedTransactionID = -1L
+      ScalaFuture.successful(ScanTransactionsInfo(lastOpenedTransactionID, collection.immutable.Seq()))
+    }
     else {
       if (logger.isDebugEnabled()) logger.debug(s"Retrieving producer transactions on stream $stream in range [$from, $to]")
       tryCompleteRequest(

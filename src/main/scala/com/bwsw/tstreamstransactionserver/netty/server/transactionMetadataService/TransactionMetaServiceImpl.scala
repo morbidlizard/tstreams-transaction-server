@@ -303,20 +303,19 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
         com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
       }
 
-      val (lastOpenedTransaction, toTransactionID, isResponseCompleted) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
+      val (lastOpenedTransactionID, toTransactionID) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameToLong, partition) match {
         case Some(lastTransaction) => lastTransaction.opened.id match {
-          case lt if lt < from => (lt, from - 1L, false)
-          case lt if from <= lt && lt < to => (lt, lt, false)
-          case lt if lt >= to => (lt, to, true)
+          case lt if lt < from => (lt, from - 1L)
+          case lt if from <= lt && lt < to => (lt, lt)
+          case lt if lt >= to => (lt, to)
         }
-        case None => (-1L, from - 1L, false)
+        case None => (-1L, from - 1L)
       }
 
       if (logger.isDebugEnabled) logger.debug(s"Trying to retrieve transactions on stream $stream, partition: $partition in range [$from, $to]." +
-        s"Actually as lt is ${if (lastOpenedTransaction == -1) "not exist" else lastOpenedTransaction} the range is [$from, $toTransactionID] and request " +
-        s"is ${if (isResponseCompleted) "completed" else "partial"}.")
+        s"Actually as lt ${if (lastOpenedTransactionID == -1) "doesn't exist" else s"is $lastOpenedTransactionID"} the range is [$from, $toTransactionID].")
 
-      if (toTransactionID < from) ScanTransactionsInfo(Seq(), isResponseCompleted)
+      if (toTransactionID < from) ScanTransactionsInfo(lastOpenedTransactionID, Seq())
       else {
         val lastTransactionID = new Key(keyStream.streamNameToLong, partition, toTransactionID).toDatabaseEntry
         def moveCursorToKey: Option[ProducerTransactionKey] = {
@@ -333,7 +332,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
           case None =>
             cursor.close()
             transactionDB.commit()
-            ScanTransactionsInfo(Seq(), isResponseCompleted)
+            ScanTransactionsInfo(lastOpenedTransactionID, Seq())
 
           case Some(producerTransactionKey) =>
             val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
@@ -349,7 +348,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
             cursor.close()
             transactionDB.commit()
 
-            ScanTransactionsInfo(txns map producerTransactionKeyToProducerTransaction filter lambda, isResponseCompleted)
+            ScanTransactionsInfo(lastOpenedTransactionID, txns map producerTransactionKeyToProducerTransaction filter lambda)
         }
       }
     }(executionContext.berkeleyReadContext)

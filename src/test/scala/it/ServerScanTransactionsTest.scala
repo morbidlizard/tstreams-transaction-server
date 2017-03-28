@@ -47,7 +47,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
 
   it should "correctly return producerTransactions and it's state(completed or partial) on: LT < A: " +
-    "return (false, Nil), where A - from transaction bound, B - to transaction bound" in {
+    "return (LT, Nil), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
@@ -98,13 +98,13 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 2L , 4L), 5.seconds)
 
       result.producerTransactions shouldBe empty
-      result.isResponseCompleted  shouldBe false
+      result.lastOpenedTransactionID shouldBe 3L
     }
     transactionService.shutdown()
   }
 
   it should "correctly return producerTransactions and it's state(completed or partial) on: LT < A: " +
-    "return (false, Nil), where A - from transaction bound, B - to transaction bound. " +
+    "return (LT, Nil), where A - from transaction bound, B - to transaction bound. " +
     "No transactions had been persisted on server before scanTransactions was called" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
@@ -132,13 +132,13 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 2L , 4L), 5.seconds)
 
       result.producerTransactions shouldBe empty
-      result.isResponseCompleted  shouldBe false
+      result.lastOpenedTransactionID shouldBe -1L
     }
     transactionService.shutdown()
   }
 
   it should "correctly return producerTransactions and it's state(completed or partial) on: A <= LT < B: " +
-    "return (false, AvailableTransactions[A, LT]), where A - from transaction bound, B - to transaction bound" in {
+    "return (LT, AvailableTransactions[A, LT]), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
@@ -189,13 +189,13 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 4L), 5.seconds)
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
-      result.isResponseCompleted  shouldBe false
+      result.lastOpenedTransactionID shouldBe 3L
     }
     transactionService.shutdown()
   }
 
   it should "correctly return producerTransactions and it's state(completed or partial) on: LT >= B: " +
-    "return (true, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
+    "return (LT, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
@@ -246,17 +246,17 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
       val result1 = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 4L), 5.seconds)
       result1.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
-      result1.isResponseCompleted  shouldBe true
+      result1.lastOpenedTransactionID  shouldBe 5L
 
       val result2 = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 5L), 5.seconds)
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1,producerTransactionsWithTimestamp.last._1)
-      result2.isResponseCompleted  shouldBe true
+      result2.lastOpenedTransactionID shouldBe 5L
     }
     transactionService.shutdown()
   }
 
   it should "correctly return producerTransactions with defined lambda and it's state(completed or partial) on: LT >= B: " +
-    "return (true, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
+    "return (LT, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
@@ -307,7 +307,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
       val result2 = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 5L, txn => txn.transactionID > 5L), 5.seconds)
       result2.producerTransactions shouldBe empty
-      result2.isResponseCompleted  shouldBe true
+      result2.lastOpenedTransactionID  shouldBe 5L
     }
     transactionService.shutdown()
   }

@@ -50,8 +50,8 @@ struct AuthInfo {
 
 
 struct ScanTransactionsInfo {
-    1: required list<ProducerTransaction>   producerTransactions
-    2: required bool                        isResponseCompleted
+    1: required transactionIDType           lastOpenedTransactionID
+    2: required list<ProducerTransaction>   producerTransactions
 }
 
 struct TransactionInfo {

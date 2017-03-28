@@ -32,15 +32,26 @@ import scala.collection.{Map, Set}
 object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
   private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
   val Struct = new TStruct("ScanTransactionsInfo")
-  val ProducerTransactionsField = new TField("producerTransactions", TType.LIST, 1)
+  val LastOpenedTransactionIDField = new TField("lastOpenedTransactionID", TType.I64, 1)
+  val LastOpenedTransactionIDFieldManifest = implicitly[Manifest[Long]]
+  val ProducerTransactionsField = new TField("producerTransactions", TType.LIST, 2)
   val ProducerTransactionsFieldManifest = implicitly[Manifest[Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]]]
-  val IsResponseCompletedField = new TField("isResponseCompleted", TType.BOOL, 2)
-  val IsResponseCompletedFieldManifest = implicitly[Manifest[Boolean]]
 
   /**
    * Field information in declaration order.
    */
   lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
+    new ThriftStructFieldInfo(
+      LastOpenedTransactionIDField,
+      false,
+      true,
+      LastOpenedTransactionIDFieldManifest,
+      _root_.scala.None,
+      _root_.scala.None,
+      immutable$Map.empty[String, String],
+      immutable$Map.empty[String, String],
+      None
+    ),
     new ThriftStructFieldInfo(
       ProducerTransactionsField,
       false,
@@ -48,17 +59,6 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
       ProducerTransactionsFieldManifest,
       _root_.scala.None,
       _root_.scala.Some(implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]]),
-      immutable$Map.empty[String, String],
-      immutable$Map.empty[String, String],
-      None
-    ),
-    new ThriftStructFieldInfo(
-      IsResponseCompletedField,
-      false,
-      true,
-      IsResponseCompletedFieldManifest,
-      _root_.scala.None,
-      _root_.scala.None,
       immutable$Map.empty[String, String],
       immutable$Map.empty[String, String],
       None
@@ -77,17 +77,17 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
 
   def withoutPassthroughFields(original: ScanTransactionsInfo): ScanTransactionsInfo =
     new Immutable(
+      lastOpenedTransactionID =
+        {
+          val field = original.lastOpenedTransactionID
+          field
+        },
       producerTransactions =
         {
           val field = original.producerTransactions
           field.map { field =>
             com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction.withoutPassthroughFields(field)
           }
-        },
-      isResponseCompleted =
-        {
-          val field = original.isResponseCompleted
-          field
         }
     )
 
@@ -97,10 +97,10 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
 
   private[this] def lazyDecode(_iprot: LazyTProtocol): ScanTransactionsInfo = {
 
+    var lastOpenedTransactionID: Long = 0L
+    var _got_lastOpenedTransactionID = false
     var producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]()
     var _got_producerTransactions = false
-    var isResponseCompleted: Boolean = false
-    var _got_isResponseCompleted = false
 
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
@@ -115,6 +115,21 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
         _field.id match {
           case 1 =>
             _field.`type` match {
+              case TType.I64 =>
+    
+                lastOpenedTransactionID = readLastOpenedTransactionIDValue(_iprot)
+                _got_lastOpenedTransactionID = true
+              case _actualType =>
+                val _expectedType = TType.I64
+                throw new TProtocolException(
+                  "Received wrong type for field 'lastOpenedTransactionID' (expected=%s, actual=%s).".format(
+                    ttypeToString(_expectedType),
+                    ttypeToString(_actualType)
+                  )
+                )
+            }
+          case 2 =>
+            _field.`type` match {
               case TType.LIST =>
     
                 producerTransactions = readProducerTransactionsValue(_iprot)
@@ -123,21 +138,6 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
                 val _expectedType = TType.LIST
                 throw new TProtocolException(
                   "Received wrong type for field 'producerTransactions' (expected=%s, actual=%s).".format(
-                    ttypeToString(_expectedType),
-                    ttypeToString(_actualType)
-                  )
-                )
-            }
-          case 2 =>
-            _field.`type` match {
-              case TType.BOOL =>
-    
-                isResponseCompleted = readIsResponseCompletedValue(_iprot)
-                _got_isResponseCompleted = true
-              case _actualType =>
-                val _expectedType = TType.BOOL
-                throw new TProtocolException(
-                  "Received wrong type for field 'isResponseCompleted' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -153,15 +153,15 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
     }
     _iprot.readStructEnd()
 
+    if (!_got_lastOpenedTransactionID) throw new TProtocolException("Required field 'lastOpenedTransactionID' was not found in serialized data for struct ScanTransactionsInfo")
     if (!_got_producerTransactions) throw new TProtocolException("Required field 'producerTransactions' was not found in serialized data for struct ScanTransactionsInfo")
-    if (!_got_isResponseCompleted) throw new TProtocolException("Required field 'isResponseCompleted' was not found in serialized data for struct ScanTransactionsInfo")
     new LazyImmutable(
       _iprot,
       _iprot.buffer,
       _start_offset,
       _iprot.offset,
+      lastOpenedTransactionID,
       producerTransactions,
-      isResponseCompleted,
       if (_passthroughFields == null)
         NoPassthroughFields
       else
@@ -176,10 +176,10 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
     }
 
   private[this] def eagerDecode(_iprot: TProtocol): ScanTransactionsInfo = {
+    var lastOpenedTransactionID: Long = 0L
+    var _got_lastOpenedTransactionID = false
     var producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]()
     var _got_producerTransactions = false
-    var isResponseCompleted: Boolean = false
-    var _got_isResponseCompleted = false
     var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
     var _done = false
 
@@ -192,13 +192,13 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
         _field.id match {
           case 1 =>
             _field.`type` match {
-              case TType.LIST =>
-                producerTransactions = readProducerTransactionsValue(_iprot)
-                _got_producerTransactions = true
+              case TType.I64 =>
+                lastOpenedTransactionID = readLastOpenedTransactionIDValue(_iprot)
+                _got_lastOpenedTransactionID = true
               case _actualType =>
-                val _expectedType = TType.LIST
+                val _expectedType = TType.I64
                 throw new TProtocolException(
-                  "Received wrong type for field 'producerTransactions' (expected=%s, actual=%s).".format(
+                  "Received wrong type for field 'lastOpenedTransactionID' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -206,13 +206,13 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
             }
           case 2 =>
             _field.`type` match {
-              case TType.BOOL =>
-                isResponseCompleted = readIsResponseCompletedValue(_iprot)
-                _got_isResponseCompleted = true
+              case TType.LIST =>
+                producerTransactions = readProducerTransactionsValue(_iprot)
+                _got_producerTransactions = true
               case _actualType =>
-                val _expectedType = TType.BOOL
+                val _expectedType = TType.LIST
                 throw new TProtocolException(
-                  "Received wrong type for field 'isResponseCompleted' (expected=%s, actual=%s).".format(
+                  "Received wrong type for field 'producerTransactions' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
                     ttypeToString(_actualType)
                   )
@@ -228,11 +228,11 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
     }
     _iprot.readStructEnd()
 
+    if (!_got_lastOpenedTransactionID) throw new TProtocolException("Required field 'lastOpenedTransactionID' was not found in serialized data for struct ScanTransactionsInfo")
     if (!_got_producerTransactions) throw new TProtocolException("Required field 'producerTransactions' was not found in serialized data for struct ScanTransactionsInfo")
-    if (!_got_isResponseCompleted) throw new TProtocolException("Required field 'isResponseCompleted' was not found in serialized data for struct ScanTransactionsInfo")
     new Immutable(
+      lastOpenedTransactionID,
       producerTransactions,
-      isResponseCompleted,
       if (_passthroughFields == null)
         NoPassthroughFields
       else
@@ -241,16 +241,30 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
   }
 
   def apply(
-    producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction](),
-    isResponseCompleted: Boolean
+    lastOpenedTransactionID: Long,
+    producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]()
   ): ScanTransactionsInfo =
     new Immutable(
-      producerTransactions,
-      isResponseCompleted
+      lastOpenedTransactionID,
+      producerTransactions
     )
 
-  def unapply(_item: ScanTransactionsInfo): _root_.scala.Option[_root_.scala.Tuple2[Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction], Boolean]] = _root_.scala.Some(_item.toTuple)
+  def unapply(_item: ScanTransactionsInfo): _root_.scala.Option[_root_.scala.Tuple2[Long, Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]]] = _root_.scala.Some(_item.toTuple)
 
+
+  @inline private def readLastOpenedTransactionIDValue(_iprot: TProtocol): Long = {
+    _iprot.readI64()
+  }
+
+  @inline private def writeLastOpenedTransactionIDField(lastOpenedTransactionID_item: Long, _oprot: TProtocol): Unit = {
+    _oprot.writeFieldBegin(LastOpenedTransactionIDField)
+    writeLastOpenedTransactionIDValue(lastOpenedTransactionID_item, _oprot)
+    _oprot.writeFieldEnd()
+  }
+
+  @inline private def writeLastOpenedTransactionIDValue(lastOpenedTransactionID_item: Long, _oprot: TProtocol): Unit = {
+    _oprot.writeI64(lastOpenedTransactionID_item)
+  }
 
   @inline private def readProducerTransactionsValue(_iprot: TProtocol): Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = {
     val _list = _iprot.readListBegin()
@@ -296,20 +310,6 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
     _oprot.writeListEnd()
   }
 
-  @inline private def readIsResponseCompletedValue(_iprot: TProtocol): Boolean = {
-    _iprot.readBool()
-  }
-
-  @inline private def writeIsResponseCompletedField(isResponseCompleted_item: Boolean, _oprot: TProtocol): Unit = {
-    _oprot.writeFieldBegin(IsResponseCompletedField)
-    writeIsResponseCompletedValue(isResponseCompleted_item, _oprot)
-    _oprot.writeFieldEnd()
-  }
-
-  @inline private def writeIsResponseCompletedValue(isResponseCompleted_item: Boolean, _oprot: TProtocol): Unit = {
-    _oprot.writeBool(isResponseCompleted_item)
-  }
-
 
   object Immutable extends ThriftStructCodec3[ScanTransactionsInfo] {
     override def encode(_item: ScanTransactionsInfo, _oproto: TProtocol): Unit = { _item.write(_oproto) }
@@ -323,16 +323,16 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
    * new instances.
    */
   class Immutable(
+      val lastOpenedTransactionID: Long,
       val producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction],
-      val isResponseCompleted: Boolean,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends ScanTransactionsInfo {
     def this(
-      producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction](),
-      isResponseCompleted: Boolean
+      lastOpenedTransactionID: Long,
+      producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]()
     ) = this(
+      lastOpenedTransactionID,
       producerTransactions,
-      isResponseCompleted,
       Map.empty
     )
   }
@@ -346,8 +346,8 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
       _buf: Array[Byte],
       _start_offset: Int,
       _end_offset: Int,
+      val lastOpenedTransactionID: Long,
       val producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction],
-      val isResponseCompleted: Boolean,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends ScanTransactionsInfo {
 
@@ -380,32 +380,32 @@ object ScanTransactionsInfo extends ThriftStructCodec3[ScanTransactionsInfo] {
    */
   trait Proxy extends ScanTransactionsInfo {
     protected def _underlying_ScanTransactionsInfo: ScanTransactionsInfo
+    override def lastOpenedTransactionID: Long = _underlying_ScanTransactionsInfo.lastOpenedTransactionID
     override def producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = _underlying_ScanTransactionsInfo.producerTransactions
-    override def isResponseCompleted: Boolean = _underlying_ScanTransactionsInfo.isResponseCompleted
     override def _passthroughFields = _underlying_ScanTransactionsInfo._passthroughFields
   }
 }
 
 trait ScanTransactionsInfo
   extends ThriftStruct
-  with _root_.scala.Product2[Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction], Boolean]
+  with _root_.scala.Product2[Long, Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]]
   with HasThriftStructCodec3[ScanTransactionsInfo]
   with java.io.Serializable
 {
   import ScanTransactionsInfo._
 
+  def lastOpenedTransactionID: Long
   def producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]
-  def isResponseCompleted: Boolean
 
   def _passthroughFields: immutable$Map[Short, TFieldBlob] = immutable$Map.empty
 
-  def _1 = producerTransactions
-  def _2 = isResponseCompleted
+  def _1 = lastOpenedTransactionID
+  def _2 = producerTransactions
 
-  def toTuple: _root_.scala.Tuple2[Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction], Boolean] = {
+  def toTuple: _root_.scala.Tuple2[Long, Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]] = {
     (
-      producerTransactions,
-      isResponseCompleted
+      lastOpenedTransactionID,
+      producerTransactions
     )
   }
 
@@ -424,16 +424,16 @@ trait ScanTransactionsInfo
         val _fieldOpt: _root_.scala.Option[TField] =
           _fieldId match {
             case 1 =>
-              if (producerTransactions ne null) {
-                writeProducerTransactionsValue(producerTransactions, _oprot)
-                _root_.scala.Some(ScanTransactionsInfo.ProducerTransactionsField)
+              if (true) {
+                writeLastOpenedTransactionIDValue(lastOpenedTransactionID, _oprot)
+                _root_.scala.Some(ScanTransactionsInfo.LastOpenedTransactionIDField)
               } else {
                 _root_.scala.None
               }
             case 2 =>
-              if (true) {
-                writeIsResponseCompletedValue(isResponseCompleted, _oprot)
-                _root_.scala.Some(ScanTransactionsInfo.IsResponseCompletedField)
+              if (producerTransactions ne null) {
+                writeProducerTransactionsValue(producerTransactions, _oprot)
+                _root_.scala.Some(ScanTransactionsInfo.ProducerTransactionsField)
               } else {
                 _root_.scala.None
               }
@@ -463,19 +463,19 @@ trait ScanTransactionsInfo
    * _passthroughFields.
    */
   def setField(_blob: TFieldBlob): ScanTransactionsInfo = {
+    var lastOpenedTransactionID: Long = this.lastOpenedTransactionID
     var producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = this.producerTransactions
-    var isResponseCompleted: Boolean = this.isResponseCompleted
     var _passthroughFields = this._passthroughFields
     _blob.id match {
       case 1 =>
-        producerTransactions = readProducerTransactionsValue(_blob.read)
+        lastOpenedTransactionID = readLastOpenedTransactionIDValue(_blob.read)
       case 2 =>
-        isResponseCompleted = readIsResponseCompletedValue(_blob.read)
+        producerTransactions = readProducerTransactionsValue(_blob.read)
       case _ => _passthroughFields += (_blob.id -> _blob)
     }
     new Immutable(
+      lastOpenedTransactionID,
       producerTransactions,
-      isResponseCompleted,
       _passthroughFields
     )
   }
@@ -486,19 +486,19 @@ trait ScanTransactionsInfo
    * from the passthroughFields map, if present.
    */
   def unsetField(_fieldId: Short): ScanTransactionsInfo = {
+    var lastOpenedTransactionID: Long = this.lastOpenedTransactionID
     var producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = this.producerTransactions
-    var isResponseCompleted: Boolean = this.isResponseCompleted
 
     _fieldId match {
       case 1 =>
-        producerTransactions = Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]()
+        lastOpenedTransactionID = 0L
       case 2 =>
-        isResponseCompleted = false
+        producerTransactions = Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]()
       case _ =>
     }
     new Immutable(
+      lastOpenedTransactionID,
       producerTransactions,
-      isResponseCompleted,
       _passthroughFields - _fieldId
     )
   }
@@ -508,16 +508,16 @@ trait ScanTransactionsInfo
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetProducerTransactions: ScanTransactionsInfo = unsetField(1)
+  def unsetLastOpenedTransactionID: ScanTransactionsInfo = unsetField(1)
 
-  def unsetIsResponseCompleted: ScanTransactionsInfo = unsetField(2)
+  def unsetProducerTransactions: ScanTransactionsInfo = unsetField(2)
 
 
   override def write(_oprot: TProtocol): Unit = {
     ScanTransactionsInfo.validate(this)
     _oprot.writeStructBegin(Struct)
+    writeLastOpenedTransactionIDField(lastOpenedTransactionID, _oprot)
     if (producerTransactions ne null) writeProducerTransactionsField(producerTransactions, _oprot)
-    writeIsResponseCompletedField(isResponseCompleted, _oprot)
     if (_passthroughFields.nonEmpty) {
       _passthroughFields.values.foreach { _.write(_oprot) }
     }
@@ -526,13 +526,13 @@ trait ScanTransactionsInfo
   }
 
   def copy(
+    lastOpenedTransactionID: Long = this.lastOpenedTransactionID,
     producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction] = this.producerTransactions,
-    isResponseCompleted: Boolean = this.isResponseCompleted,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
   ): ScanTransactionsInfo =
     new Immutable(
+      lastOpenedTransactionID,
       producerTransactions,
-      isResponseCompleted,
       _passthroughFields
     )
 
@@ -555,8 +555,8 @@ trait ScanTransactionsInfo
   override def productArity: Int = 2
 
   override def productElement(n: Int): Any = n match {
-    case 0 => this.producerTransactions
-    case 1 => this.isResponseCompleted
+    case 0 => this.lastOpenedTransactionID
+    case 1 => this.producerTransactions
     case _ => throw new IndexOutOfBoundsException(n.toString)
   }
 

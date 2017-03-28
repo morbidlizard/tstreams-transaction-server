@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.options
 
 import com.bwsw.tstreamstransactionserver.netty.server.Server
-import ServerOptions._
-import CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 
 class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
                             bootstrapOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
@@ -59,21 +59,21 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
     packageTransmissionOptions
   )
 
-  def getZookeeperOptions() = zookeeperOptions.copy()
+  def getZookeeperOptions = zookeeperOptions.copy()
 
-  def getAuthOptions() = authOptions.copy()
+  def getAuthOptions = authOptions.copy()
 
-  def getBootstrapOptions() = bootstrapOptions.copy()
+  def getBootstrapOptions = bootstrapOptions.copy()
 
-  def getServerReplicationOptions() = serverReplicationOptions.copy()
+  def getServerReplicationOptions = serverReplicationOptions.copy()
 
-  def getStorageOptions() = storageOptions.copy()
+  def getStorageOptions = storageOptions.copy()
 
-  def getBerkeleyStorageOptions() = berkeleyStorageOptions.copy()
+  def getBerkeleyStorageOptions = berkeleyStorageOptions.copy()
 
-  def getRocksStorageOptions() = rocksStorageOptions.copy()
+  def getRocksStorageOptions = rocksStorageOptions.copy()
 
-  def getPackageTransmissionOptions() = packageTransmissionOptions.copy()
+  def getPackageTransmissionOptions = packageTransmissionOptions.copy()
 
-  def getCommitLogOptions() = commitLogOptions.copy()
+  def getCommitLogOptions = commitLogOptions.copy()
 }

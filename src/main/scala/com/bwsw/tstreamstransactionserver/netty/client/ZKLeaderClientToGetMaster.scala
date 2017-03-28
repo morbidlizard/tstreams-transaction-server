@@ -37,7 +37,7 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
   private val nodeToWatch = new NodeCache(connection, prefix, false)
   nodeToWatch.getListenable.addListener(this)
 
-  def start() = nodeToWatch.start()
+  def start(): Unit = nodeToWatch.start()
 
   override def close(): Unit = {
     nodeToWatch.close()

@@ -11,7 +11,7 @@ class ClientExecutionContext(nThreads: Int) {
 
   lazy val context = executionContext.getContext
 
-  def shutdown() = {
+  def shutdown(): Unit = {
     executionContext.shutdown()
   }
 }

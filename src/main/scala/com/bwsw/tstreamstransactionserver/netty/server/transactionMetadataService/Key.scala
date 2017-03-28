@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key.objectToEntry
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
-import Key.objectToEntry
 
 case class Key(stream: Long, partition: Int, transactionID: Long) extends Ordered[Key]{
   def toDatabaseEntry: DatabaseEntry = {

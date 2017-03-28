@@ -75,9 +75,9 @@ trait TransactionStateHandler {
             ProducerTransactionWithoutKey(Opened, nextTxn.quantity, nextTxn.ttl, nextTxn.timestamp)
           )
 
-      case (Opened, Cancel) => {
+      case (Opened, Cancel) =>
         transitProducerTransactionToInvalidState(currentTxn)
-      }
+
 
       case (Opened, Invalid) => throw new IllegalArgumentException("An opened transaction can transit to the Invalid state by Cancel state only!")
 

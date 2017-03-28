@@ -22,7 +22,7 @@ class ExecutionContext(nContexts: Int, f: => java.util.concurrent.ExecutorServic
 
   lazy val getContext = contexts(0)
 
-  def shutdown() = contexts.foreach(_.shutdown())
+  def shutdown(): Unit = contexts.foreach(_.shutdown())
 }
 
 

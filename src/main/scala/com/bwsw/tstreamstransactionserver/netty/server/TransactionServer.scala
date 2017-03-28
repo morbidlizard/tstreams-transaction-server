@@ -1,11 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionKey}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.sleepycat.je.Transaction
 
@@ -23,7 +22,7 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
   override def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit = removeRocksDBDatabaseAndDeleteFolder(stream)
   override def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, transaction: Transaction): Unit = deleteLastOpenedAndCheckpointedTransactions(stream, transaction)
 
-  def shutdown() = {
+  def shutdown(): Unit = {
     executionContext.shutdown()
 
     closeStreamDatabase()

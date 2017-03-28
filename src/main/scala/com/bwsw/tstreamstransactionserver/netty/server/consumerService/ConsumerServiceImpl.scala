@@ -6,7 +6,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Future => ScalaFuture, _}
+import scala.concurrent.{Future => ScalaFuture}
 
 trait ConsumerServiceImpl extends Authenticable with StreamCache {
   val executionContext: ServerExecutionContext

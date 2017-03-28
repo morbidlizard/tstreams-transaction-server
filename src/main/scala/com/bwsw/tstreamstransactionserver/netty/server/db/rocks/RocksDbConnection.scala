@@ -16,7 +16,7 @@ class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksS
   }
 
   def get(key: Array[Byte]) = client.get(key)
-  def put(key: Array[Byte], data: Array[Byte]) = client.put(key, data)
+  def put(key: Array[Byte], data: Array[Byte]): Unit = client.put(key, data)
 
 
   def iterator = client.newIterator()
@@ -30,11 +30,11 @@ class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksS
   def newBatch = new Batch
   class Batch() {
     private val batch  = new WriteBatch()
-    def put(key: Array[Byte], data: Array[Byte]) = {
+    def put(key: Array[Byte], data: Array[Byte]): Unit = {
       batch.put(key,data)
     }
 
-    def remove(key: Array[Byte]) = batch.remove(key)
+    def remove(key: Array[Byte]): Unit = batch.remove(key)
     def write(): Boolean = {
       val status = scala.util.Try(client.write(new WriteOptions(), batch)) match {
         case scala.util.Success(_) => true

@@ -3,14 +3,14 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionID, TransactionStateHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
+import com.bwsw.tstreamstransactionserver.rpc._
 import com.sleepycat.je._
 import org.slf4j.{Logger, LoggerFactory}
-import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
@@ -229,7 +229,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   class BigCommit(pathToFile: String) {
     private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
 
-    def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]) = {
+    def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
       if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
       putTransactions(transactions, transactionDB)
     }

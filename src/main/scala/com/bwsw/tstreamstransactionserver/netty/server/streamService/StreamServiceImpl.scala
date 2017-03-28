@@ -2,13 +2,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache, Time}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
+import com.bwsw.tstreamstransactionserver.rpc.StreamService
 import com.sleepycat.bind.tuple.StringBinding
 import com.sleepycat.je._
 import org.slf4j.LoggerFactory
-import com.bwsw.tstreamstransactionserver.rpc.StreamService
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}

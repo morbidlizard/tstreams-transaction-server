@@ -9,8 +9,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnectio
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
-import org.slf4j.LoggerFactory
 import com.bwsw.tstreamstransactionserver.rpc.TransactionDataService
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
@@ -95,5 +95,5 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
     }(executionContext.rocksReadContext)
   }
 
-  def closeTransactionDataDatabases() = rocksDBStorageToStream.values().forEach(_.close())
+  def closeTransactionDataDatabases(): Unit = rocksDBStorageToStream.values().forEach(_.close())
 }

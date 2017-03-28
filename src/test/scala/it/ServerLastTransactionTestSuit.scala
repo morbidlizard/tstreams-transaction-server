@@ -6,14 +6,13 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 
 import scala.annotation.tailrec
-import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Future => ScalaFuture}
+import scala.concurrent.{Await, Future => ScalaFuture}
 import scala.language.reflectiveCalls
 
 class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAndAfterEach {
@@ -249,10 +248,10 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     def getLastTransactionID(producerTransactions: List[ProducerTransaction], acc: Option[Long]): Option[Long] = {
       producerTransactions match {
         case Nil => acc
-        case txn :: txns =>
-          if (acc.isEmpty) getLastTransactionID(txns, acc)
-          else if (acc.get <= txn.transactionID) getLastTransactionID(txns, Some(txn.transactionID))
-          else getLastTransactionID(txns, acc)
+        case transaction :: otherTransactions =>
+          if (acc.isEmpty) getLastTransactionID(otherTransactions, acc)
+          else if (acc.get <= transaction.transactionID) getLastTransactionID(otherTransactions, Some(transaction.transactionID))
+          else getLastTransactionID(otherTransactions, acc)
       }
     }
 

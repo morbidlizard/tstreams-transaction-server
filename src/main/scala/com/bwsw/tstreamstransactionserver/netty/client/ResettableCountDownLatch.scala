@@ -37,20 +37,20 @@ class ResettableCountDownLatch(val count: Int) {
 
   override def toString = super.toString + "[Count = " + sync.getCount + "]"
 
-  def reset = sync.reset()
+  def reset(): Unit = sync.reset()
 
   def setValue(value: Int) = sync.setValue(value)
 
   def countDown(): Unit = sync.releaseShared(1)
 
-  def getCount() = sync.getCount
+  def getCount = sync.getCount
 
   @throws[InterruptedException]
   def await(timeout: Long, unit: TimeUnit): Boolean =
     sync.tryAcquireSharedNanos(1, unit.toNanos(timeout))
 
   @throws[InterruptedException]
-  def await() =
+  def await(): Unit =
     sync.acquireSharedInterruptibly(1)
 
 }

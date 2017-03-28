@@ -5,9 +5,9 @@ import com.bwsw.tstreamstransactionserver.netty.Descriptors._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, ObjectSerializer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.PackageTransmissionOptions
+import com.bwsw.tstreamstransactionserver.rpc.{AuthInfo, ProducerTransaction, ServerException, TransactionService}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.Logger
-import com.bwsw.tstreamstransactionserver.rpc.{AuthInfo, ProducerTransaction, ServerException, TransactionService}
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
@@ -41,9 +41,9 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     val isTooBigPackage = isTooBigMessage(message)
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
 
-    def logSuccessfulProcession() = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
+    def logSuccessfulProcession(): Unit = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
 
-    def logUnsuccessfulProcessing(error: Throwable) = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is failed while processing!", error)
+    def logUnsuccessfulProcessing(error: Throwable): Unit = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is failed while processing!", error)
 
     if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is invoked.")
 

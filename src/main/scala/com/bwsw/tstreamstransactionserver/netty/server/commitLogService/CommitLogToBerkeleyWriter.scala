@@ -6,8 +6,8 @@ import com.bwsw.commitlog.filesystem.{CommitLogFile, CommitLogFileIterator}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
-import org.slf4j.LoggerFactory
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
+import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
@@ -74,7 +74,7 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
   @throws[Exception]
   private def processCommitLogFile(file: CommitLogFile): Boolean = {
     val recordsToReadNumber = 1
-    val bigCommit = transactionServer.getBigCommit(file.getFile().getAbsolutePath)
+    val bigCommit = transactionServer.getBigCommit(file.getFile.getAbsolutePath)
 
     def getFirstRecordAndReturnIterator(iterator: CommitLogFileIterator): (CommitLogFileIterator, Seq[(Transaction, Long)]) = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, 1)
@@ -99,13 +99,13 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
       }
     }
 
-    val (iter, firstRecord) = getFirstRecordAndReturnIterator(file.getIterator())
+    val (iter, firstRecord) = getFirstRecordAndReturnIterator(file.getIterator)
     val isOkay = firstRecord.headOption match {
       case Some((transaction, firstTransactionTimestamp)) =>
         bigCommit.putSomeTransactions(firstRecord)
         val (areTransactionsProcessed, lastTransactionTimestamp) = helper(iter, firstTransactionTimestamp, firstTransactionTimestamp)
         if (areTransactionsProcessed) {
-          if (logger.isDebugEnabled) logger.debug(s"${file.getFile().getPath} is processed successfully and all records from the file are persisted!")
+          if (logger.isDebugEnabled) logger.debug(s"${file.getFile.getPath} is processed successfully and all records from the file are persisted!")
           val cleanTask = transactionServer.createTransactionsToDeleteTask(lastTransactionTimestamp)
           cleanTask.run()
         } else throw new Exception("There is a bug; Stop server and fix code!")

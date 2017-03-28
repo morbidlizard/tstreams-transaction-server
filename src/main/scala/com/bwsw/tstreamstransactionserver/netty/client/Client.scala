@@ -129,13 +129,11 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     } else {
       zKLeaderClient.master match {
         case Some(master) => (master.address, master.port)
-        case None => {
-          println("Asdasdasdasd")
+        case None =>
           val throwable = new ZkGetMasterException(zookeeperOpts.endpoints)
           if (logger.isWarnEnabled()) logger.warn(throwable.getMessage)
           shutdown()
           throw throwable
-        }
       }
     }
   }
@@ -171,7 +169,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     } else ScalaFuture.failed(new ServerUnreachableException(currentConnectionSocketAddress.toString))
   }
 
-  private def validateMessageSize(message: Message) = {
+  private def validateMessageSize(message: Message): Unit = {
     if (maxMetadataPackageSize != -1 && maxDataPackageSize != -1) {
       if (message.length > maxMetadataPackageSize || message.length > maxDataPackageSize) {
         throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
@@ -643,7 +641,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       })
   }
 
-  def shutdown() = {
+  def shutdown(): Unit = {
     if (workerGroup != null) workerGroup.shutdownGracefully()
     if (channel != null) channel.closeFuture()
     zKLeaderClient.close()

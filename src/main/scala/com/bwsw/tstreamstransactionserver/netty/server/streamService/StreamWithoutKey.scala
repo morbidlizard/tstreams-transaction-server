@@ -1,10 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
-import com.sleepycat.bind.tuple.TupleBinding
-import com.sleepycat.bind.tuple.TupleInput
-import com.sleepycat.bind.tuple.TupleOutput
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamWithoutKey.objectToEntry
+import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
-import StreamWithoutKey.objectToEntry
 
 case class StreamWithoutKey(name: String, partitions: Int, description: Option[String], ttl: Long, timestamp: Long, @volatile var deleted: Boolean)
   extends com.bwsw.tstreamstransactionserver.rpc.Stream

@@ -7,16 +7,16 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.options.ServerBuilder
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   private val serverBuilder = new ServerBuilder()
-  private val storageOptions = serverBuilder.getStorageOptions()
+  private val storageOptions = serverBuilder.getStorageOptions
   private val secondsWait = 5
 
   override def beforeEach(): Unit = {
@@ -56,7 +56,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     ).producerTransactions.head
   }
 
-  private final def transitOneTransactionToAnotherState(transactionServiceServer: TransactionServer, in: ProducerTransaction, toUpdateIn: ProducerTransaction, out: ProducerTransaction, timeBeetwenTransactionSec: Long) = {
+  private final def transitOneTransactionToAnotherState(transactionServiceServer: TransactionServer, in: ProducerTransaction, toUpdateIn: ProducerTransaction, out: ProducerTransaction, timeBetweenTransactionSec: Long) = {
     val inAggregated = Transaction(Some(in), None)
     val firstCommitTime = System.currentTimeMillis()
     val commitFirst = transactionServiceServer.getBigCommit(scala.util.Random.nextString(6))
@@ -66,7 +66,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val toUpdateInAggregated = Transaction(Some(toUpdateIn), None)
     val secondCommitTime = System.currentTimeMillis()
     val secondCommit = transactionServiceServer.getBigCommit(scala.util.Random.nextString(6))
-    secondCommit.putSomeTransactions(Seq((toUpdateInAggregated, secondCommitTime + TimeUnit.SECONDS.toMillis(timeBeetwenTransactionSec))))
+    secondCommit.putSomeTransactions(Seq((toUpdateInAggregated, secondCommitTime + TimeUnit.SECONDS.toMillis(timeBetweenTransactionSec))))
     secondCommit.commit(secondCommitTime)
 
     getProducerTransactionFromServer(transactionServiceServer, out) shouldBe out

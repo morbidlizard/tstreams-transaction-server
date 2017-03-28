@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.options
 
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import ClientOptions._
-import CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.ClientOptions._
+import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 
 
 class ClientBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions, connectionOpts: ConnectionOptions) {
@@ -20,9 +20,9 @@ class ClientBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
 
   def build() = new Client(connectionOptions, authOptions, zookeeperOptions)
 
-  def getConnectionOptions() = connectionOptions.copy()
+  def getConnectionOptions = connectionOptions.copy()
 
-  def getZookeeperOptions() = zookeeperOptions.copy()
+  def getZookeeperOptions = zookeeperOptions.copy()
 
-  def getAuthOptions() = authOptions.copy()
+  def getAuthOptions = authOptions.copy()
 }

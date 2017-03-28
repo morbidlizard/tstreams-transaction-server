@@ -9,12 +9,13 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
-import scala.language.reflectiveCalls
-import scala.concurrent.duration._
+
 import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.language.reflectiveCalls
 
 class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 

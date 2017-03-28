@@ -1,8 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 import com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
+
+import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
 trait Authenticable extends AuthServiceImpl{
   def authenticate[A](token: Int)(body: => A)(implicit context: ExecutionContext): ScalaFuture[A] = {

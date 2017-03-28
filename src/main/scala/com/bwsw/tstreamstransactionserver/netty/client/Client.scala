@@ -272,8 +272,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @param stream      a name of stream.
     * @param partitions  a number of stream partitions.
     * @param description a description of stream.
-    * @return placeholder of putStream operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    * @return Future of putStream operation that can be completed or not. If it is completed it returns:
+    *         1) TRUE if stream is persisted by a server or FALSE if there is a stream with such name on the server;
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server.
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path.
+    *         4) other kind of exceptions that means there is a bug on a server, and it is should to be reported about this issue.
+    *
     */
 
   @throws[Exception]

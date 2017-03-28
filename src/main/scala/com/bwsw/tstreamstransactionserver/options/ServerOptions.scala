@@ -41,6 +41,7 @@ object ServerOptions {
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getTransaction]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getLastCheckpoitnedTransaction]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl.getStream]],
+    *                               [[com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl.checkStreamExists]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl.getConsumerState]]
     *
     */
@@ -121,12 +122,14 @@ object ServerOptions {
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
     * @param maxIdleTimeBetweenRecords max count of seconds that will pass from last commit log record to close a current commit log file and open a new one.
     * @param commitLogToBerkeleyDBTaskDelayMs the time through a next commit log file is processed if there is one.
+    * @param commitLogCloseDelayMs the time through a commit log file is closed.
     */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
                               maxIdleTimeBetweenRecords: Int = 2,
-                              commitLogToBerkeleyDBTaskDelayMs: Int = 500
+                              commitLogToBerkeleyDBTaskDelayMs: Int = 500,
+                              commitLogCloseDelayMs: Int = 1000
                              )
 }
 

@@ -166,7 +166,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   }
 
   "One client" should "put stream, then another client should delete it and put with the same name. " +
-    "After that the first client should put transactions and get them back in the properly quantity." in {
+    "After that the first client should put transactions and get them back in the appropriate quantity." in {
     val stream = getRandomStream
     val txnNumber = 100
     val firstClient = clients(0)
@@ -202,7 +202,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
 
   "One client" should "put stream, then another client should put transactions on a stream on a partition. " +
-    "After that the first client tries to put transactions on the stream on the partition and clients should see the same last checkpointed transaction." in {
+    "After that the first client tries to put transactions on the stream on the partition and clients should get the same last checkpointed transaction." in {
     val stream = getRandomStream
 
     val firstClient = clients(0)
@@ -251,7 +251,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
   }
 
-  it should "put transaction data, another one put the data with intersecting keys, and, as consequence, overwrite values." in {
+  "One client" should "put transaction data, another one should put the data with intersecting keys, and, as consequence, overwrite values." in {
     val stream = getRandomStream
 
     val dataAmount = 10

@@ -201,8 +201,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   }
 
 
-  "One client" should "put stream, then another client should put transactions on a stream on a partition. " +
-    "After that the first client tries to put transactions on the stream on the partition and clients should get the same last checkpointed transaction." in {
+  "One client" should "put producer transaction: Opened; the second one: Canceled. The Result is invalid transaction." in {
     val stream = getRandomStream
 
     val firstClient = clients(0)
@@ -210,18 +209,44 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
-    val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
-    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe false
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
+
+    //transactions are processed in the async mode
+    val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
+    Await.result(secondClient.putProducerState(producerTransaction1), secondsWait.seconds) shouldBe true
+
+    //it's required to close a current commit log file
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.berkeleyWriter.run()
+
+    val canceledTransaction = producerTransaction1.copy(state = TransactionStates.Cancel, ttl = 0L)
+    Await.result(secondClient.putProducerState(canceledTransaction), secondsWait.seconds) shouldBe true
+
+    //it's required to close a current commit log file
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.berkeleyWriter.run()
+
+    Await.result(firstClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe canceledTransaction.copy(state = TransactionStates.Invalid)
+    Await.result(secondClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe canceledTransaction.copy(state = TransactionStates.Invalid)
+  }
+
+  "One client" should "put producer transaction: Opened; the second one: Checkpointed. The Result is checkpointed transaction." in {
+    val stream = getRandomStream
+
+    val firstClient = clients(0)
+    val secondClient = clients(1)
+
+    Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
 
     //transactions are processed in the async mode
     val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
-
     Await.result(secondClient.putProducerState(producerTransaction1), secondsWait.seconds) shouldBe true
-    Await.result(secondClient.putProducerState(producerTransaction1.copy(state = TransactionStates.Checkpointed)), secondsWait.seconds) shouldBe true
-    Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe -1L
-    Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe -1L
 
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
@@ -229,17 +254,8 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
-    Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
-    Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
-
-    val producerTransaction2 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
-    Await.result(secondClient.putProducerState(producerTransaction2.copy()), secondsWait.seconds) shouldBe true
-    Await.result(secondClient.putProducerState(producerTransaction2.copy(state = TransactionStates.Checkpointed)), secondsWait.seconds) shouldBe true
-    Await.result(secondClient.putProducerState(producerTransaction2.copy(state = TransactionStates.Opened, transactionID = TestTimer.getCurrentTime + 1L)), secondsWait.seconds) shouldBe true
-
-    Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
-    Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
-
+    val checkpointedTransaction = producerTransaction1.copy(state = TransactionStates.Checkpointed)
+    Await.result(secondClient.putProducerState(checkpointedTransaction), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
@@ -247,8 +263,41 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
-    Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
-    Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
+    Await.result(firstClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe checkpointedTransaction
+    Await.result(secondClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe checkpointedTransaction
+  }
+
+  "One client" should "put producer transaction: Opened; the second one: Invalid. The Result is opened transaction." in {
+    val stream = getRandomStream
+
+    val firstClient = clients(0)
+    val secondClient = clients(1)
+
+    Await.result(firstClient.putStream(stream), secondsWait.seconds)
+
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
+
+    //transactions are processed in the async mode
+    val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
+    Await.result(secondClient.putProducerState(producerTransaction1), secondsWait.seconds) shouldBe true
+
+    //it's required to close a current commit log file
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.berkeleyWriter.run()
+
+    val invalidTransaction = producerTransaction1.copy(state = TransactionStates.Invalid)
+    Await.result(secondClient.putProducerState(invalidTransaction), secondsWait.seconds) shouldBe true
+
+    //it's required to close a current commit log file
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.berkeleyWriter.run()
+
+    Await.result(firstClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe producerTransaction1
+    Await.result(secondClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe producerTransaction1
   }
 
   "One client" should "put transaction data, another one should put the data with intersecting keys, and, as consequence, overwrite values." in {
@@ -264,12 +313,37 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     val data1 = Array.fill(dataAmount)(("a" + new String(rand.nextInt(100000).toString)).getBytes)
     Await.result(firstClient.putTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, data1, 0), secondsWait.seconds) shouldBe true
-    val data1Retrieved = Await.result(firstClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, 0, 10), secondsWait.seconds)
+    val data1Retrieved = Await.result(firstClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, 0, dataAmount - 1), secondsWait.seconds)
 
     val data2 = Array.fill(dataAmount)(("b" + new String(rand.nextInt(100000).toString)).getBytes)
     Await.result(secondClient.putTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, data2, 0), secondsWait.seconds) shouldBe true
-    val data2Retrieved = Await.result(secondClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, 0, 10), secondsWait.seconds)
+    val data2Retrieved = Await.result(secondClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, 0, dataAmount - 1), secondsWait.seconds)
 
+    data1Retrieved should not contain theSameElementsInOrderAs(data2Retrieved)
+  }
+
+  "One client" should "put transaction data, another one should put the data for which a \"from\" value equals the previous \"to\" value, and both clients should get the concatenation of this data." in {
+    val stream = getRandomStream
+
+    val dataAmount = 10
+
+    val firstClient = clients(0)
+    val secondClient = clients(1)
+
+    Await.result(firstClient.putStream(stream), secondsWait.seconds)
+    val producerTransaction = getRandomProducerTransaction(stream)
+
+    val data1 = Array.fill(dataAmount)(("a" + new String(rand.nextInt(100000).toString)).getBytes)
+    Await.result(firstClient.putTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, data1, 0), secondsWait.seconds) shouldBe true
+
+    val data2 = Array.fill(dataAmount)(("b" + new String(rand.nextInt(100000).toString)).getBytes)
+    Await.result(secondClient.putTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, data2, dataAmount), secondsWait.seconds) shouldBe true
+
+    val data1Retrieved = Await.result(firstClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, 0, dataAmount - 1), secondsWait.seconds)
+    val data2Retrieved = Await.result(secondClient.getTransactionData(stream.name, stream.partitions, producerTransaction.transactionID, dataAmount, 2*dataAmount - 1), secondsWait.seconds)
+
+    data1Retrieved should contain theSameElementsInOrderAs data1
+    data2Retrieved should contain theSameElementsInOrderAs data2
     data1Retrieved should not contain theSameElementsInOrderAs(data2Retrieved)
   }
 }

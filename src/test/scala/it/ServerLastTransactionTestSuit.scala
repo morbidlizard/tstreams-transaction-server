@@ -84,7 +84,6 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
         (producerTransaction, System.currentTimeMillis())
       }.toArray
 
-      val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
       val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
@@ -142,7 +141,6 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       val transactionInCertainIndex = producerTransactionsWithTimestampWithoutChecpointed(producerTransactionsNumber - 1)
       val producerTransactionsWithTimestamp = producerTransactionsWithTimestampWithoutChecpointed :+ (transactionInCertainIndex._1.copy(state = TransactionStates.Checkpointed), currentTimeInc)
 
-      val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
       val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}

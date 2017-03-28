@@ -41,6 +41,7 @@ object ServerOptions {
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getTransaction]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getLastCheckpoitnedTransaction]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl.getStream]],
+    *                               [[com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl.checkStreamExists]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl.getConsumerState]]
     *
     */

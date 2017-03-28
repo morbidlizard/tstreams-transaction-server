@@ -151,6 +151,24 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.delStream(getRandomStream), secondsWait.seconds) shouldBe false
   }
 
+  it should "put stream, then delete that stream and check it doesn't exist" in {
+    val stream = getRandomStream
+
+    Await.result(client.putStream(stream), secondsWait.seconds) shouldBe true
+    Await.result(client.checkStreamExists(stream.name), secondsWait.seconds) shouldBe true
+    Await.result(client.delStream(stream), secondsWait.seconds) shouldBe true
+    Await.result(client.checkStreamExists(stream.name), secondsWait.seconds) shouldBe false
+  }
+
+  it should "put stream, then delete that stream, then again delete this stream and get that operation isn't successful" in {
+    val stream = getRandomStream
+
+    Await.result(client.putStream(stream), secondsWait.seconds) shouldBe true
+    Await.result(client.delStream(stream), secondsWait.seconds) shouldBe true
+    Await.result(client.checkStreamExists(stream.name), secondsWait.seconds) shouldBe false
+    Await.result(client.delStream(stream), secondsWait.seconds)  shouldBe false
+  }
+
   it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)

@@ -115,34 +115,35 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }(executionContext.berkeleyWriteContext)
 
   override def checkStreamExists(stream: String): ScalaFuture[Boolean] =
-    ScalaFuture.successful(scala.util.Try(getStreamFromOldestToNewest(stream).nonEmpty).isSuccess)
+    ScalaFuture(scala.util.Try(getMostRecentStream(stream)).isSuccess)(executionContext.berkeleyReadContext)
 
   override def getStream(stream: String): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] =
-    ScalaFuture{
-      val mostRecentStream = getStreamFromOldestToNewest(stream).last.stream
-      if (mostRecentStream.deleted) throw new StreamDoesNotExist(stream) else mostRecentStream
-    }(executionContext.berkeleyReadContext)
+    ScalaFuture(getMostRecentStream(stream).stream)(executionContext.berkeleyReadContext)
 
   override def delStream(stream: String): ScalaFuture[Boolean] =
-    ScalaFuture{
+    ScalaFuture {
       scala.util.Try(getStreamFromOldestToNewest(stream)) match {
         case scala.util.Success(streamObjects) =>
-          val transactionDB = environment.beginTransaction(null, new TransactionConfig())
-
           val mostRecentKeyStream = streamObjects.last
-          mostRecentKeyStream.stream.deleted = true
-
-          val result = streamDatabase.put(transactionDB, mostRecentKeyStream.key.toDatabaseEntry, mostRecentKeyStream.stream.toDatabaseEntry)
-          if (result == OperationStatus.SUCCESS) {
-            removeLastOpenedAndCheckpointedTransactionRecords(mostRecentKeyStream.streamNameToLong, transactionDB)
-            transactionDB.commit()
-            closeRocksDBConnectionAndDeleteFolder(mostRecentKeyStream.streamNameToLong)
-            if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
-            true
-          } else {
-            if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")
-            transactionDB.abort()
+          if (mostRecentKeyStream.stream.deleted) {
+            if (logger.isDebugEnabled()) logger.debug(s"Stream $stream has been already removed.")
             false
+          } else {
+
+            val transactionDB = environment.beginTransaction(null, new TransactionConfig())
+            mostRecentKeyStream.stream.deleted = true
+            val result = streamDatabase.put(transactionDB, mostRecentKeyStream.key.toDatabaseEntry, mostRecentKeyStream.stream.toDatabaseEntry)
+            if (result == OperationStatus.SUCCESS) {
+              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentKeyStream.streamNameToLong, transactionDB)
+              transactionDB.commit()
+              closeRocksDBConnectionAndDeleteFolder(mostRecentKeyStream.streamNameToLong)
+              if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
+              true
+            } else {
+              if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")
+              transactionDB.abort()
+              false
+            }
           }
         case scala.util.Failure(throwable) => false
       }

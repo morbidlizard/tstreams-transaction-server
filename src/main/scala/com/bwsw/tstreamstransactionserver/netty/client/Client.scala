@@ -274,13 +274,16 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @param description a description of stream.
     * @return Future of putStream operation that can be completed or not. If it is completed it returns:
     *         1) TRUE if stream is persisted by a server or FALSE if there is a stream with such name on the server;
-    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server.
-    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server.
+    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path.
-    *         4) other kind of exceptions that means there is a bug on a server, and it is should to be reported about this issue.
+    *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     *
     */
-
+  @throws[TokenInvalidException]
+  @throws[PackageTooBigException]
+  @throws[ZkGetMasterException]
   @throws[Exception]
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream $stream with $partitions partitions, ttl $ttl and description.")
@@ -292,12 +295,20 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-  /** Putting a stream on a server by Thrift StreamWithoutKey structure.
+  /** Putting a stream on a server by Thrift Stream structure.
     *
-    * @param stream an object of StreamWithoutKey structure.
-    * @return placeholder of putStream operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    * @param stream an object of Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] structure.
+    * @return Future of putStream operation that can be completed or not. If it is completed it returns:
+    *         1) TRUE if stream is persisted by a server or FALSE if there is a stream with such name on the server;
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server;
+    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
+  @throws[TokenInvalidException]
+  @throws[PackageTooBigException]
+  @throws[ZkGetMasterException]
   @throws[Exception]
   def putStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream ${stream.name} with ${stream.partitions} partitions, ttl ${stream.ttl} and description.")
@@ -312,9 +323,17 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** Deleting a stream by name on a server.
     *
     * @param stream a name of stream.
-    * @return placeholder of delStream operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    * @return Future of putStream operation that can be completed or not. If it is completed it returns:
+    *         1) TRUE if stream is removed by a server or FALSE if a stream is already deleted or there in no such stream on the server;
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream name has size in bytes more than defined by a server;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
+  @throws[TokenInvalidException]
+  @throws[PackageTooBigException]
+  @throws[ZkGetMasterException]
   @throws[Exception]
   def delStream(stream: String): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled) logger.debug(s"Deleting stream $stream.")
@@ -326,12 +345,20 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
-  /** Deleting a stream by Thrift Stream structure on a server.
+  /** Deleting a stream by Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] structure on a server.
     *
     * @param stream a name of stream.
-    * @return placeholder of delStream operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    * @return Future of delStream operation that can be completed or not. If it is completed it returns:
+    *         1) TRUE if stream is removed by a server or FALSE if a stream is already deleted or there in no such stream on the server;
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         4) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
+  @throws[TokenInvalidException]
+  @throws[PackageTooBigException]
+  @throws[ZkGetMasterException]
   @throws[Exception]
   def delStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled()) logger.debug(s"Deleting stream ${stream.name}.")
@@ -346,9 +373,19 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** Retrieving a stream from a server by it's name.
     *
     * @param stream a name of stream.
-    * @return placeholder of getStream operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    * @return Future of getStream operation that can be completed or not. If it is completed it returns:
+    *         1) Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] if stream  is retrieved from a server or throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]];
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]], if there is no such stream;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server;
+    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
+  @throws[TokenInvalidException]
+  @throws[StreamDoesNotExist]
+  @throws[PackageTooBigException]
+  @throws[ZkGetMasterException]
   @throws[Exception]
   def getStream(stream: String): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] = {
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $stream.")
@@ -364,9 +401,17 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** Checks by a stream's name that stream saved in database on server.
     *
     * @param stream a name of stream.
-    * @return placeholder of doesStream operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    * @return Future of getStream operation that can be completed or not. If it is completed it returns:
+    *         1) TRUE if stream is exists in a server database or FALSE if a it's not;
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream name has size in bytes more than defined by a server;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
+  @throws[TokenInvalidException]
+  @throws[PackageTooBigException]
+  @throws[ZkGetMasterException]
   @throws[Exception]
   def checkStreamExists(stream: String): ScalaFuture[Boolean] = {
     if (logger.isInfoEnabled) logger.info(s"Checking stream $stream on existence...")
@@ -382,10 +427,16 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** Puts producer and consumer transactions on a server; it's implied there were persisted streams on a server transactions belong to, otherwise
     * the exception would be thrown.
     *
-    * @param producerTransactions some collections of producer transactions.
-    * @param consumerTransactions some collections of consumer transactions.
-    * @return placeholder of putTransactions operation that can be completed or not. If the method returns failed future it means
-    *         a server can't handle the request and interrupt a client to do any requests by throwing an exception.
+    * @param producerTransactions some collections of producer transactions [[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]].
+    * @param consumerTransactions some collections of consumer transactions [[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction]].
+    * @return Future of getStream operation that can be completed or not. If it is completed it returns:
+    *         1) TRUE if server put these transaction to commit log for next processing;
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package with collection of producer and consumer transactions has size in bytes more than defined by a server;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *
     */
   @throws[Exception]
   def putTransactions(producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction],

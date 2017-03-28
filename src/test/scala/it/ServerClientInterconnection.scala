@@ -218,13 +218,13 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val txn = getRandomProducerTransaction(stream)
     Await.result(client.putProducerState(txn), secondsWait.seconds)
 
-    val amount = 5000
-    val data = Array.fill(amount)(rand.nextString(10).getBytes)
+    val dataAmount = 5000
+    val data = Array.fill(dataAmount)(rand.nextString(10).getBytes)
 
     val resultInFuture = Await.result(client.putTransactionData(txn.stream, txn.partition, txn.transactionID, data, 0), secondsWait.seconds)
     resultInFuture shouldBe true
 
-    val dataFromDatabase = Await.result(client.getTransactionData(txn.stream, txn.partition, txn.transactionID, 0, amount), secondsWait.seconds)
+    val dataFromDatabase = Await.result(client.getTransactionData(txn.stream, txn.partition, txn.transactionID, 0, dataAmount), secondsWait.seconds)
     data should contain theSameElementsAs dataFromDatabase
   }
 

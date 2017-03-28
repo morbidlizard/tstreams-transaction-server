@@ -46,8 +46,8 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
   }
 
 
-  it should "correctly return producerTransactions and it's state(completed or partial) on: LT < A: return (false, Nil), " +
-    "where A - from transaction bound, B - to transaction bound" in {
+  it should "correctly return producerTransactions and it's state(completed or partial) on: LT < A: " +
+    "return (false, Nil), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
@@ -103,8 +103,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     transactionService.shutdown()
   }
 
-  it should "correctly return producerTransactions and it's state(completed or partial) on: LT < A: return (false, Nil), " +
-    "where A - from transaction bound, B - to transaction bound. No transaction had been persisted on server before calling scanTransactions" in {
+  it should "correctly return producerTransactions and it's state(completed or partial) on: LT < A: " +
+    "return (false, Nil), where A - from transaction bound, B - to transaction bound. " +
+    "No transactions had been persisted on server before scanTransactions was called" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
@@ -136,8 +137,8 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     transactionService.shutdown()
   }
 
-  it should "correctly return producerTransactions and it's state(completed or partial) on: A <= LT < B: return (false, AvailableTransactions[A, LT]), " +
-    "where A - from transaction bound, B - to transaction bound" in {
+  it should "correctly return producerTransactions and it's state(completed or partial) on: A <= LT < B: " +
+    "return (false, AvailableTransactions[A, LT]), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
@@ -193,8 +194,8 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     transactionService.shutdown()
   }
 
-  it should "correctly return producerTransactions and it's state(completed or partial) on: LT >= B: return (true, AvailableTransactions[A, B]), " +
-    "where A - from transaction bound, B - to transaction bound" in {
+  it should "correctly return producerTransactions and it's state(completed or partial) on: LT >= B: " +
+    "return (true, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
@@ -254,8 +255,8 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     transactionService.shutdown()
   }
 
-  it should "correctly return producerTransactions with defined lambda and it's state(completed or partial) on: LT >= B: return (true, AvailableTransactions[A, B]), " +
-    "where A - from transaction bound, B - to transaction bound" in {
+  it should "correctly return producerTransactions with defined lambda and it's state(completed or partial) on: LT >= B: " +
+    "return (true, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()

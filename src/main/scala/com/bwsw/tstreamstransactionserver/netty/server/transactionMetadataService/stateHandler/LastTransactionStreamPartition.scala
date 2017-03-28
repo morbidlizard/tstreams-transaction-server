@@ -45,7 +45,7 @@ trait LastTransactionStreamPartition {
 
     val lastCheckpointedTransactionDatabaseCursor = lastCheckpointedTransactionDatabase.openCursor(new DiskOrderedCursorConfig())
     while (lastCheckpointedTransactionDatabaseCursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
-      val lastOpenedAndCheckpointedOpt = Some(cache.getIfPresent(KeyStreamPartition.entryToObject(keyFound)))
+      val lastOpenedAndCheckpointedOpt = Option(cache.getIfPresent(KeyStreamPartition.entryToObject(keyFound)))
       lastOpenedAndCheckpointedOpt foreach { x =>
         cache.put(
           KeyStreamPartition.entryToObject(keyFound),
@@ -84,7 +84,7 @@ trait LastTransactionStreamPartition {
   }
 
   final def deleteLastOpenedAndCheckpointedTransactions(stream: Long, transaction: com.sleepycat.je.Transaction) = {
-    val from = KeyStreamPartition(stream, 0).toDatabaseEntry
+    val from = KeyStreamPartition(stream, Int.MinValue).toDatabaseEntry
     val to   = KeyStreamPartition(stream, Int.MaxValue).toDatabaseEntry
 
     val lockMode = LockMode.READ_UNCOMMITTED

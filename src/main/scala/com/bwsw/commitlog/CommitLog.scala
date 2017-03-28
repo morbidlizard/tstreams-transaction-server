@@ -54,7 +54,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
     def flush(): Unit = outputStream.flush()
 
-    def close(): Unit = {
+    def close(): Unit = this.synchronized{
       outputStream.flush()
       outputStream.close()
       writeMD5File()
@@ -73,7 +73,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     * @param startNew start new file if true
     * @return name of file record was saved in
     */
-  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = {
+  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = this.synchronized{
 
     // если хотим записать в новый файл при уже существующем коммит логе
     if (startNew && !firstRun) {
@@ -114,11 +114,12 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   }
 
   /** Finishes work with current file. */
-  def close(): Unit = {
+  def close(): Option[String] = {
     if (!firstRun) {
       resetCounters()
       currentCommitLogFileToPut.close()
-    }
+      Some(currentCommitLogFileToPut.absolutePath)
+    } else None
   }
 
   //  /** Return decoded messages from specified file.

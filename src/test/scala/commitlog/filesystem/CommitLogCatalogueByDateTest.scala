@@ -70,8 +70,8 @@ class CommitLogCatalogueByDateTest extends FlatSpec with Matchers with BeforeAnd
     val received = commitLogCatalogue.listAllFiles()
     received.size == 2 shouldBe true
     for (file <- received) {
-      file.getFile().toString == s"target${sep}clct${sep}1990${sep}05${sep}08${sep}0.dat" ||
-        file.getFile().toString == s"target${sep}clct${sep}1990${sep}05${sep}08${sep}1.dat" shouldBe true
+      file.getFile.toString == s"target${sep}clct${sep}1990${sep}05${sep}08${sep}0.dat" ||
+        file.getFile.toString == s"target${sep}clct${sep}1990${sep}05${sep}08${sep}1.dat" shouldBe true
     }
   }
 

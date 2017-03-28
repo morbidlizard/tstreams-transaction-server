@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 trait Installer {
   private val serverBuilder = new ServerBuilder()
   private val clientBuilder = new ClientBuilder()
-  private val storageOptions = serverBuilder.getStorageOptions()
+  private val storageOptions = serverBuilder.getStorageOptions
 
   def clearDB() = {
     FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))

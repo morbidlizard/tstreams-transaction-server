@@ -25,11 +25,11 @@ class CommitLogFile(path: String) {
   def attributes = new Attributes()
 
   /** Returns underlying file. */
-  def getFile(): File = file
+  def getFile: File = file
 
 
   /** Returns an iterator over records */
-  def getIterator(): CommitLogFileIterator = new CommitLogFileIterator(file.toString)
+  def getIterator: CommitLogFileIterator = new CommitLogFileIterator(file.toString)
 
 
   /** bytes to read from this file */
@@ -65,7 +65,7 @@ class CommitLogFile(path: String) {
 
 
   /** Returns existing MD5 of this file. Throws an exception otherwise. */
-  def getMD5(): Array[Byte] = if (!md5Exists()) throw new FileNotFoundException("No MD5 file for " + path) else getContentOfMD5File
+  def getMD5: Array[Byte] = if (!md5Exists()) throw new FileNotFoundException("No MD5 file for " + path) else getContentOfMD5File
 
   /** Checks md5 sum of file with existing md5 sum. Throws an exception when no MD5 exists. */
   def checkMD5(): Boolean = getMD5 sameElements calculateMD5()

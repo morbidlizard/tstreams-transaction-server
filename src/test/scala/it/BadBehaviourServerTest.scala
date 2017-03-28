@@ -18,8 +18,8 @@ import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.slf4j.Logger
 
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
 class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterAll {
 
@@ -178,7 +178,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
     class MyThrowable extends Exception("My exception")
     assertThrows[MyThrowable] {
-      val client = new Client(connectionOpts, authOpts, zookeeperOpts) {
+      new Client(connectionOpts, authOpts, zookeeperOpts) {
         override def onServerConnectionLost(): Unit = throw new MyThrowable
       }
     }

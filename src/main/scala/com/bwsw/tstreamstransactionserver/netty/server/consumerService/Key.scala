@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.Key.objectToEntry
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
-import Key.objectToEntry
 
 case class Key(name: String, stream: java.lang.Long, partition: java.lang.Integer) {
   def toDatabaseEntry: DatabaseEntry = {

@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.Key.objectToEntry
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
-import Key.objectToEntry
 import com.sleepycat.je.DatabaseEntry
 
 case class Key(streamNameToLong: Long) extends AnyVal {

@@ -33,7 +33,7 @@ object FilePathManager {
 
   var CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
 
-  def resetCatalogueGenerator() = {
+  def resetCatalogueGenerator(): Unit = {
     CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
   }
 }
@@ -55,9 +55,9 @@ class FilePathManager(rootDir: String) {
   if(!rootPath.isDirectory())
     throw new IllegalArgumentException(s"Path $rootDir doesn't exists.")
 
-  def getCurrentPath(): String = Paths.get(rootDir, curDate, nextID.toString).toString
+  def getCurrentPath: String = Paths.get(rootDir, curDate, nextID.toString).toString
 
-  def getNextPath(): String = {
+  def getNextPath: String = {
     val testDate: String = FilePathManager.CATALOGUE_GENERATOR()
 
     if(curDate != testDate) {

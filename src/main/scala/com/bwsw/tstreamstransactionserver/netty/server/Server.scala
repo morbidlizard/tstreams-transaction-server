@@ -85,7 +85,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     }
   }
 
-  def shutdown() = {
+  def shutdown(): Unit = {
     berkeleyWriterExecutor.shutdown()
     workerGroup.shutdownGracefully()
     bossGroup.shutdownGracefully()
@@ -96,7 +96,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
 
 class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: ICommitLogCatalogue, transactionServer: TransactionServer) {
   def fillQueue(): ArrayBlockingQueue[String] = {
-    val allFilesOfCatalogues = commitLogCatalogue.catalogues.flatMap(_.listAllFiles().map(_.getFile().getPath))
+    val allFilesOfCatalogues = commitLogCatalogue.catalogues.flatMap(_.listAllFiles().map(_.getFile.getPath))
 
     import scala.collection.JavaConverters.asJavaCollectionConverter
     val allProcessedFiles = (allFilesOfCatalogues diff getProcessedCommitLogFiles).sorted.asJavaCollection

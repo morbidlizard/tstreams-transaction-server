@@ -1,9 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionWithoutKey.objectToEntry
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
-import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 
 case class ProducerTransactionWithoutKey(state: TransactionStates, quantity: Int, ttl: Long, timestamp: Long) {
   def toDatabaseEntry: DatabaseEntry = {

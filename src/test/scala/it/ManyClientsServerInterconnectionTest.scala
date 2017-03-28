@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{Time, Server}
+import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
@@ -37,7 +37,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     def updateTime(newTime: Long) = currentTime = newTime
   }
 
-  private val maxIdleTimeBeetwenRecords = 10
+  private val maxIdleTimeBetweenRecords = 10
   private val commitLogToBerkeleyDBTaskDelay = 100
 
   private val serverAuthOptions = ServerOptions.AuthOptions()
@@ -46,7 +46,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBeetwenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.PackageTransmissionOptions()
 
   def startTransactionServer() = new Thread(() => {
@@ -152,7 +152,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -189,7 +189,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -224,7 +224,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe -1L
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -242,7 +242,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBeetwenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()

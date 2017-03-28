@@ -43,7 +43,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
         close()
       }
     }
-    private def updateMD5Digest(bytes: Array[Byte]) = md5.update(bytes)
+    private def updateMD5Digest(bytes: Array[Byte]): Unit = md5.update(bytes)
 
     private val outputStream = new BufferedOutputStream(new FileOutputStream(absolutePath, true))
     def put(encodedMsgWithType: Array[Byte]):Unit = this.synchronized{
@@ -52,7 +52,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       updateMD5Digest(data)
     }
 
-    def flush() = outputStream.flush()
+    def flush(): Unit = outputStream.flush()
 
     def close(): Unit = {
       outputStream.flush()
@@ -79,7 +79,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     if (startNew && !firstRun) {
       resetCounters()
       currentCommitLogFileToPut.close()
-      currentCommitLogFileToPut = new CommitLogFile(filePathManager.getNextPath())
+      currentCommitLogFileToPut = new CommitLogFile(filePathManager.getNextPath)
     }
 
     // если истекло время или мы начинаем записывать в новый коммит лог файл
@@ -91,7 +91,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       fileCreationTime = getCurrentSecs()
       // TODO(remove this):write here chunkOpenTime or we will write first record instantly if OnTimeInterval policy set
       //      chunkOpenTime = System.currentTimeMillis()
-      currentCommitLogFileToPut = new CommitLogFile(filePathManager.getNextPath())
+      currentCommitLogFileToPut = new CommitLogFile(filePathManager.getNextPath)
     }
 
     val now: Long = System.currentTimeMillis()
@@ -168,7 +168,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   //    outputStream.flush()
   //  }
 
-  private def resetCounters() = {
+  private def resetCounters(): Unit = {
     fileCreationTime = -1
     chunkWriteCount = 0
     chunkOpenTime = System.currentTimeMillis()

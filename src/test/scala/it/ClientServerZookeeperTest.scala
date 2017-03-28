@@ -7,9 +7,9 @@ import java.util.concurrent.TimeUnit
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkGetMasterException, ZkNoConnectionException}
 import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
 import com.bwsw.tstreamstransactionserver.netty.server.Server
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever

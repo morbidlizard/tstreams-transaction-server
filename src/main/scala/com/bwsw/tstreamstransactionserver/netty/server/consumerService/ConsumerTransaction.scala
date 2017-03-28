@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransaction.objectToEntry
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
-import ConsumerTransaction.objectToEntry
 
 
 case class ConsumerTransaction(transactionId: Long) {

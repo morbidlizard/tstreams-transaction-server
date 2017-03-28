@@ -109,39 +109,39 @@ class OptionsLoader() {
     }
   }
 
-  def getServerAuthOptions() = {
+  def getServerAuthOptions = {
     serverAuthOptions
   }
 
-  def getZookeeperOptions() = {
+  def getZookeeperOptions = {
     zookeeperOptions
   }
 
-  def getBootstrapOptions() = {
+  def getBootstrapOptions = {
     bootstrapOptions
   }
 
-  def getServerReplicationOptions() = {
+  def getServerReplicationOptions = {
     serverReplicationOptions
   }
 
-  def getServerStorageOptions() = {
+  def getServerStorageOptions = {
     serverStorageOptions
   }
 
-  def getBerkeleyStoragaeOptions() = {
+  def getBerkeleyStoragaeOptions = {
     berkeleyStorageOptions
   }
 
-  def getServerRocksStorageOptions() = {
+  def getServerRocksStorageOptions = {
     serverRocksStorageOptions
   }
 
-  def getPackageTransmissionOptions() = {
+  def getPackageTransmissionOptions = {
     packageTransmissionOptions
   }
 
-  def getCommitLogOptions() = {
+  def getCommitLogOptions = {
     commitLogOptions
   }
 }

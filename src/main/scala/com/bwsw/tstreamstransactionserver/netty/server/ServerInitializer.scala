@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, MessageDecoder}
-import io.netty.channel.{ChannelInitializer, SimpleChannelInboundHandler}
 import io.netty.channel.socket.SocketChannel
+import io.netty.channel.{ChannelInitializer, SimpleChannelInboundHandler}
 import io.netty.handler.codec.bytes.ByteArrayEncoder
 
 

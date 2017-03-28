@@ -83,7 +83,7 @@ trait LastTransactionStreamPartition {
     }
   }
 
-  final def deleteLastOpenedAndCheckpointedTransactions(stream: Long, transaction: com.sleepycat.je.Transaction) = {
+  final def deleteLastOpenedAndCheckpointedTransactions(stream: Long, transaction: com.sleepycat.je.Transaction): Unit = {
     val from = KeyStreamPartition(stream, 0).toDatabaseEntry
     val to   = KeyStreamPartition(stream, Int.MaxValue).toDatabaseEntry
 
@@ -123,7 +123,7 @@ trait LastTransactionStreamPartition {
       lastCheckpointedTransactionDatabase.put(transaction, key.toDatabaseEntry, updatedTransactionID.toDatabaseEntry)
   }
 
-  private[transactionMetadataService] def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transaction: Long, isOpenedTransaction: Boolean) = {
+  private[transactionMetadataService] def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transaction: Long, isOpenedTransaction: Boolean): Unit = {
     val lastOpenedAndCheckpointedTransaction = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     lastOpenedAndCheckpointedTransaction match {
       case Some(x) =>
@@ -136,7 +136,7 @@ trait LastTransactionStreamPartition {
     }
   }
 
-  private[transactionMetadataService] final def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, openedTransaction: Long, checkpointedTransaction: Long) = {
+  private[transactionMetadataService] final def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, openedTransaction: Long, checkpointedTransaction: Long): Unit = {
     lastTransactionStreamPartitionRamTable.put(key, LastOpenedAndCheckpointedTransaction(TransactionID(openedTransaction), Some(TransactionID(checkpointedTransaction))))
   }
 

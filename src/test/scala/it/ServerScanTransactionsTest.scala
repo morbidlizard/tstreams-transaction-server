@@ -6,12 +6,12 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 
-import scala.concurrent.{Await, Future => ScalaFuture}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future => ScalaFuture}
 
 class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
@@ -183,9 +183,6 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit(currentTime)
 
-      val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
-      val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
-
       val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 4L), 5.seconds)
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
@@ -240,9 +237,6 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val bigCommit = transactionService.getBigCommit(storageOptions.path)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit(currentTime)
-
-      val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
-      val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
       val result1 = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 4L), 5.seconds)
       result1.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)

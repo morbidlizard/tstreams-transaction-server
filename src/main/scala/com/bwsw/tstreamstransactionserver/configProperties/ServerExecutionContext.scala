@@ -18,7 +18,7 @@ class ServerExecutionContext(nThreads: Int, berkeleyReadNThreads: Int, rocksWrit
   lazy val rocksWriteContext = rocksWriteExecutionContext.getContext
   lazy val rocksReadContext = rocksReadExecutionContext.getContext
 
-  def shutdown() = {
+  def shutdown(): Unit = {
     berkeleyWriteExecutionContext.shutdown()
     berkeleyReadExecutionContext.shutdown()
     rocksWriteExecutionContext.shutdown()

@@ -144,7 +144,7 @@ trait LastTransactionStreamPartition {
   private[transactionMetadataService] final def isThatTransactionOutOfOrder(key: KeyStreamPartition, transactionThatId: Long) = {
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     lastTransactionOpt match {
-      case Some(transactionId) => if (transactionId.opened.id <= transactionThatId) false else true
+      case Some(transactionId) => if (transactionId.opened.id < transactionThatId) false else true
       case None => false
     }
   }

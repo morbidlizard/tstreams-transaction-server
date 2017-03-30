@@ -186,7 +186,10 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     currentStream shouldBe streamUpdated
 
     //transactions are processed in the async mode
-    Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
+    Await.result(firstClient.putTransactions(
+      producerTransactions flatMap (producerTransaction => Seq(producerTransaction, producerTransaction.copy(state = TransactionStates.Checkpointed))),
+      consumerTransactions
+    ), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))

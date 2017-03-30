@@ -297,7 +297,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val keyStream = getMostRecentStream(stream)
       val transactionDB = environment.beginTransaction(null, null)
-      val cursor = producerTransactionsDatabase.openCursor(transactionDB, null)
+      val cursor = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setNonSticky(true))
 
       def producerTransactionKeyToProducerTransaction(txn: ProducerTransactionKey) = {
         com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
@@ -335,20 +335,25 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
             ScanTransactionsInfo(lastOpenedTransactionID, Seq())
 
           case Some(producerTransactionKey) =>
-            val txns = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
+            val producerTransactions = ArrayBuffer[ProducerTransactionKey](producerTransactionKey)
             val transactionID = new DatabaseEntry()
             val dataFound = new DatabaseEntry()
+
+            //return transactions until first opened one.
+            var txnState: TransactionStates = producerTransactionKey.state
             while (
               cursor.getNext(transactionID, dataFound, lockMode) == OperationStatus.SUCCESS &&
-                (producerTransactionsDatabase.compareKeys(transactionID, lastTransactionID) <= 0)
+                (producerTransactionsDatabase.compareKeys(transactionID, lastTransactionID) <= 0 && txnState != TransactionStates.Opened)
             ) {
-              txns += ProducerTransactionKey(Key.entryToObject(transactionID), ProducerTransactionWithoutKey.entryToObject(dataFound))
+              val producerTransaction = ProducerTransactionKey(Key.entryToObject(transactionID), ProducerTransactionWithoutKey.entryToObject(dataFound))
+              txnState = producerTransaction.state
+              producerTransactions += producerTransaction
             }
 
             cursor.close()
             transactionDB.commit()
 
-            ScanTransactionsInfo(lastOpenedTransactionID, txns map producerTransactionKeyToProducerTransaction filter lambda)
+            ScanTransactionsInfo(lastOpenedTransactionID, producerTransactions map producerTransactionKeyToProducerTransaction filter lambda)
         }
       }
     }(executionContext.berkeleyReadContext)

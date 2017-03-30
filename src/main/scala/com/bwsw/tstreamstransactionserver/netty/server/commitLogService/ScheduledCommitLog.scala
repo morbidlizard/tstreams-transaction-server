@@ -10,13 +10,13 @@ import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{Ever
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{CommitLogOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
-class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions) extends Time {
+class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions) extends Runnable with Time {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val commitLog = createCommitLog()
   private val maxIdleTimeBetweenRecords = commitLogOptions.maxIdleTimeBetweenRecords * 1000
-  private var lastRecordTs = getCurrentTime
-  private var currentCommitLogFile: String = _
+  @volatile private var lastRecordTs = getCurrentTime
+  @volatile private var currentCommitLogFile: String = _
 
   private def createCommitLog() = {
     val policy = commitLogOptions.commitLogWriteSyncPolicy match {
@@ -45,5 +45,13 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String]
     }
     lastRecordTs = currentTime
     true
+  }
+
+  override def run(): Unit = {
+    commitLog.close() foreach { path =>
+      lastRecordTs = getCurrentTime
+      currentCommitLogFile = path
+      pathsToClosedCommitLogFiles.put(path)
+    }
   }
 }

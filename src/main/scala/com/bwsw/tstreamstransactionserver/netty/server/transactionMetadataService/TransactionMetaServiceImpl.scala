@@ -17,7 +17,9 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
 trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
-  with Authenticable {
+  with Authenticable
+  with ProducerTransactionStateNotifier
+{
   def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit
 
   val executionContext: ServerExecutionContext
@@ -187,9 +189,10 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
               s"with state ${persistedProducerTransactionBerkeley.state} to new state")
             transitProducerTransactionToNewState(persistedProducerTransactionBerkeley, txns)
           case None =>
-            if (logger.isDebugEnabled) logger.debug(s"Trying to put new producer transaction.")
+            if (logger.isDebugEnabled) logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
             transitProducerTransactionToNewState(txns)
         })
+
 
         producerTransactionWithNewState match {
           case scala.util.Success(producerTransactionKey) =>

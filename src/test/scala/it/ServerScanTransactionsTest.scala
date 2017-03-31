@@ -1,6 +1,7 @@
 package it
 
 import java.io.File
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
@@ -401,6 +402,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionService.getBigCommit(storageOptions.path)
+
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit(currentTime)
 

@@ -24,4 +24,16 @@ trait StreamCache {
         throw streamDoesntExistThrowable
     }
   }
+
+  final def getStreamObjByID(stream: Long): KeyStream = {
+    import scala.collection.JavaConverters._
+    val recentNotDeletedStreamOpt = streamCache.values().asScala.find(x => x.lastOption.get.streamNameToLong == stream)
+    recentNotDeletedStreamOpt match {
+      case Some(streamObj) if !streamObj.last.stream.deleted => streamObj.last
+      case _ =>
+        val streamDoesntExistThrowable = new StreamDoesNotExist(stream.toLong.toString)
+        if (logger.isDebugEnabled()) logger.debug(streamDoesntExistThrowable.getMessage)
+        throw streamDoesntExistThrowable
+    }
+  }
 }

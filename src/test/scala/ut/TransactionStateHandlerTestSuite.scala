@@ -6,7 +6,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
 
-class TransactionStateHandlerTestSuit extends FlatSpec with Matchers with BeforeAndAfterAll {
+class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with BeforeAndAfterAll {
   //arrange
   val transactionStateHandler = new TransactionStateHandler {}
   val ts = 640836800000L

@@ -210,8 +210,8 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
             } else {
               scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.delete(berkeleyTransaction, binaryKey))
             }
-
-            if (areThereAnyNotifies) tryCompleteNotify(producerTransactionKey)
+            if (areThereAnyNotifies)
+              tryCompleteNotify(producerTransactionKey)
 
             scala.concurrent.blocking(producerTransactionsDatabase.put(berkeleyTransaction, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl))))
           case scala.util.Failure(throwable) =>

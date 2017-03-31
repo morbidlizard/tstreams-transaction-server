@@ -120,16 +120,16 @@ object ServerOptions {
     *                                      If 'skip-log' mode is chosen commit log files than haven't md5 file are not read.
     *                                      If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read.
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
-    * @param maxIdleTimeBetweenRecords max count of seconds that will pass from last commit log record to close a current commit log file and open a new one.
+    * @param maxIdleTimeBetweenRecordsMs max count of milliseconds that will pass from last commit log record to close a current commit log file and open a new one.
     * @param commitLogToBerkeleyDBTaskDelayMs the time through a next commit log file is processed if there is one.
     * @param commitLogCloseDelayMs the time through a commit log file is closed.
     */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
-                              maxIdleTimeBetweenRecords: Int = 2,
+                              maxIdleTimeBetweenRecordsMs: Int = 2000,
                               commitLogToBerkeleyDBTaskDelayMs: Int = 500,
-                              commitLogCloseDelayMs: Int = 1000
+                              commitLogCloseDelayMs: Int = 200
                              )
 }
 

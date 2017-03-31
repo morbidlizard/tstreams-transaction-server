@@ -10,6 +10,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitL
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je._
 import io.netty.bootstrap.ServerBootstrap
@@ -40,6 +41,11 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
 
+  final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
+    transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
+
+  final def removeNotification(id: Long) = transactionServer.removeProducerTransactionNotification(id)
+
   private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
   private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path), transactionServer).fillQueue()
   private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions){
@@ -58,15 +64,15 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     }
   }
 
-  val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
+  private val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
     new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
 
-  val bossGroup = new EpollEventLoopGroup(1)
-  val workerGroup = new EpollEventLoopGroup()
+  private val bossGroup = new EpollEventLoopGroup(1)
+  private val workerGroup = new EpollEventLoopGroup()
   def start(): Unit = {
     try {
+      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)

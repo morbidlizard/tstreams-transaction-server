@@ -45,7 +45,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue, commitLogCloseDelayMs = Int.MaxValue)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue, commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.PackageTransmissionOptions()
 
   def startTransactionServer(): Unit = new Thread(() => {

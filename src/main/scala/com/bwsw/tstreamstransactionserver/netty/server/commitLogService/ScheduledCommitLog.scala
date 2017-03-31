@@ -14,7 +14,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String]
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val commitLog = createCommitLog()
-  private val maxIdleTimeBetweenRecords = commitLogOptions.maxIdleTimeBetweenRecords * 1000
+  private val maxIdleTimeBetweenRecordsMs = commitLogOptions.maxIdleTimeBetweenRecordsMs
   @volatile private var lastRecordTs = getCurrentTime
   @volatile private var currentCommitLogFile: String = _
 
@@ -30,7 +30,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String]
 
   def putData(messageType: Byte, message: Message) = {
     val currentTime = getCurrentTime
-    if (currentTime - lastRecordTs < maxIdleTimeBetweenRecords || currentCommitLogFile == null)
+    if (currentTime - lastRecordTs < maxIdleTimeBetweenRecordsMs || currentCommitLogFile == null)
     {
       this.synchronized({
         currentCommitLogFile = commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
@@ -49,8 +49,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String]
 
   override def run(): Unit = {
     commitLog.close() foreach { path =>
-      lastRecordTs = getCurrentTime
-      currentCommitLogFile = path
+      lastRecordTs = Long.MaxValue
       pathsToClosedCommitLogFiles.put(path)
     }
   }

@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future => ScalaFuture}
 import scala.language.reflectiveCalls
 
-class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAndAfterEach {
+class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 

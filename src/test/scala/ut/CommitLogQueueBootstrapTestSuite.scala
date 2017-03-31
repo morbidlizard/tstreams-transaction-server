@@ -13,7 +13,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 import scala.collection.mutable.ArrayBuffer
 
-class CommitLogQueueBootstrapTestSuit extends FlatSpec with Matchers with BeforeAndAfterAll {
+class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with BeforeAndAfterAll {
   //arrange
   val authOptions = AuthOptions()
   val rocksStorageOptions = RocksStorageOptions()

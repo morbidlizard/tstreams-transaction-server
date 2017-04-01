@@ -21,7 +21,9 @@ trait Installer {
   }
 
   def startTransactionServer() = {
-    new Thread(() => serverBuilder.build().start()).start()
+    new Thread(() =>
+      serverBuilder.build().start()
+    ).start()
   }
 
   def createStream(name: String, partitions: Int) = {

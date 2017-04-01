@@ -39,8 +39,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     def updateTime(newTime: Long) = currentTime = newTime
   }
 
-  private val maxIdleTimeBetweenRecords = 10
-  private val commitLogToBerkeleyDBTaskDelay = 100
+  private val maxIdleTimeBetweenRecordsMs = 10000
 
   private val serverAuthOptions = ServerOptions.AuthOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
@@ -48,7 +47,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue, commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
 
   def startTransactionServer() = new Thread(() => {
@@ -147,7 +146,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe -1L
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -165,7 +164,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
 
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -198,7 +197,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
 
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()

@@ -22,16 +22,22 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
   override def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit = removeRocksDBDatabaseAndDeleteFolder(stream)
   override def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, transaction: Transaction): Unit = deleteLastOpenedAndCheckpointedTransactions(stream, transaction)
 
-  def shutdown(): Unit = {
-    executionContext.shutdown()
+  final def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases(): Unit = {
+    stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+    closeAllDatabases()
+  }
 
+  final def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted(): Unit = {
+    executionContext.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+  }
+
+  final def closeAllDatabases(): Unit = {
     closeStreamDatabase()
     closeLastTransactionStreamPartitionDatabases()
     closeTransactionDataDatabases()
     closeConsumerDatabase()
     closeTransactionMetaDatabases()
-    
-    closeTransactionMetaEnvironment()
 
+    closeTransactionMetaEnvironment()
   }
 }

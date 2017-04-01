@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import java.util.concurrent.{ArrayBlockingQueue, Executors}
+import java.util.concurrent.{ArrayBlockingQueue, Executors, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, ICommitLogCatalogue}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
@@ -25,8 +25,8 @@ import scala.concurrent.ExecutionContextExecutorService
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
              storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
-             packageTransmissionOpts: PackageTransmissionOptions,
-             serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
+             packageTransmissionOpts: TransportOptions,
+             serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger),
              timer: Time = new Time{}
             ) {
@@ -93,11 +93,19 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   }
 
   def shutdown(): Unit = {
-    berkeleyWriterExecutor.shutdown()
-    workerGroup.shutdownGracefully()
-    bossGroup.shutdownGracefully()
+    workerGroup.shutdownGracefully(1L, 2L, TimeUnit.SECONDS)
+    bossGroup.shutdownGracefully(1L, 2L, TimeUnit.SECONDS)
     zk.close()
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+    berkeleyWriterExecutor.shutdown()
+    berkeleyWriterExecutor.awaitTermination(
+      scala.math.max(
+        commitLogOptions.commitLogCloseDelayMs,
+        commitLogOptions.commitLogToBerkeleyDBTaskDelayMs
+      )*5,
+      TimeUnit.MILLISECONDS
+    )
+    transactionServer.closeAllDatabases()
   }
 }
 

@@ -11,7 +11,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.Schedule
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer, ZKLeaderClientToPutMaster}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{PackageTransmissionOptions, _}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{TransportOptions, _}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
@@ -40,7 +40,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   private val storageOptions = StorageOptions()
   private val berkeleyStorageOptions = BerkeleyStorageOptions()
   private val rocksStorageOptions = RocksStorageOptions()
-  private val packageTransmissionOptions = PackageTransmissionOptions()
+  private val packageTransmissionOptions = TransportOptions()
   private val commitLogOptions = CommitLogOptions()
 
   private val requestTimeoutMs = 500
@@ -49,7 +49,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
   private def serverHandler(server: TransactionServer,
                             scheduledCommitLogImpl: ScheduledCommitLog,
-                            packageTransmissionOptions: PackageTransmissionOptions,
+                            packageTransmissionOptions: TransportOptions,
                             context: ExecutionContextExecutorService, logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, packageTransmissionOptions, context, logger) {
     override def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): Future[Message] = {
       serverGotRequest.getAndIncrement()

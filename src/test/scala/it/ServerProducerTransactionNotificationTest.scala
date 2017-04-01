@@ -34,7 +34,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = 100, commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
-  private val serverPackageTransmissionOptions = ServerOptions.PackageTransmissionOptions()
+  private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
 
   def startTransactionServer(): Unit = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -130,7 +130,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     client.putProducerState(producerTransactionOuter)
 
-    latch.await(secondsWait, TimeUnit.SECONDS)
+    latch.await(secondsWait, TimeUnit.SECONDS) shouldBe true
   }
 
   it should "shouldn't get notification." in {

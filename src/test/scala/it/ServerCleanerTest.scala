@@ -106,7 +106,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
       transactionService.checkTransactionExistInOpenedTable(stream.name, stream.partitions, transactionID) shouldBe false
     }
 
-    transactionService.shutdown()
+    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
 }

@@ -102,6 +102,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         channelToUse
       case scala.util.Failure(throwable) =>
         workerGroup.shutdownGracefully().get()
+        workerGroup.terminationFuture().get()
         onServerConnectionLostDefaultBehaviour("")
         connect()
     }
@@ -645,7 +646,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     if (workerGroup != null) workerGroup.shutdownGracefully()
     if (channel != null) channel.closeFuture()
     zKLeaderClient.close()
-    futurePool.shutdown()
-    executionContext.shutdown()
+    futurePool.stopAccessNewTasks()
+    futurePool.awaitAllCurrentTasksAreCompleted()
+    executionContext.stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()
   }
 }

@@ -55,7 +55,9 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   /**
     * this variable is public for testing purposes only
     */
-  val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
+  val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy){
+    override def getCurrentTime: Long = timer.getCurrentTime
+  }
 
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
@@ -93,9 +95,12 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   }
 
   def shutdown(): Unit = {
-    workerGroup.shutdownGracefully(1L, 2L, TimeUnit.SECONDS)
-    bossGroup.shutdownGracefully(1L, 2L, TimeUnit.SECONDS)
+    bossGroup.shutdownGracefully()
+    workerGroup.shutdownGracefully()
     zk.close()
+    bossGroup.terminationFuture()
+    workerGroup.terminationFuture()
+
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
     berkeleyWriterExecutor.shutdown()
     berkeleyWriterExecutor.awaitTermination(

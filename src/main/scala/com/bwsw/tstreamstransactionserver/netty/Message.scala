@@ -23,8 +23,8 @@ case class Message(length: Int, protocol: Byte, body: Array[Byte], token: Int)
   override def toString: String = s"message length: $length"
 }
 object Message {
-  /** The size of sum of length and protocol fields. */
-  val headerSize: Byte = 9
+  /** The size of sum of fields: length, protocol, token. */
+  val headerSize: Byte = (java.lang.Integer.BYTES + java.lang.Byte.BYTES + java.lang.Integer.BYTES).toByte
   /** Deserializes a binary to message. */
   def fromByteArray(bytes: Array[Byte]): Message = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)

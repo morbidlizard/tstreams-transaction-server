@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import java.util.concurrent.{ArrayBlockingQueue, Executors}
+import java.util.concurrent.{ArrayBlockingQueue, Executors, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, ICommitLogCatalogue}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
@@ -93,11 +93,19 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   }
 
   def shutdown(): Unit = {
-    berkeleyWriterExecutor.shutdown()
-    workerGroup.shutdownGracefully()
-    bossGroup.shutdownGracefully()
+    workerGroup.shutdownGracefully(1L, 2L, TimeUnit.SECONDS)
+    bossGroup.shutdownGracefully(1L, 2L, TimeUnit.SECONDS)
     zk.close()
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+    berkeleyWriterExecutor.shutdown()
+    berkeleyWriterExecutor.awaitTermination(
+      scala.math.max(
+        commitLogOptions.commitLogCloseDelayMs,
+        commitLogOptions.commitLogToBerkeleyDBTaskDelayMs
+      )*5,
+      TimeUnit.MILLISECONDS
+    )
+    transactionServer.closeAllDatabases()
   }
 }
 

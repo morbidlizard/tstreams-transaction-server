@@ -130,7 +130,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     client.putProducerState(producerTransactionOuter)
 
-    latch.await(secondsWait, TimeUnit.SECONDS)
+    latch.await(secondsWait, TimeUnit.SECONDS) shouldBe true
   }
 
   it should "shouldn't get notification." in {

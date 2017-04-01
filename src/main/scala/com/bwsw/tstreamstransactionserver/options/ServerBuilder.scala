@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
                             bootstrapOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
                             storageOpts: StorageOptions, berkeleyStorageOpts: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOpts: CommitLogOptions,
-                            packageTransmissionOpts: PackageTransmissionOptions) {
+                            packageTransmissionOpts: TransportOptions) {
   private val authOptions = authOpts
   private val zookeeperOptions = zookeeperOpts
   private val bootstrapOptions = bootstrapOpts
@@ -22,7 +22,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
     AuthOptions(), ZookeeperOptions(),
     BootstrapOptions(), ServerReplicationOptions(),
     StorageOptions(), BerkeleyStorageOptions(), RocksStorageOptions(), CommitLogOptions(),
-    PackageTransmissionOptions()
+    TransportOptions()
   )
 
   def withAuthOptions(authOptions: AuthOptions) =
@@ -49,7 +49,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptio
   def withCommitLogOptions(commitLogOptions: CommitLogOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, berkeleyStorageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions)
 
-  def withPackageTransmissionOptions(packageTransmissionOptions: PackageTransmissionOptions) =
+  def withPackageTransmissionOptions(packageTransmissionOptions: TransportOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, berkeleyStorageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions)
 
 

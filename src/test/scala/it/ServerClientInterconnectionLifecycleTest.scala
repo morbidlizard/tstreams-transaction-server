@@ -72,6 +72,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     getProducerTransactionFromServer(transactionServiceServer, out) shouldBe out
   }
 
+
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)

@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 import java.util.concurrent.ArrayBlockingQueue
 
 import com.bwsw.commitlog.filesystem.{CommitLogFile, CommitLogFileIterator}
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String],
                                 transactionServer: TransactionServer,
-                                incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy) extends Runnable {
+                                incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy) extends Runnable with Time {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val processAccordingToPolicy = createProcessingFunction()
 
@@ -128,7 +128,7 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
         case scala.util.Success(_) =>
         case scala.util.Failure(error) => error.printStackTrace()
       }
-    }
+    } else transactionServer.createTransactionsToDeleteTask(getCurrentTime).run()
   }
 }
 

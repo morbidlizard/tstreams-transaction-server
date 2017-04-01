@@ -23,7 +23,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
   private val clientBuilder = new ClientBuilder()
 
-  private val maxIdleTimeBetweenRecords = 1
+  private val maxIdleTimeBetweenRecordsMs = 1000
 
   private val commitLogToBerkeleyDBTaskDelayMs = 100
 
@@ -33,7 +33,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = 100, commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogToBerkeleyDBTaskDelayMs = 100, commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
 
   def startTransactionServer(): Unit = new Thread(() => {
@@ -142,6 +142,70 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     latch.await(1, TimeUnit.SECONDS) shouldBe false
     transactionServer.removeNotification(id) shouldBe true
+  }
+
+  it should "producerTransaction with Opened state and don't get it as it's expired" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val partition = 1
+
+    val ttl = 2
+    val producerTransactionOuter = ProducerTransaction(stream.name, partition, System.currentTimeMillis(), TransactionStates.Opened, 2, ttl)
+
+    val latch1 = new CountDownLatch(1)
+    transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
+      producerTransaction.transactionID == producerTransactionOuter.transactionID,
+      latch1.countDown()
+    )
+
+    val latch2 = new CountDownLatch(1)
+    transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
+      producerTransaction.transactionID == producerTransactionOuter.transactionID && producerTransaction.state == TransactionStates.Invalid,
+      latch2.countDown()
+    )
+
+    client.putProducerState(producerTransactionOuter)
+    latch1.await(4, TimeUnit.SECONDS) shouldBe true
+
+    //server checking transactions on expiration periodically
+    latch2.await(4, TimeUnit.SECONDS) shouldBe true
+
+    val res = Await.result(client.getTransaction(stream.name, partition, producerTransactionOuter.transactionID), secondsWait.seconds)
+    res.exists shouldBe true
+    res.transaction.get shouldBe ProducerTransaction(stream.name, partition, producerTransactionOuter.transactionID, TransactionStates.Invalid, producerTransactionOuter.quantity, 0L)
+  }
+
+  it should "producerTransaction with Opened state and should get it" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val partition = 1
+
+    val ttl = 2
+    val producerTransactionOuter = ProducerTransaction(stream.name, partition, System.currentTimeMillis(), TransactionStates.Opened, 2, ttl)
+
+    val latch1 = new CountDownLatch(1)
+    transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
+      producerTransaction.transactionID == producerTransactionOuter.transactionID,
+      latch1.countDown()
+    )
+
+    client.putProducerState(producerTransactionOuter)
+    latch1.await(2, TimeUnit.SECONDS) shouldBe true
+
+    val latch2 = new CountDownLatch(1)
+    transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
+      producerTransaction.transactionID == producerTransactionOuter.transactionID && producerTransaction.state == TransactionStates.Opened,
+      latch2.countDown()
+    )
+
+    client.putProducerState(producerTransactionOuter.copy(state = TransactionStates.Updated))
+    latch2.await(2, TimeUnit.SECONDS) shouldBe true
+
+    val res = Await.result(client.getTransaction(stream.name, partition, producerTransactionOuter.transactionID), secondsWait.seconds)
+    res.exists shouldBe true
+    res.transaction.get shouldBe producerTransactionOuter
   }
 
 }

@@ -194,7 +194,6 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
             transitProducerTransactionToNewState(txns)
         })
 
-
         producerTransactionWithNewState match {
           case scala.util.Success(producerTransactionKey) =>
             val binaryTxn = producerTransactionKey.producerTransaction.toDatabaseEntry
@@ -393,9 +392,14 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
           val toDelete: Boolean = doesProducerTransactionExpired(producerTransactionWithoutKey)
           if (toDelete) {
             if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionWithoutKey as it's expired.")
+
+            val key = Key.entryToObject(keyFound)
             val canceledTransactionDueExpiration = transitToInvalidState(producerTransactionWithoutKey)
+            if (areThereAnyNotifies) tryCompleteNotify(ProducerTransactionKey(key, canceledTransactionDueExpiration))
+
+            transactionsRamTable.invalidate(key)
             producerTransactionsDatabase.put(transactionDB, keyFound, canceledTransactionDueExpiration.toDatabaseEntry)
-            transactionsRamTable.invalidate(Key.entryToObject(keyFound))
+
             cursor.delete()
             true
           } else true

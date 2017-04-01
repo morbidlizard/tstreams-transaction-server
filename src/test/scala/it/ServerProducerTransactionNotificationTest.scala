@@ -182,7 +182,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     val partition = 1
 
-    val ttl = 2
+    val ttl = 5
     val producerTransactionOuter = ProducerTransaction(stream.name, partition, System.currentTimeMillis(), TransactionStates.Opened, 2, ttl)
 
     val latch1 = new CountDownLatch(1)

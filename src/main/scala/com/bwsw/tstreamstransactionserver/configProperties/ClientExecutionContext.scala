@@ -11,7 +11,8 @@ class ClientExecutionContext(nThreads: Int) {
 
   lazy val context = executionContext.getContext
 
-  def shutdown(): Unit = {
-    executionContext.shutdown()
+  def stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted(): Unit = {
+    executionContext.stopAccessNewTasks()
+    executionContext.awaitAllCurrentTasksAreCompleted()
   }
 }

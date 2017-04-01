@@ -101,7 +101,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe 3L
     }
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return producerTransactions on: LT < A: " +
@@ -135,7 +135,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe -1L
     }
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return producerTransactions on: A <= LT < B: " +
@@ -189,7 +189,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result.lastOpenedTransactionID shouldBe 3L
     }
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return producerTransactions until first opened and not checkpointed transaction on: A <= LT < B: " +
@@ -240,7 +240,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(2)._1)
       result.lastOpenedTransactionID shouldBe 5L
     }
-    transactionService.shutdown()
+    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return producerTransactions on: LT >= B: " +
@@ -298,7 +298,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1,producerTransactionsWithTimestamp.last._1)
       result2.lastOpenedTransactionID shouldBe 5L
     }
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return producerTransactions with defined lambda(which discard all producers transactions thereby retuning an empty collection of them) on: LT >= B: " +
@@ -355,7 +355,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       result2.producerTransactions shouldBe empty
       result2.lastOpenedTransactionID  shouldBe 5L
     }
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return producerTransactions with defined lambda(which accepts all producers transactions thereby retuning all of them) on: LT >= B: " +
@@ -413,7 +413,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1,producerTransactionsWithTimestamp.last._1)
       result2.lastOpenedTransactionID  shouldBe 5L
     }
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "return all transactions if no incomplete" in {
@@ -460,7 +460,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
     res.producerTransactions.size shouldBe transactions.size
 
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
 
@@ -534,7 +534,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val res = Await.result(transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), 5.seconds)
       res.producerTransactions.size shouldBe transactions1.size
     }
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "return none if empty" in {
@@ -567,7 +567,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val res = Await.result(transactionServer.scanTransactions(stream.name, 1, firstTransaction, lastTransaction), secondsAwait.seconds)
     res.producerTransactions.size shouldBe 0
 
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "return none if to < from" in {
@@ -609,6 +609,6 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val res = Await.result(transactionServer.scanTransactions(stream.name, 1, lastTransaction, firstTransaction), secondsAwait.seconds)
     res.producerTransactions.size shouldBe 0
 
-    transactionServer.shutdown()
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 }

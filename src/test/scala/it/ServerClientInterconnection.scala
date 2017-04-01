@@ -36,8 +36,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     def updateTime(newTime: Long) = currentTime = newTime
   }
 
-  private val maxIdleTimeBetweenRecords = 1
-  private val commitLogToBerkeleyDBTaskDelay = 100
+  private val maxIdleTimeBetweenRecords = 1000
 
   private val serverAuthOptions = ServerOptions.AuthOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
@@ -46,7 +45,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue, commitLogCloseDelayMs = Int.MaxValue)
-  private val serverPackageTransmissionOptions = ServerOptions.PackageTransmissionOptions()
+  private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
 
   def startTransactionServer(): Unit = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -70,6 +69,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
     startTransactionServer()
+    Thread.sleep(30)
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
     val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
     commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())

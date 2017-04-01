@@ -71,9 +71,9 @@ class OptionsLoader() {
   }
 
   private def loadPackageTransmissionOptions() = {
-    val fields = getPropertiesOf(classOf[PackageTransmissionOptions])
+    val fields = getPropertiesOf(classOf[TransportOptions])
 
-    castCheck(PackageTransmissionOptions(fields(0).toInt, fields(1).toInt))
+    castCheck(TransportOptions(fields(0).toInt, fields(1).toInt))
   }
 
   private def loadCommitLogOptions() = {

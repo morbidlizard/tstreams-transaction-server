@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, PackageTransmissionOptions}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, TransportOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import org.apache.curator.test.TestingServer
 import org.scalatest.{FlatSpec, Matchers}
@@ -18,7 +18,7 @@ import scala.concurrent.duration.Duration
 class ServerPackageTooBigTest extends FlatSpec with Matchers {
   private val zkTestServer = new TestingServer(true)
   "Server" should "not allow client to send a message which has a size that is greater than maxMetadataPackageSize or maxDataPackageSize (throw PackageTooBigException)" in {
-    val packageTransmissionOptions = PackageTransmissionOptions()
+    val packageTransmissionOptions = TransportOptions()
 
     val server = new ServerBuilder().withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
       .withBootstrapOptions(BootstrapOptions())

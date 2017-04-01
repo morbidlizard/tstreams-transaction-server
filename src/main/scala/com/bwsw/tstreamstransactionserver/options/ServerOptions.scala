@@ -106,7 +106,7 @@ object ServerOptions {
     *                           If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client.
     *                           If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset.
     */
-  case class PackageTransmissionOptions(maxMetadataPackageSize: Int = 100000000, maxDataPackageSize: Int = 100000000)
+  case class TransportOptions(maxMetadataPackageSize: Int = 100000000, maxDataPackageSize: Int = 100000000)
 
   /** The options are applied when processing commit log files.
     *

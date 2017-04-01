@@ -25,8 +25,8 @@ import scala.concurrent.ExecutionContextExecutorService
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
              storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
-             packageTransmissionOpts: PackageTransmissionOptions,
-             serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
+             packageTransmissionOpts: TransportOptions,
+             serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger),
              timer: Time = new Time{}
             ) {

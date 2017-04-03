@@ -10,7 +10,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitL
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction
+import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je._
 import io.netty.bootstrap.ServerBootstrap
@@ -46,17 +46,31 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
 
   final def removeNotification(id: Long) = transactionServer.removeProducerTransactionNotification(id)
 
+  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
+    transactionServer.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
+
+  final def removeConsumerNotification(id: Long) = transactionServer.removeConsumerTransactionNotification(id)
+
   private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
   private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path), transactionServer).fillQueue()
-  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions){
-    override def getCurrentTime: Long = timer.getCurrentTime
-  }
+
 
   /**
     * this variable is public for testing purposes only
     */
   val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy){
     override def getCurrentTime: Long = timer.getCurrentTime
+  }
+
+  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions){
+    override def getCurrentTime: Long = timer.getCurrentTime
+  }
+
+  private val commitLogTask = new Runnable {
+    override def run(): Unit = {
+      scheduledCommitLogImpl.run()
+      berkeleyWriter.run()
+    }
   }
 
   private def createTransactionServerAddress() = {
@@ -73,8 +87,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   private val workerGroup = new EpollEventLoopGroup()
   def start(): Unit = {
     try {
-      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(commitLogTask, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+//      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)

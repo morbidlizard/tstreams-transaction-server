@@ -252,7 +252,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(30)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
+    val producerTransactions = Array.fill(30)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened) :+
+      getRandomProducerTransaction(stream).copy(state = TransactionStates.Opened)
+
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)

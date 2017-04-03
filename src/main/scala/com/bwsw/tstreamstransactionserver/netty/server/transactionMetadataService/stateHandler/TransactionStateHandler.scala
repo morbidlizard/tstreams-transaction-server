@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionRecord, ProducerTransactionValue}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
 
 import scala.annotation.tailrec
@@ -93,7 +93,7 @@ trait TransactionStateHandler {
       case (Invalid, _) => currentTxn
       case (Checkpointed, _) => currentTxn
 
-      case (_, _) => throw new IllegalArgumentException("Unknown States should be implemented")
+      case (thisState, thatState) => throw new IllegalArgumentException(s"Transition from $thisState to $thatState should be implemented.(Unknown states)")
     }
   }
 

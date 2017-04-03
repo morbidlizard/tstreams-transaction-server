@@ -66,7 +66,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
       }
     }
 
@@ -118,7 +118,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
       }
     }
 
@@ -176,7 +176,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
       }
     }
 
@@ -233,7 +233,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
       }
     }
 

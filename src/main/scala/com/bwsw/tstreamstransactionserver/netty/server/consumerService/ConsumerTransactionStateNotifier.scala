@@ -15,7 +15,7 @@ trait ConsumerTransactionStateNotifier extends StreamCache {
 
 
 
-  final def notifyProducerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long = {
+  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long = {
     val consumerNotification = new ConsumerTransactionNotification(onNotificationCompleted, scala.concurrent.Promise[Unit]())
     val id = consumerNotifierSeq.getAndIncrement()
 

@@ -252,7 +252,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(30)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
+    val producerTransactions = Array.fill(30)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened) :+
+      getRandomProducerTransaction(stream).copy(state = TransactionStates.Opened)
+
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
@@ -478,7 +480,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
 
-    res.producerTransactions foreach println
     res.producerTransactions.size shouldBe transactions1.size + 1
   }
 }

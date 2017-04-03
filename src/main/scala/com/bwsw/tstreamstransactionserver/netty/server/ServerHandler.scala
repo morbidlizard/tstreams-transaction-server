@@ -161,7 +161,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
-      case `putTranscationsMethod` =>
+      case `putTransactionsMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))

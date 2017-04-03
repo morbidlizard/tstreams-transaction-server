@@ -156,6 +156,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val message = descriptor.encodeRequest(request)(messageId, token)
       validateMessageSize(message)
 
+      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
+
       channel.write(message.toByteArray)
       reqIdToRep.put(messageId, promise)
       channel.flush()

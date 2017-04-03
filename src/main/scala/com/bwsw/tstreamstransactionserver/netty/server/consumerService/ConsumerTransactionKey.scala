@@ -1,24 +1,29 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
-import com.sleepycat.je.{Database, Put, Transaction, WriteOptions}
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey.objectToEntry
+import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
+import com.sleepycat.je.DatabaseEntry
 
-case class ConsumerTransactionKey(key: Key, consumerTransaction: ConsumerTransactionWithoutKey)
-{
-  def transactionID: Long = consumerTransaction.transactionId
-  def name: String = key.name
-  def stream: Long = Long2long(key.stream)
-  def partition: Int = key.partition
-  def timestamp: Long = Long2long(consumerTransaction.timestamp)
-  override def toString: String = s"Consumer transaction: ${key.toString}"
-
-  def put(database: Database, txn: Transaction, putType: Put, options: WriteOptions) =
-    database.put(txn, key.toDatabaseEntry, consumerTransaction.toDatabaseEntry, putType, options)
+case class ConsumerTransactionKey(name: String, stream: java.lang.Long, partition: java.lang.Integer) {
+  def toDatabaseEntry: DatabaseEntry = {
+    val databaseEntry = new DatabaseEntry()
+    objectToEntry(this, databaseEntry)
+    databaseEntry
+  }
+  override def toString: String = s"name:$name\tstream:$stream\tpartition:$partition"
 }
 
-object ConsumerTransactionKey {
-  def apply(txn: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction, streamNameToLong: java.lang.Long, timestamp: Long): ConsumerTransactionKey = {
-    val key = Key(txn.name, streamNameToLong, txn.partition)
-    val producerTransaction = ConsumerTransactionWithoutKey(txn.transactionID, timestamp)
-    ConsumerTransactionKey(key, producerTransaction)
+object ConsumerTransactionKey extends TupleBinding[ConsumerTransactionKey] {
+  override def entryToObject(input: TupleInput): ConsumerTransactionKey = {
+    val name = input.readString()
+    val stream = input.readLong()
+    val partition = input.readInt()
+    ConsumerTransactionKey(name, stream, partition)
+  }
+
+  override def objectToEntry(key: ConsumerTransactionKey, output: TupleOutput): Unit = {
+    output.writeString(key.name)
+    output.writeLong(key.stream)
+    output.writeInt(key.partition)
   }
 }

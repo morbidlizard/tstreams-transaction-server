@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
@@ -71,7 +71,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
     ) {
       def checkTransactionExistInOpenedTable(stream: String, partition: Int, transactionId: Long) = {
         val streamObj = getMostRecentStream(stream)
-        val txn = getOpenedTransaction(Key(streamObj.streamNameToLong, partition, transactionId))
+        val txn = getOpenedTransaction(ProducerTransactionKey(streamObj.streamNameToLong, partition, transactionId))
         txn.isDefined
       }
     }

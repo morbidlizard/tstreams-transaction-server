@@ -27,11 +27,11 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
     ScalaFuture {
       val transactionDB = environment.beginTransaction(null, null)
       val streamNameToLong = getMostRecentStream(stream).streamNameToLong
-      val keyEntry = Key(name, streamNameToLong, partition).toDatabaseEntry
+      val keyEntry = ConsumerTransactionKey(name, streamNameToLong, partition).toDatabaseEntry
       val consumerTransactionEntry = new DatabaseEntry()
       val result: Long =
         if (consumerDatabase.get(transactionDB, keyEntry, consumerTransactionEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS)
-          ConsumerTransactionWithoutKey.entryToObject(consumerTransactionEntry).transactionId
+          ConsumerTransactionValue.entryToObject(consumerTransactionEntry).transactionId
         else {
           if (logger.isDebugEnabled()) logger.debug(s"There is no checkpointed consumer transaction on stream $name, partition $partition with name: $name. Returning -1")
           -1L
@@ -42,19 +42,19 @@ trait ConsumerServiceImpl extends Authenticable with StreamCache {
     }(executionContext.berkeleyReadContext)
 
 
-  private final def transiteConsumerTransactionToNewState(commitLogTransactions: Seq[ConsumerTransactionKey]): ConsumerTransactionKey = {
-    commitLogTransactions.sortBy(_.timestamp).last
+  private final def transitConsumerTransactionToNewState(commitLogTransactions: Seq[ConsumerTransactionRecord]): ConsumerTransactionRecord = {
+    commitLogTransactions.maxBy(_.timestamp)
   }
 
-  private final def groupProducerTransactions(consumerTransactions: Seq[ConsumerTransactionKey]) = {
+  private final def groupProducerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord]) = {
     consumerTransactions.groupBy(txn => txn.key)
   }
 
-  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionKey], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit =
+  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit =
   {
     if (logger.isDebugEnabled()) logger.debug(s"Trying to commit consumer transactions: $consumerTransactions")
     groupProducerTransactions(consumerTransactions) foreach {case (key, txns) =>
-      val theLastStateTransaction = transiteConsumerTransactionToNewState(txns)
+      val theLastStateTransaction = transitConsumerTransactionToNewState(txns)
       val binaryKey = key.toDatabaseEntry
       consumerDatabase.put(parentBerkeleyTxn, binaryKey, theLastStateTransaction.consumerTransaction.toDatabaseEntry)
     }

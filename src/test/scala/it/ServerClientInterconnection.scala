@@ -478,7 +478,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
 
-    res.producerTransactions foreach println
     res.producerTransactions.size shouldBe transactions1.size + 1
   }
 }

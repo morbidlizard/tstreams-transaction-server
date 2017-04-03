@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
-case class KeyStream(key: Key, stream: StreamWithoutKey) {
-  def streamNameToLong = key.streamNameToLong
+case class StreamRecord(key: StreamKey, stream: StreamValue) {
+  def streamNameToLong = key.streamNameAsLong
   def name = stream.name
   def partitions = stream.partitions
   def ttl  = stream.ttl

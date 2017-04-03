@@ -643,7 +643,10 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
   def shutdown(): Unit = {
-    if (workerGroup != null) workerGroup.shutdownGracefully()
+    if (workerGroup != null) {
+      workerGroup.shutdownGracefully()
+      workerGroup.terminationFuture()
+    }
     if (channel != null) channel.closeFuture()
     zKLeaderClient.close()
     futurePool.stopAccessNewTasks()

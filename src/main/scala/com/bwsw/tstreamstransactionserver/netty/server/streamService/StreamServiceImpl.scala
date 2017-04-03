@@ -42,16 +42,16 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     val keyFound  = new DatabaseEntry()
     val dataFound = new DatabaseEntry()
 
-    val keyStreams = ArrayBuffer[KeyStream]()
+    val streamRecords = ArrayBuffer[StreamRecord]()
     val cursor = streamDatabase.openCursor(new DiskOrderedCursorConfig())
     while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
-      val key = Key.entryToObject(keyFound)
-      val streamWithoutKey = StreamWithoutKey.entryToObject(dataFound)
-      keyStreams += KeyStream(key, streamWithoutKey)
+      val streamKey = StreamKey.entryToObject(keyFound)
+      val streamValue = StreamValue.entryToObject(dataFound)
+      streamRecords += StreamRecord(streamKey, streamValue)
     }
     cursor.close()
 
-    keyStreams.groupBy(_.name).foreach{case(name, streams) => streamCache.put(name, streams)}
+    streamRecords.groupBy(_.name).foreach{case(name, streams) => streamCache.put(name, streams)}
   }
   fillStreamRAMTable()
 
@@ -71,7 +71,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     streamSequenceDB.openSequence(null, key, new SequenceConfig().setAllowCreate(true))
   }
 
-  override def getStreamFromOldestToNewest(stream: String): ArrayBuffer[KeyStream] =
+  override def getStreamFromOldestToNewest(stream: String): ArrayBuffer[StreamRecord] =
     if (streamCache.containsKey(stream)) streamCache.get(stream)
     else {
       val streamDoesntExistThrowable = new StreamDoesNotExist(stream)
@@ -86,19 +86,19 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 
       val isOkay = if (streamCache.containsKey(stream)) {
         val streams = streamCache.get(stream)
-        val mostRecentKeyStream = streams.last
+        val mostRecentStreamRecord = streams.last
 
-        if (mostRecentKeyStream.stream.deleted) {
-          val newKey = Key(streamSeq.get(transactionDB, 1))
-          val newStream = StreamWithoutKey(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
-          streamCache.get(stream) += KeyStream(newKey, newStream)
-          streamDatabase.putNoOverwrite(transactionDB, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
+        if (mostRecentStreamRecord.stream.deleted) {
+          val newStreamKey = StreamKey(streamSeq.get(transactionDB, 1))
+          val newStreamValue = StreamValue(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
+          streamCache.get(stream) += StreamRecord(newStreamKey, newStreamValue)
+          streamDatabase.putNoOverwrite(transactionDB, newStreamKey.toDatabaseEntry, newStreamValue.toDatabaseEntry) == OperationStatus.SUCCESS
         } else false
       }
       else {
-        val newKey = Key(streamSeq.get(transactionDB, 1))
-        val newStream = StreamWithoutKey(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
-        streamCache.put(stream, ArrayBuffer(KeyStream(newKey, newStream)))
+        val newKey = StreamKey(streamSeq.get(transactionDB, 1))
+        val newStream = StreamValue(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
+        streamCache.put(stream, ArrayBuffer(StreamRecord(newKey, newStream)))
         streamDatabase.putNoOverwrite(transactionDB, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
       }
 
@@ -124,24 +124,24 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     ScalaFuture {
       scala.util.Try(getStreamFromOldestToNewest(stream)) match {
         case scala.util.Success(streamObjects) =>
-          val mostRecentKeyStream = streamObjects.last
-          if (mostRecentKeyStream.stream.deleted) {
+          val mostRecentStreamRecord = streamObjects.last
+          if (mostRecentStreamRecord.stream.deleted) {
             if (logger.isDebugEnabled()) logger.debug(s"Stream $stream has been already removed.")
             false
           } else {
 
-            val transactionDB = environment.beginTransaction(null, new TransactionConfig())
-            mostRecentKeyStream.stream.deleted = true
-            val result = streamDatabase.put(transactionDB, mostRecentKeyStream.key.toDatabaseEntry, mostRecentKeyStream.stream.toDatabaseEntry)
+            val berkeleyTransaction = environment.beginTransaction(null, new TransactionConfig())
+            mostRecentStreamRecord.stream.deleted = true
+            val result = streamDatabase.put(berkeleyTransaction, mostRecentStreamRecord.key.toDatabaseEntry, mostRecentStreamRecord.stream.toDatabaseEntry)
             if (result == OperationStatus.SUCCESS) {
-              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentKeyStream.streamNameToLong, transactionDB)
-              transactionDB.commit()
-              closeRocksDBConnectionAndDeleteFolder(mostRecentKeyStream.streamNameToLong)
+              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.streamNameAsLong, berkeleyTransaction)
+              berkeleyTransaction.commit()
+              closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.streamNameAsLong)
               if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
               true
             } else {
               if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")
-              transactionDB.abort()
+              berkeleyTransaction.abort()
               false
             }
           }

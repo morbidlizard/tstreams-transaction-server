@@ -149,7 +149,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     val res = Await.result(client.getTransaction(stream.name, partition, producerTransactionOuter.transactionID), secondsWait.seconds)
     res.exists shouldBe true
-    res.transaction.get shouldBe ProducerTransaction(stream.name, partition, producerTransactionOuter.transactionID, TransactionStates.Invalid, producerTransactionOuter.quantity, 0L)
+    res.transaction.get shouldBe ProducerTransaction(stream.name, partition, producerTransactionOuter.transactionID, TransactionStates.Invalid, 0, 0L)
   }
 
   it should "producerTransaction with Opened state and should get it" in {

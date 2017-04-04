@@ -199,11 +199,18 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
 
   "Server" should "not connect to zookeeper server that isn't running" in {
+    val storageOptions = StorageOptions()
     val serverBuilder = new ServerBuilder()
+      .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888", connectionTimeoutMs = 2000))
+
     assertThrows[ZkNoConnectionException] {
       serverBuilder.build()
     }
+
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
   }
 
   it should "not start on wrong inet address" in {
@@ -225,7 +232,9 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
   it should "not start on negative port value" in {
     val zkTestServer = new TestingServer(true)
+    val storageOptions = StorageOptions()
     val serverBuilder = new ServerBuilder()
+      .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
       .withBootstrapOptions(BootstrapOptions(port = Int.MinValue))
 
@@ -233,7 +242,9 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       serverBuilder.build()
     }
 
-
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
     zkTestServer.close()
   }
 

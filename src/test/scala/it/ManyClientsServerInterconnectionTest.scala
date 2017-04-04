@@ -224,7 +224,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
-    val canceledTransaction = producerTransaction1.copy(state = TransactionStates.Cancel, ttl = 0L)
+    val canceledTransaction = producerTransaction1.copy(state = TransactionStates.Cancel, quantity = 0 ,ttl = 0L)
     Await.result(secondClient.putProducerState(canceledTransaction), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file

@@ -49,7 +49,7 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
     }
   }
 
-  override def close(): Unit = client.close()
+  override def close(): Unit = scala.util.Try(client.close())
 }
 
 object ZKLeaderClientToPutMaster {

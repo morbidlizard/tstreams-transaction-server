@@ -25,8 +25,8 @@ class CommitLogFileTest extends FlatSpec with Matchers with BeforeAndAfterAll {
     val pathNotEmptyFile2: String = "target/clf/4444/44/44/2.dat"
     val pathNotEmptyFile2MD5: String = "target/clf/4444/44/44/2.md5"
     val pathNotEmptyFile3: String = "target/clf/4444/44/44/3.dat"
-    val md5EmptyFile = new java.math.BigInteger("d41d8cd98f00b204e9800998ecf8427e", 16).toByteArray
-    val md5NotEmptyFile = new java.math.BigInteger("c4ca4238a0b923820dcc509a6f75849b", 16).toByteArray
+    val md5EmptyFile = new java.math.BigInteger("d41d8cd98f00b204e9800998ecf8427e", 16).toByteArray.tail
+    val md5NotEmptyFile = new java.math.BigInteger("c4ca4238a0b923820dcc509a6f75849b", 16).toByteArray.tail
     new File("target/clf/4444/44/44").mkdirs()
     new File(pathEmptyFile).createNewFile()
     new File(pathNotEmptyFile).createNewFile()

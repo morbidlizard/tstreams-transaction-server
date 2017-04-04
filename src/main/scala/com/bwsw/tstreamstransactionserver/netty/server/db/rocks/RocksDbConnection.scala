@@ -24,7 +24,7 @@ class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksS
   def iterator = client.newIterator()
   override def close(): Unit = client.close()
 
-  final def closeAndDeleteFodler(): Unit = {
+  final def closeAndDeleteFolder(): Unit = {
     client.close()
     file.delete()
   }

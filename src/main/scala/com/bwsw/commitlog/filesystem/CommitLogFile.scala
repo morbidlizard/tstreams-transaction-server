@@ -1,10 +1,12 @@
 package com.bwsw.commitlog.filesystem
 
-import java.io.{BufferedInputStream, File, FileInputStream, FileNotFoundException}
+import java.io._
 import java.math.BigInteger
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, Paths}
 import java.security.MessageDigest
+
+import org.apache.commons.io.IOUtils
 
 /** Represents commitlog file with data.
   *
@@ -12,7 +14,11 @@ import java.security.MessageDigest
   */
 class CommitLogFile(path: String) {
   //todo CommitLogFile существует в двух реализациях: private класс(внутри CommitLog) и этот класс. Требуется рефакторинг (может достаточно переименования)
-  private val file = new File(path)
+  private val file = {
+    val file = new File(path)
+    if (file.exists()) file else throw new IOException(s"File ${file.getPath} doesn't exist!")
+  }
+
   private val md5File = new File(file.toString.split('.')(0) + FilePathManager.MD5EXTENSION)
 
   class Attributes {
@@ -44,23 +50,30 @@ class CommitLogFile(path: String) {
     md5.reset()
     while (stream.available() > 0) {
       val chunk = new Array[Byte](chunkSize)
-      val bytesReaded = stream.read(chunk)
-      md5.update(chunk.take(bytesReaded))
+      val bytesRead = stream.read(chunk)
+      md5.update(chunk.take(bytesRead))
     }
 
     stream.close()
     fileInputStream.close()
 
-    new BigInteger(1, md5.digest()).toByteArray
+    new BigInteger(1, md5.digest()).toByteArray.tail
   }
 
   /** Returns a MD5 sum from MD5 FIle */
   private def getContentOfMD5File = {
     val fileInputStream = new FileInputStream(md5File)
-    val md5Sum = new Array[Byte](17)
+    val md5Sum = new Array[Byte](16)
     fileInputStream.read(md5Sum)
     fileInputStream.close()
     md5Sum
+  }
+
+  final def getContent: Array[Byte] = {
+    val fileInputStream = new FileInputStream(file)
+    val content = IOUtils.toByteArray(fileInputStream)
+    fileInputStream.close()
+    content
   }
 
 

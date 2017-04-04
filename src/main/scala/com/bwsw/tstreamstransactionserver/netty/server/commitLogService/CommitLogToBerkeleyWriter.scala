@@ -12,37 +12,35 @@ import org.slf4j.LoggerFactory
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String],
+class CommitLogToBerkeleyWriter(pathToRocksDB: String,
+                                pathsToClosedCommitLogFiles: ArrayBlockingQueue[String],
                                 transactionServer: TransactionServer,
                                 incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy) extends Runnable with Time {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val processAccordingToPolicy = createProcessingFunction()
 
-  private def createProcessingFunction() = {
+  private def createProcessingFunction() = {(path: String) =>
     incompleteCommitLogReadPolicy match {
       case ResyncMajority => (path: String) => true //todo for replicated mode use only 'resync-majority'
 
-      case SkipLog => (path: String) => {
+      case SkipLog =>
         val commitLogFile = new CommitLogFile(path)
         if (commitLogFile.md5Exists()) {
           processCommitLogFile(commitLogFile)
         } else {
           logger.warn(s"MD5 doesn't exist in a commit log file (path: '$path').")
-          true
         }
-      }
 
-      case TryRead => (path: String) => {
+      case TryRead =>
+        val commitLogFile = new CommitLogFile(path)
         try {
-          val commitLogFile = new CommitLogFile(path)
           processCommitLogFile(commitLogFile)
         } catch {
           case e: Exception =>
             logger.warn(s"Something was going wrong during processing of a commit log file (path: $path). Error message: " + e.getMessage)
         }
-      }
 
-      case Error => (path: String) => {
+      case Error =>
         val commitLogFile = new CommitLogFile(path)
         if (commitLogFile.md5Exists()) {
           processCommitLogFile(commitLogFile)
@@ -50,7 +48,6 @@ class CommitLogToBerkeleyWriter(pathsToClosedCommitLogFiles: ArrayBlockingQueue[
           logger.error(s"MD5 doesn't exist in a commit log file (path: '$path').")
           throw new InterruptedException(s"MD5 doesn't exist in a commit log file (path: '$path').")
         }
-      }
     }
   }
 

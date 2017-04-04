@@ -80,7 +80,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   /**
     * this variable is public for testing purposes only
     */
-  val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy) {
+  val berkeleyWriter = new CommitLogToBerkeleyWriter(storageOpts.commitLogRocksDirectory, commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
@@ -134,10 +134,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     if (berkeleyWriterExecutor != null) {
       berkeleyWriterExecutor.shutdown()
       berkeleyWriterExecutor.awaitTermination(
-        scala.math.max(
-          commitLogOptions.commitLogCloseDelayMs,
-          commitLogOptions.commitLogToBerkeleyDBTaskDelayMs
-        ) * 5,
+        commitLogOptions.commitLogCloseDelayMs * 5,
         TimeUnit.MILLISECONDS
       )
     }

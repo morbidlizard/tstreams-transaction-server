@@ -38,7 +38,6 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   }
 
   private val maxIdleTimeBetweenRecordsMs = 10000
-  private val commitLogToBerkeleyDBTaskDelay = 100
 
   private val serverAuthOptions = ServerOptions.AuthOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
@@ -46,7 +45,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
 
   def startTransactionServer() = new Thread(() => {

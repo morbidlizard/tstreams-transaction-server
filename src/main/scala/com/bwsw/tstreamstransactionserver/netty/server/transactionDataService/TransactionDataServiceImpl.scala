@@ -36,7 +36,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
   final def removeRocksDBDatabaseAndDeleteFolder(stream: Long): Unit = {
     val key = StorageName(stream.toString)
-    Option(rocksDBStorageToStream.get(key)) foreach (x => x.closeAndDeleteFodler())
+    Option(rocksDBStorageToStream.get(key)) foreach (x => x.closeAndDeleteFolder())
   }
 
   private def getStorage(keyStream: StreamRecord, ttl: Long) = {

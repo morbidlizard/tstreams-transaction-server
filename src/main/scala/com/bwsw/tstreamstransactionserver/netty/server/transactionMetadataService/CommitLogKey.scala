@@ -1,9 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import com.sleepycat.bind.tuple.{LongBinding, StringBinding}
+import com.sleepycat.bind.tuple.LongBinding
 import com.sleepycat.je.DatabaseEntry
 
-class CommitLogKey(val id: Long) extends AnyVal {
+class CommitLogKey(val id: Long) extends AnyVal{
   def keyToDatabaseEntry = {
     val databaseEntry = new DatabaseEntry()
     LongBinding.longToEntry(id, databaseEntry)

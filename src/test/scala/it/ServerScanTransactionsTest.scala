@@ -92,7 +92,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
@@ -183,7 +183,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L), 5.seconds)
 
@@ -234,7 +234,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 5L), 5.seconds)
 
@@ -289,7 +289,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val result1 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L), 5.seconds)
       result1.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
@@ -347,7 +347,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
@@ -405,7 +405,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val bigCommit = transactionServer.getBigCommit(1L)
 
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
@@ -455,7 +455,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
     val bigCommit1 = transactionServer.getBigCommit(1L)
     bigCommit1.putSomeTransactions(txns)
-    bigCommit1.commit(currentTime)
+    bigCommit1.commit()
 
     val res = Await.result(transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsAwait.seconds)
 
@@ -507,12 +507,12 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
           (Transaction(Some(ProducerTransaction(stream.name, partition, t, TransactionStates.Checkpointed, 1, 120L)), None), t)
         )
       })
-      bigCommit1.commit(currentTime)
+      bigCommit1.commit()
 
 
       val bigCommit2 = transactionServer.getBigCommit(2L)
       bigCommit2.putSomeTransactions(Seq((Transaction(Some(ProducerTransaction(stream.name, partition, currentTime, TransactionStates.Opened, 1, 120L)), None), currentTime)))
-      bigCommit2.commit(currentTime)
+      bigCommit2.commit()
 
       val transactions2 = for (i <- FIRST until LAST) yield {
         currentTime = currentTime + 1L
@@ -526,7 +526,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
           (Transaction(Some(ProducerTransaction(stream.name, partition, t, TransactionStates.Checkpointed, 1, 120L)), None), t)
         )
       })
-      bigCommit3.commit(currentTime)
+      bigCommit3.commit()
 
       val transactions = transactions1 ++ transactions2
       val firstTransaction = transactions.head
@@ -604,7 +604,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
         Seq((Transaction(Some(ProducerTransaction(stream.name, 1, t, TransactionStates.Opened, 1, 120L)), None), t)
       )
     })
-    bigCommit1.commit(currentTime)
+    bigCommit1.commit()
 
 
     val res = Await.result(transactionServer.scanTransactions(stream.name, 1, lastTransaction, firstTransaction), secondsAwait.seconds)

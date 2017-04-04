@@ -76,6 +76,8 @@ class CommitLogFile(path: String) {
     content
   }
 
+  final def getID: Long = file.getName.dropRight(FilePathManager.DATAEXTENSION.length).toLong
+
 
   /** Returns existing MD5 of this file. Throws an exception otherwise. */
   def getMD5: Array[Byte] = if (!md5Exists()) throw new FileNotFoundException("No MD5 file for " + path) else getContentOfMD5File

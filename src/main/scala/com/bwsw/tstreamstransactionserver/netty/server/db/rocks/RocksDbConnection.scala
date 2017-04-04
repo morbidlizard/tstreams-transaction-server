@@ -18,6 +18,8 @@ class RocksDbConnection(rocksStorageOpts: RocksStorageOptions, absolutePath: Str
 
 
   def get(key: Array[Byte]) = client.get(key)
+
+  @throws[RocksDBException]
   def put(key: Array[Byte], data: Array[Byte]): Unit = client.put(key, data)
 
 

@@ -27,8 +27,9 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
       case SkipLog =>
         val commitLogFile = new CommitLogFile(path)
         if (commitLogFile.md5Exists()) {
+          val fileKey = FileKey(commitLogFile.getID)
           val fileValue = FileValue(commitLogFile.getContent, Some(commitLogFile.getMD5))
-          rocksDb.put(path.getBytes(), fileValue.toByteArray)
+          rocksDb.put(fileKey.toByteArray, fileValue.toByteArray)
           processCommitLogFile(commitLogFile)
         } else {
           logger.warn(s"MD5 doesn't exist in a commit log file (path: '$path').")
@@ -37,8 +38,9 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
       case TryRead =>
         val commitLogFile = new CommitLogFile(path)
         try {
+          val fileKey = FileKey(commitLogFile.getID)
           val fileValue = FileValue(commitLogFile.getContent, if (commitLogFile.md5Exists()) Some(commitLogFile.getMD5) else None)
-          rocksDb.put(path.getBytes(), fileValue.toByteArray)
+          rocksDb.put(fileKey.toByteArray, fileValue.toByteArray)
           processCommitLogFile(commitLogFile)
         } catch {
           case e: Exception =>
@@ -48,8 +50,9 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
       case Error =>
         val commitLogFile = new CommitLogFile(path)
         if (commitLogFile.md5Exists()) {
+          val fileKey = FileKey(commitLogFile.getID)
           val fileValue = FileValue(commitLogFile.getContent, Some(commitLogFile.getMD5))
-          rocksDb.put(path.getBytes(), fileValue.toByteArray)
+          rocksDb.put(fileKey.toByteArray, fileValue.toByteArray)
           processCommitLogFile(commitLogFile)
         } else {
           logger.error(s"MD5 doesn't exist in a commit log file (path: '$path').")
@@ -78,7 +81,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
   @throws[Exception]
   private def processCommitLogFile(file: CommitLogFile): Boolean = {
     val recordsToReadNumber = 1
-    val bigCommit = transactionServer.getBigCommit(file.getFile.getName.split('.').head.toLong)
+    val bigCommit = transactionServer.getBigCommit(file.getID)
 
     def getFirstRecordAndReturnIterator(iterator: CommitLogFileIterator): (CommitLogFileIterator, Seq[(Transaction, Long)]) = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, 1)
@@ -99,7 +102,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
       if (isAnyElements) helper(iter, firstTransactionTimestamp, lastRecordTimestampOpt)
       else {
         iter.close()
-        (bigCommit.commit(firstTransactionTimestamp), lastRecordTimestampOpt)
+        (bigCommit.commit(), lastRecordTimestampOpt)
       }
     }
 

@@ -7,6 +7,7 @@ class CommitLogCatalogueByFolder(path: String) {
 
   val dataFolder: File = {
     val file = new File(path)
+    file.mkdirs()
     if (file.isDirectory) file else throw new IllegalArgumentException(s"Path ${file.getPath} is not directory!")
   }
 

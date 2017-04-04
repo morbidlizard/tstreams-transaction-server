@@ -92,7 +92,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
       lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
@@ -149,7 +149,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
 
@@ -204,7 +204,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
 
@@ -269,7 +269,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
-      bigCommit.commit(currentTime)
+      bigCommit.commit()
 
       transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get.opened.id shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get
     }

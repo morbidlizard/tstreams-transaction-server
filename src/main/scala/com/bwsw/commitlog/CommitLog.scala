@@ -121,53 +121,6 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     } else None
   }
 
-  //  /** Return decoded messages from specified file.
-  //    *
-  //    * @param path path to file to read data from.
-  //    * @return sequence of decoded messages.
-  //    */
-  //  def getMessages(path: String): IndexedSeq[Array[Byte]] = {
-  //    val base64decoder: Decoder = Base64.getDecoder
-  //    val byteArray = Files.readAllBytes(Paths.get(path))
-  //    var msgs: IndexedSeq[Array[Byte]] = IndexedSeq[Array[Byte]]()
-  //    var i = 0
-  //    while (i < byteArray.length) {
-  //      var msg: Array[Byte] = Array[Byte]()
-  //      if (byteArray(i) == 0) {
-  //        i += 1
-  //        while (i < byteArray.length && byteArray(i) != 0.toByte) {
-  //          msg = msg :+ byteArray(i)
-  //          i += 1
-  //        }
-  //        msgs = msgs :+ base64decoder.decode(msg)
-  //      } else {
-  //        new Exception("No zero at the beginning of a message")
-  //      }
-  //    }
-  //    return msgs
-  //  }
-
-  //  /** Performance test.
-  //    *
-  //    * Writes specified count of messages to file.
-  //    *
-  //    * @param countOfRecords count of records to write.
-  //    * @param message message to write.
-  //    * @param typeOfMessage type of message.
-  //    * @return count of milliseconds writing to file took.
-  //    */
-  //  def perf(countOfRecords: Int, message: Array[Byte], typeOfMessage: Byte): Long = {
-  //    require(countOfRecords > 0, "Count of records cannot be less than 1")
-  //
-  //    val before = System.currentTimeMillis()
-  //    for (i <- 1 to countOfRecords) putRec(message, typeOfMessage, startNew = false)
-  //    System.currentTimeMillis() - before
-  //  }
-
-  //  private def flushStream() = {
-  //    outputStream.flush()
-  //  }
-
   private def resetCounters(): Unit = {
     fileCreationTime = -1
     chunkWriteCount = 0

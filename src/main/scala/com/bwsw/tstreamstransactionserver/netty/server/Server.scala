@@ -21,6 +21,7 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContextExecutorService
 
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
@@ -75,7 +76,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   final def removeConsumerNotification(id: Long) = transactionServer.removeConsumerTransactionNotification(id)
 
   private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
-  private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogueByFolder(storageOpts.path), transactionServer).fillQueue()
+  private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogueByFolder(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer).fillQueue()
 
 
   /**
@@ -155,6 +156,7 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
 
     import scala.collection.JavaConverters.asJavaCollectionConverter
     val allFilesIDsToProcess = allFiles.keys.toSeq diff getProcessedCommitLogFiles
+
     val filesToProcess = allFilesIDsToProcess.map(id => allFiles(id).getFile.getPath).sorted.asJavaCollection
 
     val maxSize = scala.math.max(filesToProcess.size, queueSize)
@@ -165,19 +167,18 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
     else throw new Exception("Something goes wrong here")
   }
 
-  private def getProcessedCommitLogFiles = {
-    val commitLogDatabase = transactionServer.commitLogDatabase
-
+  private def getProcessedCommitLogFiles: ArrayBuffer[Long] = {
     val keyFound = new DatabaseEntry()
     val dataFound = new DatabaseEntry()
 
-    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[CommitLogKey]()
-    val cursor = commitLogDatabase.openCursor(new DiskOrderedCursorConfig().setKeysOnly(true))
-    while (cursor.getNext(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
-      processedCommitLogFiles += CommitLogKey.keyToObject(keyFound)
+    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
+    val cursor = transactionServer.commitLogDatabase.openCursor(new DiskOrderedCursorConfig().setKeysOnly(true))
+    while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
+      processedCommitLogFiles += CommitLogKey.keyToObject(keyFound).id
     }
     cursor.close()
 
+    println(processedCommitLogFiles)
     processedCommitLogFiles
   }
 }

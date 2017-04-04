@@ -62,13 +62,13 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val firstCommitTime = System.currentTimeMillis()
     val commitFirst = transactionServiceServer.getBigCommit(scala.util.Random.nextLong())
     commitFirst.putSomeTransactions(Seq((inAggregated, firstCommitTime)))
-    commitFirst.commit(firstCommitTime)
+    commitFirst.commit()
 
     val toUpdateInAggregated = Transaction(Some(toUpdateIn), None)
     val secondCommitTime = System.currentTimeMillis()
     val secondCommit = transactionServiceServer.getBigCommit(scala.util.Random.nextLong())
     secondCommit.putSomeTransactions(Seq((toUpdateInAggregated, secondCommitTime + TimeUnit.SECONDS.toMillis(timeBetweenTransactionSec))))
-    secondCommit.commit(secondCommitTime)
+    secondCommit.commit()
 
     getProducerTransactionFromServer(transactionServiceServer, out) shouldBe out
   }

@@ -88,7 +88,7 @@ object ServerOptions {
       new Options()
         .setCreateIfMissing(createIfMissing)
         .setMaxBackgroundCompactions(maxBackgroundCompactions)
-        .setAllowOsBuffer(allowOsBuffer)
+        //.setAllowOsBuffer(allowOsBuffer)
         .setCompressionType(compression)
         .setUseFsync(useFsync)
     }

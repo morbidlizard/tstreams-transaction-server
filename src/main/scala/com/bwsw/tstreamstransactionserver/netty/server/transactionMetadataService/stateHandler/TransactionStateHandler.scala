@@ -51,10 +51,10 @@ trait TransactionStateHandler {
   //    case (TransactionStatus.`checkpointed`, _) =>
   //  }
 
-  private def transitProducerTransactionToInvalidState(txn: ProducerTransactionRecord) = {
+  private[transactionMetadataService] def transitProducerTransactionToInvalidState(txn: ProducerTransactionRecord) = {
     ProducerTransactionRecord(
       com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey(txn.stream, txn.partition, txn.transactionID),
-      ProducerTransactionValue(Invalid, txn.quantity, 0L, txn.timestamp)
+      ProducerTransactionValue(Invalid, 0, 0L, txn.timestamp)
     )
   }
 

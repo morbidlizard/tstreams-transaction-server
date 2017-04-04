@@ -371,9 +371,9 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
       scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
     }
 
-    private def transitToInvalidState(producerTransactionWithoutKey: ProducerTransactionValue) = {
-      ProducerTransactionValue(TransactionStates.Invalid, producerTransactionWithoutKey.quantity, 0L, timestampToDeleteTransactions)
-    }
+//    private def transitToInvalidState(producerTransactionWithoutKey: ProducerTransactionValue) = {
+//      ProducerTransactionValue(TransactionStates.Invalid, producerTransactionWithoutKey.quantity, 0L, timestampToDeleteTransactions)
+//    }
 
     override def run(): Unit = {
       if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
@@ -390,12 +390,14 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
           if (toDelete) {
             if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
 
+            val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
             val producerTransactionKey = ProducerTransactionKey.entryToObject(keyFound)
-            val canceledTransactionDueExpiration = transitToInvalidState(producerTransactionValue)
-            if (areThereAnyProducerNotifies) tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionDueExpiration))
+
+            val canceledTransactionRecordDueExpiration = transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
+            if (areThereAnyProducerNotifies) tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
 
             transactionsRamTable.invalidate(producerTransactionKey)
-            producerTransactionsDatabase.put(transactionDB, keyFound, canceledTransactionDueExpiration.toDatabaseEntry)
+            producerTransactionsDatabase.put(transactionDB, keyFound, canceledTransactionRecordDueExpiration.producerTransaction.toDatabaseEntry)
 
             cursor.delete()
             true

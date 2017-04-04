@@ -37,6 +37,28 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   if (!ZKLeaderClientToPutMaster.isValidSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2))
     throw new InvalidSocketAddress(s"Invalid socket address ${transactionServerSocketAddress._1}:${transactionServerSocketAddress._2}")
 
+  private def createTransactionServerAddress() = {
+    (System.getenv("HOST"), System.getenv("PORT0")) match {
+      case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
+      case _ => (serverOpts.host, serverOpts.port)
+    }
+  }
+
+  private val zk = scala.util.Try(
+    new ZKLeaderClientToPutMaster(
+      zookeeperOpts.endpoints,
+      zookeeperOpts.sessionTimeoutMs,
+      zookeeperOpts.connectionTimeoutMs,
+      new RetryForever(zookeeperOpts.retryDelayMs),
+      zookeeperOpts.prefix
+    )) match {
+    case scala.util.Success(client) => client
+    case scala.util.Failure(throwable) =>
+      shutdown()
+      throw throwable
+  }
+
+
   private val executionContext = new ServerExecutionContext(serverOpts.threadPool, berkeleyStorageOptions.berkeleyReadThreadPool,
     rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
@@ -58,11 +80,11 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   /**
     * this variable is public for testing purposes only
     */
-  val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy){
+  val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
-  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions){
+  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
@@ -73,22 +95,12 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     }
   }
 
-  private def createTransactionServerAddress() = {
-    (System.getenv("HOST"), System.getenv("PORT0")) match {
-      case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
-      case _ => (serverOpts.host, serverOpts.port)
-    }
-  }
-
-  private val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
-    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
-
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
+
   def start(): Unit = {
     try {
       berkeleyWriterExecutor.scheduleWithFixedDelay(commitLogTask, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-//      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
@@ -109,22 +121,27 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   }
 
   def shutdown(): Unit = {
-    bossGroup.shutdownGracefully()
-    workerGroup.shutdownGracefully()
-    zk.close()
-    bossGroup.terminationFuture()
-    workerGroup.terminationFuture()
-
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
-    berkeleyWriterExecutor.shutdown()
-    berkeleyWriterExecutor.awaitTermination(
-      scala.math.max(
-        commitLogOptions.commitLogCloseDelayMs,
-        commitLogOptions.commitLogToBerkeleyDBTaskDelayMs
-      )*5,
-      TimeUnit.MILLISECONDS
-    )
-    transactionServer.closeAllDatabases()
+    if (bossGroup != null) {
+      bossGroup.shutdownGracefully()
+      bossGroup.terminationFuture()
+    }
+    if (workerGroup != null) {
+      workerGroup.shutdownGracefully()
+      workerGroup.terminationFuture()
+    }
+    if (zk != null) zk.close()
+    if (transactionServer != null) transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+    if (berkeleyWriterExecutor != null) {
+      berkeleyWriterExecutor.shutdown()
+      berkeleyWriterExecutor.awaitTermination(
+        scala.math.max(
+          commitLogOptions.commitLogCloseDelayMs,
+          commitLogOptions.commitLogToBerkeleyDBTaskDelayMs
+        ) * 5,
+        TimeUnit.MILLISECONDS
+      )
+    }
+    if (transactionServer != null) transactionServer.closeAllDatabases()
   }
 }
 

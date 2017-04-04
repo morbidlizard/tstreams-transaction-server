@@ -3,6 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 import java.util.concurrent.ArrayBlockingQueue
 
 import com.bwsw.commitlog.filesystem.{CommitLogFile, CommitLogFileIterator}
+import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
@@ -12,7 +13,7 @@ import org.slf4j.LoggerFactory
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-class CommitLogToBerkeleyWriter(pathToRocksDB: String,
+class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
                                 pathsToClosedCommitLogFiles: ArrayBlockingQueue[String],
                                 transactionServer: TransactionServer,
                                 incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy) extends Runnable with Time {
@@ -26,6 +27,8 @@ class CommitLogToBerkeleyWriter(pathToRocksDB: String,
       case SkipLog =>
         val commitLogFile = new CommitLogFile(path)
         if (commitLogFile.md5Exists()) {
+          val fileValue = FileValue(commitLogFile.getContent, Some(commitLogFile.getMD5))
+          rocksDb.put(path.getBytes(), fileValue.toByteArray)
           processCommitLogFile(commitLogFile)
         } else {
           logger.warn(s"MD5 doesn't exist in a commit log file (path: '$path').")
@@ -34,6 +37,8 @@ class CommitLogToBerkeleyWriter(pathToRocksDB: String,
       case TryRead =>
         val commitLogFile = new CommitLogFile(path)
         try {
+          val fileValue = FileValue(commitLogFile.getContent, if (commitLogFile.md5Exists()) Some(commitLogFile.getMD5) else None)
+          rocksDb.put(path.getBytes(), fileValue.toByteArray)
           processCommitLogFile(commitLogFile)
         } catch {
           case e: Exception =>
@@ -43,6 +48,8 @@ class CommitLogToBerkeleyWriter(pathToRocksDB: String,
       case Error =>
         val commitLogFile = new CommitLogFile(path)
         if (commitLogFile.md5Exists()) {
+          val fileValue = FileValue(commitLogFile.getContent, Some(commitLogFile.getMD5))
+          rocksDb.put(path.getBytes(), fileValue.toByteArray)
           processCommitLogFile(commitLogFile)
         } else {
           logger.error(s"MD5 doesn't exist in a commit log file (path: '$path').")
@@ -71,7 +78,7 @@ class CommitLogToBerkeleyWriter(pathToRocksDB: String,
   @throws[Exception]
   private def processCommitLogFile(file: CommitLogFile): Boolean = {
     val recordsToReadNumber = 1
-    val bigCommit = transactionServer.getBigCommit(file.getFile.getAbsolutePath)
+    val bigCommit = transactionServer.getBigCommit(file.getFile.getName.split('.').head.toLong)
 
     def getFirstRecordAndReturnIterator(iterator: CommitLogFileIterator): (CommitLogFileIterator, Seq[(Transaction, Long)]) = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, 1)
@@ -127,6 +134,8 @@ class CommitLogToBerkeleyWriter(pathToRocksDB: String,
       }
     } else transactionServer.createTransactionsToDeleteTask(getCurrentTime).run()
   }
+
+  final def closeRocksDB(): Unit = rocksDb.close()
 }
 
 object CommitLogToBerkeleyWriter {

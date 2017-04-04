@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogue
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueByFolder
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
@@ -66,13 +66,16 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
 
   override def beforeEach(): Unit = {
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
     startTransactionServer()
     Thread.sleep(30)
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
-    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
   }
 
   override def afterEach() {
@@ -80,11 +83,11 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     client.shutdown()
     transactionServer.shutdown()
     zkTestServer.close()
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.metadataDirectory))
-    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
+
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {

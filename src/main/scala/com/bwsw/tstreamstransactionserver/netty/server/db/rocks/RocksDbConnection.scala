@@ -6,11 +6,11 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOpt
 import org.apache.commons.io.FileUtils
 import org.rocksdb._
 
-class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksStorageOptions, name: String, ttl: Int = -1) extends Closeable {
+class RocksDbConnection(rocksStorageOpts: RocksStorageOptions, absolutePath: String, ttl: Int = -1) extends Closeable {
   RocksDB.loadLibrary()
 
   private val options = rocksStorageOpts.createDBOptions()
-  private val file = new File(s"${storageOptions.path}/${storageOptions.dataDirectory}/$name")
+  private val file = new File(absolutePath)
   private val client =  {
     FileUtils.forceMkdir(file)
     TtlDB.open(options, file.getAbsolutePath, ttl, false)
@@ -25,6 +25,7 @@ class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksS
   override def close(): Unit = client.close()
 
   final def closeAndDeleteFolder(): Unit = {
+    options.close()
     client.close()
     file.delete()
   }
@@ -38,10 +39,12 @@ class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksS
 
     def remove(key: Array[Byte]): Unit = batch.remove(key)
     def write(): Boolean = {
-      val status = scala.util.Try(client.write(new WriteOptions(), batch)) match {
+      val writeOptions = new WriteOptions()
+      val status = scala.util.Try(client.write(writeOptions, batch)) match {
         case scala.util.Success(_) => true
         case scala.util.Failure(throwable) => false
       }
+      writeOptions.close()
       batch.close()
       status
     }

@@ -25,7 +25,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[String]
       case EveryNSeconds => OnTimeInterval(commitLogOptions.commitLogWriteSyncValue)
     }
 
-    new CommitLog(Int.MaxValue, storageOptions.path, policy)
+    new CommitLog(Int.MaxValue, s"${storageOptions.path}${java.io.File.separatorChar}${storageOptions.commitLogDirectory}", policy)
   }
 
   def putData(messageType: Byte, message: Message) = {

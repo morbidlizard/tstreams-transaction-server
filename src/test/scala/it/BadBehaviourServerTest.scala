@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogue
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueByFolder
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
@@ -75,20 +75,18 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
 
   override def beforeAll(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
     zkTestServer.start()
   }
 
   override def afterAll(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
     zkTestServer.close()
   }
 

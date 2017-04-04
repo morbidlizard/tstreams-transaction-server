@@ -12,30 +12,6 @@ import java.util.GregorianCalendar
 object FilePathManager {
   val DATAEXTENSION = ".dat"
   val MD5EXTENSION = ".md5"
-
-  private val calendar = {
-    val calendar = new GregorianCalendar()
-    calendar.setLenient(false)
-    calendar
-  }
-
-  val simpleDateFormat = {
-    val format = new SimpleDateFormat(
-      new StringBuffer("yyyy").append(File.separatorChar)
-        .append("MM").append(File.separatorChar)
-        .append("dd")
-        .toString
-    )
-    format.setCalendar(calendar)
-    format.setLenient(false)
-    format
-  }
-
-  var CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
-
-  def resetCatalogueGenerator(): Unit = {
-    CATALOGUE_GENERATOR = () => simpleDateFormat.format(calendar.getTime)
-  }
 }
 
 /** Manages commitlog filesystem.
@@ -43,8 +19,8 @@ object FilePathManager {
   * @param rootDir root directory of commitlog
   */
 class FilePathManager(rootDir: String) {
-  private var curDate: String = FilePathManager.CATALOGUE_GENERATOR()
   private val rootPath: File = new File(rootDir)
+  rootPath.mkdirs()
   private var nextID: Int = -1
   private val datFilter = new FilenameFilter() {
     override def accept(dir: File, name: String): Boolean = {
@@ -55,29 +31,20 @@ class FilePathManager(rootDir: String) {
   if(!rootPath.isDirectory())
     throw new IllegalArgumentException(s"Path $rootDir doesn't exists.")
 
-  def getCurrentPath: String = Paths.get(rootDir, curDate, nextID.toString).toString
+  def getCurrentPath: String = Paths.get(rootDir, /*curDate,*/ nextID.toString).toString
 
   def getNextPath: String = {
-    val testDate: String = FilePathManager.CATALOGUE_GENERATOR()
-
-    if(curDate != testDate) {
-      nextID = -1
-      curDate = testDate
-    } else {
-      if(nextID >= 0) {
-        nextID += 1
-        val nextPath = Paths.get(rootDir, testDate, nextID.toString).toString
-
-        return nextPath
-      }
+    if (nextID >= 0) {
+      nextID += 1
+      val nextPath = Paths.get(rootDir, nextID.toString).toString
+      return nextPath
     }
 
-    if(createPath()) {
+    if (createPath()) {
       nextID = 0
-
-      Paths.get(rootDir, testDate, nextID.toString).toString
+      Paths.get(rootDir, nextID.toString).toString
     } else {
-      val filesDir = new File(Paths.get(rootDir, testDate).toString)
+      val filesDir = new File(rootDir)
       var max = -1
 
       filesDir.listFiles(datFilter).foreach(f => {
@@ -85,15 +52,14 @@ class FilePathManager(rootDir: String) {
       })
       nextID = max + 1
 
-      Paths.get(rootDir, testDate, nextID.toString).toString
+      Paths.get(rootDir, nextID.toString).toString
     }
   }
 
   private def createPath(): Boolean = {
-    val path = new File(Paths.get(rootDir, curDate).toString)
+    val path = new File(rootDir)
     if(!(path.exists() && path.isDirectory())) {
       path.mkdirs()
-
       true
     } else false
   }

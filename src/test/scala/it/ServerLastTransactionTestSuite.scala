@@ -38,9 +38,10 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
   private val storageOptions = StorageOptions(path = "/tmp")
 
   override def beforeEach(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
   }
 
   override def afterEach() {
@@ -89,7 +90,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
       val currentTime = System.currentTimeMillis()
-      val bigCommit = transactionService.getBigCommit(storageOptions.path)
+      val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit(currentTime)
 
@@ -146,7 +147,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
 
       val currentTime = System.currentTimeMillis()
-      val bigCommit = transactionService.getBigCommit(storageOptions.path)
+      val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit(currentTime)
 
@@ -201,7 +202,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
 
       val currentTime = System.currentTimeMillis()
-      val bigCommit = transactionService.getBigCommit(storageOptions.path)
+      val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit(currentTime)
 
@@ -266,7 +267,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val transactionsWithTimestamp = producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
       val currentTime = System.currentTimeMillis()
-      val bigCommit = transactionService.getBigCommit(storageOptions.path)
+      val bigCommit = transactionService.getBigCommit(1L)
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit(currentTime)
 

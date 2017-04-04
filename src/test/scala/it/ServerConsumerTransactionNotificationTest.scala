@@ -3,7 +3,7 @@ package it
 import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogue
+import com.bwsw.commitlog.filesystem.CommitLogCatalogueByFolder
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -54,22 +54,25 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
 
 
   override def beforeEach(): Unit = {
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+
     zkTestServer = new TestingServer(true)
     startTransactionServer()
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
-    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
   }
 
   override def afterEach() {
     client.shutdown()
     transactionServer.shutdown()
     zkTestServer.close()
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.metadataDirectory))
-    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
+
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
   }
 
   private val rand = scala.util.Random

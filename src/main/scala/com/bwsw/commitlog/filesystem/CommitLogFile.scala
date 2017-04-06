@@ -1,10 +1,10 @@
 package com.bwsw.commitlog.filesystem
 
 import java.io._
-import java.math.BigInteger
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, Paths}
 import java.security.MessageDigest
+import javax.xml.bind.DatatypeConverter
 
 import org.apache.commons.io.IOUtils
 
@@ -57,13 +57,13 @@ class CommitLogFile(path: String) {
     stream.close()
     fileInputStream.close()
 
-    new BigInteger(1, md5.digest()).toByteArray.tail
+    DatatypeConverter.printHexBinary(md5.digest()).getBytes
   }
 
   /** Returns a MD5 sum from MD5 FIle */
   private def getContentOfMD5File = {
     val fileInputStream = new FileInputStream(md5File)
-    val md5Sum = new Array[Byte](16)
+    val md5Sum = new Array[Byte](32)
     fileInputStream.read(md5Sum)
     fileInputStream.close()
     md5Sum

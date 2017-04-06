@@ -128,6 +128,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
 
   override def run(): Unit = {
     val path = pathsToClosedCommitLogFiles.poll()
+    println(path)
     if (path != null) {
       scala.util.Try {
         processAccordingToPolicy(path)

@@ -143,7 +143,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
       case `putTransactionMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
-            ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message))
+            ScalaFuture(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message))
               .flatMap { isOkay =>
                 logSuccessfulProcession()
                 ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isOkay)))(messageId, token))
@@ -164,7 +164,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
       case `putTransactionsMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
-            ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))
+            ScalaFuture(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))
               .flatMap { isOkay =>
                 logSuccessfulProcession()
                 ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isOkay)))(messageId, token))
@@ -297,7 +297,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
       case `putConsumerCheckpointMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
-            ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
+            ScalaFuture(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))
               .flatMap { response =>
                 logSuccessfulProcession()
                 ScalaFuture.successful(Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(Some(response)))(messageId, token))

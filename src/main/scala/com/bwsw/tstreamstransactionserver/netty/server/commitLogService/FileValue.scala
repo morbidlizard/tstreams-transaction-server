@@ -32,7 +32,7 @@ class FileValue(val fileContent: Array[Byte], val fileMD5Content: Option[Array[B
 object FileValue {
   private val NO_MD5_FILE = 1: Byte
   private val MD5_FILE_EXIST = 2: Byte
-  private val MD5_SUM_LENGTH = 16
+  private val MD5_SUM_LENGTH = 32
 
   def apply(fileContent: Array[Byte], fileMD5Content: Option[Array[Byte]]): FileValue = new FileValue(fileContent, fileMD5Content)
 

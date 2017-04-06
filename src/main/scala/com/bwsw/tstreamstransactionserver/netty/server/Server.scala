@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.util.concurrent.{ArrayBlockingQueue, Executors, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogueByFolder
+import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.Message
@@ -75,15 +75,17 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
 
   final def removeConsumerNotification(id: Long) = transactionServer.removeConsumerTransactionNotification(id)
 
-  private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
-  private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogueByFolder(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer).fillQueue()
 
-
+  private val (commitLogQueue, commitLogLastId) = {
+    val queue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
+    (queue.fillQueue(), queue.getLastKey.getOrElse(0L))
+  }
+  println(commitLogLastId)
   /**
     * this variable is public for testing purposes only
     */
   val berkeleyWriter = new CommitLogToBerkeleyWriter(
-    new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}"),
+    new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTTLSec),
     commitLogQueue,
     transactionServer,
     commitLogOptions.incompleteCommitLogReadPolicy
@@ -91,7 +93,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
-  private val fileIDGenerator = new zk.FileIDGenerator("/test_counter", 0L)
+  private val fileIDGenerator = new zk.FileIDGenerator("/test_counter", commitLogLastId)
   private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions, fileIDGenerator.increment) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }
@@ -103,6 +105,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     }
   }
 
+  private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
@@ -151,7 +154,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   }
 }
 
-class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatalogueByFolder, transactionServer: TransactionServer) {
+class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatalogue, transactionServer: TransactionServer) {
   def fillQueue(): ArrayBlockingQueue[String] = {
     val allFiles = commitLogCatalogue.listAllFilesAndTheirIDs().toMap
 
@@ -179,7 +182,20 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
     }
     cursor.close()
 
-    println(processedCommitLogFiles)
     processedCommitLogFiles
+  }
+
+  final def getLastKey: Option[Long] = {
+    val keyFound = new DatabaseEntry()
+    val dataFound = new DatabaseEntry()
+
+    val cursor = transactionServer.commitLogDatabase.openCursor(null, null)
+    val id = if (cursor.getLast(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
+      Some(CommitLogKey.keyToObject(keyFound).id)
+    } else {
+      None
+    }
+    cursor.close()
+    id
   }
 }

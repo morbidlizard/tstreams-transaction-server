@@ -4,8 +4,6 @@ import java.io._
 import java.security.{DigestOutputStream, MessageDigest}
 import java.util.Base64
 import java.util.Base64.Encoder
-import java.util.concurrent.atomic.AtomicReference
-import java.util.function.UnaryOperator
 import javax.xml.bind.DatatypeConverter
 
 import com.bwsw.commitlog.CommitLogFlushPolicy.{ICommitLogFlushPolicy, OnCountInterval, OnRotation, OnTimeInterval}
@@ -25,13 +23,14 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   require(seconds > 0, "Seconds cannot be less than 1")
 
   private val secondsInterval: Int = seconds
+
   private val base64Encoder: Encoder = Base64.getEncoder
   private val delimiter: Byte = 0
   @volatile private var fileCreationTime: Long = -1
   @volatile private var chunkWriteCount: Int = 0
   @volatile private var chunkOpenTime: Long = 0
 
-  private val currentCommitLogFileToPut: AtomicReference[CommitLogFile] = new AtomicReference[CommitLogFile](null)
+  private var currentCommitLogFileToPut: CommitLogFile = _
   private class CommitLogFile(path: String) {
     val absolutePath = new StringBuffer(path).append(FilePathManager.DATAEXTENSION).toString
 
@@ -67,11 +66,6 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   }
 
 
-
-  private val updateFunction = new UnaryOperator[CommitLogFile]{
-    override def apply(t: CommitLogFile): CommitLogFile = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
-  }
-
   /** Puts record and its type to an appropriate file.
     *
     * Writes data to file in format (delimiter)(BASE64-encoded type and message). When writing to one file finished,
@@ -82,55 +76,52 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     * @param startNew start new file if true
     * @return name of file record was saved in
     */
-  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = {
+  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = this.synchronized{
 
     // если хотим записать в новый файл при уже существующем коммит логе
     if (startNew && !firstRun) {
       resetCounters()
-      val currentFile = currentCommitLogFileToPut.getAndUpdate(updateFunction)
-      currentFile.close()
+      currentCommitLogFileToPut.close()
+      currentCommitLogFileToPut = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
     }
 
     // если истекло время или мы начинаем записывать в новый коммит лог файл
     if (firstRun() || timeExceeded()) {
       if (!firstRun()) {
         resetCounters()
-        currentCommitLogFileToPut.get().close()
+        currentCommitLogFileToPut.close()
       }
       fileCreationTime = getCurrentSecs()
       // TODO(remove this):write here chunkOpenTime or we will write first record instantly if OnTimeInterval policy set
       //      chunkOpenTime = System.currentTimeMillis()
-      currentCommitLogFileToPut.updateAndGet(updateFunction)
+      currentCommitLogFileToPut = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
     }
 
     val now: Long = System.currentTimeMillis()
     policy match {
       case interval: OnTimeInterval if interval.seconds * 1000 + chunkOpenTime < now =>
         chunkOpenTime = now
-        currentCommitLogFileToPut.get().flush()
+        currentCommitLogFileToPut.flush()
       case interval: OnCountInterval if interval.count == chunkWriteCount =>
         chunkWriteCount = 0
-        currentCommitLogFileToPut.get().flush()
+        currentCommitLogFileToPut.flush()
       case _ =>
     }
 
     val encodedMsgWithType: Array[Byte] = base64Encoder.encode(messageType +: message)
-
-    val currentFile = currentCommitLogFileToPut.get
-    currentFile.put(encodedMsgWithType)
+    currentCommitLogFileToPut.put(encodedMsgWithType)
 
     chunkWriteCount += 1
 
-    currentFile.absolutePath
+    currentCommitLogFileToPut.absolutePath
   }
 
   /** Finishes work with current file. */
-  def close(): Option[String] = {
+  def close(): Option[String] = this.synchronized {
     if (!firstRun) {
       resetCounters()
-      val currentFile = currentCommitLogFileToPut.get
-      currentFile.close()
-      Some(currentFile.absolutePath)
+      currentCommitLogFileToPut.close()
+      Some(currentCommitLogFileToPut.absolutePath)
     } else None
   }
 

@@ -3,7 +3,7 @@ package it
 import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogueByFolder
+import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -62,7 +62,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     zkTestServer = new TestingServer(true)
     startTransactionServer()
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
-    val commitLogCatalogue = new CommitLogCatalogueByFolder(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory)
+    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory)
     commitLogCatalogue.deleteAllFiles()
   }
 

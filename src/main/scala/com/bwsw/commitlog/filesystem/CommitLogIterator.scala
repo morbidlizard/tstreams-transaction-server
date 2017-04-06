@@ -1,30 +1,20 @@
 package com.bwsw.commitlog.filesystem
 
-import java.io.{BufferedInputStream, File, FileInputStream}
+import java.io.BufferedInputStream
 import java.util.Base64
 
 import scala.collection.mutable.ArrayBuffer
 
-/** Iterator over records of the commitlog file.
-  *
-  * @param path full path to file
-  */
-class CommitLogFileIterator(path: String) extends CommitLogIterator {
-  private val fileInputStream = new FileInputStream(new File(path))
-  override protected val stream = new BufferedInputStream(fileInputStream)
-  require {
-    val begin = stream.read()
-    begin == (0: Byte) || begin == -1
-  }
+abstract class CommitLogIterator extends Iterator[Array[Byte]] {
+  protected val stream: BufferedInputStream
 
   override def hasNext(): Boolean = {
     if (stream.available() > 0) true
     else false
   }
 
-  override def close():Unit = {
+  def close():Unit = {
     stream.close()
-    fileInputStream.close()
   }
 
   override def next(): Array[Byte] = {

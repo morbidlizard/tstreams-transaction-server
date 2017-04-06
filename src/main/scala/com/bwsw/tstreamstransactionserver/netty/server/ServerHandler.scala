@@ -150,6 +150,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
               }
               .recover { case error =>
                 logUnsuccessfulProcessing(error)
+                error.printStackTrace()
                 Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
               }
           } else {

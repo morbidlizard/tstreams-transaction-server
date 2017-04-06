@@ -3,7 +3,7 @@ package ut
 import java.io.File
 import java.util.concurrent.ArrayBlockingQueue
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogueByFolder
+import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{CommitLogQueueBootstrap, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions, StorageOptions}
@@ -19,7 +19,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   val executionContext = new ServerExecutionContext(2, 1, 1, 1)
   val storageOptions = StorageOptions(new StringBuffer().append("target").append(File.separatorChar).append("clqb").toString)
   val transactionService = new TransactionServer(executionContext, authOptions, storageOptions, rocksStorageOptions)
-  val commitLogCatalogue = new CommitLogCatalogueByFolder(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
+  val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
   val commitLogQueueBootstrap = new CommitLogQueueBootstrap(10, commitLogCatalogue, transactionService)
 
   "fillQueue" should "return an empty queue if there are no commit log files in a storage directory" in {
@@ -62,7 +62,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   }
 
   private def createCommitLogFiles(number: Int) = {
-    val commitLogCatalogueByDate = new CommitLogCatalogueByFolder(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
+    val commitLogCatalogueByDate = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
 
     (0 until number).foreach(fileNamePrefix => {
       commitLogCatalogueByDate.createFile(fileNamePrefix.toString)

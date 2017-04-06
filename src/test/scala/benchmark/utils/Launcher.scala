@@ -5,7 +5,7 @@ trait Launcher extends Installer {
   protected val clients: Int
 
   def launch() = {
-    clearDB()
+  //  clearDB()
     startTransactionServer()
     Thread.sleep(500L)
     createStream(streamName, clients)

@@ -123,12 +123,14 @@ object ServerOptions {
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
     * @param maxIdleTimeBetweenRecordsMs max count of milliseconds that will pass from last commit log record to close a current commit log file and open a new one.
     * @param commitLogCloseDelayMs the time through a commit log file is closed.
+    * @param commitLogFileTTLSec the time a commit log files live before they are deleted.
     */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
                               maxIdleTimeBetweenRecordsMs: Int = 2000,
-                              commitLogCloseDelayMs: Int = 200
+                              commitLogCloseDelayMs: Int = 200,
+                              commitLogFileTTLSec: Int = 86400
                              )
 }
 

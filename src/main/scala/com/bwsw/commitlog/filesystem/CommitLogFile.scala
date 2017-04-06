@@ -12,7 +12,7 @@ import org.apache.commons.io.IOUtils
   *
   * @param path full path to file
   */
-class CommitLogFile(path: String) {
+class CommitLogFile(path: String) extends CommitLogStorage{
   //todo CommitLogFile существует в двух реализациях: private класс(внутри CommitLog) и этот класс. Требуется рефакторинг (может достаточно переименования)
   private val file = {
     val file = new File(path)
@@ -35,7 +35,7 @@ class CommitLogFile(path: String) {
 
 
   /** Returns an iterator over records */
-  def getIterator: CommitLogFileIterator = new CommitLogFileIterator(file.toString)
+  override def getIterator: CommitLogIterator = new CommitLogFileIterator(file.toString)
 
 
   /** bytes to read from this file */
@@ -82,9 +82,12 @@ class CommitLogFile(path: String) {
   /** Returns existing MD5 of this file. Throws an exception otherwise. */
   def getMD5: Array[Byte] = if (!md5Exists()) throw new FileNotFoundException("No MD5 file for " + path) else getContentOfMD5File
 
-  /** Checks md5 sum of file with existing md5 sum. Throws an exception when no MD5 exists. */
-  def checkMD5(): Boolean = getMD5 sameElements calculateMD5()
-
   /** Returns true if md5-file exists. */
   def md5Exists(): Boolean = md5File.exists()
+
+  /** Delete file */
+  def delete(): Boolean = {
+    file.delete() && (if (md5Exists()) md5File.delete() else true)
+
+  }
 }

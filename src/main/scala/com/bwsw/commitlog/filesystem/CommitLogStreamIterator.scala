@@ -1,17 +1,12 @@
 package com.bwsw.commitlog.filesystem
 
-import java.io.{BufferedInputStream, File, FileInputStream}
+import java.io.{BufferedInputStream, InputStream}
 import java.util.Base64
 
 import scala.collection.mutable.ArrayBuffer
 
-/** Iterator over records of the commitlog file.
-  *
-  * @param path full path to file
-  */
-class CommitLogFileIterator(path: String) extends CommitLogIterator {
-  private val fileInputStream = new FileInputStream(new File(path))
-  override protected val stream = new BufferedInputStream(fileInputStream)
+class CommitLogStreamIterator(inputStream: InputStream) extends CommitLogIterator{
+  protected val stream = new BufferedInputStream(inputStream)
   require {
     val begin = stream.read()
     begin == (0: Byte) || begin == -1
@@ -24,7 +19,7 @@ class CommitLogFileIterator(path: String) extends CommitLogIterator {
 
   override def close():Unit = {
     stream.close()
-    fileInputStream.close()
+    inputStream.close()
   }
 
   override def next(): Array[Byte] = {
@@ -41,3 +36,4 @@ class CommitLogFileIterator(path: String) extends CommitLogIterator {
     Base64.getDecoder.decode(record.toArray)
   }
 }
+

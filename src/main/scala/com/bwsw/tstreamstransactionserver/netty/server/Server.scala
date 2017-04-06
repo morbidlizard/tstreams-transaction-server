@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.util.concurrent.{ArrayBlockingQueue, Executors, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogue
+import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.Message
@@ -155,16 +155,19 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
 }
 
 class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatalogue, transactionServer: TransactionServer) {
-  def fillQueue(): ArrayBlockingQueue[String] = {
+  def fillQueue(): ArrayBlockingQueue[CommitLogStorage] = {
     val allFiles = commitLogCatalogue.listAllFilesAndTheirIDs().toMap
 
     import scala.collection.JavaConverters.asJavaCollectionConverter
     val allFilesIDsToProcess = allFiles.keys.toSeq diff getProcessedCommitLogFiles
 
-    val filesToProcess = allFilesIDsToProcess.map(id => allFiles(id).getFile.getPath).sorted.asJavaCollection
+    val filesToProcess = allFilesIDsToProcess
+      .map(id => new CommitLogFile(allFiles(id).getFile.getPath))
+      .sortBy(_.getFile.getPath)
+      .asJavaCollection
 
     val maxSize = scala.math.max(filesToProcess.size, queueSize)
-    val commitLogQueue = new ArrayBlockingQueue[String](maxSize)
+    val commitLogQueue = new ArrayBlockingQueue[CommitLogStorage](maxSize)
 
     if (filesToProcess.isEmpty) commitLogQueue
     else if (commitLogQueue.addAll(filesToProcess)) commitLogQueue

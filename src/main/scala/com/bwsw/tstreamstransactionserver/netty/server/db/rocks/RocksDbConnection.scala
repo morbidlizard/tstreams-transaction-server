@@ -22,6 +22,18 @@ class RocksDbConnection(rocksStorageOpts: RocksStorageOptions, absolutePath: Str
   @throws[RocksDBException]
   def put(key: Array[Byte], data: Array[Byte]): Unit = client.put(key, data)
 
+  def getLastRecord: (Array[Byte], Array[Byte]) = {
+    val iterator = client.newIterator()
+    if (iterator.isValid) {
+      val keyValue = (iterator.key(), iterator.value())
+      iterator.close()
+      keyValue
+    }
+    else {
+      iterator.close()
+      throw new NoSuchElementException(s"There is no last Record in this database $absolutePath.")
+    }
+  }
 
   def iterator = client.newIterator()
   override def close(): Unit = client.close()

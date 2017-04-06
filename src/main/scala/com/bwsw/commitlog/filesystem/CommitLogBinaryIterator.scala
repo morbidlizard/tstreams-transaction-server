@@ -5,7 +5,7 @@ import java.util.Base64
 
 import scala.collection.mutable.ArrayBuffer
 
-class CommitLogStreamIterator(inputStream: InputStream) extends CommitLogIterator{
+class CommitLogBinaryIterator(inputStream: InputStream) extends CommitLogIterator{
   protected val stream = new BufferedInputStream(inputStream)
   require {
     val begin = stream.read()

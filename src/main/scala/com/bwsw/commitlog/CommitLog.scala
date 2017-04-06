@@ -1,6 +1,7 @@
 package com.bwsw.commitlog
 
 import java.io._
+
 import java.security.{DigestOutputStream, MessageDigest}
 import java.util.Base64
 import java.util.Base64.Encoder

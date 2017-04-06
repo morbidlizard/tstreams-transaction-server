@@ -69,7 +69,7 @@ class CommitLogFile(path: String) extends CommitLogStorage{
     md5Sum
   }
 
-  final def getContent: Array[Byte] = {
+  override final def getContent: Array[Byte] = {
     val fileInputStream = new FileInputStream(file)
     val content = IOUtils.toByteArray(fileInputStream)
     fileInputStream.close()

@@ -21,7 +21,7 @@ class CommitLogRocksTest extends FlatSpec with Matchers {
     val fileValue1FromByteArray = FileValue.fromByteArray(fileValue1.toByteArray)
     fileValue1 shouldBe fileValue1FromByteArray
 
-    val fileValue2 = FileValue(new String("test_dat_to_check").getBytes, Some(Array.fill(16)(1:Byte)))
+    val fileValue2 = FileValue(new String("test_dat_to_check").getBytes, Some(Array.fill(32)(1:Byte)))
     val fileValue2FromByteArray = FileValue.fromByteArray(fileValue2.toByteArray)
     fileValue2 shouldBe fileValue2FromByteArray
 

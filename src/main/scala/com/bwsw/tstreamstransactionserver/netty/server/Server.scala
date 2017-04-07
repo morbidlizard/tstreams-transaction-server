@@ -1,12 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import java.util.concurrent.{ArrayBlockingQueue, Executors, TimeUnit}
+import java.util
+import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
+import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.Message
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.CommitLogKey
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -76,16 +77,36 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   final def removeConsumerNotification(id: Long) = transactionServer.removeConsumerTransactionNotification(id)
 
 
+  private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTTLSec)
   private val (commitLogQueue, commitLogLastId) = {
-    val queue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
-    (queue.fillQueue(), queue.getLastKey.getOrElse(0L))
+    val queue = new CommitLogQueueBootstrap(30, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
+    val lastFileIDBerkeley = queue.getLastKey.getOrElse(0L)
+
+    val (priorityQueue, maxCommitLogFileID) = queue.fillQueue()
+
+    val initGenFileID = scala.math.max(lastFileIDBerkeley, maxCommitLogFileID)
+
+    val record = rocksDBCommitLog.getLastRecord
+    record match {
+      case Some((lastFileIDRocksBinary, contentAndMD5SumRocksBinary)) =>
+        val lastFileIDRocks = FileKey.fromByteArray(lastFileIDRocksBinary).id
+
+        if (lastFileIDRocks > lastFileIDBerkeley) {
+          val contentAndMD5SumRocks = FileValue.fromByteArray(contentAndMD5SumRocksBinary)
+          priorityQueue.add(new CommitLogBinary(lastFileIDRocks, contentAndMD5SumRocks.fileContent, contentAndMD5SumRocks.fileMD5Content))
+        }
+        (priorityQueue, scala.math.max(initGenFileID, lastFileIDRocks))
+
+      case None =>
+        (priorityQueue, initGenFileID)
+    }
   }
-  println(commitLogLastId)
+
   /**
     * this variable is public for testing purposes only
     */
   val berkeleyWriter = new CommitLogToBerkeleyWriter(
-    new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTTLSec),
+    rocksDBCommitLog,
     commitLogQueue,
     transactionServer,
     commitLogOptions.incompleteCommitLogReadPolicy
@@ -98,20 +119,16 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
-  private val commitLogTask = new Runnable {
-    override def run(): Unit = {
-      scheduledCommitLogImpl.run()
-      berkeleyWriter.run()
-    }
-  }
 
   private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
+  private val commitLogCloseExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build())
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
   def start(): Unit = {
     try {
-      berkeleyWriterExecutor.scheduleWithFixedDelay(commitLogTask, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogCloseDelayMs/2, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
@@ -148,6 +165,13 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
         commitLogOptions.commitLogCloseDelayMs * 5,
         TimeUnit.MILLISECONDS
       )
+    }
+    if (commitLogCloseExecutor != null) {
+      commitLogCloseExecutor.shutdown()
+      commitLogCloseExecutor.awaitTermination(
+        commitLogOptions.commitLogCloseDelayMs * 5,
+        TimeUnit.MILLISECONDS
+      )
       berkeleyWriter.closeRocksDB()
     }
     if (transactionServer != null) transactionServer.closeAllDatabases()
@@ -155,23 +179,35 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
 }
 
 class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatalogue, transactionServer: TransactionServer) {
-  def fillQueue(): ArrayBlockingQueue[CommitLogStorage] = {
+  def fillQueue(): (PriorityBlockingQueue[CommitLogStorage], Long) = {
     val allFiles = commitLogCatalogue.listAllFilesAndTheirIDs().toMap
 
-    import scala.collection.JavaConverters.asJavaCollectionConverter
-    val allFilesIDsToProcess = allFiles.keys.toSeq diff getProcessedCommitLogFiles
+    val berkeleyProccessedFileIDMax = getLastKey
+    val (allFilesIDsToProcess, allFilesToDelete) =
+      if (berkeleyProccessedFileIDMax.isDefined)
+        (allFiles.filterKeys(_ > berkeleyProccessedFileIDMax.get), allFiles.filterKeys(_ <= berkeleyProccessedFileIDMax.get))
+      else
+        (allFiles, collection.immutable.Map())
 
-    val filesToProcess = allFilesIDsToProcess
-      .map(id => new CommitLogFile(allFiles(id).getFile.getPath))
-      .sortBy(_.getFile.getPath)
-      .asJavaCollection
+    allFilesToDelete.values.foreach(_.delete())
 
-    val maxSize = scala.math.max(filesToProcess.size, queueSize)
-    val commitLogQueue = new ArrayBlockingQueue[CommitLogStorage](maxSize)
+    if (allFilesIDsToProcess.nonEmpty) {
+      import scala.collection.JavaConverters.asJavaCollectionConverter
+      val filesToProcess: util.Collection[CommitLogFile] = allFilesIDsToProcess
+        .map{case (id, _) => new CommitLogFile(allFiles(id).getFile.getPath)}
+        .asJavaCollection
 
-    if (filesToProcess.isEmpty) commitLogQueue
-    else if (commitLogQueue.addAll(filesToProcess)) commitLogQueue
-    else throw new Exception("Something goes wrong here")
+      val maxSize = scala.math.max(filesToProcess.size, queueSize)
+      val commitLogQueue = new PriorityBlockingQueue[CommitLogStorage](maxSize)
+
+      val maxCommitLogID = allFilesIDsToProcess.keys.max
+
+      if (filesToProcess.isEmpty) (commitLogQueue, maxCommitLogID)
+      else if (commitLogQueue.addAll(filesToProcess)) (commitLogQueue, maxCommitLogID)
+      else throw new Exception("Something goes wrong here")
+    } else {
+      (new PriorityBlockingQueue[CommitLogStorage](queueSize), -1L)
+    }
   }
 
   private def getProcessedCommitLogFiles: ArrayBuffer[Long] = {

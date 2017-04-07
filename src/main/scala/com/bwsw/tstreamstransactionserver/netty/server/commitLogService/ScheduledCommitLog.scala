@@ -1,7 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
@@ -12,13 +11,13 @@ import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{Ever
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{CommitLogOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
-class ScheduledCommitLog(pathsToClosedCommitLogFiles: ArrayBlockingQueue[CommitLogStorage], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions, genFileID: => Long) extends Runnable with Time {
+class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions, genFileID: => Long) extends Runnable with Time {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val commitLog = createCommitLog()
   private val maxIdleTimeBetweenRecordsMs = commitLogOptions.maxIdleTimeBetweenRecordsMs
   @volatile private var lastRecordTs = getCurrentTime
-  @volatile private var currentCommitLogFile: CommitLogStorage = _
+  @volatile private var currentCommitLogFile: CommitLogFile = _
 
   private def createCommitLog() = {
     val policy = commitLogOptions.commitLogWriteSyncPolicy match {

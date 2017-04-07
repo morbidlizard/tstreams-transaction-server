@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.{ArrayBlockingQueue, PriorityBlockingQueue}
 
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
@@ -14,7 +14,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
 class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
-                                pathsToClosedCommitLogFiles: ArrayBlockingQueue[CommitLogStorage],
+                                pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
                                 transactionServer: TransactionServer,
                                 incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy) extends Runnable with Time {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -29,15 +29,23 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
         val fileValue = FileValue(commitLogEntity.getContent, if (commitLogEntity.md5Exists()) Some(commitLogEntity.getMD5) else None)
         rocksDb.put(fileKey.toByteArray, fileValue.toByteArray)
 
-        if (commitLogEntity.md5Exists()) {
-          processCommitLogFile(commitLogEntity)
-        } else commitLogEntity match {
+        commitLogEntity match {
           case file: CommitLogFile =>
-            logger.warn(s"MD5 doesn't exist in a commit log file (path: '${file.getFile.getPath}').")
+            if (commitLogEntity.md5Exists()) {
+              processCommitLogFile(commitLogEntity)
+            } else {
+              logger.warn(s"MD5 doesn't exist in a commit log file (path: '${file.getFile.getPath}').")
+            }
             file.delete()
+
           case binary: CommitLogBinary =>
-            logger.warn(s"MD5 doesn't exist for the commit log file (id: '${binary.getID}', retrieved from rocksdb).")
+            if (commitLogEntity.md5Exists()) {
+              processCommitLogFile(commitLogEntity)
+            }
+            else
+              logger.warn(s"MD5 doesn't exist for the commit log file (id: '${binary.getID}', retrieved from rocksdb).")
         }
+
 
       case TryRead =>
         val fileKey = FileKey(commitLogEntity.getID)
@@ -149,7 +157,6 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
   override def run(): Unit = {
     val commitLogEntity = pathsToClosedCommitLogFiles.poll()
     if (commitLogEntity != null) {
-      println(commitLogEntity)
       scala.util.Try {
         processAccordingToPolicy(commitLogEntity)
       } match {

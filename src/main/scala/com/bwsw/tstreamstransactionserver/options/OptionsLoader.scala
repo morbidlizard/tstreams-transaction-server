@@ -80,7 +80,7 @@ class OptionsLoader() {
   private def loadCommitLogOptions() = {
     val fields = getPropertiesOf(classOf[CommitLogOptions])
 
-    castCheck(CommitLogOptions(CommitLogWriteSyncPolicy.withName(fields(0)), fields(1).toInt, IncompleteCommitLogReadPolicy.withName(fields(2)), fields(3).toInt, fields(4).toInt, fields(5).toInt))
+    castCheck(CommitLogOptions(CommitLogWriteSyncPolicy.withName(fields(0)), fields(1).toInt, IncompleteCommitLogReadPolicy.withName(fields(2)), fields(3).toInt, fields(4).toInt))
   }
 
   private def loadZookeeperSpecificOptions() = {

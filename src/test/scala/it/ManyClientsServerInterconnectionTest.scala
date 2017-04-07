@@ -45,7 +45,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions()
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
@@ -199,6 +199,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
     val fromID = producerTransactions.head.transactionID
@@ -226,6 +227,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
     val canceledTransaction = producerTransaction1.copy(state = TransactionStates.Cancel, quantity = 0 ,ttl = 0L)
@@ -235,6 +237,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
     Await.result(firstClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe canceledTransaction.copy(state = TransactionStates.Invalid)
@@ -259,6 +262,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
     val checkpointedTransaction = producerTransaction1.copy(state = TransactionStates.Checkpointed)
@@ -268,6 +272,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
     Await.result(firstClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe checkpointedTransaction
@@ -292,6 +297,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
     val invalidTransaction = producerTransaction1.copy(state = TransactionStates.Invalid)
@@ -301,6 +307,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
     Await.result(firstClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe producerTransaction1

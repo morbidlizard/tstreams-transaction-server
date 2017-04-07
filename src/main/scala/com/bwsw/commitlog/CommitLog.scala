@@ -59,8 +59,8 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     def close(): Unit = this.synchronized{
       digestOutputStream.on(false)
       digestOutputStream.flush()
-      digestOutputStream.close()
       outputStream.flush()
+      digestOutputStream.close()
       outputStream.close()
       writeMD5File()
     }

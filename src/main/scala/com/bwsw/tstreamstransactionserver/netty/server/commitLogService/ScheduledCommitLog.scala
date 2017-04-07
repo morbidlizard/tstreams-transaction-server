@@ -15,9 +15,6 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val commitLog = createCommitLog()
-  private val maxIdleTimeBetweenRecordsMs = commitLogOptions.maxIdleTimeBetweenRecordsMs
-  @volatile private var lastRecordTs = getCurrentTime
-  @volatile private var currentCommitLogFile: CommitLogFile = _
 
   private def createCommitLog() = {
     val policy = commitLogOptions.commitLogWriteSyncPolicy match {
@@ -30,27 +27,14 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
   }
 
   def putData(messageType: Byte, message: Message) = {
-    val currentTime = getCurrentTime
-    if (currentTime - lastRecordTs < maxIdleTimeBetweenRecordsMs || currentCommitLogFile == null)
-    {
-      this.synchronized{
-        currentCommitLogFile = new CommitLogFile(commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType))
-      }
-    } else {
-      this.synchronized{
-        val newCommitLogFile = commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType, startNew = true)
-        if (logger.isDebugEnabled) logger.debug(s"Starting to write to the new commit log file: $newCommitLogFile")
-        pathsToClosedCommitLogFiles.put(currentCommitLogFile)
-        currentCommitLogFile = new CommitLogFile(newCommitLogFile)
-      }
+    this.synchronized {
+      commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
     }
-    lastRecordTs = currentTime
     true
   }
 
   override def run(): Unit = {
     commitLog.close() foreach { path =>
-      lastRecordTs = Long.MaxValue
       pathsToClosedCommitLogFiles.put(new CommitLogFile(path))
     }
   }

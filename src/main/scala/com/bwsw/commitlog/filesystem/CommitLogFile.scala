@@ -1,18 +1,24 @@
 package com.bwsw.commitlog.filesystem
 
-import java.io.{BufferedInputStream, File, FileInputStream, FileNotFoundException}
-import java.math.BigInteger
+import java.io._
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, Paths}
 import java.security.MessageDigest
+import javax.xml.bind.DatatypeConverter
+
+import org.apache.commons.io.IOUtils
 
 /** Represents commitlog file with data.
   *
   * @param path full path to file
   */
-class CommitLogFile(path: String) {
+class CommitLogFile(path: String) extends CommitLogStorage{
   //todo CommitLogFile существует в двух реализациях: private класс(внутри CommitLog) и этот класс. Требуется рефакторинг (может достаточно переименования)
-  private val file = new File(path)
+  private val file = {
+    val file = new File(path)
+    if (file.exists()) file else throw new IOException(s"File ${file.getPath} doesn't exist!")
+  }
+
   private val md5File = new File(file.toString.split('.')(0) + FilePathManager.MD5EXTENSION)
 
   class Attributes {
@@ -29,7 +35,7 @@ class CommitLogFile(path: String) {
 
 
   /** Returns an iterator over records */
-  def getIterator: CommitLogFileIterator = new CommitLogFileIterator(file.toString)
+  override def getIterator: CommitLogIterator = new CommitLogFileIterator(file.toString)
 
 
   /** bytes to read from this file */
@@ -44,32 +50,44 @@ class CommitLogFile(path: String) {
     md5.reset()
     while (stream.available() > 0) {
       val chunk = new Array[Byte](chunkSize)
-      val bytesReaded = stream.read(chunk)
-      md5.update(chunk.take(bytesReaded))
+      val bytesRead = stream.read(chunk)
+      md5.update(chunk.take(bytesRead))
     }
 
     stream.close()
     fileInputStream.close()
 
-    new BigInteger(1, md5.digest()).toByteArray
+    DatatypeConverter.printHexBinary(md5.digest()).getBytes
   }
 
   /** Returns a MD5 sum from MD5 FIle */
   private def getContentOfMD5File = {
     val fileInputStream = new FileInputStream(md5File)
-    val md5Sum = new Array[Byte](17)
+    val md5Sum = new Array[Byte](32)
     fileInputStream.read(md5Sum)
     fileInputStream.close()
     md5Sum
   }
 
+  override final def getContent: Array[Byte] = {
+    val fileInputStream = new FileInputStream(file)
+    val content = IOUtils.toByteArray(fileInputStream)
+    fileInputStream.close()
+    content
+  }
+
+  final def getID: Long = file.getName.dropRight(FilePathManager.DATAEXTENSION.length).toLong
+
 
   /** Returns existing MD5 of this file. Throws an exception otherwise. */
   def getMD5: Array[Byte] = if (!md5Exists()) throw new FileNotFoundException("No MD5 file for " + path) else getContentOfMD5File
 
-  /** Checks md5 sum of file with existing md5 sum. Throws an exception when no MD5 exists. */
-  def checkMD5(): Boolean = getMD5 sameElements calculateMD5()
-
   /** Returns true if md5-file exists. */
   def md5Exists(): Boolean = md5File.exists()
+
+  /** Delete file */
+  def delete(): Boolean = {
+    file.delete() && (if (md5Exists()) md5File.delete() else true)
+
+  }
 }

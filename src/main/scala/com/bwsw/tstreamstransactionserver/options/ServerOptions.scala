@@ -27,9 +27,13 @@ object ServerOptions {
     * @param path              the path where folders of Commit log, berkeley environment and rocksdb databases would be placed.
     * @param dataDirectory     the path where rocksdb databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     * @param metadataDirectory the path where a berkeley environment and it's databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
+    * @param commitLogDirectory the path where commit log files are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
+    * @param commitLogRocksDirectory the path where rocksdb with persisted commit log files is placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
+    *
     */
   case class StorageOptions(path: String = "/tmp",
-                            dataDirectory: String = "transaction_data", metadataDirectory: String = "transaction_metadata" //,
+                            dataDirectory: String = "transaction_data", metadataDirectory: String = "transaction_metadata",
+                            commitLogDirectory: String = "commmit_log", commitLogRocksDirectory: String = "commit_log_rocks"//,
                             /** streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
                               * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
                               * berkeleyReadThreadPool: Int = 2 */)
@@ -46,6 +50,12 @@ object ServerOptions {
     *
     */
   case class BerkeleyStorageOptions(berkeleyReadThreadPool: Int = 2) extends AnyVal
+
+  /** The options for generating id for a new commit log file.
+    *
+    * @param counterPath the coordination path for counter.
+    */
+  case class ZooKeeperOptions(counterPath: String = "/server_counter") extends AnyVal
 
   /** The options are used for replication environment.
     *
@@ -121,16 +131,15 @@ object ServerOptions {
     *                                      If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read.
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
     * @param maxIdleTimeBetweenRecordsMs max count of milliseconds that will pass from last commit log record to close a current commit log file and open a new one.
-    * @deprecated  commitLogToBerkeleyDBTaskDelayMs the time through a next commit log file is processed if there is one.
     * @param commitLogCloseDelayMs the time through a commit log file is closed.
+    * @param commitLogFileTTLSec the time a commit log files live before they are deleted.
     */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
                               maxIdleTimeBetweenRecordsMs: Int = 2000,
-                              @deprecated("this option doesn't make any sense as option 'commitLogCloseDelayMs' overlap it")
-                              commitLogToBerkeleyDBTaskDelayMs: Int = 500,
-                              commitLogCloseDelayMs: Int = 200
+                              commitLogCloseDelayMs: Int = 200,
+                              commitLogFileTTLSec: Int = 86400
                              )
 }
 

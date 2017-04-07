@@ -227,8 +227,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     environment.openDatabase(null, storeName, dbConfig)
   }
 
-
-  class BigCommit(pathToFile: String) {
+  class BigCommit(fileID: Long) {
     private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
 
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
@@ -236,12 +235,15 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
       putTransactions(transactions, transactionDB)
     }
 
-    def commit(fileCreationTimestamp: Long): Boolean = {
-      val timestampCommitLog = TimestampCommitLog(fileCreationTimestamp, pathToFile)
-      commitLogDatabase.putNoOverwrite(transactionDB, timestampCommitLog.keyToDatabaseEntry, timestampCommitLog.dataToDatabaseEntry)
+    def commit(): Boolean = {
+      val key = CommitLogKey(fileID)
+      val value = new DatabaseEntry()
+      value.setData(Array[Byte]())
+
+      commitLogDatabase.putNoOverwrite(transactionDB, key.keyToDatabaseEntry, value)
       scala.util.Try(transactionDB.commit()) match {
         case scala.util.Success(_) => true
-        case scala.util.Failure(_) => false
+        case scala.util.Failure(fail) => false
       }
     }
 
@@ -251,7 +253,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     }
   }
 
-  def getBigCommit(pathToFile: String) = new BigCommit(pathToFile)
+  def getBigCommit(fileID: Long) = new BigCommit(fileID)
 
 
   def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = {
@@ -420,6 +422,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   final def createTransactionsToDeleteTask(timestampToDeleteTransactions: Long) = new TransactionsToDeleteTask(timestampToDeleteTransactions)
 
   def closeTransactionMetaDatabases(): Unit = {
+    scala.util.Try(commitLogDatabase.close())
     scala.util.Try(producerTransactionsDatabase.close())
     scala.util.Try(producerTransactionsWithOpenedStateDatabase.close())
   }

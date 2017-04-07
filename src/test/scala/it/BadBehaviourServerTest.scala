@@ -11,6 +11,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.Schedule
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer, ZKLeaderClientToPutMaster}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{TransportOptions, _}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
@@ -42,6 +43,8 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   private val rocksStorageOptions = RocksStorageOptions()
   private val packageTransmissionOptions = TransportOptions()
   private val commitLogOptions = CommitLogOptions()
+  private val zookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
+
 
   private val requestTimeoutMs = 500
   @volatile private var server: Server = _
@@ -63,7 +66,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
       authOptions, zookeeperOptions,
       bootstrapOptions, serverReplicationOptions,
       storageOptions, berkeleyStorageOptions, rocksStorageOptions, commitLogOptions,
-      packageTransmissionOptions,
+      packageTransmissionOptions, zookeeperSpecificOptions,
       serverHandler
     )
 

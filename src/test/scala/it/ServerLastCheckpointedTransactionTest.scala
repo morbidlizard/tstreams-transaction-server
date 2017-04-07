@@ -49,6 +49,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
+  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
   def startTransactionServer() = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -62,6 +63,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
+      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       timer = TestTimer
     )
     transactionServer.start()

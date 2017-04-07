@@ -27,6 +27,9 @@ object ServerOptions {
     * @param path              the path where folders of Commit log, berkeley environment and rocksdb databases would be placed.
     * @param dataDirectory     the path where rocksdb databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     * @param metadataDirectory the path where a berkeley environment and it's databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
+    * @param commitLogDirectory the path where commit log files are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
+    * @param commitLogRocksDirectory the path where rocksdb with persisted commit log files is placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
+    *
     */
   case class StorageOptions(path: String = "/tmp",
                             dataDirectory: String = "transaction_data", metadataDirectory: String = "transaction_metadata",
@@ -47,6 +50,12 @@ object ServerOptions {
     *
     */
   case class BerkeleyStorageOptions(berkeleyReadThreadPool: Int = 2) extends AnyVal
+
+  /** The options for generating id for a new commit log file.
+    *
+    * @param counterPath the coordination path for counter.
+    */
+  case class ZooKeeperOptions(counterPath: String = "/server_counter") extends AnyVal
 
   /** The options are used for replication environment.
     *

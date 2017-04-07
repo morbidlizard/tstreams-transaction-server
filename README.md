@@ -26,6 +26,8 @@ You should pass a file with properties in both cases. The file should contain th
 | path                             | The path where folders of Commit log, berkeley environment and rocksdb databases would be placed.  |string |/tmp| |
 | data.directory                   | The path where rocksdb databases are placed relatively to property "path".  |string |transaction_data| |
 | metadata.directory               | The path where a berkeley environment and it's databases are placed relatively to "path".  |string |transaction_metadata| |
+| commitlog.directory              | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
+| commitlog.rocksdb.directory      | the path where rocksdb with persisted commit log files is placed relatively to "path".  |string |commit_log_rocks| |
 | berkeley.read.thread.pool        | The number of threads of pool are used to do read operations from BerkeleyDB je databases. Used for: getStream, getConsumerState, scanTransactions, getTransaction, getLastCheckpoitnedTransaction. |int    | 2| [1,...]|  
 | endpoints                        | ???  |string | 127.0.0.1:8071 | |
 | name                             | ???  |string |server| |  
@@ -51,6 +53,7 @@ You should pass a file with properties in both cases. The file should contain th
 | commit.log.max.idle.time.between.records | Max count of milliseconds that will pass from last commit log record to close a current commit log file and open a new one |int    | 60| [1,...]|
 | commit.log.close.delay.ms        | the time through a commit log file is closed. |int  |200    |
 | commit.log.file.ttl.sec          | the time a commit log files live before they are deleted. | int | 86400 |
+| zk.counter.path                  | the coordination path for counter. | string | /server_counter |
 
 It isn't required to adhere the specified order of the properties, it's for example only. 
 But all properties should be defined with the exact names and appropriate types. 

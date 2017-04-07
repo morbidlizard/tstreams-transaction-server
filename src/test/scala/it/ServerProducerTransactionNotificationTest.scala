@@ -35,6 +35,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
+  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
   def startTransactionServer(): Unit = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -47,6 +48,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       berkeleyStorageOptions = serverBerkeleyStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
+      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions
     )
     transactionServer.start()

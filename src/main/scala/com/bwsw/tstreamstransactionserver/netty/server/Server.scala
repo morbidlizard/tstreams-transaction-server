@@ -3,14 +3,14 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.util
 import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogCatalogue, CommitLogFile, CommitLogStorage}
+import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.CommitLogKey
-import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -25,10 +25,10 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContextExecutorService
 
-class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
+class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOptions,
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
              storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
-             packageTransmissionOpts: TransportOptions,
+             packageTransmissionOpts: TransportOptions, zookeeperSpecificOpts: ServerOptions.ZooKeeperOptions,
              serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger),
              timer: Time = new Time{}
@@ -90,11 +90,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     record match {
       case Some((lastFileIDRocksBinary, contentAndMD5SumRocksBinary)) =>
         val lastFileIDRocks = FileKey.fromByteArray(lastFileIDRocksBinary).id
-
-        if (lastFileIDRocks > lastFileIDBerkeley) {
-          val contentAndMD5SumRocks = FileValue.fromByteArray(contentAndMD5SumRocksBinary)
-          priorityQueue.add(new CommitLogBinary(lastFileIDRocks, contentAndMD5SumRocks.fileContent, contentAndMD5SumRocks.fileMD5Content))
-        }
         (priorityQueue, scala.math.max(initGenFileID, lastFileIDRocks))
 
       case None =>
@@ -114,7 +109,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
-  private val fileIDGenerator = new zk.FileIDGenerator("/test_counter", commitLogLastId)
+  private val fileIDGenerator = new zk.FileIDGenerator(zookeeperSpecificOpts.counterPath, commitLogLastId)
   private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions, fileIDGenerator.increment) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }

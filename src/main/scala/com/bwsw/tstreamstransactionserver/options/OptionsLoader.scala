@@ -26,6 +26,7 @@ class OptionsLoader() {
   private val serverRocksStorageOptions = loadServerRocksStorageOptions()
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
   private val commitLogOptions = loadCommitLogOptions()
+  private val zookeeperSpecificOptions = loadZookeeperSpecificOptions()
 
   private def loadBootstrapOptions() = {
     val fields = getPropertiesOf(classOf[BootstrapOptions])
@@ -80,6 +81,12 @@ class OptionsLoader() {
     val fields = getPropertiesOf(classOf[CommitLogOptions])
 
     castCheck(CommitLogOptions(CommitLogWriteSyncPolicy.withName(fields(0)), fields(1).toInt, IncompleteCommitLogReadPolicy.withName(fields(2)), fields(3).toInt, fields(4).toInt, fields(5).toInt))
+  }
+
+  private def loadZookeeperSpecificOptions() = {
+    val fields = getPropertiesOf(classOf[ServerOptions.ZooKeeperOptions])
+
+    castCheck(ServerOptions.ZooKeeperOptions(fields(0)))
   }
 
   private def getPropertiesOf(_class: Class[_], prefix: String = "") = {
@@ -143,5 +150,9 @@ class OptionsLoader() {
 
   def getCommitLogOptions = {
     commitLogOptions
+  }
+
+  def getZookeeperSpecificOptions = {
+    zookeeperSpecificOptions
   }
 }

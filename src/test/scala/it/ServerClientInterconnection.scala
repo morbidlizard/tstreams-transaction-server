@@ -46,6 +46,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
+  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
   def startTransactionServer(): Unit = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -59,6 +60,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
+      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       timer = TestTimer
     )
     transactionServer.start()

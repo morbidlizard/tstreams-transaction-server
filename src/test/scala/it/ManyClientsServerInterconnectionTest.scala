@@ -47,6 +47,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
+  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
   def startTransactionServer() = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -60,6 +61,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
+      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       timer = TestTimer
     )
     transactionServer.start()

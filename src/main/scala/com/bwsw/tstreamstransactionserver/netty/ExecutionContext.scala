@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -22,7 +22,9 @@ class ExecutionContext(nContexts: Int, f: => java.util.concurrent.ExecutorServic
 
   lazy val getContext = contexts(0)
 
-  def shutdown(): Unit = contexts.foreach(_.shutdown())
+  def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
+
+  def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(10000, TimeUnit.MILLISECONDS))
 }
 
 

@@ -1,10 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamWithoutKey.objectToEntry
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamValue.objectToEntry
 import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
 import com.sleepycat.je.DatabaseEntry
 
-case class StreamWithoutKey(name: String, partitions: Int, description: Option[String], ttl: Long, timestamp: Long, @volatile var deleted: Boolean)
+case class StreamValue(name: String, partitions: Int, description: Option[String], ttl: Long, timestamp: Long, @volatile var deleted: Boolean)
   extends com.bwsw.tstreamstransactionserver.rpc.Stream
 {
   def toDatabaseEntry: DatabaseEntry = {
@@ -14,9 +14,9 @@ case class StreamWithoutKey(name: String, partitions: Int, description: Option[S
   }
 }
 
-object StreamWithoutKey extends TupleBinding[StreamWithoutKey]
+object StreamValue extends TupleBinding[StreamValue]
 {
-  override def entryToObject(input: TupleInput): StreamWithoutKey = {
+  override def entryToObject(input: TupleInput): StreamValue = {
     val partitions       = input.readInt()
     val name             = input.readString()
     val description      = input.readString() match {
@@ -26,9 +26,9 @@ object StreamWithoutKey extends TupleBinding[StreamWithoutKey]
     val ttl              = input.readLong()
     val timestamp        = input.readLong()
     val deleted          = input.readBoolean()
-    StreamWithoutKey(name, partitions, description, ttl, timestamp, deleted)
+    StreamValue(name, partitions, description, ttl, timestamp, deleted)
   }
-  override def objectToEntry(stream: StreamWithoutKey, output: TupleOutput): Unit = {
+  override def objectToEntry(stream: StreamValue, output: TupleOutput): Unit = {
     output.writeInt(stream.partitions)
     output.writeString(stream.name)
     stream.description match {

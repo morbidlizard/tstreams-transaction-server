@@ -1,12 +1,12 @@
 package ut
 
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.TransactionStateHandler
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
 
-class TransactionStateHandlerTestSuit extends FlatSpec with Matchers with BeforeAndAfterAll {
+class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with BeforeAndAfterAll {
   //arrange
   val transactionStateHandler = new TransactionStateHandler {}
   val ts = 640836800000L
@@ -304,6 +304,6 @@ class TransactionStateHandlerTestSuit extends FlatSpec with Matchers with Before
   private def createProducerTransaction(transactionState: TransactionStates, ts: Long) = {
     val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamName, streamPartitions, ts, transactionState, quantity, openedTTL)
 
-    ProducerTransactionKey(producerTransaction, streamNameToLong, ts)
+    ProducerTransactionRecord(producerTransaction, streamNameToLong, ts)
   }
 }

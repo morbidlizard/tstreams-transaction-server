@@ -9,11 +9,13 @@ import org.rocksdb._
 class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksStorageOptions, name: String, ttl: Int = -1) extends Closeable {
   RocksDB.loadLibrary()
 
+  private val options = rocksStorageOpts.createDBOptions()
   private val file = new File(s"${storageOptions.path}/${storageOptions.dataDirectory}/$name")
   private val client =  {
     FileUtils.forceMkdir(file)
-    TtlDB.open(rocksStorageOpts.createDBOptions(), file.getAbsolutePath, ttl, false)
+    TtlDB.open(options, file.getAbsolutePath, ttl, false)
   }
+
 
   def get(key: Array[Byte]) = client.get(key)
   def put(key: Array[Byte], data: Array[Byte]): Unit = client.put(key, data)
@@ -44,4 +46,24 @@ class RocksDbConnection(storageOptions: StorageOptions, rocksStorageOpts: RocksS
       status
     }
   }
+
+//  def newFileWriter = new FileWriter
+//  class FileWriter {
+//    private val sstFileWriter = new SstFileWriter(new EnvOptions(), options, RocksDbConnection.comparator)
+//    private val fileNew = new File(file.getAbsolutePath, "sst_file.sst")
+//    sstFileWriter.open(fileNew.getAbsolutePath)
+//
+//    def putData(data: Array[Byte]): Unit = sstFileWriter.add(new Slice(data), new Slice(Array[Byte]()))
+//    def finish(): Unit = {
+//      sstFileWriter.finish()
+//      client.compactRange()
+//      client.addFileWithFilePath(fileNew.getAbsolutePath, true)
+//    }
+//  }
 }
+
+//private object RocksDbConnection extends App {
+//  RocksDB.loadLibrary()
+//  lazy val comparatorOptions = new ComparatorOptions()
+//  lazy val comparator = new org.rocksdb.util.BytewiseComparator(comparatorOptions)
+//}

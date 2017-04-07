@@ -56,11 +56,11 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
             master = Some(InetSocketAddressClass(address, portToInt.get))
           else {
             master = None
-            if (logger.isInfoEnabled) logger.info(s"$prefix data is corrupted!")
+            if (logger.isDebugEnabled) logger.debug(s"On Zookeeper server(s) ${connection.getZookeeperClient.getCurrentConnectionString} data(now it is $addressPort) in coordination path $prefix is corrupted!")
           }
         } else {
           master = None
-          if (logger.isInfoEnabled) logger.info(s"$prefix data is corrupted!")
+          if (logger.isDebugEnabled) logger.debug(s"On Zookeeper server(s) ${connection.getZookeeperClient.getCurrentConnectionString} data(now it is $addressPort) in coordination path $prefix is corrupted!")
         }
       case None => master = None
     }

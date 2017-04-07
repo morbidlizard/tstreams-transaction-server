@@ -6,13 +6,13 @@ import java.util.concurrent.atomic.LongAdder
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{Time, Server}
+import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionInfo, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -36,8 +36,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     def updateTime(newTime: Long) = currentTime = newTime
   }
 
-  private val maxIdleTimeBetweenRecords = 1
-  private val commitLogToBerkeleyDBTaskDelay = 100
+  private val maxIdleTimeBetweenRecordsMs = 1000
 
   private val serverAuthOptions = ServerOptions.AuthOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
@@ -45,8 +44,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue)
-  private val serverPackageTransmissionOptions = ServerOptions.PackageTransmissionOptions()
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue, commitLogCloseDelayMs = Int.MaxValue)
+  private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
 
   def startTransactionServer(): Unit = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -70,6 +69,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
     startTransactionServer()
+    Thread.sleep(30)
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
     val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
     commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
@@ -178,7 +178,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
 
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
 
@@ -201,14 +201,16 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val producerTransactions = Array.fill(100000)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
+
+    val timeToWait = clientBuilder.getConnectionOptions.connectionTimeoutMs.milliseconds
     assertThrows[java.util.concurrent.TimeoutException] {
-      Await.result(resultInFuture, clientBuilder.getConnectionOptions.connectionTimeoutMs.milliseconds)
+      Await.result(resultInFuture, timeToWait)
     }
   }
 
@@ -250,7 +252,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(30)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened)
+    val producerTransactions = Array.fill(30)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened) :+
+      getRandomProducerTransaction(stream).copy(state = TransactionStates.Opened)
+
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
     Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
@@ -261,7 +265,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
     )
 
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
 
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     transactionServer.berkeleyWriter.run()
@@ -285,7 +289,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val producerOpenedTransactions = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
 
-    res should contain theSameElementsAs producerOpenedTransactions
+    res.head shouldBe producerOpenedTransactions.head
     res shouldBe sorted
   }
 
@@ -313,7 +317,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
 
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
 
@@ -339,7 +343,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -362,7 +366,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -380,7 +384,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val consumerTransaction = getRandomConsumerTransaction(stream)
 
     Await.result(client.putConsumerCheckpoint(consumerTransaction), secondsWait.seconds)
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     transactionServer.berkeleyWriter.run()
 
@@ -421,5 +425,61 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     })
 
     all(Await.result(res, (secondsWait * clientsNum).seconds)) shouldBe true
+  }
+
+  "Server" should "return only transactions up to 1st incomplete(transaction after Opened one)" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val FIRST = 30
+    val LAST = 100
+    val partition = 1
+
+    val transactions1 = for (i <- 0 until FIRST) yield {
+      TestTimer.updateTime(TestTimer.getCurrentTime + 1L)
+      TestTimer.getCurrentTime
+    }
+
+    Await.result(client.putTransactions(transactions1.flatMap { t =>
+      Array(
+        ProducerTransaction(stream.name, partition, t, TransactionStates.Opened, 1, 120L),
+        ProducerTransaction(stream.name, partition, t, TransactionStates.Checkpointed, 1, 120L)
+      )
+    }, Seq()), secondsWait.seconds)
+
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    transactionServer.berkeleyWriter.run()
+
+    TestTimer.updateTime(TestTimer.getCurrentTime + 1L)
+    Await.result(client.putProducerState(ProducerTransaction(stream.name, partition,  TestTimer.getCurrentTime, TransactionStates.Opened, 1, 120L)), secondsWait.seconds)
+
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    transactionServer.berkeleyWriter.run()
+
+    val transactions2 = for (i <- FIRST until LAST) yield {
+      TestTimer.updateTime(TestTimer.getCurrentTime + 1L)
+      TestTimer.getCurrentTime
+    }
+
+    Await.result(client.putTransactions(transactions2.flatMap { t =>
+      Array(
+        ProducerTransaction(stream.name, partition, t, TransactionStates.Opened, 1, 120L),
+        ProducerTransaction(stream.name, partition, t, TransactionStates.Checkpointed, 1, 120L)
+      )
+    }, Seq()), secondsWait.seconds)
+
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    transactionServer.berkeleyWriter.run()
+
+    val transactions = transactions1 ++ transactions2
+    val firstTransaction = transactions.head
+    val lastTransaction = transactions.last
+
+    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
+
+    res.producerTransactions.size shouldBe transactions1.size + 1
   }
 }

@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
@@ -71,7 +71,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
     ) {
       def checkTransactionExistInOpenedTable(stream: String, partition: Int, transactionId: Long) = {
         val streamObj = getMostRecentStream(stream)
-        val txn = getOpenedTransaction(Key(streamObj.streamNameToLong, partition, transactionId))
+        val txn = getOpenedTransaction(ProducerTransactionKey(streamObj.streamNameAsLong, partition, transactionId))
         txn.isDefined
       }
     }
@@ -97,7 +97,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     transactionService.createTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec)).run()
     val expiredTransactions = producerTransactionsWithTimestamp.map { case (producerTxn, _) =>
-      ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, producerTxn.quantity, 0L)
+      ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
     }
 
     Await.result(transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID), secondsAwait.seconds).producerTransactions should contain theSameElementsAs expiredTransactions
@@ -106,7 +106,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
       transactionService.checkTransactionExistInOpenedTable(stream.name, stream.partitions, transactionID) shouldBe false
     }
 
-    transactionService.shutdown()
+    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
 }

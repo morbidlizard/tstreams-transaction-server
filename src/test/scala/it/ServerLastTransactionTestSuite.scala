@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future => ScalaFuture}
 import scala.language.reflectiveCalls
 
-class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAndAfterEach {
+class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 
@@ -66,7 +66,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
       }
     }
 
@@ -96,7 +96,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       val lastTransactionIDAndCheckpointedID = transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get
       lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
     }
-    transactionService.shutdown()
+    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return last transaction and last checkpointed transaction id per stream and partition" in {
@@ -118,7 +118,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
       }
     }
 
@@ -156,7 +156,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe maxTransactionID
 
     }
-    transactionService.shutdown()
+    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return last transaction and last checkpointed transaction id per stream and partition and checkpointed transaction should be proccessed earlier" in {
@@ -176,7 +176,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
       }
     }
 
@@ -211,7 +211,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
       lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe 1L
 
     }
-    transactionService.shutdown()
+    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "correctly return last transaction id per stream and partition even if some transactions are out of order." in {
@@ -233,7 +233,7 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameToLong, partition)
+        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
       }
     }
 
@@ -272,6 +272,6 @@ class ServerLastTransactionTestSuit extends FlatSpec with Matchers with BeforeAn
 
       transactionService.getLastTransactionIDWrapper(stream.name, stream.partitions).get.opened.id shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get
     }
-    transactionService.shutdown()
+    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 }

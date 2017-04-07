@@ -102,6 +102,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         channelToUse
       case scala.util.Failure(throwable) =>
         workerGroup.shutdownGracefully().get()
+        workerGroup.terminationFuture().get()
         onServerConnectionLostDefaultBehaviour("")
         connect()
     }
@@ -154,6 +155,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val promise = ScalaPromise[ThriftStruct]
       val message = descriptor.encodeRequest(request)(messageId, token)
       validateMessageSize(message)
+
+      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
 
       channel.write(message.toByteArray)
       reqIdToRep.put(messageId, promise)
@@ -706,10 +709,14 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
   def shutdown(): Unit = {
-    if (workerGroup != null) workerGroup.shutdownGracefully()
+    if (workerGroup != null) {
+      workerGroup.shutdownGracefully()
+      workerGroup.terminationFuture()
+    }
     if (channel != null) channel.closeFuture()
     zKLeaderClient.close()
-    futurePool.shutdown()
-    executionContext.shutdown()
+    futurePool.stopAccessNewTasks()
+    futurePool.awaitAllCurrentTasksAreCompleted()
+    executionContext.stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()
   }
 }

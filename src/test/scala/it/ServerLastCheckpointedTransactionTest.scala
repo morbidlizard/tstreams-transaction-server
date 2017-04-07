@@ -13,8 +13,10 @@ import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
+import scala.concurrent.{Future => ScalaFuture}
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
 
 class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
@@ -37,8 +39,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     def updateTime(newTime: Long) = currentTime = newTime
   }
 
-  private val maxIdleTimeBetweenRecords = 10
-  private val commitLogToBerkeleyDBTaskDelay = 100
+  private val maxIdleTimeBetweenRecordsMs = 10000
 
   private val serverAuthOptions = ServerOptions.AuthOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
@@ -46,8 +47,8 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecords = maxIdleTimeBetweenRecords, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue)
-  private val serverPackageTransmissionOptions = ServerOptions.PackageTransmissionOptions()
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogToBerkeleyDBTaskDelayMs = Int.MaxValue, commitLogCloseDelayMs = Int.MaxValue)
+  private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
 
   def startTransactionServer() = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -145,7 +146,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe -1L
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -163,12 +164,46 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
 
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(maxIdleTimeBetweenRecords))
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
     Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
+  }
+
+  it should "return last checkpointed transaction" in {
+    val ALL = 100
+    val transactions = for (i <- 0 until ALL) yield {
+      TestTimer.updateTime(TestTimer.getCurrentTime + 1L)
+      TestTimer.getCurrentTime
+    }
+    val transaction = transactions.head
+
+    val client = clients(0)
+
+    val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("test_stream", 32, None, 360)
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val partition = 1
+    Await.result(client.putProducerState(ProducerTransaction(stream.name, partition, transactions.head, TransactionStates.Opened, -1, 120)), secondsWait.seconds) shouldBe true
+    Await.result(client.putProducerState(ProducerTransaction(stream.name, partition, transactions.head, TransactionStates.Checkpointed, -1, 120)), secondsWait.seconds) shouldBe true
+
+    Await.ready(
+      ScalaFuture.sequence(
+        transactions.drop(1).map(t => client.putProducerState(ProducerTransaction(stream.name, partition, t, TransactionStates.Opened, -1, 120)))
+      )(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsWait.seconds)
+
+
+    //it's required to close a current commit log file
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.berkeleyWriter.run()
+
+
+    val retrievedTransaction = Await.result(client.getLastCheckpointedTransaction(stream.name,partition),secondsWait.seconds)
+    retrievedTransaction shouldEqual transaction
   }
 }

@@ -4,14 +4,14 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigExcep
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, ObjectSerializer}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.PackageTransmissionOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.{AuthInfo, ProducerTransaction, ServerException, TransactionService}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.Logger
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
-class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLog, packageTransmissionOpts: PackageTransmissionOptions, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
+class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLog, packageTransmissionOpts: TransportOptions, implicit val context: ExecutionContext, logger: Logger) extends SimpleChannelInboundHandler[Message] {
   private val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
 
@@ -161,7 +161,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           ScalaFuture.successful(Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
-      case `putTranscationsMethod` =>
+      case `putTransactionsMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))

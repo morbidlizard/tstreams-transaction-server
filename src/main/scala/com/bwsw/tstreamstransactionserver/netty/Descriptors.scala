@@ -20,11 +20,12 @@ object Descriptors {
     *  @param protocolReq a protocol for serialization/deserialization of method arguments of request.
     *  @param protocolRep a protocol for serialization/deserialization of method arguments of response.
     */
-  sealed abstract class Descriptor[T <: ThriftStruct, R <: ThriftStruct](methodName: String,
-                                                                         codecReq: ThriftStructCodec3[T],
-                                                                         codecRep: ThriftStructCodec3[R],
+  sealed abstract class Descriptor[Request <: ThriftStruct, Response <: ThriftStruct](methodName: String,
+                                                                         codecReq: ThriftStructCodec3[Request],
+                                                                         codecRep: ThriftStructCodec3[Response],
                                                                          protocolReq : TProtocolFactory,
                                                                          protocolRep : TProtocolFactory) {
+
 
 
 
@@ -38,7 +39,7 @@ object Descriptors {
       *
       *
       */
-    private def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Int, token: Int): Message = {
+    private final def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Int, token: Int): Message = {
       val buffer = new TMemoryBuffer(512)
       val oprot = protocol.getProtocol(buffer)
 
@@ -50,10 +51,12 @@ object Descriptors {
     }
 
     /** A method for serializing request and adding an id to id. */
-    def encodeRequest(entity: T)(messageId: Int, token: Int): Message = encode(entity, protocolReq, messageId, token)
+    final def encodeRequest(entity: Request)(messageId: Int, token: Int): Message = {
+      encode(entity, protocolReq, messageId, token)
+    }
 
     /** A method for serializing response and adding an id to id. */
-    def encodeResponse(entity: R)(messageId: Int, token: Int): Message = encode(entity, protocolRep, messageId, token)
+    final def encodeResponse(entity: Response)(messageId: Int, token: Int): Message = encode(entity, protocolRep, messageId, token)
 
 
     /** A method for deserialization request.
@@ -61,7 +64,7 @@ object Descriptors {
       *  @param message a structure that contains a binary body of request.
       *  @return a request
       */
-    def decodeRequest(message: Message): T = {
+    final def decodeRequest(message: Message): Request = {
       val iprot = protocolReq.getProtocol(new TMemoryInputTransport(message.body))
       val msg = iprot.readMessageBegin()
       try {
@@ -87,7 +90,7 @@ object Descriptors {
       *  @param message a structure that contains a binary body of response.
       *  @return a response
       */
-    def decodeResponse(message: Message): R = {
+    final def decodeResponse(message: Message): Response = {
       val iprot = protocolRep.getProtocol(new TMemoryInputTransport(message.body))
       val msg = iprot.readMessageBegin()
       try {
@@ -143,7 +146,7 @@ object Descriptors {
   val getStreamMethod = "getStream"
   val delStreamMethod = "delStream"
   val putTransactionMethod = "putTransaction"
-  val putTranscationsMethod = "putTransactions"
+  val putTransactionsMethod = "putTransactions"
   val getTransactionMethod = "getTransaction"
   val getLastCheckpointedTransactionMethod = "getLastCheckpointedTransaction"
   val scanTransactionsMethod = "scanTransactions"
@@ -154,6 +157,29 @@ object Descriptors {
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
 
+  final def methodWithArgsToString(id: Int, struct: ThriftStruct) = {
+    def toString(methodName: String, arguments: Iterator[Any], fields: List[String]) = {
+      val argumentsList = arguments.toList
+      fields zip argumentsList mkString(s"request id $id - $methodName: ", " ", "")
+    }
+    struct match {
+      case struct: TransactionService.PutStream.Args         => toString(putStreamMethod, struct.productIterator, TransactionService.PutStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.CheckStreamExists.Args => toString(checkStreamExists, struct.productIterator, TransactionService.CheckStreamExists.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetStream.Args         => toString(getStreamMethod, struct.productIterator, TransactionService.GetStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.DelStream.Args         => toString(delStreamMethod, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransaction.Args    => toString(putTransactionMethod, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransactions.Args   => toString(putTransactionsMethod, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetTransaction.Args    => toString(getTransactionMethod, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetLastCheckpointedTransaction.Args => toString(getLastCheckpointedTransactionMethod, struct.productIterator, TransactionService.GetLastCheckpointedTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.ScanTransactions.Args   => toString(scanTransactionsMethod, struct.productIterator, TransactionService.ScanTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransactionData.Args  => toString(putTransactionDataMethod, struct.productIterator, TransactionService.PutTransactionData.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetTransactionData.Args  => toString(getTransactionDataMethod, struct.productIterator, TransactionService.GetTransactionData.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutConsumerCheckpoint.Args => toString(putConsumerCheckpointMethod, struct.productIterator, TransactionService.PutConsumerCheckpoint.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetConsumerState.Args => toString(getConsumerStateMethod, struct.productIterator, TransactionService.GetConsumerState.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.Authenticate.Args   => toString(authenticateMethod, struct.productIterator, TransactionService.Authenticate.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.IsValid.Args   => toString(isValidMethod, struct.productIterator, TransactionService.IsValid.Args.fieldInfos.map(_.tfield.name))
+    }
+  }
 
   case object PutStream extends
     Descriptor(putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
@@ -171,7 +197,7 @@ object Descriptors {
     Descriptor(putTransactionMethod, TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object PutTransactions extends
-    Descriptor(putTranscationsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, protocolTCompactFactory, protocolTBinaryFactory)
+    Descriptor(putTransactionsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, protocolTCompactFactory, protocolTBinaryFactory)
 
   case object GetTransaction extends
     Descriptor(getTransactionMethod, TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, protocolTBinaryFactory, protocolTCompactFactory)

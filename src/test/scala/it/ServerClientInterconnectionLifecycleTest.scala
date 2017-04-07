@@ -46,7 +46,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val retrievedStream = Await.result(transactionServiceServer.getStream(streamAfterDelete.name), secondsWait.seconds)
 
     streamAfterDelete shouldBe retrievedStream
-    transactionServiceServer.shutdown()
+    transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   private final def getProducerTransactionFromServer(transactionServer: TransactionServer, producerTransaction: ProducerTransaction) = {
@@ -72,6 +72,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     getProducerTransactionFromServer(transactionServiceServer, out) shouldBe out
   }
 
+
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
@@ -90,7 +91,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
     transitOneTransactionToAnotherState(transactionServiceServer, producerTransaction, producerTransactionCheckpointed, producerTransactionCheckpointed, openedTTL - 1)
 
-    transactionServiceServer.shutdown()
+    transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
@@ -109,9 +110,9 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val checkpointedTTL = 2
     val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTransaction, producerTransactionCheckpointed, producerTransaction.copy(state = TransactionStates.Invalid, ttl = 0L), openedTTL + 1)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTransaction, producerTransactionCheckpointed, producerTransaction.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), openedTTL + 1)
 
-    transactionServiceServer.shutdown()
+    transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Checkpointed Transaction" in {
@@ -144,7 +145,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
     transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTransactionCheckpointed, checkpointedTTL - 2)
 
-    transactionServiceServer.shutdown()
+    transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
 
@@ -175,14 +176,14 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val updatedTTL3 = 7L
     val wait3 = updatedTTL3 - 2
     val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait3)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
 
     val checkpointedTTL = 2L
     val wait4 = checkpointedTTL - 2
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait4)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
 
-    transactionServiceServer.shutdown()
+    transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Cancel->Updated->Checkpointed. Should return Invalid Transaction(due to transaction with Cancel state)" in {
@@ -207,18 +208,18 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val updatedTTL2 = 1L
     val wait2 = 1L
     val producerTxnCancel2 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Cancel, -1, updatedTTL2)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened.copy(ttl = updatedTTL1), producerTxnCancel2, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait2)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened.copy(ttl = updatedTTL1), producerTxnCancel2, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait2)
 
     val updatedTTL3 = 7L
     val wait3 = updatedTTL3 - 2
     val producerTxnUpdated3 =com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait3)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
 
     val checkpointedTTL = 2L
     val wait4 = checkpointedTTL - 2
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait4)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
 
-    transactionServiceServer.shutdown()
+    transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 }

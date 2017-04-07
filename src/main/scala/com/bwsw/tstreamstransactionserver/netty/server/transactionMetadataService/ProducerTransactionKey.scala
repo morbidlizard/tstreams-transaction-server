@@ -1,27 +1,43 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
-import com.sleepycat.je.{Database, Put, Transaction, WriteOptions}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey.objectToEntry
+import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
+import com.sleepycat.je.DatabaseEntry
 
-case class ProducerTransactionKey(key: Key, producerTransaction: ProducerTransactionWithoutKey) {
-  def stream: Long = key.stream
-  def partition: Int = key.partition
-  def transactionID: Long = key.transactionID
-  def state: TransactionStates = producerTransaction.state
-  def quantity: Int = producerTransaction.quantity
-  def ttl: Long = producerTransaction.ttl
-  def timestamp: Long = producerTransaction.timestamp
-  def put(database: Database, txn: Transaction, putType: Put, options: WriteOptions = new WriteOptions()) =
-    database.put(txn, key.toDatabaseEntry, producerTransaction.toDatabaseEntry, putType, options)
-  def delete(database: Database, txn: Transaction) =  database.delete(txn, key.toDatabaseEntry)
+case class ProducerTransactionKey(stream: Long, partition: Int, transactionID: Long) extends Ordered[ProducerTransactionKey]{
+  def toDatabaseEntry: DatabaseEntry = {
+    val databaseEntry = new DatabaseEntry()
+    objectToEntry(this, databaseEntry)
+    databaseEntry
+  }
 
-  override  def toString: String = s"Producer transaction: ${key.toString}, state: $state"
+  override def compare(that: ProducerTransactionKey): Int = {
+    if (this.stream < that.stream) -1
+    else if (this.stream > that.stream) 1
+    else if (this.partition < that.partition) -1
+    else if (this.partition > that.partition) 1
+    else if (this.transactionID < that.transactionID) -1
+    else if (this.transactionID > that.transactionID) 1
+    else 0
+  }
+  override def toString: String = s"stream:$stream\tpartition:$partition\tid:$transactionID"
 }
-object ProducerTransactionKey {
-  def apply(txn: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, streamNameToLong: Long, timestamp: Long): ProducerTransactionKey = {
-    val key = Key(streamNameToLong, txn.partition, txn.transactionID)
-    val producerTransaction = ProducerTransactionWithoutKey(txn.state, txn.quantity, txn.ttl, timestamp)
-    ProducerTransactionKey(key, producerTransaction)
+
+object ProducerTransactionKey extends TupleBinding[ProducerTransactionKey] {
+  override def entryToObject(input: TupleInput): ProducerTransactionKey = {
+    val stream = input.readLong()
+    val partition = input.readInt()
+    val transactionID = input.readLong()
+    ProducerTransactionKey(stream, partition, transactionID)
+  }
+
+  override def objectToEntry(key: ProducerTransactionKey, output: TupleOutput): Unit = {
+    output.writeLong(key.stream)
+    output.writeInt(key.partition)
+    output.writeLong(key.transactionID)
   }
 }
+
+
+
 

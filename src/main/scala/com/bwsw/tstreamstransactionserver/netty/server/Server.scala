@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import java.util.concurrent.{ArrayBlockingQueue, Executors}
+import java.util.concurrent.{ArrayBlockingQueue, Executors, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, ICommitLogCatalogue}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
@@ -10,6 +10,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitL
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TimestampCommitLog
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.sleepycat.je._
 import io.netty.bootstrap.ServerBootstrap
@@ -24,8 +25,8 @@ import scala.concurrent.ExecutionContextExecutorService
 class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
              storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
-             packageTransmissionOpts: PackageTransmissionOptions,
-             serverHandler: (TransactionServer, ScheduledCommitLog, PackageTransmissionOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
+             packageTransmissionOpts: TransportOptions,
+             serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger),
              timer: Time = new Time{}
             ) {
@@ -36,21 +37,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   if (!ZKLeaderClientToPutMaster.isValidSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2))
     throw new InvalidSocketAddress(s"Invalid socket address ${transactionServerSocketAddress._1}:${transactionServerSocketAddress._2}")
 
-  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, berkeleyStorageOptions.berkeleyReadThreadPool,
-    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
-  private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
-
-  private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
-  private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path), transactionServer).fillQueue()
-  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions){
-    override def getCurrentTime: Long = timer.getCurrentTime
-  }
-
-  /**
-    * this variable is public for testing purposes only
-    */
-  val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy)
-
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
       case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
@@ -58,15 +44,63 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
     }
   }
 
-  val zk = new ZKLeaderClientToPutMaster(zookeeperOpts.endpoints, zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
-    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix)
+  private val zk = scala.util.Try(
+    new ZKLeaderClientToPutMaster(
+      zookeeperOpts.endpoints,
+      zookeeperOpts.sessionTimeoutMs,
+      zookeeperOpts.connectionTimeoutMs,
+      new RetryForever(zookeeperOpts.retryDelayMs),
+      zookeeperOpts.prefix
+    )) match {
+    case scala.util.Success(client) => client
+    case scala.util.Failure(throwable) =>
+      shutdown()
+      throw throwable
+  }
 
-  val bossGroup = new EpollEventLoopGroup(1)
-  val workerGroup = new EpollEventLoopGroup()
+
+  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, berkeleyStorageOptions.berkeleyReadThreadPool,
+    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
+  private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
+
+  final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
+    transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
+
+  final def removeNotification(id: Long) = transactionServer.removeProducerTransactionNotification(id)
+
+  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
+    transactionServer.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
+
+  final def removeConsumerNotification(id: Long) = transactionServer.removeConsumerTransactionNotification(id)
+
+  private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
+  private val commitLogQueue = new CommitLogQueueBootstrap(1000, new CommitLogCatalogue(storageOpts.path), transactionServer).fillQueue()
+
+
+  /**
+    * this variable is public for testing purposes only
+    */
+  val berkeleyWriter = new CommitLogToBerkeleyWriter(commitLogQueue, transactionServer, commitLogOptions.incompleteCommitLogReadPolicy) {
+    override def getCurrentTime: Long = timer.getCurrentTime
+  }
+
+  private val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions) {
+    override def getCurrentTime: Long = timer.getCurrentTime
+  }
+
+  private val commitLogTask = new Runnable {
+    override def run(): Unit = {
+      scheduledCommitLogImpl.run()
+      berkeleyWriter.run()
+    }
+  }
+
+  private val bossGroup = new EpollEventLoopGroup(1)
+  private val workerGroup = new EpollEventLoopGroup()
+
   def start(): Unit = {
     try {
-      berkeleyWriterExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, 0, commitLogOptions.commitLogToBerkeleyDBTaskDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(commitLogTask, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
@@ -87,11 +121,27 @@ class Server(authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions,
   }
 
   def shutdown(): Unit = {
-    berkeleyWriterExecutor.shutdown()
-    workerGroup.shutdownGracefully()
-    bossGroup.shutdownGracefully()
-    zk.close()
-    transactionServer.shutdown()
+    if (bossGroup != null) {
+      bossGroup.shutdownGracefully()
+      bossGroup.terminationFuture()
+    }
+    if (workerGroup != null) {
+      workerGroup.shutdownGracefully()
+      workerGroup.terminationFuture()
+    }
+    if (zk != null) zk.close()
+    if (transactionServer != null) transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+    if (berkeleyWriterExecutor != null) {
+      berkeleyWriterExecutor.shutdown()
+      berkeleyWriterExecutor.awaitTermination(
+        scala.math.max(
+          commitLogOptions.commitLogCloseDelayMs,
+          commitLogOptions.commitLogToBerkeleyDBTaskDelayMs
+        ) * 5,
+        TimeUnit.MILLISECONDS
+      )
+    }
+    if (transactionServer != null) transactionServer.closeAllDatabases()
   }
 }
 

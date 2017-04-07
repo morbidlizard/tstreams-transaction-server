@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.2.2-SNAPSHOT"
+version := "1.2.3-SNAPSHOT"
 
 scalaVersion := "2.12.1"
 
@@ -64,8 +64,8 @@ libraryDependencies ++= Seq(
   "com.twitter" %% "scrooge-core" % "4.15.0",
   ("com.twitter" % "libthrift" % "0.5.0-7")
     .exclude("org.slf4j", "slf4j-api"),
-  "org.rocksdb" % "rocksdbjni" % "4.13.5",
-  "com.sleepycat" % "je" % "7.0.6",
+  "org.rocksdb" % "rocksdbjni" % "5.1.2",
+  "com.sleepycat" % "je" % "7.3.7",
   "org.scalactic" %% "scalactic" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "io.netty" % "netty-all" % "4.1.7.Final",

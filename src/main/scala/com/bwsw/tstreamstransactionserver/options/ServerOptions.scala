@@ -88,7 +88,7 @@ object ServerOptions {
       new Options()
         .setCreateIfMissing(createIfMissing)
         .setMaxBackgroundCompactions(maxBackgroundCompactions)
-        .setAllowOsBuffer(allowOsBuffer)
+        //.setAllowOsBuffer(allowOsBuffer)
         .setCompressionType(compression)
         .setUseFsync(useFsync)
     }
@@ -106,7 +106,7 @@ object ServerOptions {
     *                           If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client.
     *                           If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset.
     */
-  case class PackageTransmissionOptions(maxMetadataPackageSize: Int = 100000000, maxDataPackageSize: Int = 100000000)
+  case class TransportOptions(maxMetadataPackageSize: Int = 100000000, maxDataPackageSize: Int = 100000000)
 
   /** The options are applied when processing commit log files.
     *
@@ -120,16 +120,17 @@ object ServerOptions {
     *                                      If 'skip-log' mode is chosen commit log files than haven't md5 file are not read.
     *                                      If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read.
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
-    * @param maxIdleTimeBetweenRecords max count of seconds that will pass from last commit log record to close a current commit log file and open a new one.
-    * @param commitLogToBerkeleyDBTaskDelayMs the time through a next commit log file is processed if there is one.
+    * @param maxIdleTimeBetweenRecordsMs max count of milliseconds that will pass from last commit log record to close a current commit log file and open a new one.
+    * @deprecated  commitLogToBerkeleyDBTaskDelayMs the time through a next commit log file is processed if there is one.
     * @param commitLogCloseDelayMs the time through a commit log file is closed.
     */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
-                              maxIdleTimeBetweenRecords: Int = 2,
+                              maxIdleTimeBetweenRecordsMs: Int = 2000,
+                              @deprecated("this option doesn't make any sense as option 'commitLogCloseDelayMs' overlap it")
                               commitLogToBerkeleyDBTaskDelayMs: Int = 500,
-                              commitLogCloseDelayMs: Int = 1000
+                              commitLogCloseDelayMs: Int = 200
                              )
 }
 

@@ -155,15 +155,18 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
   }
 
   override def run(): Unit = {
-    val commitLogEntity = pathsToClosedCommitLogFiles.poll()
-    if (commitLogEntity != null) {
-      scala.util.Try {
-        processAccordingToPolicy(commitLogEntity)
-      } match {
-        case scala.util.Success(_) =>
-        case scala.util.Failure(error) => error.printStackTrace()
+    while(pathsToClosedCommitLogFiles.size() > 0) {
+      val commitLogEntity = pathsToClosedCommitLogFiles.poll()
+      if (commitLogEntity != null) {
+        scala.util.Try {
+          processAccordingToPolicy(commitLogEntity)
+        } match {
+          case scala.util.Success(_) =>
+          case scala.util.Failure(error) => error.printStackTrace()
+        }
       }
-    } else transactionServer.createTransactionsToDeleteTask(getCurrentTime).run()
+    }
+    transactionServer.createTransactionsToDeleteTask(getCurrentTime).run()
   }
 
   final def closeRocksDB(): Unit = rocksDb.close()

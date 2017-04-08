@@ -18,6 +18,7 @@ object ServerLauncher {
       .withZookeeperOptions(optionsLoader.getZookeeperOptions)
       .withPackageTransmissionOptions(optionsLoader.getPackageTransmissionOptions)
       .withCommitLogOptions(optionsLoader.getCommitLogOptions)
+      .withZooKeeperSpecificOption(optionsLoader.getZookeeperSpecificOptions)
       .build()
 
     server.start()

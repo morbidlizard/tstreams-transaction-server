@@ -11,6 +11,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.Schedule
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer, ZKLeaderClientToPutMaster}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{TransportOptions, _}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
@@ -42,6 +43,8 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   private val rocksStorageOptions = RocksStorageOptions()
   private val packageTransmissionOptions = TransportOptions()
   private val commitLogOptions = CommitLogOptions()
+  private val zookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
+
 
   private val requestTimeoutMs = 500
   @volatile private var server: Server = _
@@ -63,7 +66,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
       authOptions, zookeeperOptions,
       bootstrapOptions, serverReplicationOptions,
       storageOptions, berkeleyStorageOptions, rocksStorageOptions, commitLogOptions,
-      packageTransmissionOptions,
+      packageTransmissionOptions, zookeeperSpecificOptions,
       serverHandler
     )
 
@@ -75,20 +78,18 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
 
   override def beforeAll(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
     zkTestServer.start()
   }
 
   override def afterAll(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
     zkTestServer.close()
   }
 

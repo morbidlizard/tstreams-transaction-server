@@ -8,8 +8,8 @@ import scala.language.implicitConversions
 
 object Implicits {
   implicit def strToByteArray(str: String): Array[Byte]  = str.getBytes
-  implicit def intToByteArray(int: Int): Array[Byte]     = ByteBuffer.allocate(4).putInt(int).array()
-  implicit def longToByteArray(long: Long): Array[Byte]  = ByteBuffer.allocate(8).putLong(long).array()
+  implicit def intToByteArray(int: Int): Array[Byte]     = ByteBuffer.allocate(java.lang.Integer.BYTES).putInt(int).array()
+  implicit def longToByteArray(long: Long): Array[Byte]  = ByteBuffer.allocate(java.lang.Long.BYTES).putLong(long).array()
 
 
   implicit def arrayByteTByteBuffer(array: Array[Byte]): java.nio.ByteBuffer = java.nio.ByteBuffer.wrap(array)

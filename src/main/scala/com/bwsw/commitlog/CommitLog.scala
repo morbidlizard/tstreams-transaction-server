@@ -1,10 +1,11 @@
 package com.bwsw.commitlog
 
 import java.io._
-import java.math.BigInteger
-import java.security.MessageDigest
+
+import java.security.{DigestOutputStream, MessageDigest}
 import java.util.Base64
 import java.util.Base64.Encoder
+import javax.xml.bind.DatatypeConverter
 
 import com.bwsw.commitlog.CommitLogFlushPolicy.{ICommitLogFlushPolicy, OnCountInterval, OnRotation, OnTimeInterval}
 import com.bwsw.commitlog.filesystem.FilePathManager
@@ -19,16 +20,16 @@ import com.bwsw.commitlog.filesystem.FilePathManager
   * @param path location to store files at
   * @param policy policy to flush data into file (OnRotation by default)
   */
-class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRotation) {
+class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRotation, nextFileID: => Long) {
   require(seconds > 0, "Seconds cannot be less than 1")
 
   private val secondsInterval: Int = seconds
-  private val filePathManager: FilePathManager = new FilePathManager(path)
+
   private val base64Encoder: Encoder = Base64.getEncoder
   private val delimiter: Byte = 0
   @volatile private var fileCreationTime: Long = -1
-  private var chunkWriteCount: Int = 0
-  private var chunkOpenTime: Long = 0
+  @volatile private var chunkWriteCount: Int = 0
+  @volatile private var chunkOpenTime: Long = 0
 
   private var currentCommitLogFileToPut: CommitLogFile = _
   private class CommitLogFile(path: String) {
@@ -36,31 +37,34 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
     private val md5: MessageDigest = MessageDigest.getInstance("MD5")
     private def writeMD5File() = {
-      val fileMD5 = new BigInteger(1, md5.digest()).toByteArray
-
+      val fileMD5 = DatatypeConverter.printHexBinary(md5.digest()).getBytes
       new FileOutputStream(new StringBuffer(path).append(FilePathManager.MD5EXTENSION).toString) {
         write(fileMD5)
         close()
       }
     }
-    private def updateMD5Digest(bytes: Array[Byte]): Unit = md5.update(bytes)
 
     private val outputStream = new BufferedOutputStream(new FileOutputStream(absolutePath, true))
-    def put(encodedMsgWithType: Array[Byte]):Unit = this.synchronized{
+    private val digestOutputStream = new DigestOutputStream(outputStream, md5)
+    def put(encodedMsgWithType: Array[Byte]): Unit = {
       val data = delimiter +: encodedMsgWithType
-      outputStream.write(data)
-      updateMD5Digest(data)
+      digestOutputStream.write(data)
     }
 
-    def flush(): Unit = outputStream.flush()
+    def flush(): Unit = {
+      digestOutputStream.flush()
+      outputStream.flush()
+    }
 
     def close(): Unit = this.synchronized{
+      digestOutputStream.on(false)
+      digestOutputStream.flush()
       outputStream.flush()
+      digestOutputStream.close()
       outputStream.close()
       writeMD5File()
     }
   }
-
 
 
   /** Puts record and its type to an appropriate file.
@@ -79,7 +83,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     if (startNew && !firstRun) {
       resetCounters()
       currentCommitLogFileToPut.close()
-      currentCommitLogFileToPut = new CommitLogFile(filePathManager.getNextPath)
+      currentCommitLogFileToPut = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
     }
 
     // если истекло время или мы начинаем записывать в новый коммит лог файл
@@ -91,7 +95,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       fileCreationTime = getCurrentSecs()
       // TODO(remove this):write here chunkOpenTime or we will write first record instantly if OnTimeInterval policy set
       //      chunkOpenTime = System.currentTimeMillis()
-      currentCommitLogFileToPut = new CommitLogFile(filePathManager.getNextPath)
+      currentCommitLogFileToPut = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
     }
 
     val now: Long = System.currentTimeMillis()
@@ -114,60 +118,13 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   }
 
   /** Finishes work with current file. */
-  def close(): Option[String] = {
+  def close(): Option[String] = this.synchronized {
     if (!firstRun) {
       resetCounters()
       currentCommitLogFileToPut.close()
       Some(currentCommitLogFileToPut.absolutePath)
     } else None
   }
-
-  //  /** Return decoded messages from specified file.
-  //    *
-  //    * @param path path to file to read data from.
-  //    * @return sequence of decoded messages.
-  //    */
-  //  def getMessages(path: String): IndexedSeq[Array[Byte]] = {
-  //    val base64decoder: Decoder = Base64.getDecoder
-  //    val byteArray = Files.readAllBytes(Paths.get(path))
-  //    var msgs: IndexedSeq[Array[Byte]] = IndexedSeq[Array[Byte]]()
-  //    var i = 0
-  //    while (i < byteArray.length) {
-  //      var msg: Array[Byte] = Array[Byte]()
-  //      if (byteArray(i) == 0) {
-  //        i += 1
-  //        while (i < byteArray.length && byteArray(i) != 0.toByte) {
-  //          msg = msg :+ byteArray(i)
-  //          i += 1
-  //        }
-  //        msgs = msgs :+ base64decoder.decode(msg)
-  //      } else {
-  //        new Exception("No zero at the beginning of a message")
-  //      }
-  //    }
-  //    return msgs
-  //  }
-
-  //  /** Performance test.
-  //    *
-  //    * Writes specified count of messages to file.
-  //    *
-  //    * @param countOfRecords count of records to write.
-  //    * @param message message to write.
-  //    * @param typeOfMessage type of message.
-  //    * @return count of milliseconds writing to file took.
-  //    */
-  //  def perf(countOfRecords: Int, message: Array[Byte], typeOfMessage: Byte): Long = {
-  //    require(countOfRecords > 0, "Count of records cannot be less than 1")
-  //
-  //    val before = System.currentTimeMillis()
-  //    for (i <- 1 to countOfRecords) putRec(message, typeOfMessage, startNew = false)
-  //    System.currentTimeMillis() - before
-  //  }
-
-  //  private def flushStream() = {
-  //    outputStream.flush()
-  //  }
 
   private def resetCounters(): Unit = {
     fileCreationTime = -1

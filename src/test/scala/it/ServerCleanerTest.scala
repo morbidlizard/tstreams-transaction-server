@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
@@ -42,9 +42,10 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   private val storageOptions = StorageOptions(path = "/tmp")
 
   override def beforeEach(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
   }
 
   override def afterEach() {
@@ -71,7 +72,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
     ) {
       def checkTransactionExistInOpenedTable(stream: String, partition: Int, transactionId: Long) = {
         val streamObj = getMostRecentStream(stream)
-        val txn = getOpenedTransaction(Key(streamObj.streamNameToLong, partition, transactionId))
+        val txn = getOpenedTransaction(ProducerTransactionKey(streamObj.streamNameAsLong, partition, transactionId))
         txn.isDefined
       }
     }
@@ -91,13 +92,13 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
-    val bigCommit = transactionService.getBigCommit(storageOptions.path)
+    val bigCommit = transactionService.getBigCommit(1L)
     bigCommit.putSomeTransactions(transactionsWithTimestamp)
-    bigCommit.commit(currentTime)
+    bigCommit.commit()
 
     transactionService.createTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec)).run()
     val expiredTransactions = producerTransactionsWithTimestamp.map { case (producerTxn, _) =>
-      ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, producerTxn.quantity, 0L)
+      ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
     }
 
     Await.result(transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID), secondsAwait.seconds).producerTransactions should contain theSameElementsAs expiredTransactions

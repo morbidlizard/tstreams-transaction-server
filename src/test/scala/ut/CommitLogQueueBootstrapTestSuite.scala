@@ -1,10 +1,9 @@
 package ut
 
 import java.io.File
-import java.util.Date
-import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.{ArrayBlockingQueue, PriorityBlockingQueue}
 
-import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogCatalogueByDate}
+import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{CommitLogQueueBootstrap, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions, StorageOptions}
@@ -20,12 +19,12 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   val executionContext = new ServerExecutionContext(2, 1, 1, 1)
   val storageOptions = StorageOptions(new StringBuffer().append("target").append(File.separatorChar).append("clqb").toString)
   val transactionService = new TransactionServer(executionContext, authOptions, storageOptions, rocksStorageOptions)
-  val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path)
+  val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
   val commitLogQueueBootstrap = new CommitLogQueueBootstrap(10, commitLogCatalogue, transactionService)
 
   "fillQueue" should "return an empty queue if there are no commit log files in a storage directory" in {
     //act
-    val emptyQueue = commitLogQueueBootstrap.fillQueue()
+    val (emptyQueue, _) = commitLogQueueBootstrap.fillQueue()
 
     //assert
     emptyQueue shouldBe empty
@@ -34,10 +33,10 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   "fillQueue" should "return a queue of a size that equals to a number of commit log files are in a storage directory" in {
     //arrange
     val numberOfFiles = 10
-    createCommitLogFiles(new Date(640836800000L), numberOfFiles)
+    createCommitLogFiles(numberOfFiles)
 
     //act
-    val nonemptyQueue = commitLogQueueBootstrap.fillQueue()
+    val (nonemptyQueue, _) = commitLogQueueBootstrap.fillQueue()
 
     //assert
     nonemptyQueue should have size numberOfFiles
@@ -46,12 +45,12 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   "fillQueue" should "return a queue with the time ordered commit log files" in {
     //arrange
     val numberOfFiles = 1
-    createCommitLogFiles(new Date(641836800000L), numberOfFiles)
-    createCommitLogFiles(new Date(642836800000L), numberOfFiles)
-    createCommitLogFiles(new Date(643836800000L), numberOfFiles)
+    createCommitLogFiles(numberOfFiles)
+    createCommitLogFiles(numberOfFiles)
+    createCommitLogFiles(numberOfFiles)
 
     //act
-    val orderedQueue = commitLogQueueBootstrap.fillQueue()
+    val (orderedQueue, _) = commitLogQueueBootstrap.fillQueue()
     val orderedFiles = getOrderedFiles(orderedQueue)
 
     //assert
@@ -62,17 +61,16 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
     FileUtils.deleteDirectory(new File(storageOptions.path))
   }
 
-  private def createCommitLogFiles(date: Date, number: Int) = {
-    commitLogCatalogue.createCatalogue(date)
-    val commitLogCatalogueByDate = new CommitLogCatalogueByDate(storageOptions.path, date)
+  private def createCommitLogFiles(number: Int) = {
+    val commitLogCatalogueByDate = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
 
     (0 until number).foreach(fileNamePrefix => {
       commitLogCatalogueByDate.createFile(fileNamePrefix.toString)
     })
   }
 
-  private def getOrderedFiles(orderedQueue: ArrayBlockingQueue[String]) = {
-    val orderedFiles = ArrayBuffer[String]()
+  private def getOrderedFiles(orderedQueue: PriorityBlockingQueue[CommitLogStorage]): ArrayBuffer[CommitLogStorage] = {
+    val orderedFiles = ArrayBuffer[CommitLogStorage]()
     var path = orderedQueue.poll()
     while (path != null) {
       orderedFiles += path

@@ -20,9 +20,10 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
   private val secondsWait = 5
 
   override def beforeEach(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
   }
 
   override def afterEach(): Unit = beforeEach()
@@ -59,15 +60,15 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
   private final def transitOneTransactionToAnotherState(transactionServiceServer: TransactionServer, in: ProducerTransaction, toUpdateIn: ProducerTransaction, out: ProducerTransaction, timeBetweenTransactionSec: Long) = {
     val inAggregated = Transaction(Some(in), None)
     val firstCommitTime = System.currentTimeMillis()
-    val commitFirst = transactionServiceServer.getBigCommit(scala.util.Random.nextString(6))
+    val commitFirst = transactionServiceServer.getBigCommit(scala.util.Random.nextLong())
     commitFirst.putSomeTransactions(Seq((inAggregated, firstCommitTime)))
-    commitFirst.commit(firstCommitTime)
+    commitFirst.commit()
 
     val toUpdateInAggregated = Transaction(Some(toUpdateIn), None)
     val secondCommitTime = System.currentTimeMillis()
-    val secondCommit = transactionServiceServer.getBigCommit(scala.util.Random.nextString(6))
+    val secondCommit = transactionServiceServer.getBigCommit(scala.util.Random.nextLong())
     secondCommit.putSomeTransactions(Seq((toUpdateInAggregated, secondCommitTime + TimeUnit.SECONDS.toMillis(timeBetweenTransactionSec))))
-    secondCommit.commit(secondCommitTime)
+    secondCommit.commit()
 
     getProducerTransactionFromServer(transactionServiceServer, out) shouldBe out
   }
@@ -110,7 +111,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val checkpointedTTL = 2
     val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(stream.name, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTransaction, producerTransactionCheckpointed, producerTransaction.copy(state = TransactionStates.Invalid, ttl = 0L), openedTTL + 1)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTransaction, producerTransactionCheckpointed, producerTransaction.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), openedTTL + 1)
 
     transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
@@ -176,12 +177,12 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val updatedTTL3 = 7L
     val wait3 = updatedTTL3 - 2
     val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait3)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
 
     val checkpointedTTL = 2L
     val wait4 = checkpointedTTL - 2
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait4)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
 
     transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
@@ -208,17 +209,17 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val updatedTTL2 = 1L
     val wait2 = 1L
     val producerTxnCancel2 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Cancel, -1, updatedTTL2)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened.copy(ttl = updatedTTL1), producerTxnCancel2, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait2)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened.copy(ttl = updatedTTL1), producerTxnCancel2, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait2)
 
     val updatedTTL3 = 7L
     val wait3 = updatedTTL3 - 2
     val producerTxnUpdated3 =com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait3)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
 
     val checkpointedTTL = 2L
     val wait4 = checkpointedTTL - 2
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, ttl = 0L), wait4)
+    transitOneTransactionToAnotherState(transactionServiceServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
 
     transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }

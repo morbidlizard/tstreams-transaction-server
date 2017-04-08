@@ -23,8 +23,6 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
   private val clientBuilder = new ClientBuilder()
 
-  private val maxIdleTimeBetweenRecordsMs = 1000
-
   private val commitLogToBerkeleyDBTaskDelayMs = 100
 
   private val serverAuthOptions = ServerOptions.AuthOptions()
@@ -33,8 +31,9 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(maxIdleTimeBetweenRecordsMs = maxIdleTimeBetweenRecordsMs, commitLogToBerkeleyDBTaskDelayMs = 100, commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
+  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
   def startTransactionServer(): Unit = new Thread(() => {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -47,6 +46,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       berkeleyStorageOptions = serverBerkeleyStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
+      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions
     )
     transactionServer.start()
@@ -54,22 +54,27 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
 
   override def beforeEach(): Unit = {
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+
     zkTestServer = new TestingServer(true)
     startTransactionServer()
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
-    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
+    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory)
+    commitLogCatalogue.deleteAllFiles()
   }
 
   override def afterEach() {
     client.shutdown()
     transactionServer.shutdown()
     zkTestServer.close()
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + "/" + serverStorageOptions.metadataDirectory))
-    val commitLogCatalogue = new CommitLogCatalogue(serverStorageOptions.path)
-    commitLogCatalogue.catalogues.foreach(catalogue => catalogue.deleteAllFiles())
+
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {
@@ -85,7 +90,6 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   }
 
   private val rand = scala.util.Random
-
   private def getRandomStream =
     new com.bwsw.tstreamstransactionserver.rpc.Stream {
       override val name: String = rand.nextInt(10000).toString
@@ -93,29 +97,6 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
       override val ttl: Long = Long.MaxValue
     }
-
-  private def chooseStreamRandomly(streams: IndexedSeq[com.bwsw.tstreamstransactionserver.rpc.Stream]) = streams(rand.nextInt(streams.length))
-
-  private def getRandomProducerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream,
-                                           transactionState: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1),
-                                           id: Long = System.nanoTime()) =
-    new ProducerTransaction {
-      override val transactionID: Long = id
-      override val state: TransactionStates = transactionState
-      override val stream: String = streamObj.name
-      override val ttl: Long = Long.MaxValue
-      override val quantity: Int = -1
-      override val partition: Int = streamObj.partitions
-    }
-
-  private def getRandomConsumerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream) =
-    new ConsumerTransaction {
-      override val transactionID: Long = scala.util.Random.nextLong()
-      override val name: String = rand.nextInt(10000).toString
-      override val stream: String = streamObj.name
-      override val partition: Int = streamObj.partitions
-    }
-
 
   val secondsWait = 5
 
@@ -173,7 +154,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     val res = Await.result(client.getTransaction(stream.name, partition, producerTransactionOuter.transactionID), secondsWait.seconds)
     res.exists shouldBe true
-    res.transaction.get shouldBe ProducerTransaction(stream.name, partition, producerTransactionOuter.transactionID, TransactionStates.Invalid, producerTransactionOuter.quantity, 0L)
+    res.transaction.get shouldBe ProducerTransaction(stream.name, partition, producerTransactionOuter.transactionID, TransactionStates.Invalid, 0, 0L)
   }
 
   it should "producerTransaction with Opened state and should get it" in {
@@ -206,6 +187,38 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     val res = Await.result(client.getTransaction(stream.name, partition, producerTransactionOuter.transactionID), secondsWait.seconds)
     res.exists shouldBe true
     res.transaction.get shouldBe producerTransactionOuter
+  }
+
+  it should "return all transactions if no incomplete" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val putCounter = new CountDownLatch(1)
+
+    val ALL = 80
+    var currentTime = System.currentTimeMillis()
+    val transactions = for (i <- 0 until ALL) yield {
+      currentTime = currentTime + 1L
+      currentTime
+    }
+    val firstTransaction = transactions.head
+    val lastTransaction = transactions.last
+
+
+    transactionServer.notifyProducerTransactionCompleted(t => t.transactionID == lastTransaction && t.state == TransactionStates.Checkpointed, putCounter.countDown())
+
+    val partition = 1
+    transactions.foreach { t =>
+      val openedTransaction = ProducerTransaction(stream.name, partition, t, TransactionStates.Opened, 1, 120L)
+      client.putProducerState(openedTransaction)
+      client.putProducerState(openedTransaction.copy(state = TransactionStates.Checkpointed))
+    }
+
+    putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
+
+    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
+
+    res.producerTransactions.size shouldBe transactions.size
   }
 
 }

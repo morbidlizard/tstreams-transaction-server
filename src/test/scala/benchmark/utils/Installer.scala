@@ -2,6 +2,7 @@ package benchmark.utils
 
 import java.io.File
 
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import org.apache.commons.io.FileUtils
 
@@ -22,7 +23,9 @@ trait Installer {
 
   def startTransactionServer() = {
     new Thread(() =>
-      serverBuilder.build().start()
+      serverBuilder
+          .withCommitLogOptions(CommitLogOptions(commitLogCloseDelayMs = 1000))
+        .build().start()
     ).start()
   }
 

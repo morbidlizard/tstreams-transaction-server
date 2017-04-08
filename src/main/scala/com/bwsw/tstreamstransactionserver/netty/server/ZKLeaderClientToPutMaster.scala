@@ -8,6 +8,7 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddr
 import com.google.common.net.InetAddresses
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
 import org.apache.zookeeper.data.ACL
@@ -18,7 +19,7 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  val client = {
+  private val client = {
     val connection = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(sessionTimeoutMillis)
       .connectionTimeoutMs(connectionTimeoutMillis)
@@ -29,6 +30,19 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
     connection.start()
     val isConnected = connection.blockUntilConnected(connectionTimeoutMillis, TimeUnit.MILLISECONDS)
     if (isConnected) connection else throw new ZkNoConnectionException(endpoints)
+  }
+
+  final def fileIDGenerator(path: String, initValue: Long) = new FileIDGenerator(path, initValue)
+  final class FileIDGenerator(path: String, initValue: Long) {
+    private val distributedAtomicLong = new DistributedAtomicLong(client, path, policy)
+    distributedAtomicLong.forceSet(initValue)
+   // if (!distributedAtomicLong.initialize(initValue)) throw new Exception(s"Can't initialize counter by value $initValue.")
+
+    def increment: Long = {
+      val operation = distributedAtomicLong.increment()
+      if (operation.succeeded()) operation.postValue()
+      else throw new Exception(s"Can't increment counter by 1: previous was ${operation.preValue()} but now it's ${operation.postValue()} ")
+    }
   }
 
 
@@ -49,7 +63,7 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
     }
   }
 
-  override def close(): Unit = client.close()
+  override def close(): Unit = scala.util.Try(client.close())
 }
 
 object ZKLeaderClientToPutMaster {

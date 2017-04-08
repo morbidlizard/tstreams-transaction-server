@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.KeyStream
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionDataService
@@ -36,15 +36,16 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
 
   final def removeRocksDBDatabaseAndDeleteFolder(stream: Long): Unit = {
     val key = StorageName(stream.toString)
-    Option(rocksDBStorageToStream.get(key)) foreach (x => x.closeAndDeleteFodler())
+    Option(rocksDBStorageToStream.get(key)) foreach (x => x.closeAndDeleteFolder())
   }
 
-  private def getStorage(keyStream: KeyStream, ttl: Long) = {
-    val key = StorageName(keyStream.key.streamNameToLong.toString)
+  private val pathForData = s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.dataDirectory}${java.io.File.separatorChar}"
+  private def getStorage(keyStream: StreamRecord, ttl: Long) = {
+    val key = StorageName(keyStream.key.streamNameAsLong.toString)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
       val calculatedTTL = calculateTTL(ttl)
       if (logger.isDebugEnabled()) logger.debug(s"Creating new database[stream: ${keyStream.name}, ttl(in hrs): $calculatedTTL] for persisting and reading transactions data.")
-      new RocksDbConnection(storageOpts, rocksStorageOpts, key.toString, calculatedTTL)
+      new RocksDbConnection(rocksStorageOpts, s"$pathForData${key.toString}", calculatedTTL)
     })
   }
 

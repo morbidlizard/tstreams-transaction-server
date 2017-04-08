@@ -2,8 +2,8 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionWithoutKey}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionRecord, ProducerTransactionValue}
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
 
 import scala.annotation.tailrec
@@ -51,28 +51,28 @@ trait TransactionStateHandler {
   //    case (TransactionStatus.`checkpointed`, _) =>
   //  }
 
-  private def transitProducerTransactionToInvalidState(txn: ProducerTransactionKey) = {
-    ProducerTransactionKey(
-      com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key(txn.stream, txn.partition, txn.transactionID),
-      ProducerTransactionWithoutKey(Invalid, txn.quantity, 0L, txn.timestamp)
+  private[transactionMetadataService] def transitProducerTransactionToInvalidState(txn: ProducerTransactionRecord) = {
+    ProducerTransactionRecord(
+      com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey(txn.stream, txn.partition, txn.transactionID),
+      ProducerTransactionValue(Invalid, 0, 0L, txn.timestamp)
     )
   }
 
-  private def isThisProducerTransactionExpired(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): Boolean = {
+  private def isThisProducerTransactionExpired(currentTxn: ProducerTransactionRecord, nextTxn: ProducerTransactionRecord): Boolean = {
     scala.math.abs(currentTxn.timestamp + TimeUnit.SECONDS.toMillis(currentTxn.ttl)) <= nextTxn.timestamp
   }
 
   @throws[IllegalArgumentException]
-  private def transitProducerTransactionToNewState(currentTxn: ProducerTransactionKey, nextTxn: ProducerTransactionKey): ProducerTransactionKey = {
+  private def transitProducerTransactionToNewState(currentTxn: ProducerTransactionRecord, nextTxn: ProducerTransactionRecord): ProducerTransactionRecord = {
     (currentTxn.state, nextTxn.state) match {
       case (Opened, Opened) => currentTxn
 
       case (Opened, Updated) =>
         if (isThisProducerTransactionExpired(currentTxn, nextTxn)) transitProducerTransactionToInvalidState(currentTxn)
         else
-          ProducerTransactionKey(
-            com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.Key(nextTxn.stream, nextTxn.partition, nextTxn.transactionID),
-            ProducerTransactionWithoutKey(Opened, nextTxn.quantity, nextTxn.ttl, nextTxn.timestamp)
+          ProducerTransactionRecord(
+            com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey(nextTxn.stream, nextTxn.partition, nextTxn.transactionID),
+            ProducerTransactionValue(Opened, nextTxn.quantity, nextTxn.ttl, nextTxn.timestamp)
           )
 
       case (Opened, Cancel) =>
@@ -93,13 +93,13 @@ trait TransactionStateHandler {
       case (Invalid, _) => currentTxn
       case (Checkpointed, _) => currentTxn
 
-      case (_, _) => throw new IllegalArgumentException("Unknown States should be implemented")
+      case (thisState, thatState) => throw new IllegalArgumentException(s"Transition from $thisState to $thatState should be implemented.(Unknown states)")
     }
   }
 
   @tailrec
   @throws[IllegalArgumentException]
-  private def process(txns: List[ProducerTransactionKey]): ProducerTransactionKey = txns match {
+  private def process(txns: List[ProducerTransactionRecord]): ProducerTransactionRecord = txns match {
     case Nil => throw new IllegalArgumentException
     case head :: Nil => head.state match {
       case Opened => head
@@ -114,18 +114,18 @@ trait TransactionStateHandler {
   }
 
   @throws[IllegalArgumentException]
-  private def processFirstTransaction(transaction: ProducerTransactionKey) = {
+  private def processFirstTransaction(transaction: ProducerTransactionRecord) = {
     process(transaction::Nil)
   }
 
   @throws[IllegalArgumentException]
-  final def transitProducerTransactionToNewState(transactionPersistedInBerkeleyDB: ProducerTransactionKey, commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
+  final def transitProducerTransactionToNewState(transactionPersistedInBerkeleyDB: ProducerTransactionRecord, commitLogTransactions: Seq[ProducerTransactionRecord]): ProducerTransactionRecord = {
     val firstTransaction = processFirstTransaction(transactionPersistedInBerkeleyDB)
     process(firstTransaction :: commitLogTransactions.sortBy(_.transactionID).sortBy(_.timestamp).toList)
   }
 
   @throws[IllegalArgumentException]
-  final def transitProducerTransactionToNewState(commitLogTransactions: Seq[ProducerTransactionKey]): ProducerTransactionKey = {
+  final def transitProducerTransactionToNewState(commitLogTransactions: Seq[ProducerTransactionRecord]): ProducerTransactionRecord = {
     if (commitLogTransactions.length > 1) {
       val orderedCommitLogTransactionsByTimestamp = commitLogTransactions.sortBy(_.transactionID).sortBy(_.timestamp).toList
       val (firstTransaction, otherTransactions) = (orderedCommitLogTransactionsByTimestamp.head, orderedCommitLogTransactionsByTimestamp.tail)

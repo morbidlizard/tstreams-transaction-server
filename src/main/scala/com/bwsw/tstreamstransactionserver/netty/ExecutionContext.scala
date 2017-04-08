@@ -24,11 +24,14 @@ class ExecutionContext(nContexts: Int, f: => java.util.concurrent.ExecutorServic
 
   def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
 
-  def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(10000, TimeUnit.MILLISECONDS))
+  def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContext.TasksCompletedTLL, TimeUnit.MILLISECONDS))
 }
 
 
 object ExecutionContext {
+  /** The time to wait all tasks completed by thread pool */
+  private val TasksCompletedTLL = 10000
+
   def apply(contextNum: Int, f: => java.util.concurrent.ExecutorService): ExecutionContext = new ExecutionContext(contextNum, f)
   /** Creates a number of single-threaded contexts with names */
   def apply(contextNum: Int, nameFormat: String) = new ExecutionContext(contextNum, Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat(nameFormat).build()))

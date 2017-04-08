@@ -22,9 +22,14 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     }(context)
   }
 
-  private def isTooBigMessage(message: Message) = {
-    if (message.length > packageTransmissionOpts.maxMetadataPackageSize || message.length > packageTransmissionOpts.maxDataPackageSize) true else false
+  private def isTooBigMetadataMessage(message: Message) = {
+    message.length > packageTransmissionOpts.maxMetadataPackageSize
   }
+
+  private def isTooBigDataMessage(message: Message) = {
+    message.length > packageTransmissionOpts.maxDataPackageSize
+  }
+
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     if (logger.isInfoEnabled) logger.info(s"${ctx.channel().remoteAddress().toString} is inactive")
@@ -38,7 +43,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
   }
 
   protected def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = {
-    val isTooBigPackage = isTooBigMessage(message)
+    val isTooBigPackage = isTooBigMetadataMessage(message)
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
 
     def logSuccessfulProcession(): Unit = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
@@ -251,7 +256,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
 
       case `putTransactionDataMethod` =>
         if (transactionServer.isValid(message.token)) {
-          if (!isTooBigPackage) {
+          if (!isTooBigDataMessage(message)) {
             val args = Descriptors.PutTransactionData.decodeRequest(message)
             transactionServer.putTransactionData(args.stream, args.partition, args.transaction, args.data, args.from)
               .flatMap { response =>

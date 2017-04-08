@@ -39,7 +39,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
     private val md5: MessageDigest = MessageDigest.getInstance("MD5")
     private def writeMD5File() = {
-      val fileMD5 = DatatypeConverter.printHexBinary(md5.digest()).getBytes
+      val fileMD5 = DatatypeConverter.printHexBinary(md5.digest()).getBytes()
       new FileOutputStream(new StringBuffer(path).append(FilePathManager.MD5EXTENSION).toString) {
         write(fileMD5)
         close()
@@ -110,7 +110,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       case interval: OnTimeInterval if interval.seconds * 1000 + chunkOpenTime < now =>
         chunkOpenTime = now
         currentCommitLogFileToPut.get().flush()
-      case interval: OnCountInterval if interval.count == chunkWriteCount =>
+      case interval: OnCountInterval if interval.count == chunkWriteCount.get() =>
         chunkWriteCount.set(0)
         currentCommitLogFileToPut.get().flush()
       case _ =>

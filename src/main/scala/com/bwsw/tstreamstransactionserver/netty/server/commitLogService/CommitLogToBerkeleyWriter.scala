@@ -166,7 +166,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
         }
       }
     }
-    transactionServer.createTransactionsToDeleteTask(getCurrentTime).run()
+    if (pathsToClosedCommitLogFiles.isEmpty) transactionServer.createTransactionsToDeleteTask(getCurrentTime).run()
   }
 
   final def closeRocksDB(): Unit = rocksDb.close()

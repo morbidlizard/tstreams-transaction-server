@@ -25,7 +25,7 @@ trait Installer {
   def startTransactionServer() = {
     new Thread(() =>
       serverBuilder
-          .withCommitLogOptions(CommitLogOptions(commitLogCloseDelayMs = 1000))
+        .withCommitLogOptions(CommitLogOptions(commitLogCloseDelayMs = 1000))
         .build().start()
     ).start()
   }

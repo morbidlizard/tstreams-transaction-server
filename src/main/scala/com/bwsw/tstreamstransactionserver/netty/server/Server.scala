@@ -88,7 +88,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 
     val record = rocksDBCommitLog.getLastRecord
     record match {
-      case Some((lastFileIDRocksBinary, contentAndMD5SumRocksBinary)) =>
+      case Some((lastFileIDRocksBinary, _)) =>
         val lastFileIDRocks = FileKey.fromByteArray(lastFileIDRocksBinary).id
         (priorityQueue, scala.math.max(initGenFileID, lastFileIDRocks))
 
@@ -178,7 +178,7 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
     val allFiles = commitLogCatalogue.listAllFilesAndTheirIDs().toMap
 
     val berkeleyProccessedFileIDMax = getLastKey
-    val (allFilesIDsToProcess, allFilesToDelete) =
+    val (allFilesIDsToProcess, allFilesToDelete: Map[Long, CommitLogFile]) =
       if (berkeleyProccessedFileIDMax.isDefined)
         (allFiles.filterKeys(_ > berkeleyProccessedFileIDMax.get), allFiles.filterKeys(_ <= berkeleyProccessedFileIDMax.get))
       else

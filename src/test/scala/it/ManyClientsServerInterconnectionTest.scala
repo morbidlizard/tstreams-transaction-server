@@ -156,7 +156,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
+    TestTimer.updateTime(System.currentTimeMillis() + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
@@ -217,7 +217,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
+    TestTimer.updateTime(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(1))
 
     //transactions are processed in the async mode
     val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
@@ -252,7 +252,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
+    TestTimer.updateTime(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(1))
 
     //transactions are processed in the async mode
     val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, maxIdleTimeBetweenRecordsMs*10)
@@ -285,7 +285,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
-    TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
+    TestTimer.updateTime(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(1))
 
     //transactions are processed in the async mode
     val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)

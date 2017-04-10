@@ -481,6 +481,33 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )
   }
 
+  /** Puts 'simplified' producer transaction that already has Chekpointed state with it's data
+    *
+    * @param stream      a name of stream.
+    * @param partition   a partition of stream.
+    * @param transaction a transaction id.
+    * @param data a producer transaction data.
+    * @param from a left bound to put producer transaction data to start with.
+    * @return Future of putSimpleTransactionAndData operation that can be completed or not. If it is completed it returns:
+    *         1) TRUE if transaction is persisted in commit log file for next processing and it's data is persisted successfully too, otherwise FALSE.
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]], if there is no such stream;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package has size in bytes more than defined by a server;
+    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    */
+  def putSimpleTransactionAndData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
+    implicit val context = futurePool.getContext
+    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $stream, partition $partition with data: $data")
+    tryCompleteRequest(
+      method(
+        Descriptors.PutSimpleTransactionAndData,
+        TransactionService.PutSimpleTransactionAndData.Args(stream, partition, transaction, data, from)
+      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+    )
+  }
+
   /** Retrieves a producer transaction by id
     *
     * @param stream      a name of stream.
@@ -619,15 +646,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putProducerStateWithData(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    putProducerState(producerTransaction) flatMap { response =>
-      if (logger.isDebugEnabled) logger.debug(s"Putting transaction data to stream ${producerTransaction.stream}, partition ${producerTransaction.partition}, transaction ${producerTransaction.transactionID}.")
-      tryCompleteRequest(
-        method(
-          Descriptors.PutTransactionData,
-          TransactionService.PutTransactionData.Args(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, data, from)
-        ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
-      )
-    }
+    putTransactionData(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, data, from)
+      .flatMap(_ => putProducerState(producerTransaction))
   }
 
 

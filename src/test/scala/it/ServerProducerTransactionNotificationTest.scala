@@ -125,7 +125,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     transactionServer.removeNotification(id) shouldBe true
   }
 
-  it should "producerTransaction with Opened state and don't get it as it's expired" in {
+  it should " put producerTransaction with Opened state and don't get it as it's expired" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -157,7 +157,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     res.transaction.get shouldBe ProducerTransaction(stream.name, partition, producerTransactionOuter.transactionID, TransactionStates.Invalid, 0, 0L)
   }
 
-  it should "producerTransaction with Opened state and should get it" in {
+  it should "put producerTransaction with Opened state and should get it" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -187,6 +187,60 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     val res = Await.result(client.getTransaction(stream.name, partition, producerTransactionOuter.transactionID), secondsWait.seconds)
     res.exists shouldBe true
     res.transaction.get shouldBe producerTransactionOuter
+  }
+
+  it should "put 'simple' producerTransaction and should get it" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+    val partition = 1
+
+    val transactionID = System.currentTimeMillis()
+    val latch1 = new CountDownLatch(1)
+    transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
+      producerTransaction.transactionID == transactionID && producerTransaction.state == TransactionStates.Checkpointed,
+      latch1.countDown()
+    )
+
+    client.putSimpleTransactionAndData(stream.name, partition, transactionID, Seq(Array[Byte]()), 0)
+    latch1.await(3, TimeUnit.SECONDS) shouldBe true
+
+    val res = Await.result(client.getTransaction(stream.name, partition, transactionID), secondsWait.seconds)
+    res.exists shouldBe true
+    println(res.transaction.get)
+  }
+
+  it should "put 'simple' producer transactions and should get them all" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val putCounter = new CountDownLatch(1)
+
+    val ALL = 80
+    var currentTime = System.currentTimeMillis()
+    val transactions = for (i <- 0 until ALL) yield {
+      currentTime = currentTime + 1L
+      currentTime
+    }
+    val firstTransaction = transactions.head
+    val lastTransaction = transactions.last
+
+
+    transactionServer.notifyProducerTransactionCompleted(t => t.transactionID == lastTransaction && t.state == TransactionStates.Checkpointed, putCounter.countDown())
+
+    val partition = 1
+    val data = Array.fill(10)(rand.nextInt(100000).toString.getBytes)
+    transactions.foreach { t =>
+      client.putSimpleTransactionAndData(stream.name, partition, t, data, 0)
+    }
+
+    putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
+
+    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
+    val resData = Await.result(client.getTransactionData(stream.name, partition, lastTransaction, 0, 10), secondsWait.seconds)
+
+
+    res.producerTransactions.size shouldBe transactions.size
+    resData should contain theSameElementsInOrderAs data
   }
 
   it should "return all transactions if no incomplete" in {

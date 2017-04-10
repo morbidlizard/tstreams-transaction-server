@@ -146,6 +146,7 @@ object Descriptors {
   val getStreamMethod = "getStream"
   val delStreamMethod = "delStream"
   val putTransactionMethod = "putTransaction"
+  val putSimpleTransactionAndDataMethod = "putSimpleTransactionAndData"
   val putTransactionsMethod = "putTransactions"
   val getTransactionMethod = "getTransaction"
   val getLastCheckpointedTransactionMethod = "getLastCheckpointedTransaction"
@@ -168,6 +169,7 @@ object Descriptors {
       case struct: TransactionService.GetStream.Args         => toString(getStreamMethod, struct.productIterator, TransactionService.GetStream.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.DelStream.Args         => toString(delStreamMethod, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutTransaction.Args    => toString(putTransactionMethod, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutSimpleTransactionAndData.Args => toString(putSimpleTransactionAndDataMethod, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutTransactions.Args   => toString(putTransactionsMethod, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetTransaction.Args    => toString(getTransactionMethod, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetLastCheckpointedTransaction.Args => toString(getLastCheckpointedTransactionMethod, struct.productIterator, TransactionService.GetLastCheckpointedTransaction.Args.fieldInfos.map(_.tfield.name))
@@ -198,6 +200,9 @@ object Descriptors {
 
   case object PutTransactions extends
     Descriptor(putTransactionsMethod, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, protocolTCompactFactory, protocolTBinaryFactory)
+
+  case object PutSimpleTransactionAndData extends
+    Descriptor(putSimpleTransactionAndDataMethod, TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, protocolTCompactFactory, protocolTBinaryFactory)
 
   case object GetTransaction extends
     Descriptor(getTransactionMethod, TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, protocolTBinaryFactory, protocolTCompactFactory)

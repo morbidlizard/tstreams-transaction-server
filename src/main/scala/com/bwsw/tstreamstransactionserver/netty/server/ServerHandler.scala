@@ -5,7 +5,7 @@ import com.bwsw.tstreamstransactionserver.netty.Descriptors._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, ObjectSerializer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
-import com.bwsw.tstreamstransactionserver.rpc.{AuthInfo, ProducerTransaction, ServerException, TransactionService}
+import com.bwsw.tstreamstransactionserver.rpc._
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.Logger
 
@@ -123,6 +123,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           ScalaFuture.successful(Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
+
       case `delStreamMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
@@ -186,6 +187,39 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         } else {
           //logUnsuccessfulProcessing()
           ScalaFuture.successful(Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
+        }
+
+      case `putSimpleTransactionAndDataMethod` =>
+        if (transactionServer.isValid(message.token)) {
+          if (!isTooBigPackage) {
+            val txn = Descriptors.PutSimpleTransactionAndData.decodeRequest(message)
+            scala.util.Try(transactionServer.putTransactionDataSync(txn.stream, txn.partition, txn.transaction, txn.data, txn.from)) match {
+              case scala.util.Success(_) =>
+                val transactions = Seq(
+                  Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Opened, txn.data.size, 3L)), None),
+                  Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Checkpointed, txn.data.size, 120L)), None)
+                )
+                val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(TransactionService.PutTransactions.Args(transactions))(messageId, token)
+                ScalaFuture.successful(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, messageForPutTransactions))
+                  .flatMap { isOkay =>
+                    logSuccessfulProcession()
+                    ScalaFuture.successful(Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(Some(isOkay)))(messageId, token))
+                  }
+                  .recover { case error =>
+                    logUnsuccessfulProcessing(error)
+                    Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
+                  }
+              case scala.util.Failure(error) =>
+                logUnsuccessfulProcessing(error)
+                ScalaFuture.successful(Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token))
+            }
+          } else {
+            logUnsuccessfulProcessing(packageTooBigException)
+            ScalaFuture.successful(Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token))
+          }
+        } else {
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
         }
 
       case `getTransactionMethod` =>

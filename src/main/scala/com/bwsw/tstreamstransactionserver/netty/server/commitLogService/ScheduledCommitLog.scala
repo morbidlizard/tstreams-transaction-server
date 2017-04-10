@@ -11,7 +11,11 @@ import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{Ever
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{CommitLogOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
-class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage], storageOptions: StorageOptions, commitLogOptions: CommitLogOptions, genFileID: => Long) extends Runnable with Time {
+class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
+                         storageOptions: StorageOptions,
+                         commitLogOptions: CommitLogOptions,
+                         genFileID: => Long,
+                         getFileRecordID: => Long) extends Runnable with Time {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val commitLog = createCommitLog()
@@ -27,7 +31,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
   }
 
   def putData(messageType: Byte, message: Message) = {
-    commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
+    commitLog.putRec(MessageWithTimestamp(message, getCurrentTime, getFileRecordID).toByteArray, messageType)
     true
   }
 

@@ -76,7 +76,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
     startTransactionServer()
-    Thread.sleep(30)
+    Thread.sleep(100)
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
   }
 

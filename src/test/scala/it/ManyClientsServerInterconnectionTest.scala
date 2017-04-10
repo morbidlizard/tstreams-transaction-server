@@ -264,10 +264,10 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
+    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     val checkpointedTransaction = producerTransaction1.copy(state = TransactionStates.Checkpointed)
     Await.result(secondClient.putProducerState(checkpointedTransaction), secondsWait.seconds) shouldBe true
 
-    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     //it's required to close a current commit log file
     transactionServer.scheduledCommitLogImpl.run()
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db

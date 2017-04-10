@@ -1,13 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.{ArrayBlockingQueue, PriorityBlockingQueue}
+import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
-import com.bwsw.tstreamstransactionserver.rpc.Transaction
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -182,6 +182,7 @@ object CommitLogToBerkeleyWriter {
   private def deserializePutTransactions(message: Message) = Descriptors.PutTransactions.decodeRequest(message)
 
   private def deserializeSetConsumerState(message: Message) = Descriptors.PutConsumerCheckpoint.decodeRequest(message)
+
 
   private def retrieveTransactions(messageType: Byte, messageWithTimestamp: MessageWithTimestamp): Seq[(Transaction, Long)] = messageType match {
     case `putTransactionType` =>

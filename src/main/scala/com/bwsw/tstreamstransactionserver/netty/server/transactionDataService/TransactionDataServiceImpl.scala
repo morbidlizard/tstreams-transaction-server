@@ -49,10 +49,13 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
     })
   }
 
-  override def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
-    val streamObj = getStreamFromOldestToNewest(stream).last
-    val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
-    ScalaFuture {
+
+  final def putTransactionDataSync(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
+    if (data.isEmpty) true
+    else {
+      val streamObj = getStreamFromOldestToNewest(stream).last
+      val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
+
       val batch = rocksDB.newBatch
 
       val rangeDataToSave = from until (from + data.length)
@@ -72,9 +75,16 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
         logger.debug(s"On stream $stream, partition: $partition, transaction $transaction transaction data wasn't saved.")
 
       isOkay
-    }(executionContext.rocksWriteContext)
+    }
   }
 
+  override def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
+    if (data.isEmpty) ScalaFuture.successful(true) else {
+      ScalaFuture {
+        putTransactionDataSync(stream, partition, transaction, data, from)
+      }(executionContext.rocksWriteContext)
+    }
+  }
 
   override def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[ByteBuffer]] = {
     val streamObj = getStreamFromOldestToNewest(stream).last

@@ -255,24 +255,22 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
 
     //transactions are processed in the async mode
-    val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
+    val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, maxIdleTimeBetweenRecordsMs*10)
     Await.result(secondClient.putProducerState(producerTransaction1), secondsWait.seconds) shouldBe true
 
-    //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    //it's required to close a current commit log file
     transactionServer.scheduledCommitLogImpl.run()
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     val checkpointedTransaction = producerTransaction1.copy(state = TransactionStates.Checkpointed)
     Await.result(secondClient.putProducerState(checkpointedTransaction), secondsWait.seconds) shouldBe true
 
-    //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    //it's required to close a current commit log file
     transactionServer.scheduledCommitLogImpl.run()
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     Await.result(firstClient.getTransaction(stream.name, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe checkpointedTransaction

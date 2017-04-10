@@ -1,14 +1,16 @@
 package com.bwsw.commitlog
 
 import java.io._
-
 import java.security.{DigestOutputStream, MessageDigest}
 import java.util.Base64
 import java.util.Base64.Encoder
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import javax.xml.bind.DatatypeConverter
 
 import com.bwsw.commitlog.CommitLogFlushPolicy.{ICommitLogFlushPolicy, OnCountInterval, OnRotation, OnTimeInterval}
 import com.bwsw.commitlog.filesystem.FilePathManager
+
+import scala.annotation.tailrec
 
 /** Logger which stores records continuously in files in specified location.
   *
@@ -28,16 +30,16 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   private val base64Encoder: Encoder = Base64.getEncoder
   private val delimiter: Byte = 0
   @volatile private var fileCreationTime: Long = -1
-  @volatile private var chunkWriteCount: Int = 0
+  private val chunkWriteCount: AtomicInteger = new AtomicInteger(0)
   @volatile private var chunkOpenTime: Long = 0
 
-  private var currentCommitLogFileToPut: CommitLogFile = _
+  private val currentCommitLogFileToPut: AtomicReference[CommitLogFile] = new AtomicReference[CommitLogFile](null)
   private class CommitLogFile(path: String) {
     val absolutePath = new StringBuffer(path).append(FilePathManager.DATAEXTENSION).toString
 
     private val md5: MessageDigest = MessageDigest.getInstance("MD5")
     private def writeMD5File() = {
-      val fileMD5 = DatatypeConverter.printHexBinary(md5.digest()).getBytes
+      val fileMD5 = DatatypeConverter.printHexBinary(md5.digest()).getBytes()
       new FileOutputStream(new StringBuffer(path).append(FilePathManager.MD5EXTENSION).toString) {
         write(fileMD5)
         close()
@@ -46,23 +48,27 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
     private val outputStream = new BufferedOutputStream(new FileOutputStream(absolutePath, true))
     private val digestOutputStream = new DigestOutputStream(outputStream, md5)
-    def put(encodedMsgWithType: Array[Byte]): Unit = {
-      val data = delimiter +: encodedMsgWithType
-      digestOutputStream.write(data)
-    }
+    def put(encodedMsgWithType: Array[Byte]): Unit = digestOutputStream.write(encodedMsgWithType)
 
+    @volatile var isClosed = false
     def flush(): Unit = {
-      digestOutputStream.flush()
-      outputStream.flush()
+      if (!isClosed) {
+        digestOutputStream.flush()
+        outputStream.flush()
+      }
     }
 
-    def close(): Unit = this.synchronized{
-      digestOutputStream.on(false)
-      digestOutputStream.flush()
-      outputStream.flush()
-      digestOutputStream.close()
-      outputStream.close()
-      writeMD5File()
+    def close(): Boolean = {
+      if (!isClosed) {
+        isClosed = true
+        digestOutputStream.on(false)
+        digestOutputStream.flush()
+        outputStream.flush()
+        digestOutputStream.close()
+        outputStream.close()
+        writeMD5File()
+        isClosed
+      } else isClosed
     }
   }
 
@@ -77,58 +83,68 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     * @param startNew start new file if true
     * @return name of file record was saved in
     */
-  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = this.synchronized{
+  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String =  {
 
     // если хотим записать в новый файл при уже существующем коммит логе
     if (startNew && !firstRun) {
       resetCounters()
-      currentCommitLogFileToPut.close()
-      currentCommitLogFileToPut = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
+      val currentFile = currentCommitLogFileToPut.getAndSet(new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID"))
+      currentFile.close()
     }
 
     // если истекло время или мы начинаем записывать в новый коммит лог файл
     if (firstRun() || timeExceeded()) {
       if (!firstRun()) {
         resetCounters()
-        currentCommitLogFileToPut.close()
+        currentCommitLogFileToPut.get().close()
       }
       fileCreationTime = getCurrentSecs()
       // TODO(remove this):write here chunkOpenTime or we will write first record instantly if OnTimeInterval policy set
       //      chunkOpenTime = System.currentTimeMillis()
-      currentCommitLogFileToPut = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
+      currentCommitLogFileToPut.set(new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID"))
     }
+
 
     val now: Long = System.currentTimeMillis()
     policy match {
       case interval: OnTimeInterval if interval.seconds * 1000 + chunkOpenTime < now =>
         chunkOpenTime = now
-        currentCommitLogFileToPut.flush()
-      case interval: OnCountInterval if interval.count == chunkWriteCount =>
-        chunkWriteCount = 0
-        currentCommitLogFileToPut.flush()
+        currentCommitLogFileToPut.get().flush()
+      case interval: OnCountInterval if interval.count == chunkWriteCount.get() =>
+        chunkWriteCount.set(0)
+        currentCommitLogFileToPut.get().flush()
       case _ =>
     }
 
-    val encodedMsgWithType: Array[Byte] = base64Encoder.encode(messageType +: message)
-    currentCommitLogFileToPut.put(encodedMsgWithType)
+    val encodedMsgWithType: Array[Byte] =  delimiter +: base64Encoder.encode(messageType +: message)
 
-    chunkWriteCount += 1
-
-    currentCommitLogFileToPut.absolutePath
+    @tailrec
+    def tryToPut(): String = {
+      val currentFile = currentCommitLogFileToPut.get()
+      scala.util.Try(currentFile.put(encodedMsgWithType)) match {
+        case scala.util.Success(_) =>
+          chunkWriteCount.incrementAndGet()
+          currentFile.absolutePath
+        case scala.util.Failure(_) =>
+          tryToPut()
+      }
+    }
+    tryToPut()
   }
 
   /** Finishes work with current file. */
-  def close(): Option[String] = this.synchronized {
-    if (!firstRun) {
+  def close(): Option[String] =  {
+    val currentFile = currentCommitLogFileToPut.get()
+    if (!firstRun && currentFile != null) {
       resetCounters()
-      currentCommitLogFileToPut.close()
-      Some(currentCommitLogFileToPut.absolutePath)
+      currentFile.close()
+      Some(currentFile.absolutePath)
     } else None
   }
 
   private def resetCounters(): Unit = {
     fileCreationTime = -1
-    chunkWriteCount = 0
+    chunkWriteCount.set(0)
     chunkOpenTime = System.currentTimeMillis()
   }
 

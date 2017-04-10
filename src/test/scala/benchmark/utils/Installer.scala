@@ -16,15 +16,16 @@ trait Installer {
   private val storageOptions = serverBuilder.getStorageOptions
 
   def clearDB() = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + "/" + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
   }
 
   def startTransactionServer() = {
     new Thread(() =>
       serverBuilder
-          .withCommitLogOptions(CommitLogOptions(commitLogCloseDelayMs = 1000))
+        .withCommitLogOptions(CommitLogOptions(commitLogCloseDelayMs = 1000))
         .build().start()
     ).start()
   }

@@ -94,7 +94,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   @tailrec
   final private def connect(): Channel = {
-    val (listen, port) = getInetAddressFromZookeeper(clientOpts.requestTimeoutRetryCount)
+    val (listen, port) = getInetAddressFromZookeeper(10)
     workerGroup = this.synchronized(newGroup)
     val newConnection = bootstrap(workerGroup).connect(listen, port)
     scala.util.Try(newConnection.sync().channel()) match {

@@ -76,7 +76,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
     startTransactionServer()
-    Thread.sleep(100)
+    TimeUnit.MILLISECONDS.sleep(100L)
     client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
   }
 
@@ -224,7 +224,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val producerTransactions = Array.fill(100)(getRandomProducerTransaction(stream))
+    val producerTransactions = Array.fill(10000)(getRandomProducerTransaction(stream))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(stream))
 
 

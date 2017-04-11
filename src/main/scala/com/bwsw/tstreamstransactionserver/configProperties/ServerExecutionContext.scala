@@ -11,12 +11,14 @@ class ServerExecutionContext(nThreads: Int, berkeleyReadNThreads: Int, rocksWrit
   private val rocksWriteExecutionContext = ExecutionContext(Executors.newFixedThreadPool(rocksWriteNThreads, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
   private val rocksReadExecutionContext = ExecutionContext(Executors.newFixedThreadPool(rocksReadNThreads, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
   private val serverExecutionContext = ExecutionContext(Executors.newFixedThreadPool(nThreads, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
+  private val commitLogExecutionContext = ExecutionContext(Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLogPool-%d").build()))
 
   val context = serverExecutionContext.getContext
   val berkeleyWriteContext = berkeleyWriteExecutionContext.getContext
   val berkeleyReadContext = berkeleyReadExecutionContext.getContext
   val rocksWriteContext = rocksWriteExecutionContext.getContext
   val rocksReadContext = rocksReadExecutionContext.getContext
+  val commitLogContext = commitLogExecutionContext
 
   def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted(): Unit = {
     val contexts = collection.immutable.Seq(
@@ -24,7 +26,8 @@ class ServerExecutionContext(nThreads: Int, berkeleyReadNThreads: Int, rocksWrit
       berkeleyReadExecutionContext,
       rocksWriteExecutionContext,
       rocksReadExecutionContext,
-      serverExecutionContext
+      serverExecutionContext,
+      commitLogContext
     )
     contexts foreach (context => context.stopAccessNewTasks())
     contexts foreach (context => context.awaitAllCurrentTasksAreCompleted())

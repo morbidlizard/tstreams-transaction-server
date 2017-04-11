@@ -26,7 +26,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
     new CommitLog(Int.MaxValue, s"${storageOptions.path}${java.io.File.separatorChar}${storageOptions.commitLogDirectory}", policy, genFileID)
   }
 
-  def putData(messageType: Byte, message: Message) = {
+  def putData(messageType: Byte, message: Message) = this.synchronized{
     commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
     true
   }

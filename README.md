@@ -53,7 +53,6 @@ You should pass a file with properties in both cases. The file should contain th
 | commit.log.close.delay.ms        | the time through a commit log file is closed. |int  |200    |
 | commit.log.file.ttl.sec          | the time a commit log files live before they are deleted. | int | 86400 |
 | zk.counter.path.file.id.gen      | the coordination path for counter for generating and retrieving commit log file id. | string | /server_counter/file_id_gen |
-| zk.counter.path.file.record.id.gen | the coordination path for counter for generating and retrieving commit log file record id. | string | /server_counter/file_record_id_gen |
 
 It isn't required to adhere the specified order of the properties, it's for example only. 
 But all properties should be defined with the exact names and appropriate types. 

@@ -86,7 +86,7 @@ class OptionsLoader() {
   private def loadZookeeperSpecificOptions() = {
     val fields = getPropertiesOf(classOf[ServerOptions.ZooKeeperOptions])
 
-    castCheck(ServerOptions.ZooKeeperOptions(fields(0), fields(1)))
+    castCheck(ServerOptions.ZooKeeperOptions(fields(0)))
   }
 
   private def getPropertiesOf(_class: Class[_], prefix: String = "") = {

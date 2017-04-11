@@ -1,6 +1,6 @@
 package com.bwsw.commitlog
 
-import java.util.{Base64, NoSuchElementException}
+import java.util.Base64
 
 import CommitLogRecord._
 

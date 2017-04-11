@@ -114,6 +114,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     latch.await(secondsWait, TimeUnit.SECONDS) shouldBe true
   }
 
+
   it should "shouldn't get notification." in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
@@ -189,6 +190,34 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     res.transaction.get shouldBe producerTransactionOuter
   }
 
+  it should "put 2 producer transactions with opened states and then checkpoint them and should get the second checkpointed transaction" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+    val partition = 1
+
+    val transactionID1 = System.currentTimeMillis()
+    client.putProducerState(ProducerTransaction(stream.name, partition, transactionID1, TransactionStates.Opened, 0, 5L))
+    client.putProducerState(ProducerTransaction(stream.name, partition, transactionID1, TransactionStates.Checkpointed, 0, 5L))
+
+    val transactionID2 = System.currentTimeMillis() + 10L
+    client.putProducerState(ProducerTransaction(stream.name, partition, transactionID2, TransactionStates.Opened, 0, 5L))
+
+    val latch2 = new CountDownLatch(1)
+    transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
+      producerTransaction.transactionID == transactionID2 && producerTransaction.state == TransactionStates.Checkpointed,
+      latch2.countDown()
+    )
+
+    val producerTransaction2 = ProducerTransaction(stream.name, partition, transactionID2, TransactionStates.Checkpointed, 0, 5L)
+    client.putProducerState(producerTransaction2)
+
+    latch2.await(3, TimeUnit.SECONDS) shouldBe true
+
+    val res = Await.result(client.getTransaction(stream.name, partition, transactionID2), secondsWait.seconds)
+    res._2.get shouldBe producerTransaction2
+    res.exists shouldBe true
+  }
+
   it should "put 'simple' producerTransaction and should get it" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
@@ -205,8 +234,8 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     latch1.await(3, TimeUnit.SECONDS) shouldBe true
 
     val res = Await.result(client.getTransaction(stream.name, partition, transactionID), secondsWait.seconds)
+    res._2.get shouldBe ProducerTransaction(stream.name, partition, transactionID, TransactionStates.Checkpointed, 1, 120L)
     res.exists shouldBe true
-    println(res.transaction.get)
   }
 
   it should "put 'simple' producer transactions and should get them all" in {

@@ -504,7 +504,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       method(
         Descriptors.PutSimpleTransactionAndData,
         TransactionService.PutSimpleTransactionAndData.Args(stream, partition, transaction, data, from)
-      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+      )(context)
+        .flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(context)
     )
   }
 

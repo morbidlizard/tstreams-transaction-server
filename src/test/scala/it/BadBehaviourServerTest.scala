@@ -53,7 +53,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   private def serverHandler(server: TransactionServer,
                             scheduledCommitLogImpl: ScheduledCommitLog,
                             packageTransmissionOptions: TransportOptions,
-                            context: ExecutionContextExecutorService, logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, packageTransmissionOptions, context, logger) {
+                            logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, packageTransmissionOptions, logger) {
     override def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): Future[Message] = {
       serverGotRequest.getAndIncrement()
       Thread.sleep(requestTimeoutMs)
@@ -66,7 +66,8 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
       authOptions, zookeeperOptions,
       bootstrapOptions, serverReplicationOptions,
       storageOptions, berkeleyStorageOptions, rocksStorageOptions, commitLogOptions,
-      packageTransmissionOptions, zookeeperSpecificOptions,
+      packageTransmissionOptions,
+      zookeeperSpecificOptions,
       serverHandler
     )
 

@@ -110,7 +110,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   }
 
   private val fileIDGenerator = new zk.FileIDGenerator(zookeeperSpecificOpts.counterPathFileIDGen, commitLogLastId)
-  val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions, fileIDGenerator.increment, 1L) {
+  val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions, fileIDGenerator.increment) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 

@@ -94,12 +94,15 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
     var recordsToRead = recordsToReadNumber
     while (iter.hasNext() && recordsToRead > 0) {
       val record = iter.next()
-      scala.util.Try {
-        val (messageType, message) = record.splitAt(1)
-        CommitLogToBerkeleyWriter.retrieveTransactions(messageType.head, MessageWithTimestamp.fromByteArray(message))
-      } match {
-        case scala.util.Success(transactions) => buffer ++= transactions
-        case _ =>
+      record.right.foreach { record =>
+        scala.util.Try {
+          val (messageType, message) = (record.messageType, record.message)
+          val messageWithTimestamp = MessageWithTimestamp.fromByteArray(message)
+          CommitLogToBerkeleyWriter.retrieveTransactions(messageType, messageWithTimestamp)
+        } match {
+          case scala.util.Success(transactions) => buffer ++= transactions
+          case _ =>
+        }
       }
       recordsToRead = recordsToRead - 1
     }
@@ -111,6 +114,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
     val recordsToReadNumber = 1
     val bigCommit = transactionServer.getBigCommit(file.getID)
 
+    println()
     def getFirstRecordAndReturnIterator(iterator: CommitLogIterator): (CommitLogIterator, Seq[(Transaction, Long)]) = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, 1)
       (iter, records)

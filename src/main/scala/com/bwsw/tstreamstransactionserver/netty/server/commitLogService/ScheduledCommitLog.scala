@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
 import java.util.concurrent.PriorityBlockingQueue
+import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
@@ -14,8 +15,8 @@ import org.slf4j.LoggerFactory
 class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
                          storageOptions: StorageOptions,
                          commitLogOptions: CommitLogOptions,
-                         genFileID: => Long,
-                         getFileRecordID: => Long) extends Runnable with Time {
+                         genFileID: => Long
+                        ) extends Runnable with Time {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val commitLog = createCommitLog()
@@ -31,7 +32,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
   }
 
 
-  def putData(messageType: Byte, message: Message) = this.synchronized{
+  def putData(messageType: Byte, message: Message) = {
     commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
     true
   }

@@ -114,7 +114,6 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
     val recordsToReadNumber = 1
     val bigCommit = transactionServer.getBigCommit(file.getID)
 
-    println()
     def getFirstRecordAndReturnIterator(iterator: CommitLogIterator): (CommitLogIterator, Seq[(Transaction, Long)]) = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, 1)
       (iter, records)

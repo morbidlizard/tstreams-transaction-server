@@ -151,7 +151,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   @throws[ServerUnreachableException]
   private final def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)
                                                               (implicit methodContext: concurrent.ExecutionContext): ScalaFuture[Rep] = {
-    if (channel != null && channel.isActive) ScalaFuture {
+    if (channel != null && channel.isActive) {
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
       val message = descriptor.encodeRequest(request)(messageId, token)
@@ -162,15 +162,14 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       channel.write(message.toByteArray)
       reqIdToRep.put(messageId, promise)
       channel.flush()
-      (promise, messageId)
-    }(methodContext) flatMap { case (promise, messageId) =>
+
       promise.future.map { response =>
         reqIdToRep.invalidate(messageId)
         response.asInstanceOf[Rep]
-      }(methodContext).recoverWith { case error =>
+      }.recoverWith { case error =>
         reqIdToRep.invalidate(messageId)
         ScalaFuture.failed(error)
-      }(methodContext)
+      }
     } else ScalaFuture.failed(new ServerUnreachableException(currentConnectionSocketAddress.toString))
   }
 

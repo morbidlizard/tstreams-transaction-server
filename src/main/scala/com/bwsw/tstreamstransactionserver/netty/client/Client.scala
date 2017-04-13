@@ -36,7 +36,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** A special context for making requests asynchronously, although they are processed sequentially;
     * If's for: putTransaction, putTransactions, setConsumerState.
     */
-  private final val futurePool = ExecutionContext(1, "ClientTransactionPool-%d")
+  private final val processTransactionsPutOperationPool = ExecutionContext(1, "ClientTransactionPool-%d")
 
   private final val executionContext = new ClientExecutionContext(clientOpts.threadPool)
   private implicit final val context = executionContext.context
@@ -79,12 +79,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   expiredRequestInvalidator.scheduleAtFixedRate(() => reqIdToRep.cleanUp(), 0, clientOpts.retryDelayMs, TimeUnit.MILLISECONDS)
 
-  private var workerGroup: EventLoopGroup = _
-
-  private def newGroup = new EpollEventLoopGroup()
-
-  private def bootstrap(eventLoopGroup: EventLoopGroup) = new Bootstrap()
-    .group(eventLoopGroup)
+  private val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
+  private def bootstrap = new Bootstrap()
+    .group(workerGroup)
     .channel(classOf[EpollSocketChannel])
     .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
     .option[java.lang.Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, int2Integer(clientOpts.connectionTimeoutMs))
@@ -95,14 +92,11 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   @tailrec
   final private def connect(): Channel = {
     val (listen, port) = getInetAddressFromZookeeper(10)
-    workerGroup = this.synchronized(newGroup)
-    val newConnection = bootstrap(workerGroup).connect(listen, port)
+    val newConnection = bootstrap.connect(listen, port)
     scala.util.Try(newConnection.sync().channel()) match {
       case scala.util.Success(channelToUse) =>
         channelToUse
-      case scala.util.Failure(throwable) =>
-        workerGroup.shutdownGracefully().get()
-        workerGroup.terminationFuture().get()
+      case scala.util.Failure(_) =>
         onServerConnectionLostDefaultBehaviour("")
         connect()
     }
@@ -113,6 +107,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
 
   private[client] def reconnect(): Unit = {
+    channel.closeFuture()
     channel = connect()
   }
 
@@ -149,8 +144,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   @throws[ServerUnreachableException]
   private final def method[Req <: ThriftStruct, Rep <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, Rep], request: Req)
-                                                              (implicit context: concurrent.ExecutionContext): ScalaFuture[Rep] = {
-    if (channel != null && channel.isActive) {
+                                                              (implicit methodContext: concurrent.ExecutionContext): ScalaFuture[Rep] = {
+    if (channel != null && channel.isActive) ScalaFuture {
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
       val message = descriptor.encodeRequest(request)(messageId, token)
@@ -161,14 +156,15 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       channel.write(message.toByteArray)
       reqIdToRep.put(messageId, promise)
       channel.flush()
-
+      (promise, messageId)
+    }(methodContext) flatMap { case (promise, messageId) =>
       promise.future.map { response =>
         reqIdToRep.invalidate(messageId)
         response.asInstanceOf[Rep]
-      }.recoverWith { case error =>
+      }(methodContext).recoverWith { case error =>
         reqIdToRep.invalidate(messageId)
         ScalaFuture.failed(error)
-      }
+      }(methodContext)
     } else ScalaFuture.failed(new ServerUnreachableException(currentConnectionSocketAddress.toString))
   }
 
@@ -425,12 +421,12 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     if (logger.isDebugEnabled)
       logger.debug(s"putTransactions method is invoked: $transactions.")
 
-    implicit val context = futurePool.getContext
+    val contextTxn = processTransactionsPutOperationPool.getContext
     tryCompleteRequest(
       method(
         Descriptors.PutTransactions,
         TransactionService.PutTransactions.Args(transactions)
-      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+      )(contextTxn).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
 
@@ -447,14 +443,14 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putProducerState(transaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
-    implicit val context = futurePool.getContext
+    val contextTxn = processTransactionsPutOperationPool.getContext
     if (logger.isDebugEnabled) logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
     val producerTransactionToTransaction = Transaction(Some(transaction), None)
     tryCompleteRequest(
       method(
         Descriptors.PutTransaction,
         TransactionService.PutTransaction.Args(producerTransactionToTransaction)
-      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(context)
+      )(contextTxn).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(context)
     )
   }
 
@@ -471,13 +467,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putTransaction(transaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    implicit val context = futurePool.getContext
+    val contextTxn = processTransactionsPutOperationPool.getContext
     if (logger.isDebugEnabled()) logger.debug(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
     tryCompleteRequest(
       method(
         Descriptors.PutTransaction,
         TransactionService.PutTransaction.Args(Transaction(None, Some(transaction)))
-      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+      )(contextTxn).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
 
@@ -498,13 +494,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putSimpleTransactionAndData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    implicit val context = futurePool.getContext
+    val contextTxn = processTransactionsPutOperationPool.getContext
     if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $stream, partition $partition with data: $data")
     tryCompleteRequest(
       method(
         Descriptors.PutSimpleTransactionAndData,
         TransactionService.PutSimpleTransactionAndData.Args(stream, partition, transaction, data, from)
-      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
+      )(contextTxn).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))
     )
   }
 
@@ -695,14 +691,14 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putConsumerCheckpoint(consumerTransaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
-    implicit val context = futurePool.getContext
+    val contextTxn = processTransactionsPutOperationPool.getContext
     if (logger.isDebugEnabled())
       logger.debug(s"Setting consumer state ${consumerTransaction.name} on stream ${consumerTransaction.stream}, partition ${consumerTransaction.partition}, transaction ${consumerTransaction.transactionID}.")
     tryCompleteRequest(
       method(
         Descriptors.PutConsumerCheckpoint,
         TransactionService.PutConsumerCheckpoint.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID)
-      ).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(futurePool.getContext)
+      )(contextTxn).flatMap(x => if (x.error.isDefined) ScalaFuture.failed(Throwable.byText(x.error.get.message)) else ScalaFuture.successful(x.success.get))(processTransactionsPutOperationPool.getContext)
     )
   }
 
@@ -761,8 +757,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
     if (channel != null) channel.closeFuture()
     zKLeaderClient.close()
-    futurePool.stopAccessNewTasks()
-    futurePool.awaitAllCurrentTasksAreCompleted()
+    processTransactionsPutOperationPool.stopAccessNewTasks()
+    processTransactionsPutOperationPool.awaitAllCurrentTasksAreCompleted()
     executionContext.stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()
   }
 }

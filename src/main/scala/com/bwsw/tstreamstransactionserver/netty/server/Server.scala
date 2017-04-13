@@ -33,8 +33,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
              (server, journaledCommitLogImpl, packageTransmissionOpts, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, logger),
              timer: Time = new Time{}
             ) {
-
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+  @volatile private var isShutdown = false
 
   private val transactionServerSocketAddress = createTransactionServerAddress()
   if (!ZKLeaderClientToPutMaster.isValidSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2))
@@ -144,36 +144,37 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   }
 
   def shutdown(): Unit = {
-    if (bossGroup != null) {
-      bossGroup.shutdownGracefully()
-      bossGroup.terminationFuture()
+    if (!isShutdown) {
+      isShutdown = true
+      if (bossGroup != null) {
+        bossGroup.shutdownGracefully()
+        bossGroup.terminationFuture()
+      }
+      if (workerGroup != null) {
+        workerGroup.shutdownGracefully()
+        workerGroup.terminationFuture()
+      }
+      if (zk != null) zk.close()
+      if (transactionServer != null) transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+      if (berkeleyWriterExecutor != null) {
+        berkeleyWriterExecutor.shutdown()
+        berkeleyWriterExecutor.awaitTermination(
+          commitLogOptions.commitLogCloseDelayMs * 5,
+          TimeUnit.MILLISECONDS
+        )
+        scheduledCommitLogImpl.run()
+      }
+      if (commitLogCloseExecutor != null) {
+        commitLogCloseExecutor.shutdown()
+        commitLogCloseExecutor.awaitTermination(
+          commitLogOptions.commitLogCloseDelayMs * 5,
+          TimeUnit.MILLISECONDS
+        )
+        berkeleyWriter.run()
+        berkeleyWriter.closeRocksDB()
+        transactionServer.closeAllDatabases()
+      }
     }
-    if (workerGroup != null) {
-      workerGroup.shutdownGracefully()
-      workerGroup.terminationFuture()
-    }
-    if (zk != null) zk.close()
-    if (transactionServer != null) transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
-    if (berkeleyWriterExecutor != null) {
-      berkeleyWriterExecutor.shutdown()
-      berkeleyWriterExecutor.awaitTermination(
-        commitLogOptions.commitLogCloseDelayMs * 5,
-        TimeUnit.MILLISECONDS
-      )
-    }
-    if (commitLogCloseExecutor != null) {
-      commitLogCloseExecutor.shutdown()
-      commitLogCloseExecutor.awaitTermination(
-        commitLogOptions.commitLogCloseDelayMs * 5,
-        TimeUnit.MILLISECONDS
-      )
-    }
-    if (scheduledCommitLogImpl != null) scheduledCommitLogImpl.run()
-    if (berkeleyWriter != null) {
-      berkeleyWriter.run()
-      berkeleyWriter.closeRocksDB()
-    }
-    if (transactionServer != null) transactionServer.closeAllDatabases()
   }
 }
 

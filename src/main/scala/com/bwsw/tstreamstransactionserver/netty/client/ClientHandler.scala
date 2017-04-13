@@ -90,8 +90,9 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
     reqIdToRep.asMap().values()
       .forEach(request => if (!request.isCompleted) request.tryFailure(new ServerUnreachableException(ctx.name())))
 
-    ctx.channel().eventLoop().execute(() => client.reconnect())
-
+    if (!client.isShutdown) {
+      ctx.channel().eventLoop().execute(() => client.reconnect())
+    }
     super.channelInactive(ctx)
   }
 

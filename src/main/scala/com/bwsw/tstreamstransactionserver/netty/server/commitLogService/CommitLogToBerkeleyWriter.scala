@@ -170,7 +170,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
         }
       }
     }
-    if (pathsToClosedCommitLogFiles.isEmpty) transactionServer.createTransactionsToDeleteTask(getCurrentTime).run()
+    if (pathsToClosedCommitLogFiles.isEmpty) scala.util.Try(transactionServer.createTransactionsToDeleteTask(getCurrentTime).run())
   }
 
   final def closeRocksDB(): Unit = rocksDb.close()

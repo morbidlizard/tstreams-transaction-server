@@ -25,9 +25,10 @@ object Throwable {
 
   class InvalidSocketAddress(message: String) extends IllegalArgumentException(message)
 
-//  val StreamDoesntNotExistMessage: String = "Stream doesn't exist in database!"
+  object ClientIllegalOperationAfterShutdown extends IllegalStateException("It's not allowed do any operations after client shutdown!")
+
   class StreamDoesNotExist(stream: String, isPartialMessage: Boolean = true) extends {
-    val message = if (isPartialMessage) s"Stream $stream doesn't exist in database!" else stream
+    private val message: String = if (isPartialMessage) s"Stream $stream doesn't exist in database!" else stream
   } with NoSuchElementException(message)
 
   val PackageTooBigExceptionMessagePart: String = "A size of client request is greater"

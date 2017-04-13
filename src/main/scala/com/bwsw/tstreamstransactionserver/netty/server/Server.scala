@@ -167,6 +167,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
         commitLogOptions.commitLogCloseDelayMs * 5,
         TimeUnit.MILLISECONDS
       )
+    }
+    if (scheduledCommitLogImpl != null) scheduledCommitLogImpl.run()
+    if (berkeleyWriter != null) {
+      berkeleyWriter.run()
       berkeleyWriter.closeRocksDB()
     }
     if (transactionServer != null) transactionServer.closeAllDatabases()

@@ -31,6 +31,10 @@ import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
   *
   */
 class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions) {
+  @volatile private[client] var isShutdown = false
+  private def onShutdownThrowException(): Unit =
+    if (isShutdown) throw ClientIllegalOperationAfterShutdown
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   /** A special context for making requests asynchronously, although they are processed sequentially;
@@ -60,7 +64,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     onZKConnectionStateChanged(newState)
   }
 
-  private final val nextSeqId = new AtomicInteger(1)
 
   private final val expiredRequestInvalidator = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("ExpiredRequestInvalidator-%d").build())
   private final val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]] = CacheBuilder.newBuilder()
@@ -77,10 +80,12 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
     ).build[java.lang.Integer, ScalaPromise[ThriftStruct]]()
 
-  expiredRequestInvalidator.scheduleAtFixedRate(() => reqIdToRep.cleanUp(), 0, clientOpts.retryDelayMs, TimeUnit.MILLISECONDS)
+  expiredRequestInvalidator.scheduleAtFixedRate(() =>
+    reqIdToRep.cleanUp(), 0, scala.math.min(clientOpts.retryDelayMs, clientOpts.requestTimeoutMs), TimeUnit.MILLISECONDS
+  )
 
   private val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
-  private def bootstrap = new Bootstrap()
+  private val bootstrap = new Bootstrap()
     .group(workerGroup)
     .channel(classOf[EpollSocketChannel])
     .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
@@ -107,7 +112,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
 
   private[client] def reconnect(): Unit = {
-    channel.closeFuture()
+    channel.closeFuture().sync()
     channel = connect()
   }
 
@@ -134,6 +139,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
+  private final val nextSeqId = new AtomicInteger(1)
 
   /** A general method for sending requests to a server and getting a response back.
     *
@@ -266,6 +272,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   @volatile private var maxDataPackageSize: Int = -1
   authenticate()
 
+
   /** Putting a stream on a server by primitive type parameters.
     *
     * @param stream      a name of stream.
@@ -282,6 +289,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream $stream with $partitions partitions, ttl $ttl and description.")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.PutStream,
@@ -303,6 +311,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def putStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream ${stream.name} with ${stream.partitions} partitions, ttl ${stream.ttl} and description.")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.PutStream,
@@ -324,6 +333,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def delStream(stream: String): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled) logger.debug(s"Deleting stream $stream.")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.DelStream,
@@ -345,6 +355,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def delStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled()) logger.debug(s"Deleting stream ${stream.name}.")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.DelStream,
@@ -367,6 +378,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def getStream(stream: String): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] = {
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $stream.")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.GetStream,
@@ -389,6 +401,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def checkStreamExists(stream: String): ScalaFuture[Boolean] = {
     if (logger.isInfoEnabled) logger.info(s"Checking stream $stream on existence...")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.CheckStreamExists,
@@ -421,6 +434,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     if (logger.isDebugEnabled)
       logger.debug(s"putTransactions method is invoked: $transactions.")
 
+    onShutdownThrowException()
+
     val contextTxn = processTransactionsPutOperationPool.getContext
     tryCompleteRequest(
       method(
@@ -446,6 +461,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     val contextTxn = processTransactionsPutOperationPool.getContext
     if (logger.isDebugEnabled) logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
     val producerTransactionToTransaction = Transaction(Some(transaction), None)
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.PutTransaction,
@@ -469,6 +485,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   def putTransaction(transaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     val contextTxn = processTransactionsPutOperationPool.getContext
     if (logger.isDebugEnabled()) logger.debug(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.PutTransaction,
@@ -496,6 +513,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   def putSimpleTransactionAndData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
     val contextTxn = processTransactionsPutOperationPool.getContext
     if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $stream, partition $partition with data: $data")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.PutSimpleTransactionAndData,
@@ -520,6 +538,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[TransactionInfo] = {
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving a producer transaction on partition '$partition' of stream '$stream' by id '$transaction'")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.GetTransaction,
@@ -547,6 +566,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def getLastCheckpointedTransaction(stream: String, partition: Int): ScalaFuture[Long] = {
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving a last checkpointed transaction on partition '$partition' of stream '$stream")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.GetLastCheckpointedTransaction,
@@ -583,11 +603,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[ScanTransactionsInfo] = {
     require(from >= 0 && to >= 0, s"Calling method scanTransactions requires that bounds: 'from' and 'to' are both positive(actually from and to are: [$from, $to])")
     if (to < from) {
+      onShutdownThrowException()
       val lastOpenedTransactionID = -1L
       ScalaFuture.successful(ScanTransactionsInfo(lastOpenedTransactionID, collection.immutable.Seq()))
     }
     else {
       if (logger.isDebugEnabled()) logger.debug(s"Retrieving producer transactions on stream $stream in range [$from, $to]")
+      onShutdownThrowException()
       tryCompleteRequest(
         method(
           Descriptors.ScanTransactions,
@@ -619,6 +641,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled) logger.debug(s"Putting transaction data to stream $stream, partition $partition, transaction $transaction.")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.PutTransactionData,
@@ -666,9 +689,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0, s"Calling method getTransactionData requires that bounds: 'from' and 'to' are both positive(actually from and to are: [$from, $to])")
-    if (to < from) ScalaFuture.successful(Seq[Array[Byte]]())
+    if (to < from) {
+      onShutdownThrowException()
+      ScalaFuture.successful(Seq[Array[Byte]]())
+    }
     else {
       if (logger.isDebugEnabled) logger.debug(s"Retrieving producer transaction data from stream $stream, partition $partition, transaction $transaction in range [$from, $to].")
+      onShutdownThrowException()
       tryCompleteRequest(
         method(
           Descriptors.GetTransactionData,
@@ -692,6 +719,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def putConsumerCheckpoint(consumerTransaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     val contextTxn = processTransactionsPutOperationPool.getContext
+    onShutdownThrowException()
     if (logger.isDebugEnabled())
       logger.debug(s"Setting consumer state ${consumerTransaction.name} on stream ${consumerTransaction.stream}, partition ${consumerTransaction.partition}, transaction ${consumerTransaction.transactionID}.")
     tryCompleteRequest(
@@ -718,6 +746,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   def getConsumerState(name: String, stream: String, partition: Int): ScalaFuture[Long] = {
     if (logger.isDebugEnabled) logger.debug(s"Retrieving a transaction by consumer $name on stream $stream, partition $partition.")
+    onShutdownThrowException()
     tryCompleteRequest(
       method(
         Descriptors.GetConsumerState,
@@ -739,6 +768,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     */
   private def authenticate(): ScalaFuture[Unit] = {
     if (logger.isInfoEnabled) logger.info("authenticate method is invoked.")
+    onShutdownThrowException()
     val authKey = authOpts.key
     method(Descriptors.Authenticate, TransactionService.Authenticate.Args(authKey))
       .map(x => {
@@ -751,6 +781,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** It Disconnects client from server slightly */
   def shutdown(): Unit = {
+    isShutdown = true
     if (workerGroup != null) {
       workerGroup.shutdownGracefully()
       workerGroup.terminationFuture()

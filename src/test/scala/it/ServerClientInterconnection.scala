@@ -139,7 +139,15 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   val secondsWait = 5
 
-  "Client" should "put producer and consumer transactions" in {
+
+  "Client" should "not send requests to server if it is shutdown" in {
+    client.shutdown()
+    intercept[IllegalStateException] {
+      client.delStream("abc")
+    }
+  }
+
+  it should "put producer and consumer transactions" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -436,6 +444,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     })
 
     all(Await.result(res, (secondsWait * clientsNum).seconds)) shouldBe true
+    clients.foreach(_.shutdown())
   }
 
   "Server" should "return only transactions up to 1st incomplete(transaction after Opened one)" in {

@@ -16,13 +16,14 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.{TransportOption
 import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import org.slf4j.Logger
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
-class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterAll {
+class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+  var zkTestServer: TestingServer = _
 
   private val rand = scala.util.Random
 
@@ -32,18 +33,6 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
     override val ttl: Long = Long.MaxValue
   }
-
-  private val zkTestServer = new TestingServer(false)
-  private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
-  private val zookeeperOptions = ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-  private val bootstrapOptions = BootstrapOptions()
-  private val serverReplicationOptions = ServerReplicationOptions()
-  private val storageOptions = StorageOptions()
-  private val berkeleyStorageOptions = BerkeleyStorageOptions()
-  private val rocksStorageOptions = RocksStorageOptions()
-  private val packageTransmissionOptions = TransportOptions()
-  private val commitLogOptions = CommitLogOptions()
-  private val zookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
 
   private val requestTimeoutMs = 500
@@ -56,12 +45,23 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
                             logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, packageTransmissionOptions, logger) {
     override def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): Future[Message] = {
       serverGotRequest.getAndIncrement()
-      Thread.sleep(requestTimeoutMs)
+      Thread.sleep(requestTimeoutMs + 10)
       super.invokeMethod(message, inetAddress)
     }
   }
 
+  private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+  private val bootstrapOptions = BootstrapOptions()
+  private val serverReplicationOptions = ServerReplicationOptions()
+  private val storageOptions = StorageOptions()
+  private val berkeleyStorageOptions = BerkeleyStorageOptions()
+  private val rocksStorageOptions = RocksStorageOptions()
+  private val packageTransmissionOptions = TransportOptions()
+  private val commitLogOptions = CommitLogOptions()
+  private val zookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
   def startTransactionServer() = new Thread(() => {
+    val address = zkTestServer.getConnectString
+    val zookeeperOptions = ZookeeperOptions(endpoints = address)
     server = new Server(
       authOptions, zookeeperOptions,
       bootstrapOptions, serverReplicationOptions,
@@ -78,15 +78,15 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
   private val secondsWait = 5
 
 
-  override def beforeAll(): Unit = {
+  override def beforeEach(): Unit = {
+    zkTestServer = new TestingServer(true)
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
-    zkTestServer.start()
   }
 
-  override def afterAll(): Unit = {
+  override def afterEach(): Unit = {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
@@ -100,11 +100,14 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
     val retryDelayMsForThat = 100
 
     val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
-    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+    val address = zkTestServer.getConnectString
+    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = address)
+
     val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
       requestTimeoutMs = requestTimeoutMs,
       retryDelayMs = retryDelayMsForThat,
-      connectionTimeoutMs = 5000
+      connectionTimeoutMs = 5000,
+      requestTimeoutRetryCount = 100
     )
 
     val clientTimeoutRequestCounter = new AtomicInteger(0)
@@ -119,14 +122,13 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterA
 
     scala.util.Try(Await.ready(client.putStream(stream), secondsWait.seconds))
 
-    server.shutdown()
     client.shutdown()
-
+    server.shutdown()
 
     val serverRequestCounter = serverGotRequest.get()
     val (trialsLeftBound, trialsRightBound) = {
       val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt / (requestTimeoutMs + retryDelayMsForThat)
-      (trials - trials * 15 / 100, trials + trials * 15 / 100)
+      (trials - trials * 30 / 100, trials + trials * 30 / 100)
     }
 
     serverGotRequest.set(0)

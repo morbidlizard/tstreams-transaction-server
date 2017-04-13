@@ -223,7 +223,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           } else ScalaFuture {
             logUnsuccessfulProcessing(packageTooBigException)
             Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          }(commitLogContext)
+          }(context)
         } else {
           //logUnsuccessfulProcessing()
           ScalaFuture.successful(Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))

@@ -189,6 +189,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     initialSocketAddress shouldBe InetSocketAddressClass(host, initialPort)
     newSocketAddress     shouldBe InetSocketAddressClass(host, newPort)
 
+    client.shutdown()
     zkTestServer.close()
     server.shutdown()
 

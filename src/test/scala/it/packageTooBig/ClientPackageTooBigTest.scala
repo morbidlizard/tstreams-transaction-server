@@ -34,6 +34,7 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
       Await.result(client.putStream("Too big message", 1, Some(new String(new Array[Byte](packageTransmissionOptions.maxDataPackageSize))), 1), Duration(5, TimeUnit.SECONDS))
     }
 
+    client.shutdown()
     zkTestServer.close()
     server.shutdown()
   }

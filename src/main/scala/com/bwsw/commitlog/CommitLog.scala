@@ -4,7 +4,7 @@ import java.io._
 import java.security.{DigestOutputStream, MessageDigest}
 import java.util.Base64
 import java.util.Base64.Encoder
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.atomic.AtomicLong
 import javax.xml.bind.DatatypeConverter
 
 import com.bwsw.commitlog.CommitLogFlushPolicy.{ICommitLogFlushPolicy, OnCountInterval, OnRotation, OnTimeInterval}
@@ -27,15 +27,14 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
   private val secondsInterval: Int = seconds
 
-  private val base64Encoder: Encoder = Base64.getEncoder
-  private val delimiter: Byte = 0
   @volatile private var fileCreationTime: Long = -1
   @volatile private var chunkWriteCount: Int = 0
   @volatile private var chunkOpenTime: Long = 0
 
   private var currentCommitLogFileToPut: CommitLogFile = _
   private class CommitLogFile(path: String) {
-    val absolutePath = new StringBuffer(path).append(FilePathManager.DATAEXTENSION).toString
+    val absolutePath: String = new StringBuffer(path).append(FilePathManager.DATAEXTENSION).toString
+    private val recordIDGen = new AtomicLong(0L)
 
     private val md5: MessageDigest = MessageDigest.getInstance("MD5")
     private def writeMD5File() = {
@@ -48,9 +47,10 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
 
     private val outputStream = new BufferedOutputStream(new FileOutputStream(absolutePath, true))
     private val digestOutputStream = new DigestOutputStream(outputStream, md5)
-    def put(encodedMsgWithType: Array[Byte]): Unit = {
-      val data = delimiter +: encodedMsgWithType
-      digestOutputStream.write(data)
+    def put(messageType: Byte, message: Array[Byte]): Unit = {
+      val commitLogRecord = CommitLogRecord(recordIDGen.getAndIncrement(), messageType, message)
+      val recordToBinary = commitLogRecord.toByteArrayWithDelimiter
+      digestOutputStream.write(recordToBinary)
     }
 
     def flush(): Unit = {
@@ -111,8 +111,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       case _ =>
     }
 
-    val encodedMsgWithType: Array[Byte] = base64Encoder.encode(messageType +: message)
-    currentCommitLogFileToPut.put(encodedMsgWithType)
+    currentCommitLogFileToPut.put(messageType, message)
 
     chunkWriteCount += 1
 

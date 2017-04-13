@@ -29,8 +29,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
              storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: TransportOptions, zookeeperSpecificOpts: ServerOptions.ZooKeeperOptions,
-             serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, ExecutionContextExecutorService, Logger) => SimpleChannelInboundHandler[Message] =
-             (server, journaledCommitLogImpl, packageTransmissionOpts, context, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, context, logger),
+             serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, Logger) => SimpleChannelInboundHandler[Message] =
+             (server, journaledCommitLogImpl, packageTransmissionOpts, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, logger),
              timer: Time = new Time{}
             ) {
 
@@ -109,7 +109,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
-  private val fileIDGenerator = new zk.FileIDGenerator(zookeeperSpecificOpts.counterPath, commitLogLastId)
+  private val fileIDGenerator = new zk.FileIDGenerator(zookeeperSpecificOpts.counterPathFileIDGen, commitLogLastId)
   val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions, fileIDGenerator.increment) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }
@@ -123,13 +123,13 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   def start(): Unit = {
     try {
       berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogCloseDelayMs*9/10, java.util.concurrent.TimeUnit.MILLISECONDS)
+      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogCloseDelayMs*11/10, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(serverHandler(transactionServer, scheduledCommitLogImpl, packageTransmissionOpts, executionContext.context, logger)))
+        .childHandler(new ServerInitializer(serverHandler(transactionServer, scheduledCommitLogImpl, packageTransmissionOpts, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 

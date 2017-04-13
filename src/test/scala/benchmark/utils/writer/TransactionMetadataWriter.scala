@@ -24,7 +24,7 @@ class TransactionMetadataWriter(streamName: String, partition: Int = 1) extends 
 
       val openedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Opened)
       (x, {
-        time(Await.result(client.putTransactions(Seq(openedProducerTransaction), Seq()), 5.seconds))
+        time(Await.result(client.putProducerState(openedProducerTransaction), 5.seconds))
       })
     })
 

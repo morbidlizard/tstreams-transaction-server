@@ -52,7 +52,7 @@ You should pass a file with properties in both cases. The file should contain th
 | incomplete.commit.log.read.policy| Policies to read from commitlog files. If 'resync-majority' mode is chosen then ???(not implemented yet). If 'skip-log' mode is chosen commit log files than haven't md5 file are not read. If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read. If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working. |string |error |[resync-majority (mandatory for replicated mode), skip-log, try-read, error] |
 | commit.log.close.delay.ms        | the time through a commit log file is closed. |int  |200    |
 | commit.log.file.ttl.sec          | the time a commit log files live before they are deleted. | int | 86400 |
-| zk.counter.path                  | the coordination path for counter. | string | /server_counter |
+| zk.counter.path.file.id.gen      | the coordination path for counter for generating and retrieving commit log file id. | string | /server_counter/file_id_gen |
 
 It isn't required to adhere the specified order of the properties, it's for example only. 
 But all properties should be defined with the exact names and appropriate types. 

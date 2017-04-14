@@ -14,6 +14,11 @@ typedef i64    transactionIDType
 typedef i32    tokenType
 typedef i64    tllType
 
+struct CommitLogInfo {
+  1: required i64 currentProcessedCommitLog
+  2: required i64 currentConstructedCommitLog
+}
+
 struct ProducerTransaction {
    1: required StreamType          stream
    2: required PartitionType       partition
@@ -120,6 +125,8 @@ service authService {
 
 
 service TransactionService {
+
+  CommitLogInfo getCommitLogOffsets() throws (1:ServerException error)
 
   bool putStream(1: StreamType stream, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
 

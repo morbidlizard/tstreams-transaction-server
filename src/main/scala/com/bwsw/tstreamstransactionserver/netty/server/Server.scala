@@ -69,18 +69,18 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
     transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
 
-  final def removeNotification(id: Long) = transactionServer.removeProducerTransactionNotification(id)
+  final def removeNotification(id: Long): Boolean = transactionServer.removeProducerTransactionNotification(id)
 
   final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
     transactionServer.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
 
-  final def removeConsumerNotification(id: Long) = transactionServer.removeConsumerTransactionNotification(id)
+  final def removeConsumerNotification(id: Long): Boolean = transactionServer.removeConsumerTransactionNotification(id)
 
 
   private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTTLSec)
   private val (commitLogQueue, commitLogLastId) = {
     val queue = new CommitLogQueueBootstrap(30, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
-    val lastFileIDBerkeley = queue.getLastKey.getOrElse(0L)
+    val lastFileIDBerkeley = transactionServer.getLastProcessedCommitLogFileID.getOrElse(-1L)
 
     val (priorityQueue, maxCommitLogFileID) = queue.fillQueue()
 
@@ -154,22 +154,30 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
         workerGroup.shutdownGracefully()
         workerGroup.terminationFuture()
       }
-      if (zk != null) zk.close()
-      if (transactionServer != null) transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+      if (zk != null)
+        zk.close()
+      if (transactionServer != null)
+        transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
       if (berkeleyWriterExecutor != null) {
         berkeleyWriterExecutor.shutdown()
         berkeleyWriterExecutor.awaitTermination(
           commitLogOptions.commitLogCloseDelayMs * 5,
           TimeUnit.MILLISECONDS
         )
-        scheduledCommitLogImpl.run()
       }
+
+      if (scheduledCommitLogImpl != null)
+        scheduledCommitLogImpl.run()
+
       if (commitLogCloseExecutor != null) {
         commitLogCloseExecutor.shutdown()
         commitLogCloseExecutor.awaitTermination(
           commitLogOptions.commitLogCloseDelayMs * 5,
           TimeUnit.MILLISECONDS
         )
+      }
+
+      if (berkeleyWriter != null) {
         berkeleyWriter.run()
         berkeleyWriter.closeRocksDB()
         transactionServer.closeAllDatabases()
@@ -182,10 +190,10 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
   def fillQueue(): (PriorityBlockingQueue[CommitLogStorage], Long) = {
     val allFiles = commitLogCatalogue.listAllFilesAndTheirIDs().toMap
 
-    val berkeleyProccessedFileIDMax = getLastKey
+    val berkeleyProcessedFileIDMax = transactionServer.getLastProcessedCommitLogFileID
     val (allFilesIDsToProcess, allFilesToDelete: Map[Long, CommitLogFile]) =
-      if (berkeleyProccessedFileIDMax.isDefined)
-        (allFiles.filterKeys(_ > berkeleyProccessedFileIDMax.get), allFiles.filterKeys(_ <= berkeleyProccessedFileIDMax.get))
+      if (berkeleyProcessedFileIDMax.isDefined)
+        (allFiles.filterKeys(_ > berkeleyProcessedFileIDMax.get), allFiles.filterKeys(_ <= berkeleyProcessedFileIDMax.get))
       else
         (allFiles, collection.immutable.Map())
 
@@ -208,33 +216,5 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
     } else {
       (new PriorityBlockingQueue[CommitLogStorage](queueSize), -1L)
     }
-  }
-
-  private def getProcessedCommitLogFiles: ArrayBuffer[Long] = {
-    val keyFound = new DatabaseEntry()
-    val dataFound = new DatabaseEntry()
-
-    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
-    val cursor = transactionServer.commitLogDatabase.openCursor(new DiskOrderedCursorConfig().setKeysOnly(true))
-    while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
-      processedCommitLogFiles += CommitLogKey.keyToObject(keyFound).id
-    }
-    cursor.close()
-
-    processedCommitLogFiles
-  }
-
-  final def getLastKey: Option[Long] = {
-    val keyFound = new DatabaseEntry()
-    val dataFound = new DatabaseEntry()
-
-    val cursor = transactionServer.commitLogDatabase.openCursor(null, null)
-    val id = if (cursor.getLast(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
-      Some(CommitLogKey.keyToObject(keyFound).id)
-    } else {
-      None
-    }
-    cursor.close()
-    id
   }
 }

@@ -61,5 +61,5 @@ trait ConsumerServiceImpl extends Authenticable with ConsumerTransactionStateNot
       if (areThereAnyConsumerNotifies) tryCompleteConsumerNotify(theLastStateTransaction)
     }
   }
-  def closeConsumerDatabase() = scala.util.Try(consumerDatabase.close())
+  private[server] def closeConsumerDatabase() = scala.util.Try(consumerDatabase.close())
 }

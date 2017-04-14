@@ -149,7 +149,7 @@ trait LastTransactionStreamPartition {
     }
   }
 
-  def closeLastTransactionStreamPartitionDatabases() = {
+  private[server] def closeLastTransactionStreamPartitionDatabases() = {
     scala.util.Try(lastTransactionDatabase.close())
     scala.util.Try(lastCheckpointedTransactionDatabase.close())
   }

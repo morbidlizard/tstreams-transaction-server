@@ -21,6 +21,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
 
   private val commitLog = createCommitLog()
 
+
   private def createCommitLog() = {
     val policy = commitLogOptions.commitLogWriteSyncPolicy match {
       case EveryNth => OnCountInterval(commitLogOptions.commitLogWriteSyncValue)
@@ -31,6 +32,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
     new CommitLog(Int.MaxValue, s"${storageOptions.path}${java.io.File.separatorChar}${storageOptions.commitLogDirectory}", policy, genFileID)
   }
 
+  def currentCommitLogFile: Option[Long] = commitLog.currentFileID
 
   def putData(messageType: Byte, message: Message) = {
     commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)

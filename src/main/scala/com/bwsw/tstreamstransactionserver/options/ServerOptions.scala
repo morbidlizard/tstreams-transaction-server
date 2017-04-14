@@ -43,7 +43,7 @@ object ServerOptions {
     * @param berkeleyReadThreadPool the number of threads of pool are used to do read operations from BerkeleyDB je databases.
     *                               Used for [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.scanTransactions]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getTransaction]],
-    *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getLastCheckpoitnedTransaction]],
+    *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getLastCheckpointedTransaction]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl.getStream]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl.checkStreamExists]],
     *                               [[com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl.getConsumerState]]

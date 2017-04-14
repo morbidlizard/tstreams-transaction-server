@@ -124,4 +124,23 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
     transactionServer.removeConsumerNotification(id) shouldBe true
   }
 
+  it should "get notification about consumer checkpoint after using putTransactions method." in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val transactionId = 10L
+    val checkpointName = "test-name"
+
+
+    val latch = new CountDownLatch(1)
+    transactionServer.notifyConsumerTransactionCompleted(consumerTransaction =>
+      consumerTransaction.transactionID == transactionId, latch.countDown()
+    )
+
+    val consumerTransactionOuter = ConsumerTransaction(stream.name, 1, transactionId, checkpointName)
+    client.putTransactions(Seq(), Seq(consumerTransactionOuter))
+
+    latch.await(1, TimeUnit.SECONDS) shouldBe true
+  }
+
 }

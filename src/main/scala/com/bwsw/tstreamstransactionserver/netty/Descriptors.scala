@@ -141,6 +141,7 @@ object Descriptors {
   }
 
   /** All methods names should be unique */
+  val getCommitLogOffsetsMethod = "getCommitLogOffsets"
   val putStreamMethod = "putStream"
   val checkStreamExists = "checkStreamExist"
   val getStreamMethod = "getStream"
@@ -158,12 +159,13 @@ object Descriptors {
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
 
-  final def methodWithArgsToString(id: Int, struct: ThriftStruct) = {
+  final def methodWithArgsToString(id: Int, struct: ThriftStruct): String = {
     def toString(methodName: String, arguments: Iterator[Any], fields: List[String]) = {
       val argumentsList = arguments.toList
       fields zip argumentsList mkString(s"request id $id - $methodName: ", " ", "")
     }
     struct match {
+      case struct: TransactionService.GetCommitLogOffsets.Args  => toString(getCommitLogOffsetsMethod, struct.productIterator, TransactionService.GetCommitLogOffsets.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutStream.Args         => toString(putStreamMethod, struct.productIterator, TransactionService.PutStream.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.CheckStreamExists.Args => toString(checkStreamExists, struct.productIterator, TransactionService.CheckStreamExists.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetStream.Args         => toString(getStreamMethod, struct.productIterator, TransactionService.GetStream.Args.fieldInfos.map(_.tfield.name))
@@ -180,8 +182,12 @@ object Descriptors {
       case struct: TransactionService.GetConsumerState.Args => toString(getConsumerStateMethod, struct.productIterator, TransactionService.GetConsumerState.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.Authenticate.Args   => toString(authenticateMethod, struct.productIterator, TransactionService.Authenticate.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.IsValid.Args   => toString(isValidMethod, struct.productIterator, TransactionService.IsValid.Args.fieldInfos.map(_.tfield.name))
+      case struct => throw new NotImplementedError(s"$struct is not implemeted for debug information")
     }
   }
+
+  case object GetCommitLogOffsets extends
+    Descriptor(getCommitLogOffsetsMethod, TransactionService.GetCommitLogOffsets.Args, TransactionService.GetCommitLogOffsets.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object PutStream extends
     Descriptor(putStreamMethod, TransactionService.PutStream.Args, TransactionService.PutStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)

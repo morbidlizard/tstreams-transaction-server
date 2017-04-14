@@ -9,7 +9,7 @@ case class ConsumerTransactionRecord(key: ConsumerTransactionKey, consumerTransa
   def stream: Long = Long2long(key.stream)
   def partition: Int = key.partition
   def timestamp: Long = Long2long(consumerTransaction.timestamp)
-  override def toString: String = s"Consumer transaction: ${key.toString}"
+  override def toString: String = s"Consumer transaction: stream:$stream, partition:$partition, transaction:$transactionID, name:$name"
 
   def put(database: Database, txn: Transaction, putType: Put, options: WriteOptions) =
     database.put(txn, key.toDatabaseEntry, consumerTransaction.toDatabaseEntry, putType, options)

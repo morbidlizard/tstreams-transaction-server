@@ -80,7 +80,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTTLSec)
   private val (commitLogQueue, commitLogLastId) = {
     val queue = new CommitLogQueueBootstrap(30, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
-    val lastFileIDBerkeley = transactionServer.getLastProcessedCommitLogFileID.getOrElse(0L)
+    val lastFileIDBerkeley = transactionServer.getLastProcessedCommitLogFileID.getOrElse(-1L)
 
     val (priorityQueue, maxCommitLogFileID) = queue.fillQueue()
 
@@ -156,10 +156,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       }
       if (zk != null)
         zk.close()
-
       if (transactionServer != null)
         transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
-
       if (berkeleyWriterExecutor != null) {
         berkeleyWriterExecutor.shutdown()
         berkeleyWriterExecutor.awaitTermination(

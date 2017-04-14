@@ -10,7 +10,7 @@ case class ConsumerTransactionKey(name: String, stream: java.lang.Long, partitio
     objectToEntry(this, databaseEntry)
     databaseEntry
   }
-  override def toString: String = s"name:$name\tstream:$stream\tpartition:$partition"
+  override def toString: String = s"Consumer transaction key: name:$name stream:$stream partition:$partition"
 }
 
 object ConsumerTransactionKey extends TupleBinding[ConsumerTransactionKey] {

@@ -215,7 +215,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         }
       }
     }
-    putConsumerTransactions(decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions), berkeleyTransaction)
+    val consumerTransactionsToProcess = decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions)
+    if (consumerTransactionsToProcess.nonEmpty) putConsumerTransactions(consumerTransactionsToProcess, berkeleyTransaction)
   }
 
 
@@ -231,8 +232,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     val keyFound = new DatabaseEntry()
     val dataFound = new DatabaseEntry()
 
-    val cursor = commitLogDatabase.openCursor(null, null)
-    val id = if (cursor.getLast(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
+    val cursor = commitLogDatabase.openCursor(null, new CursorConfig().setNonSticky(true))
+    val id = if (cursor.getLast(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
       Some(CommitLogKey.keyToObject(keyFound).id)
     } else {
       None
@@ -247,7 +248,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
 
     val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
     val cursor = commitLogDatabase.openCursor(new DiskOrderedCursorConfig().setKeysOnly(true))
-    while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
+    while (cursor.getNext(keyFound, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
       processedCommitLogFiles += CommitLogKey.keyToObject(keyFound).id
     }
     cursor.close()

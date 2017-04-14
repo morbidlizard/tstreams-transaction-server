@@ -15,7 +15,7 @@ trait AuthServiceImpl {
     .expireAfterAccess(authOpts.tokenTTL, java.util.concurrent.TimeUnit.SECONDS)
     .build[java.lang.Integer, String]()
 
-  def authenticate(authKey: String): Int = {
+  private[server] final def authenticate(authKey: String): Int = {
     if (authKey == authOpts.key) {
       val token = random.nextInt(Integer.MAX_VALUE)
       usersToken.put(token, authKey)
@@ -27,7 +27,7 @@ trait AuthServiceImpl {
     }
   }
 
-  def isValid(token: Int): Boolean = {
+  private[server] final def isValid(token: Int): Boolean = {
     val isValid = token != -1 && usersToken.getIfPresent(token) != null
     if (logger.isDebugEnabled())
       if (isValid) logger.debug(s"Client token $token is accepted.")

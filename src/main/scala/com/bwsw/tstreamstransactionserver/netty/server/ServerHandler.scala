@@ -59,15 +59,36 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     implicit val (messageId, token) = (messageSeqId, message.token)
 
     method match {
+
+      case `getCommitLogOffsetsMethod` =>
+        if (transactionServer.isValid(message.token)) {
+          ScalaFuture((scheduledCommitLog.currentCommitLogFile, transactionServer.getLastProcessedCommitLogFileID))
+            .map {case (currentCommitLogFileID, lastProcessedCommitLogFileID) =>
+              logSuccessfulProcession()
+              Descriptors.GetCommitLogOffsets.encodeResponse(
+                TransactionService.GetCommitLogOffsets.Result(
+                  Some(CommitLogInfo(lastProcessedCommitLogFileID.getOrElse(-1L), currentCommitLogFileID.getOrElse(-1L)))
+                )
+              )(messageId, message.token)
+            }(context)
+            .recover { case error =>
+              logUnsuccessfulProcessing(error)
+              Descriptors.GetCommitLogOffsets.encodeResponse(TransactionService.GetCommitLogOffsets.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
+            }(context)
+        } else {
+          //logUnsuccessfulProcessing()
+          ScalaFuture.successful(Descriptors.GetCommitLogOffsets.encodeResponse(TransactionService.GetCommitLogOffsets.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token))
+        }
+
       case `putStreamMethod` =>
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             ScalaFuture(Descriptors.PutStream.decodeRequest(message))
               .flatMap(args =>
                 transactionServer.putStream(args.stream, args.partitions, args.description, args.ttl)
-                  .flatMap {
+                  .map {response =>
                     logSuccessfulProcession()
-                    response => ScalaFuture.successful(Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageId, message.token))
+                    Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageId, message.token)
                   }(context)
                   .recover { case error =>
                     logUnsuccessfulProcessing(error)
@@ -256,7 +277,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             ScalaFuture(Descriptors.GetLastCheckpointedTransaction.decodeRequest(message)).flatMap(args =>
-              transactionServer.getLastCheckpoitnedTransaction(args.stream, args.partition)
+              transactionServer.getLastCheckpointedTransaction(args.stream, args.partition)
                 .flatMap { response =>
                   logSuccessfulProcession()
                   ScalaFuture.successful(Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(response))(messageId, token))

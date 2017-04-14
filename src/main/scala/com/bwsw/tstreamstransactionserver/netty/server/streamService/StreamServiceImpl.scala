@@ -149,7 +149,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
       }
     }(executionContext.berkeleyWriteContext)
 
-  def closeStreamDatabase(): Unit = {
+  private[server] def closeStreamDatabase(): Unit = {
     scala.util.Try(streamSeq.close())
     scala.util.Try(streamSequenceDB.close())
     scala.util.Try(streamDatabase.close())

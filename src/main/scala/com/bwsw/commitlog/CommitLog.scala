@@ -2,8 +2,6 @@ package com.bwsw.commitlog
 
 import java.io._
 import java.security.{DigestOutputStream, MessageDigest}
-import java.util.Base64
-import java.util.Base64.Encoder
 import java.util.concurrent.atomic.AtomicLong
 import javax.xml.bind.DatatypeConverter
 
@@ -32,14 +30,14 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   @volatile private var chunkOpenTime: Long = 0
 
   private var currentCommitLogFileToPut: CommitLogFile = _
-  private class CommitLogFile(path: String) {
-    val absolutePath: String = new StringBuffer(path).append(FilePathManager.DATAEXTENSION).toString
+  private class CommitLogFile(path: String, val id: Long) {
+    val absolutePath: String = new StringBuffer(path).append(id).append(FilePathManager.DATAEXTENSION).toString
     private val recordIDGen = new AtomicLong(0L)
 
     private val md5: MessageDigest = MessageDigest.getInstance("MD5")
     private def writeMD5File() = {
       val fileMD5 = DatatypeConverter.printHexBinary(md5.digest()).getBytes
-      new FileOutputStream(new StringBuffer(path).append(FilePathManager.MD5EXTENSION).toString) {
+      new FileOutputStream(new StringBuffer(path).append(id).append(FilePathManager.MD5EXTENSION).toString) {
         write(fileMD5)
         close()
       }
@@ -58,16 +56,19 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       outputStream.flush()
     }
 
-    def close(): Unit = this.synchronized{
+    def close(withMD5: Boolean = true): Unit = this.synchronized{
       digestOutputStream.on(false)
       digestOutputStream.flush()
       outputStream.flush()
       digestOutputStream.close()
       outputStream.close()
-      writeMD5File()
+      if (withMD5) {
+        writeMD5File()
+      }
     }
   }
 
+  private val pathWithSeparator = s"$path${java.io.File.separatorChar}"
 
   /** Puts record and its type to an appropriate file.
     *
@@ -85,7 +86,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     if (startNew && !firstRun) {
       resetCounters()
       currentCommitLogFileToPut.close()
-      currentCommitLogFileToPut = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
+      currentCommitLogFileToPut = new CommitLogFile(pathWithSeparator, nextFileID)
     }
 
     // если истекло время или мы начинаем записывать в новый коммит лог файл
@@ -97,7 +98,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       fileCreationTime = getCurrentSecs()
       // TODO(remove this):write here chunkOpenTime or we will write first record instantly if OnTimeInterval policy set
       //      chunkOpenTime = System.currentTimeMillis()
-      currentCommitLogFileToPut = new CommitLogFile(s"$path${java.io.File.separatorChar}$nextFileID")
+      currentCommitLogFileToPut = new CommitLogFile(pathWithSeparator, nextFileID)
     }
 
     val now: Long = System.currentTimeMillis()
@@ -119,12 +120,19 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   }
 
   /** Finishes work with current file. */
-  def close(): Option[String] = this.synchronized {
-    if (!firstRun) {
+  def close(withMD5: Boolean = true): Option[String] = this.synchronized {
+    if (!firstRun && currentCommitLogFileToPut != null) {
       resetCounters()
-      currentCommitLogFileToPut.close()
+      currentCommitLogFileToPut.close(withMD5)
       Some(currentCommitLogFileToPut.absolutePath)
     } else None
+  }
+
+  final def currentFileID: Option[Long] = {
+    if (currentCommitLogFileToPut != null)
+      Some(currentCommitLogFileToPut.id)
+    else
+      None
   }
 
   private def resetCounters(): Unit = {

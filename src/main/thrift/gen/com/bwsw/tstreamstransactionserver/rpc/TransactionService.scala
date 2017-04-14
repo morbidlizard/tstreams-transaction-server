@@ -37,6 +37,8 @@ import scala.language.higherKinds
 @javax.annotation.Generated(value = Array("com.twitter.scrooge.Compiler"))
 trait TransactionService[+MM[_]] extends ThriftService {
   
+  def getCommitLogOffsets(): MM[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo]
+  
   def putStream(stream: String, partitions: Int, description: Option[String] = None, ttl: Long): MM[Boolean]
   
   def checkStreamExists(stream: String): MM[Boolean]
@@ -74,6 +76,415 @@ trait TransactionService[+MM[_]] extends ThriftService {
 object TransactionService { self =>
 
   val annotations: immutable$Map[String, String] = immutable$Map.empty
+
+  object GetCommitLogOffsets extends com.twitter.scrooge.ThriftMethod {
+    
+    object Args extends ThriftStructCodec3[Args] {
+      private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
+      val Struct = new TStruct("getCommitLogOffsets_args")
+    
+      /**
+       * Field information in declaration order.
+       */
+      lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
+      )
+    
+      lazy val structAnnotations: immutable$Map[String, String] =
+        immutable$Map.empty[String, String]
+    
+      /**
+       * Checks that all required fields are non-null.
+       */
+      def validate(_item: Args): Unit = {
+      }
+    
+      def withoutPassthroughFields(original: Args): Args =
+        new Args(
+        )
+    
+      override def encode(_item: Args, _oproto: TProtocol): Unit = {
+        _item.write(_oproto)
+      }
+    
+      override def decode(_iprot: TProtocol): Args = {
+        var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
+        var _done = false
+    
+        _iprot.readStructBegin()
+        while (!_done) {
+          val _field = _iprot.readFieldBegin()
+          if (_field.`type` == TType.STOP) {
+            _done = true
+          } else {
+            _field.id match {
+              case _ =>
+                if (_passthroughFields == null)
+                  _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
+                _passthroughFields += (_field.id -> TFieldBlob.read(_field, _iprot))
+            }
+            _iprot.readFieldEnd()
+          }
+        }
+        _iprot.readStructEnd()
+    
+        new Args(
+          if (_passthroughFields == null)
+            NoPassthroughFields
+          else
+            _passthroughFields.result()
+        )
+      }
+    
+      def apply(
+      ): Args =
+        new Args(
+        )
+    
+      def unapply(_item: Args): Boolean = true
+    
+    
+    
+    }
+    
+    class Args(
+        val _passthroughFields: immutable$Map[Short, TFieldBlob])
+      extends ThriftStruct
+      with _root_.scala.Product
+      with HasThriftStructCodec3[Args]
+      with java.io.Serializable
+    {
+      import Args._
+      def this(
+      ) = this(
+        Map.empty
+      )
+    
+    
+    
+    
+      override def write(_oprot: TProtocol): Unit = {
+        Args.validate(this)
+        _oprot.writeStructBegin(Struct)
+        if (_passthroughFields.nonEmpty) {
+          _passthroughFields.values.foreach { _.write(_oprot) }
+        }
+        _oprot.writeFieldStop()
+        _oprot.writeStructEnd()
+      }
+    
+      def copy(
+        _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
+      ): Args =
+        new Args(
+          _passthroughFields
+        )
+    
+      override def canEqual(other: Any): Boolean = other.isInstanceOf[Args]
+    
+      private def _equals(x: Args, y: Args): Boolean =
+          x.productArity == y.productArity &&
+          x.productIterator.sameElements(y.productIterator)
+    
+      override def equals(other: Any): Boolean =
+        canEqual(other) &&
+          _equals(this, other.asInstanceOf[Args]) &&
+          _passthroughFields == other.asInstanceOf[Args]._passthroughFields
+    
+      override def hashCode: Int = _root_.scala.runtime.ScalaRunTime._hashCode(this)
+    
+      override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
+    
+    
+      override def productArity: Int = 0
+    
+      override def productElement(n: Int): Any = n match {
+        case _ => throw new IndexOutOfBoundsException(n.toString)
+      }
+    
+      override def productPrefix: String = "Args"
+    
+      def _codec: ThriftStructCodec3[Args] = Args
+    }
+
+    type SuccessType = com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo
+    
+    object Result extends ThriftStructCodec3[Result] {
+      private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
+      val Struct = new TStruct("getCommitLogOffsets_result")
+      val SuccessField = new TField("success", TType.STRUCT, 0)
+      val SuccessFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo]]
+      val ErrorField = new TField("error", TType.STRUCT, 1)
+      val ErrorFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
+    
+      /**
+       * Field information in declaration order.
+       */
+      lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
+        new ThriftStructFieldInfo(
+          SuccessField,
+          true,
+          false,
+          SuccessFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          ErrorField,
+          true,
+          false,
+          ErrorFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        )
+      )
+    
+      lazy val structAnnotations: immutable$Map[String, String] =
+        immutable$Map.empty[String, String]
+    
+      /**
+       * Checks that all required fields are non-null.
+       */
+      def validate(_item: Result): Unit = {
+      }
+    
+      def withoutPassthroughFields(original: Result): Result =
+        new Result(
+          success =
+            {
+              val field = original.success
+              field.map { field =>
+                com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo.withoutPassthroughFields(field)
+              }
+            },
+          error =
+            {
+              val field = original.error
+              field.map { field =>
+                com.bwsw.tstreamstransactionserver.rpc.ServerException.withoutPassthroughFields(field)
+              }
+            }
+        )
+    
+      override def encode(_item: Result, _oproto: TProtocol): Unit = {
+        _item.write(_oproto)
+      }
+    
+      override def decode(_iprot: TProtocol): Result = {
+        var success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo] = _root_.scala.None
+        var error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
+        var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
+        var _done = false
+    
+        _iprot.readStructBegin()
+        while (!_done) {
+          val _field = _iprot.readFieldBegin()
+          if (_field.`type` == TType.STOP) {
+            _done = true
+          } else {
+            _field.id match {
+              case 0 =>
+                _field.`type` match {
+                  case TType.STRUCT =>
+                    success = _root_.scala.Some(readSuccessValue(_iprot))
+                  case _actualType =>
+                    val _expectedType = TType.STRUCT
+                    throw new TProtocolException(
+                      "Received wrong type for field 'success' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case 1 =>
+                _field.`type` match {
+                  case TType.STRUCT =>
+                    error = _root_.scala.Some(readErrorValue(_iprot))
+                  case _actualType =>
+                    val _expectedType = TType.STRUCT
+                    throw new TProtocolException(
+                      "Received wrong type for field 'error' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case _ =>
+                if (_passthroughFields == null)
+                  _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
+                _passthroughFields += (_field.id -> TFieldBlob.read(_field, _iprot))
+            }
+            _iprot.readFieldEnd()
+          }
+        }
+        _iprot.readStructEnd()
+    
+        new Result(
+          success,
+          error,
+          if (_passthroughFields == null)
+            NoPassthroughFields
+          else
+            _passthroughFields.result()
+        )
+      }
+    
+      def apply(
+        success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo] = _root_.scala.None,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
+      ): Result =
+        new Result(
+          success,
+          error
+        )
+    
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
+    
+    
+      @inline private def readSuccessValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo = {
+        com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo.decode(_iprot)
+      }
+    
+      @inline private def writeSuccessField(success_item: com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(SuccessField)
+        writeSuccessValue(success_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeSuccessValue(success_item: com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo, _oprot: TProtocol): Unit = {
+        success_item.write(_oprot)
+      }
+    
+      @inline private def readErrorValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ServerException = {
+        com.bwsw.tstreamstransactionserver.rpc.ServerException.decode(_iprot)
+      }
+    
+      @inline private def writeErrorField(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(ErrorField)
+        writeErrorValue(error_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeErrorValue(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
+        error_item.write(_oprot)
+      }
+    
+    
+    }
+    
+    class Result(
+        val success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo],
+        val error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException],
+        val _passthroughFields: immutable$Map[Short, TFieldBlob])
+      extends ThriftResponse[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo] with ThriftStruct
+      with _root_.scala.Product2[Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
+      with HasThriftStructCodec3[Result]
+      with java.io.Serializable
+    {
+      import Result._
+      def this(
+        success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo] = _root_.scala.None,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
+      ) = this(
+        success,
+        error,
+        Map.empty
+      )
+    
+      def _1 = success
+      def _2 = error
+    
+      def toTuple: _root_.scala.Tuple2[Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]] = {
+        (
+          success,
+          error
+        )
+      }
+    
+      def successField: Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo] = success
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(error)
+    
+    
+      override def write(_oprot: TProtocol): Unit = {
+        Result.validate(this)
+        _oprot.writeStructBegin(Struct)
+        if (success.isDefined) writeSuccessField(success.get, _oprot)
+        if (error.isDefined) writeErrorField(error.get, _oprot)
+        if (_passthroughFields.nonEmpty) {
+          _passthroughFields.values.foreach { _.write(_oprot) }
+        }
+        _oprot.writeFieldStop()
+        _oprot.writeStructEnd()
+      }
+    
+      def copy(
+        success: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo] = this.success,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = this.error,
+        _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
+      ): Result =
+        new Result(
+          success,
+          error,
+          _passthroughFields
+        )
+    
+      override def canEqual(other: Any): Boolean = other.isInstanceOf[Result]
+    
+      private def _equals(x: Result, y: Result): Boolean =
+          x.productArity == y.productArity &&
+          x.productIterator.sameElements(y.productIterator)
+    
+      override def equals(other: Any): Boolean =
+        canEqual(other) &&
+          _equals(this, other.asInstanceOf[Result]) &&
+          _passthroughFields == other.asInstanceOf[Result]._passthroughFields
+    
+      override def hashCode: Int = _root_.scala.runtime.ScalaRunTime._hashCode(this)
+    
+      override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
+    
+    
+      override def productArity: Int = 2
+    
+      override def productElement(n: Int): Any = n match {
+        case 0 => this.success
+        case 1 => this.error
+        case _ => throw new IndexOutOfBoundsException(n.toString)
+      }
+    
+      override def productPrefix: String = "Result"
+    
+      def _codec: ThriftStructCodec3[Result] = Result
+    }
+
+    val annotations: immutable$Map[String, String] = immutable$Map.empty
+
+    type FunctionType = Nothing
+    type ServiceType = Nothing
+    type ServiceIfaceServiceType = Nothing
+
+    def toServiceIfaceService(f: FunctionType): ServiceIfaceServiceType = ???
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
+
+    val name: String = "getCommitLogOffsets"
+    val serviceName: String = "TransactionService"
+    val argsCodec = Args
+    val responseCodec = Result
+    val oneway: Boolean = false
+  }
+
+  // Compatibility aliases.
+  val getCommitLogOffsets$args = GetCommitLogOffsets.Args
+  type getCommitLogOffsets$args = GetCommitLogOffsets.Args
+
+  val getCommitLogOffsets$result = GetCommitLogOffsets.Result
+  type getCommitLogOffsets$result = GetCommitLogOffsets.Result
 
   object PutStream extends com.twitter.scrooge.ThriftMethod {
     

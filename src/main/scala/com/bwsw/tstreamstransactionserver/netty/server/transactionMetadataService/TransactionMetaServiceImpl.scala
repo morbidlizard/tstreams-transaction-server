@@ -16,7 +16,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future => ScalaFuture}
 
-trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
+trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
   with Authenticable
   with ProducerTransactionStateNotifier
 {
@@ -28,7 +28,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   val environment: Environment
 
-  val producerTransactionsDatabase = {
+  private val producerTransactionsDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
@@ -36,7 +36,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     environment.openDatabase(null, storeName, dbConfig)
   }
 
-  val producerTransactionsWithOpenedStateDatabase = {
+  private val producerTransactionsWithOpenedStateDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
@@ -219,7 +219,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   }
 
 
-  val commitLogDatabase = {
+  private val commitLogDatabase = {
     val dbConfig = new DatabaseConfig()
       .setAllowCreate(true)
       .setTransactional(true)
@@ -227,7 +227,35 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     environment.openDatabase(null, storeName, dbConfig)
   }
 
-  class BigCommit(fileID: Long) {
+  private[server] final def getLastProcessedCommitLogFileID: Option[Long] = {
+    val keyFound = new DatabaseEntry()
+    val dataFound = new DatabaseEntry()
+
+    val cursor = commitLogDatabase.openCursor(null, null)
+    val id = if (cursor.getLast(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
+      Some(CommitLogKey.keyToObject(keyFound).id)
+    } else {
+      None
+    }
+    cursor.close()
+    id
+  }
+
+  private[server] final def getProcessedCommitLogFiles: ArrayBuffer[Long] = {
+    val keyFound = new DatabaseEntry()
+    val dataFound = new DatabaseEntry()
+
+    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
+    val cursor = commitLogDatabase.openCursor(new DiskOrderedCursorConfig().setKeysOnly(true))
+    while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
+      processedCommitLogFiles += CommitLogKey.keyToObject(keyFound).id
+    }
+    cursor.close()
+
+    processedCommitLogFiles
+  }
+
+  final class BigCommit(fileID: Long) {
     private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
 
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
@@ -256,7 +284,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
   def getBigCommit(fileID: Long) = new BigCommit(fileID)
 
 
-  def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = {
+  final def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = {
     val keyStream = getMostRecentStream(stream)
     val lastTransaction = getLastTransactionIDAndCheckpointedID(keyStream.streamNameAsLong, partition)
     if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
@@ -285,7 +313,7 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     }
   }
 
-  final def getLastCheckpoitnedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture{
+  final def getLastCheckpointedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture{
     val streamRecord = getMostRecentStream(stream)
     getLastTransactionIDAndCheckpointedID(streamRecord.streamNameAsLong, partition) match {
       case Some(last) => last.checkpointed match {
@@ -302,10 +330,6 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
       val keyStream = getMostRecentStream(stream)
       val transactionDB = environment.beginTransaction(null, null)
       val cursor = producerTransactionsDatabase.openCursor(transactionDB, new CursorConfig().setNonSticky(true))
-
-      def producerTransactionKeyToProducerTransaction(txn: ProducerTransactionRecord) = {
-        com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
-      }
 
       val (lastOpenedTransactionID, toTransactionID) = getLastTransactionIDAndCheckpointedID(keyStream.streamNameAsLong, partition) match {
         case Some(lastTransaction) => lastTransaction.opened.id match {
@@ -357,6 +381,10 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
             cursor.close()
             transactionDB.commit()
 
+            def producerTransactionKeyToProducerTransaction(txn: ProducerTransactionRecord) = {
+              com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
+            }
+
             ScanTransactionsInfo(lastOpenedTransactionID, producerTransactions map producerTransactionKeyToProducerTransaction filter lambda)
         }
       }
@@ -372,10 +400,6 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
     private def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
     }
-
-//    private def transitToInvalidState(producerTransactionWithoutKey: ProducerTransactionValue) = {
-//      ProducerTransactionValue(TransactionStates.Invalid, producerTransactionWithoutKey.quantity, 0L, timestampToDeleteTransactions)
-//    }
 
     override def run(): Unit = {
       if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
@@ -421,13 +445,13 @@ trait  TransactionMetaServiceImpl extends TransactionStateHandler with StreamCac
 
   final def createTransactionsToDeleteTask(timestampToDeleteTransactions: Long) = new TransactionsToDeleteTask(timestampToDeleteTransactions)
 
-  def closeTransactionMetaDatabases(): Unit = {
+  final private[server] def closeTransactionMetaDatabases(): Unit = {
     scala.util.Try(commitLogDatabase.close())
     scala.util.Try(producerTransactionsDatabase.close())
     scala.util.Try(producerTransactionsWithOpenedStateDatabase.close())
   }
 
-  def closeTransactionMetaEnvironment(): Unit = {
+  final private[server] def closeTransactionMetaEnvironment(): Unit = {
     scala.util.Try(environment.close())
   }
 }

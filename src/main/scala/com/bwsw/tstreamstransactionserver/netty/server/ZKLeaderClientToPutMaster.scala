@@ -3,6 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.io.Closeable
 import java.util
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
 import com.google.common.net.InetAddresses
@@ -13,6 +14,8 @@ import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
 import org.apache.zookeeper.data.ACL
 import org.slf4j.LoggerFactory
+
+import scala.util.Try
 
 class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
   extends Closeable {
@@ -35,18 +38,25 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
   final def fileIDGenerator(path: String, initValue: Long) = new FileIDGenerator(path, initValue)
   final class FileIDGenerator(path: String, initValue: Long) {
     private val distributedAtomicLong = new DistributedAtomicLong(client, path, policy)
+    private val atomicLong = new AtomicLong(initValue)
     distributedAtomicLong.forceSet(initValue)
    // if (!distributedAtomicLong.initialize(initValue)) throw new Exception(s"Can't initialize counter by value $initValue.")
 
+    def current: Long = atomicLong.get()
+
     def increment: Long = {
       val operation = distributedAtomicLong.increment()
-      if (operation.succeeded()) operation.postValue()
+      if (operation.succeeded()) {
+        val newID = operation.postValue()
+        atomicLong.set(newID)
+        newID
+      }
       else throw new Exception(s"Can't increment counter by 1: previous was ${operation.preValue()} but now it's ${operation.postValue()} ")
     }
   }
 
 
-  def putSocketAddress(inetAddress: String, port: Int) = {
+  def putSocketAddress(inetAddress: String, port: Int): Try[String] = {
     val socketAddress =
       if (ZKLeaderClientToPutMaster.isValidSocketAddress(inetAddress, port)) s"$inetAddress:$port"
       else throw new InvalidSocketAddress(s"Invalid socket address $inetAddress:$port")
@@ -67,7 +77,7 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
 }
 
 object ZKLeaderClientToPutMaster {
-  def isValidSocketAddress(inetAddress: String, port: Int) = {
+  def isValidSocketAddress(inetAddress: String, port: Int): Boolean = {
     if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536) true
     else false
   }

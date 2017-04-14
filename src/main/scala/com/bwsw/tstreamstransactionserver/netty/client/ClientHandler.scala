@@ -24,6 +24,9 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
       val (method, messageSeqId) = Descriptor.decodeMethodName(message)
       val response = method match {
+        case `getCommitLogOffsetsMethod` =>
+          Descriptors.GetCommitLogOffsets.decodeResponse(message)
+
         case `putStreamMethod` =>
           Descriptors.PutStream.decodeResponse(message)
 

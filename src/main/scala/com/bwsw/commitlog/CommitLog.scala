@@ -107,14 +107,15 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   /** Finishes work with current file. */
   def close(createNewFile: Boolean = true, withMD5: Boolean = true): String = this.synchronized {
     val currentCommitLogFile = currentCommitLogFileToPut
-    currentCommitLogFile.close()
-    resetCounters()
-
     val path = currentCommitLogFile.absolutePath
     if (createNewFile) {
       currentCommitLogFileToPut = new CommitLogFile(nextFileID)
+      currentCommitLogFile.close()
+      resetCounters()
       path
     } else {
+      currentCommitLogFile.close()
+      resetCounters()
       path
     }
   }

@@ -36,7 +36,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
             } else {
               logger.warn(s"MD5 doesn't exist for the commit log file (file: '${file.getFile.getCanonicalPath}').")
             }
-            //file.delete()
+            file.delete()
 
           case binary: CommitLogBinary =>
             if (commitLogEntity.md5Exists()) {
@@ -56,9 +56,9 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
               rocksDb.put(fileKey.toByteArray, fileValue.toByteArray)
               processCommitLogFile(commitLogEntity)
             } match {
-              case scala.util.Success(_) => //file.delete()
+              case scala.util.Success(_) => file.delete()
               case scala.util.Failure(exception) =>
-               // file.delete()
+                file.delete()
                 logger.warn(s"Something was going wrong during processing of a commit log file (file: ${file.getFile.getPath}). Error message: " + exception.getMessage)
             }
           case binary: CommitLogBinary =>
@@ -83,7 +83,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
           processCommitLogFile(commitLogEntity)
         } else commitLogEntity match {
           case file: CommitLogFile =>
-            //file.delete()
+            file.delete()
             throw new InterruptedException(s"MD5 doesn't exist in a commit log file (path: '${file.getFile.getPath}').")
           case binary: CommitLogBinary =>
             throw new InterruptedException(s"MD5 doesn't exist in a commit log file (id: '${binary.getID}').")

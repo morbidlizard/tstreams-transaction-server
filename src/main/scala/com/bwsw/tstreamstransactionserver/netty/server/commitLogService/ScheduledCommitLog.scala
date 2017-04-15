@@ -1,7 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
 import java.util.concurrent.PriorityBlockingQueue
-import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
@@ -28,20 +27,23 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
       case EveryNewFile => OnRotation
       case EveryNSeconds => OnTimeInterval(commitLogOptions.commitLogWriteSyncValue)
     }
-
     new CommitLog(Int.MaxValue, s"${storageOptions.path}${java.io.File.separatorChar}${storageOptions.commitLogDirectory}", policy, genFileID)
   }
 
-  def currentCommitLogFile: Option[Long] = commitLog.currentFileID
+  def currentCommitLogFile: Long = commitLog.currentFileID
 
   def putData(messageType: Byte, message: Message) = {
-    commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
+    this.synchronized(commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType))
     true
   }
 
+  def closeWithoutCreationNewFile() = {
+    val path = commitLog.close(createNewFile = false)
+    pathsToClosedCommitLogFiles.put(new CommitLogFile(path))
+  }
+
   override def run(): Unit = {
-    commitLog.close() foreach { path =>
-      pathsToClosedCommitLogFiles.put(new CommitLogFile(path))
-    }
+    val path = commitLog.close()
+    pathsToClosedCommitLogFiles.put(new CommitLogFile(path))
   }
 }

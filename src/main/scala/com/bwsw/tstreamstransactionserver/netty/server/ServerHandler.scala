@@ -67,7 +67,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
               logSuccessfulProcession()
               Descriptors.GetCommitLogOffsets.encodeResponse(
                 TransactionService.GetCommitLogOffsets.Result(
-                  Some(CommitLogInfo(lastProcessedCommitLogFileID.getOrElse(-1L), currentCommitLogFileID.getOrElse(-1L)))
+                  Some(CommitLogInfo(lastProcessedCommitLogFileID.getOrElse(-1L), currentCommitLogFileID))
                 )
               )(messageId, message.token)
             }(context)

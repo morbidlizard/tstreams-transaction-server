@@ -33,7 +33,7 @@ object ServerOptions {
     */
   case class StorageOptions(path: String = "/tmp",
                             dataDirectory: String = "transaction_data", metadataDirectory: String = "transaction_metadata",
-                            commitLogDirectory: String = "commmit_log", commitLogRocksDirectory: String = "commit_log_rocks"//,
+                            commitLogDirectory: String = "commit_log", commitLogRocksDirectory: String = "commit_log_rocks"//,
                             /** streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
                               * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
                               * berkeleyReadThreadPool: Int = 2 */)

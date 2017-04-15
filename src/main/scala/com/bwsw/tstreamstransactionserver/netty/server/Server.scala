@@ -9,12 +9,10 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddre
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.CommitLogKey
 import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import com.sleepycat.je._
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
@@ -22,8 +20,6 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.ExecutionContextExecutorService
 
 class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOptions,
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
@@ -122,7 +118,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 
   def start(): Unit = {
     try {
-      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, 0, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogCloseDelayMs*11/10, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       val b = new ServerBootstrap()
@@ -156,8 +152,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       }
       if (zk != null)
         zk.close()
+
       if (transactionServer != null)
         transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+
       if (berkeleyWriterExecutor != null) {
         berkeleyWriterExecutor.shutdown()
         berkeleyWriterExecutor.awaitTermination(
@@ -167,7 +165,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       }
 
       if (scheduledCommitLogImpl != null)
-        scheduledCommitLogImpl.run()
+        scheduledCommitLogImpl.closeWithoutCreationNewFile()
 
       if (commitLogCloseExecutor != null) {
         commitLogCloseExecutor.shutdown()

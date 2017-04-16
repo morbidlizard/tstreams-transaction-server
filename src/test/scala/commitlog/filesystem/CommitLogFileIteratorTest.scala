@@ -67,7 +67,6 @@ class CommitLogFileIteratorTest extends FlatSpec with Matchers with BeforeAndAft
     commitLog.close()
 
     val bytesArray: Array[Byte] = Files.readAllBytes(Paths.get(fileName))
-    println(bytesArray.length)
 
     val croppedFileName = fileName + ".cropped"
     val outputStream = new BufferedOutputStream(new FileOutputStream(croppedFileName))

@@ -135,13 +135,13 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
 
   val secondsWait = 5
 
-  "getCommitLogOffsets" should "return -1 for currentProcessedCommitLog and -1 for currentConstructedCommitLog as there are no processed and created commit log files." in {
+  "getCommitLogOffsets" should "return -1 for currentProcessedCommitLog and 0 for currentConstructedCommitLog as there is created commit log file at initialization of server and it's not processed." in {
     val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
     result.currentProcessedCommitLog   shouldBe -1L
-    result.currentConstructedCommitLog shouldBe -1L
+    result.currentConstructedCommitLog shouldBe 0L
   }
 
-  it should "return 0 for currentProcessedCommitLog and 0 for currentConstructedCommitLog" in {
+  it should "return 0 for currentProcessedCommitLog and 1 for currentConstructedCommitLog as there is created commit log file at initialization of server, it's closed and server creates a new commit log file and server processes the first one." in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -150,12 +150,6 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
 
     Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait.seconds)
 
-    val statesAllowed = Array(TransactionStates.Opened, TransactionStates.Updated)
-    val (from, to) = (
-      producerTransactions.filter(txn => statesAllowed.contains(txn.state)).minBy(_.transactionID).transactionID,
-      producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
-    )
-
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     transactionServer.scheduledCommitLogImpl.run()
@@ -163,10 +157,10 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
 
     val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
     result.currentProcessedCommitLog   shouldBe 0L
-    result.currentConstructedCommitLog shouldBe 0L
+    result.currentConstructedCommitLog shouldBe 1L
   }
 
-  it should "return -1 for currentProcessedCommitLog(as writer thread doesn't run on data) and 0 for currentConstructedCommitLog(as it's not closed and no data wrote after it)" in {
+  it should "return -1 for currentProcessedCommitLog(as writer thread doesn't run on data) and 0 for currentConstructedCommitLog(as it's initialized, got some data, but not closed)" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -183,7 +177,7 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
     result.currentConstructedCommitLog shouldBe 0L
   }
 
-  it should "return -1 for currentProcessedCommitLog(as writer thread doesn't run on data) and 0 for currentConstructedCommitLog(as it's closed and no data wrote after it)" in {
+  it should "return -1 for currentProcessedCommitLog(as writer thread doesn't run on data) and 1 for currentConstructedCommitLog(as the first one is closed, and a next one is created)" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -195,29 +189,22 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
     Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
     transactionServer.scheduledCommitLogImpl.run()
-
-    val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
-    result.currentProcessedCommitLog   shouldBe -1L
-    result.currentConstructedCommitLog shouldBe 0L
-  }
-
-  it should "return -1 for currentProcessedCommitLog(as writer thread doesn't run on data) and 1 for currentConstructedCommitLog(as 1-st file is closed and some data wrote after it)" in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait.seconds)
-
-    val producerTransactions = Array.fill(10)(getRandomProducerTransaction(stream)).filter(_.state == TransactionStates.Opened) :+
-      getRandomProducerTransaction(stream).copy(state = TransactionStates.Opened)
-
-    Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait.seconds)
-
-    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-    transactionServer.scheduledCommitLogImpl.run()
-
-    Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait.seconds)
 
     val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
     result.currentProcessedCommitLog   shouldBe -1L
     result.currentConstructedCommitLog shouldBe 1L
+  }
+
+  "abc" should "return -1 for currentProcessedCommitLog(as writer thread doesn't run on data) and 3 for currentConstructedCommitLog(as 3 commit log files are closed)" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    transactionServer.scheduledCommitLogImpl.run()
+    transactionServer.scheduledCommitLogImpl.run()
+    transactionServer.scheduledCommitLogImpl.run()
+
+    val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
+    result.currentProcessedCommitLog   shouldBe -1L
+    result.currentConstructedCommitLog shouldBe 3L
   }
 }

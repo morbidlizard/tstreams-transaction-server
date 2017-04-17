@@ -59,11 +59,12 @@ object ServerOptions {
 
   /** The options are used for replication environment.
     *
+    * @param authKey the special security token which is used by the slaves to authenticate on master.
     * @param endpoints ???
     * @param name ???
     * @param group ???
     */
-  case class ServerReplicationOptions(endpoints: String = "127.0.0.1:8071", name: String = "server", group: String = "group")
+  case class ServerReplicationOptions(authKey: String = "server_group", endpoints: String = "127.0.0.1:8071", name: String = "server", group: String = "group")
 
   /** The options are applied on creation Rocksdb database.
     * For all rocksDB options look: https: //github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h

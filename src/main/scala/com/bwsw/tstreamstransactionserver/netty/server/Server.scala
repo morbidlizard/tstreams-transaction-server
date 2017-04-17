@@ -33,7 +33,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   @volatile private var isShutdown = false
 
   private val transactionServerSocketAddress = createTransactionServerAddress()
-  if (!ZKLeaderClientToPutMaster.isValidSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2))
+  if (!ZKClientServer.isValidSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2))
     throw new InvalidSocketAddress(s"Invalid socket address ${transactionServerSocketAddress._1}:${transactionServerSocketAddress._2}")
 
   private def createTransactionServerAddress() = {
@@ -44,12 +44,13 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   }
 
   private val zk = scala.util.Try(
-    new ZKLeaderClientToPutMaster(
+    new ZKClientServer(
+      transactionServerSocketAddress._1,
+      transactionServerSocketAddress._2,
       zookeeperOpts.endpoints,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,
-      new RetryForever(zookeeperOpts.retryDelayMs),
-      zookeeperOpts.prefix
+      new RetryForever(zookeeperOpts.retryDelayMs)
     )) match {
     case scala.util.Success(client) => client
     case scala.util.Failure(throwable) =>
@@ -118,9 +119,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 
   def start(): Unit = {
     try {
-      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogCloseDelayMs*11/10, java.util.concurrent.TimeUnit.MILLISECONDS)
-
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
@@ -131,7 +129,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
 
-      zk.putSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogCloseDelayMs*11/10, java.util.concurrent.TimeUnit.MILLISECONDS)
+
+      zk.putSocketAddress(zookeeperOpts.prefix)
 
       f.channel().closeFuture().sync()
     } finally {

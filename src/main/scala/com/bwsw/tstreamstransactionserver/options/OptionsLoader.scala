@@ -55,7 +55,7 @@ class OptionsLoader() {
   private def loadServerReplicationOptions() = {
     val fields = getPropertiesOf(classOf[ServerReplicationOptions])
 
-    castCheck(ServerReplicationOptions(fields(0), fields(1), fields(2)))
+    castCheck(ServerReplicationOptions(fields(0), fields(1), fields(2), fields(3)))
   }
 
   private def loadServerRocksStorageOptions() = {

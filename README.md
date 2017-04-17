@@ -29,6 +29,7 @@ You should pass a file with properties in both cases. The file should contain th
 | commitlog.directory              | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
 | commitlog.rocksdb.directory      | the path where rocksdb with persisted commit log files is placed relatively to "path".  |string |commit_log_rocks| |
 | berkeley.read.thread.pool        | The number of threads of pool are used to do read operations from BerkeleyDB je databases. Used for: getStream, getConsumerState, scanTransactions, getTransaction, getLastCheckpoitnedTransaction. |int    | 2| [1,...]|  
+| authKey                          | The special security token which is used by the slaves to authenticate on master.| string | server_group| |
 | endpoints                        | ???  |string | 127.0.0.1:8071 | |
 | name                             | ???  |string |server| |  
 | group                            | ???  |string |group| |  

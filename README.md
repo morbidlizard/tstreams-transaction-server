@@ -6,6 +6,7 @@ Implements Transaction storage server for T-Streams (hereinafter - TTS)
 - [Launching](#launching)
     - [Java](#java)
     - [Docker](#docker)
+- [License](#license)
 
 ## Launching
 
@@ -72,7 +73,7 @@ java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-
 The docker file is in the root directory. To build image: 
 
 ```bash
-docker build --tag tts .
+docker build --tag tts .release_v1.2.9
 ```
 
 To run docker image you should provide a path to config directory where a file named 'config.properties' is:
@@ -81,3 +82,6 @@ To run docker image you should provide a path to config directory where a file n
 docker run -v <path_to_conf_directory>:/etc/conf tts
 ```
 
+## License
+
+Released under Apache 2.0 License

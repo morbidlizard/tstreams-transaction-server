@@ -8,8 +8,9 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
 import com.google.common.net.InetAddresses
 import org.apache.curator.RetryPolicy
-import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
+import org.apache.curator.framework.recipes.leader.Participant
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
 import org.apache.zookeeper.data.ACL
@@ -17,10 +18,20 @@ import org.slf4j.LoggerFactory
 
 import scala.util.Try
 
-class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String)
+class ZKClientServer(serverAddress: String,
+                     serverPort: Int,
+                     endpoints: String,
+                     sessionTimeoutMillis: Int,
+                     connectionTimeoutMillis: Int,
+                     policy: RetryPolicy
+                               )
   extends Closeable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+  private val socketAddress: String =
+    if (ZKClientServer.isValidSocketAddress(serverAddress, serverPort)) s"$serverAddress:$serverPort"
+    else throw new InvalidSocketAddress(s"Invalid socket address $serverAddress:$serverPort")
 
   private val client = {
     val connection = CuratorFrameworkFactory.builder()
@@ -55,13 +66,37 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
     }
   }
 
+  final def replicationGroup(path: String) = new ReplicationGroup(path)
+  final class ReplicationGroup(path: String) {
+    import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheListener}
+    import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
+    import scala.collection.JavaConverters._
 
-  def putSocketAddress(inetAddress: String, port: Int): Try[String] = {
-    val socketAddress =
-      if (ZKLeaderClientToPutMaster.isValidSocketAddress(inetAddress, port)) s"$inetAddress:$port"
-      else throw new InvalidSocketAddress(s"Invalid socket address $inetAddress:$port")
+    final class Listener(listener: PathChildrenCacheListener) {
+      private val cache = new PathChildrenCache(client, path, true)
+      cache.getListenable.addListener(listener)
+      cache.start()
 
-    scala.util.Try(client.delete().deletingChildrenIfNeeded().forPath(prefix))
+      def close(): Unit = cache.close()
+    }
+
+    final class Election(listener: LeaderLatchListener) {
+      private val leaderLatch = new LeaderLatch(client, path, socketAddress, LeaderLatch.CloseMode.NOTIFY_LEADER)
+      leaderLatch.addListener(listener)
+
+      def participants: Iterable[Participant] = leaderLatch.getParticipants.asScala
+
+      def join(): Unit = leaderLatch.start()
+      def leave(): Unit = leaderLatch.close(LeaderLatch.CloseMode.NOTIFY_LEADER)
+    }
+
+    def election(listener: LeaderLatchListener) = new Election(listener)
+    def listener(listener: PathChildrenCacheListener) = new Listener(listener)
+  }
+
+
+  final def putSocketAddress(path: String): Try[String] = {
+    scala.util.Try(client.delete().deletingChildrenIfNeeded().forPath(path))
     scala.util.Try{
       val permissions = new util.ArrayList[ACL]()
       permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
@@ -69,14 +104,14 @@ class ZKLeaderClientToPutMaster(endpoints: String, sessionTimeoutMillis: Int, co
       client.create().creatingParentsIfNeeded()
         .withMode(CreateMode.EPHEMERAL)
         .withACL(permissions)
-        .forPath(prefix, socketAddress.getBytes())
+        .forPath(path, socketAddress.getBytes())
     }
   }
 
   override def close(): Unit = scala.util.Try(client.close())
 }
 
-object ZKLeaderClientToPutMaster {
+object ZKClientServer {
   def isValidSocketAddress(inetAddress: String, port: Int): Boolean = {
     if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536) true
     else false

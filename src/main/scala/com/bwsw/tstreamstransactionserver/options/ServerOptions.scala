@@ -53,9 +53,9 @@ object ServerOptions {
 
   /** The options for generating id for a new commit log file.
     *
-    * @param counterPathFileIDGen the coordination path for counter for generating and retrieving commit log file id.
+    * @param counterPathFileIdGen the coordination path for counter for generating and retrieving commit log file id.
     */
-  case class ZooKeeperOptions(counterPathFileIDGen: String = "/server_counter/file_id_gen")
+  case class ZooKeeperOptions(counterPathFileIdGen: String = "/server_counter/file_id_gen")
 
   /** The options are used for replication environment.
     *

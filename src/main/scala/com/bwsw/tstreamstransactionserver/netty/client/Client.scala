@@ -141,7 +141,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val message = descriptor.encodeRequest(request)(messageId, token)
       validateMessageSize(message)
 
-//      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
+      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
 
       channel.write(message.toByteArray)
       reqIdToRep.put(messageId, promise)
@@ -149,7 +149,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val responseFuture = TimeoutScheduler.withTimeout(promise.future.map { response =>
         ScalaFuture(reqIdToRep.remove(messageId))(context)
         response.asInstanceOf[Rep]
-      })(methodContext, after = clientOpts.requestTimeoutMs.millis).recoverWith { case error =>
+      })(methodContext, after = clientOpts.requestTimeoutMs.millis, messageId).recoverWith { case error =>
         ScalaFuture(reqIdToRep.remove(messageId))(context)
         ScalaFuture.failed(error)
       }(methodContext)

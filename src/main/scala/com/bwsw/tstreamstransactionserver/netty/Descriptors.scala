@@ -14,17 +14,19 @@ object Descriptors {
     * how request and response are connected with each other.
     *
     *  @constructor create a new descriptor that could serialize/deserialize structures of methods.
-    *  @param methodID name of a method. All methods names should be distinct in all Descriptor objects.
+    *  @param name name of a method. All methods names should be distinct in all Descriptor objects.
+    *  @param methodID a method ID.
     *  @param codecReq a request type to serialize/deserialize.
     *  @param codecRep a response type to serialize/deserialize.
     *  @param protocolReq a protocol for serialization/deserialization of method arguments of request.
     *  @param protocolRep a protocol for serialization/deserialization of method arguments of response.
     */
-  sealed abstract class Descriptor[Request <: ThriftStruct, Response <: ThriftStruct](val methodID: Byte,
-                                                                         codecReq: ThriftStructCodec3[Request],
-                                                                         codecRep: ThriftStructCodec3[Response],
-                                                                         protocolReq : TProtocolFactory,
-                                                                         protocolRep : TProtocolFactory) {
+  sealed abstract class Descriptor[Request <: ThriftStruct, Response <: ThriftStruct](val name: String,
+                                                                                      val methodID: Byte,
+                                                                                      codecReq: ThriftStructCodec3[Request],
+                                                                                      codecRep: ThriftStructCodec3[Response],
+                                                                                      protocolReq : TProtocolFactory,
+                                                                                      protocolRep : TProtocolFactory) {
 
     /** A method for building request/response methods to serialize.
       *
@@ -122,76 +124,76 @@ object Descriptors {
       fields zip argumentsList mkString(s"request id $id - $methodName: ", " ", "")
     }
     struct match {
-      case struct: TransactionService.GetCommitLogOffsets.Args  => toString(getCommitLogOffsetsMethod, struct.productIterator, TransactionService.GetCommitLogOffsets.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutStream.Args         => toString(putStreamMethod, struct.productIterator, TransactionService.PutStream.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.CheckStreamExists.Args => toString(checkStreamExists, struct.productIterator, TransactionService.CheckStreamExists.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetStream.Args         => toString(getStreamMethod, struct.productIterator, TransactionService.GetStream.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.DelStream.Args         => toString(delStreamMethod, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransaction.Args    => toString(putTransactionMethod, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutSimpleTransactionAndData.Args => toString(putSimpleTransactionAndDataMethod, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransactions.Args   => toString(putTransactionsMethod, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetTransaction.Args    => toString(getTransactionMethod, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetLastCheckpointedTransaction.Args => toString(getLastCheckpointedTransactionMethod, struct.productIterator, TransactionService.GetLastCheckpointedTransaction.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.ScanTransactions.Args   => toString(scanTransactionsMethod, struct.productIterator, TransactionService.ScanTransactions.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransactionData.Args  => toString(putTransactionDataMethod, struct.productIterator, TransactionService.PutTransactionData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetTransactionData.Args  => toString(getTransactionDataMethod, struct.productIterator, TransactionService.GetTransactionData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutConsumerCheckpoint.Args => toString(putConsumerCheckpointMethod, struct.productIterator, TransactionService.PutConsumerCheckpoint.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetConsumerState.Args => toString(getConsumerStateMethod, struct.productIterator, TransactionService.GetConsumerState.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.Authenticate.Args   => toString(authenticateMethod, struct.productIterator, TransactionService.Authenticate.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.IsValid.Args   => toString(isValidMethod, struct.productIterator, TransactionService.IsValid.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetCommitLogOffsets.Args  => toString(GetCommitLogOffsets.name, struct.productIterator, TransactionService.GetCommitLogOffsets.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutStream.Args         => toString(PutStream.name, struct.productIterator, TransactionService.PutStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.CheckStreamExists.Args => toString(CheckStreamExists.name, struct.productIterator, TransactionService.CheckStreamExists.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetStream.Args         => toString(GetStream.name, struct.productIterator, TransactionService.GetStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.DelStream.Args         => toString(DelStream.name, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransaction.Args    => toString(PutTransaction.name, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutSimpleTransactionAndData.Args => toString(PutSimpleTransactionAndData.name, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransactions.Args   => toString(PutTransactions.name, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetTransaction.Args    => toString(GetTransaction.name, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetLastCheckpointedTransaction.Args => toString(GetLastCheckpointedTransaction.name, struct.productIterator, TransactionService.GetLastCheckpointedTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.ScanTransactions.Args   => toString(ScanTransactions.name, struct.productIterator, TransactionService.ScanTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransactionData.Args  => toString(PutTransactionData.name, struct.productIterator, TransactionService.PutTransactionData.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetTransactionData.Args  => toString(GetTransactionData.name, struct.productIterator, TransactionService.GetTransactionData.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutConsumerCheckpoint.Args => toString(PutConsumerCheckpoint.name, struct.productIterator, TransactionService.PutConsumerCheckpoint.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetConsumerState.Args => toString(GetConsumerState.name, struct.productIterator, TransactionService.GetConsumerState.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.Authenticate.Args   => toString(Authenticate.name, struct.productIterator, TransactionService.Authenticate.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.IsValid.Args   => toString(IsValid.name, struct.productIterator, TransactionService.IsValid.Args.fieldInfos.map(_.tfield.name))
       case struct => throw new NotImplementedError(s"$struct is not implemeted for debug information")
     }
   }
 
 
   case object GetCommitLogOffsets extends
-    Descriptor(0:Byte, TransactionService.GetCommitLogOffsets.Args, TransactionService.GetCommitLogOffsets.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(getCommitLogOffsetsMethod, 0:Byte, TransactionService.GetCommitLogOffsets.Args, TransactionService.GetCommitLogOffsets.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object PutStream extends
-    Descriptor(1:Byte, TransactionService.PutStream.Args, TransactionService.PutStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(putStreamMethod, 1:Byte, TransactionService.PutStream.Args, TransactionService.PutStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object CheckStreamExists extends
-    Descriptor(2:Byte, TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(checkStreamExists, 2:Byte, TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object GetStream extends
-    Descriptor(3:Byte, TransactionService.GetStream.Args, TransactionService.GetStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(getStreamMethod, 3:Byte, TransactionService.GetStream.Args, TransactionService.GetStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object DelStream extends
-    Descriptor(4:Byte, TransactionService.DelStream.Args, TransactionService.DelStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(delStreamMethod, 4:Byte, TransactionService.DelStream.Args, TransactionService.DelStream.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object PutTransaction extends
-    Descriptor(5:Byte, TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(putTransactionMethod, 5:Byte, TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object PutTransactions extends
-    Descriptor(6:Byte, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, protocolTCompactFactory, protocolTBinaryFactory)
+    Descriptor(putTransactionsMethod, 6:Byte, TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, protocolTCompactFactory, protocolTBinaryFactory)
 
   case object PutSimpleTransactionAndData extends
-    Descriptor(7:Byte, TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, protocolTCompactFactory, protocolTBinaryFactory)
+    Descriptor(putSimpleTransactionAndDataMethod, 7:Byte, TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, protocolTCompactFactory, protocolTBinaryFactory)
 
   case object GetTransaction extends
-    Descriptor(8:Byte, TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, protocolTBinaryFactory, protocolTCompactFactory)
+    Descriptor(getTransactionMethod, 8:Byte, TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, protocolTBinaryFactory, protocolTCompactFactory)
 
   case object GetLastCheckpointedTransaction extends
-    Descriptor(9:Byte, TransactionService.GetLastCheckpointedTransaction.Args, TransactionService.GetLastCheckpointedTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(getLastCheckpointedTransactionMethod, 9:Byte, TransactionService.GetLastCheckpointedTransaction.Args, TransactionService.GetLastCheckpointedTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object ScanTransactions extends
-    Descriptor(10:Byte, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, protocolTBinaryFactory, protocolTCompactFactory)
+    Descriptor(scanTransactionsMethod, 10:Byte, TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, protocolTBinaryFactory, protocolTCompactFactory)
 
   case object PutTransactionData extends
-    Descriptor(11:Byte, TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result, protocolTCompactFactory, protocolTBinaryFactory)
+    Descriptor(putTransactionDataMethod, 11:Byte, TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result, protocolTCompactFactory, protocolTBinaryFactory)
 
   case object GetTransactionData extends
-    Descriptor(12:Byte, TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, protocolTBinaryFactory, protocolTCompactFactory)
+    Descriptor(getTransactionDataMethod, 12:Byte, TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, protocolTBinaryFactory, protocolTCompactFactory)
 
   case object PutConsumerCheckpoint extends
-    Descriptor(13:Byte, TransactionService.PutConsumerCheckpoint.Args, TransactionService.PutConsumerCheckpoint.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(putConsumerCheckpointMethod, 13:Byte, TransactionService.PutConsumerCheckpoint.Args, TransactionService.PutConsumerCheckpoint.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object GetConsumerState extends
-    Descriptor(14:Byte, TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(getConsumerStateMethod, 14:Byte, TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object Authenticate extends
-    Descriptor(15:Byte, TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(authenticateMethod, 15:Byte, TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
   case object IsValid extends
-    Descriptor(16:Byte, TransactionService.IsValid.Args, TransactionService.IsValid.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+    Descriptor(isValidMethod, 16:Byte, TransactionService.IsValid.Args, TransactionService.IsValid.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 }

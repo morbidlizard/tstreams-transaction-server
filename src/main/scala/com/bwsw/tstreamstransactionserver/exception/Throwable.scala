@@ -13,7 +13,7 @@ object Throwable {
   class ServerUnreachableException(socket: String) extends SocketTimeoutException(s"Server $socket is unreachable.")
 
 //  val requestTimeoutExceptionMessage: String = "Request exceeds timeout."
-  class RequestTimeoutException(reqId: Int, ttl: Long) extends Exception(s"Request $reqId exceeds $ttl ms.")
+  class RequestTimeoutException(reqId: Long, ttl: Long) extends Exception(s"Request $reqId exceeds $ttl ms.")
 
   val zkGetMasterExceptionMessage: String = "Can't get master from ZooKeeper."
   class ZkGetMasterException(endpoints: String) extends Exception(s"Can't get master from ZooKeeper servers: $endpoints.")

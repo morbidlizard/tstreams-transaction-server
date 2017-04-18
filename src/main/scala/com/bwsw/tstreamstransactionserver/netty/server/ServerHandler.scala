@@ -16,7 +16,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
 
 
-  implicit private val context: ExecutionContext = transactionServer.executionContext.context
+  private val context: ExecutionContext = transactionServer.executionContext.context
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     val remoteAddress = if (logger.isDebugEnabled) ctx.channel().remoteAddress().toString else ""
     invokeMethod(msg, remoteAddress)(context).map{message =>
@@ -46,14 +46,12 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
   }
 
   private val commitLogContext = transactionServer.executionContext.commitLogContext.getContext
-  protected def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = {
+  protected def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): ScalaFuture[Message] = ScalaFuture{
     val isTooBigPackage = isTooBigMetadataMessage(message)
     val (method, messageSeqId) = Descriptor.decodeMethodName(message)
 
     def logSuccessfulProcession(): Unit = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is successfully processed!")
-
     def logUnsuccessfulProcessing(error: Throwable): Unit = if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is failed while processing!", error)
-
     if (logger.isDebugEnabled) logger.debug(s"$inetAddress request id $messageSeqId: $method is invoked.")
 
     implicit val (messageId, token) = (messageSeqId, message.token)
@@ -63,7 +61,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
       case `getCommitLogOffsetsMethod` =>
         if (transactionServer.isValid(message.token)) {
           ScalaFuture((scheduledCommitLog.currentCommitLogFile, transactionServer.getLastProcessedCommitLogFileID))
-            .map {case (currentCommitLogFileID, lastProcessedCommitLogFileID) =>
+            .map { case (currentCommitLogFileID, lastProcessedCommitLogFileID) =>
               logSuccessfulProcession()
               Descriptors.GetCommitLogOffsets.encodeResponse(
                 TransactionService.GetCommitLogOffsets.Result(
@@ -86,7 +84,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
             ScalaFuture(Descriptors.PutStream.decodeRequest(message))
               .flatMap(args =>
                 transactionServer.putStream(args.stream, args.partitions, args.description, args.ttl)
-                  .map {response =>
+                  .map { response =>
                     logSuccessfulProcession()
                     Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(response)))(messageId, message.token)
                   }(context)
@@ -94,7 +92,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
                     logUnsuccessfulProcessing(error)
                     Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
                   })(context)
-          } else ScalaFuture{
+          } else ScalaFuture {
             logUnsuccessfulProcessing(packageTooBigException)
             Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
           }(context)
@@ -118,7 +116,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
                     logUnsuccessfulProcessing(error)
                     Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
                   })(context)
-          } else ScalaFuture{
+          } else ScalaFuture {
             logUnsuccessfulProcessing(packageTooBigException)
             Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
           }(context)
@@ -200,7 +198,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             ScalaFuture(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message))(commitLogContext)
-              .map{ isOkay =>
+              .map { isOkay =>
                 logSuccessfulProcession()
                 Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isOkay)))(messageId, token)
               }(context)
@@ -208,7 +206,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
                 logUnsuccessfulProcessing(error)
                 Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
               }(context)
-          } else ScalaFuture{
+          } else ScalaFuture {
             logUnsuccessfulProcessing(packageTooBigException)
             Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
           }(context)
@@ -369,7 +367,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         if (transactionServer.isValid(message.token)) {
           if (!isTooBigPackage) {
             ScalaFuture(scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message))(commitLogContext)
-              .map{response =>
+              .map { response =>
                 logSuccessfulProcession()
                 Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(Some(response)))(messageId, token)
               }(context)
@@ -377,7 +375,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
                 logUnsuccessfulProcessing(error)
                 Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
               }(context)
-          } else ScalaFuture{
+          } else ScalaFuture {
             logUnsuccessfulProcessing(packageTooBigException)
             Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
           }(context)
@@ -392,15 +390,15 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
             ScalaFuture {
               Descriptors.GetConsumerState.decodeRequest(message)
             } flatMap (args =>
-            transactionServer.getConsumerState(args.name, args.stream, args.partition)
-              .flatMap {
-                logSuccessfulProcession()
-                response => ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(response)))(messageId, token))
-              }
-              .recover { case error =>
-                logUnsuccessfulProcessing(error)
-                Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              })
+              transactionServer.getConsumerState(args.name, args.stream, args.partition)
+                .flatMap {
+                  logSuccessfulProcession()
+                  response => ScalaFuture.successful(Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(response)))(messageId, token))
+                }
+                .recover { case error =>
+                  logUnsuccessfulProcessing(error)
+                  Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
+                })
           } else ScalaFuture {
             logUnsuccessfulProcessing(packageTooBigException)
             Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
@@ -411,21 +409,18 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
 
       case `authenticateMethod` =>
-        ScalaFuture {
-          val args = Descriptors.Authenticate.decodeRequest(message)
-          val response = transactionServer.authenticate(args.authKey)
-          val authInfo = AuthInfo(response, packageTransmissionOpts.maxMetadataPackageSize, packageTransmissionOpts.maxDataPackageSize)
-          logSuccessfulProcession()
-          Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(authInfo)))(messageId, token)
-        }(context)
+        val args = Descriptors.Authenticate.decodeRequest(message)
+        val response = transactionServer.authenticate(args.authKey)
+        val authInfo = AuthInfo(response, packageTransmissionOpts.maxMetadataPackageSize, packageTransmissionOpts.maxDataPackageSize)
+        logSuccessfulProcession()
+        Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(authInfo)))(messageId, token)
+
 
       case `isValidMethod` =>
-        ScalaFuture {
-          val args = Descriptors.IsValid.decodeRequest(message)
-          val response = transactionServer.isValid(args.token)
-          logSuccessfulProcession()
-          Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(response)))(messageId, token)
-        }(context)
+        val args = Descriptors.IsValid.decodeRequest(message)
+        val response = transactionServer.isValid(args.token)
+        logSuccessfulProcession()
+        Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(response)))(messageId, token)
     }
   }
 }

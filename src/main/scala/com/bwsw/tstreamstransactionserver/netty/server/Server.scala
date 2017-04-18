@@ -59,8 +59,12 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   }
 
 
-  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, berkeleyStorageOptions.berkeleyReadThreadPool,
-    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
+  private val executionContext = new ServerExecutionContext(
+    serverOpts.threadPool,
+    berkeleyStorageOptions.berkeleyReadThreadPool,
+    rocksStorageOpts.writeThreadPool,
+    rocksStorageOpts.readThreadPool
+  )
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =

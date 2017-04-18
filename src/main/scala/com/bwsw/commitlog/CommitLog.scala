@@ -3,7 +3,7 @@ package com.bwsw.commitlog
 import java.io._
 import java.security.{DigestOutputStream, MessageDigest}
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 import javax.xml.bind.DatatypeConverter
 
 import com.bwsw.commitlog.CommitLogFlushPolicy.{ICommitLogFlushPolicy, OnCountInterval, OnRotation, OnTimeInterval}
@@ -24,8 +24,8 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   require(seconds > 0, "Seconds cannot be less than 1")
   private val millisInterval: Long = TimeUnit.SECONDS.toMillis(seconds)
 
-  private var chunkWriteCount: Int = 0
-  private var chunkOpenTime: Long = 0
+  private val chunkWriteCount: AtomicInteger = new AtomicInteger(0)
+  private val chunkOpenTime:   AtomicLong    = new AtomicLong(0L)
 
   private val pathWithSeparator = s"$path${java.io.File.separatorChar}"
   private class CommitLogFile(val id: Long) {
@@ -72,7 +72,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     }
   }
 
-  private var currentCommitLogFileToPut: CommitLogFile = new CommitLogFile(nextFileID)
+  private var currentCommitLogFileToPut = new AtomicReference[CommitLogFile](new CommitLogFile(nextFileID))
   /** Puts record and its type to an appropriate file.
     *
     * Writes data to file in format (delimiter)(BASE64-encoded type and message). When writing to one file finished,
@@ -83,47 +83,48 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     * @param startNew start new file if true
     * @return name of file record was saved in
     */
-  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = this.synchronized{
+  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = {
     val now: Long = System.currentTimeMillis()
     policy match {
-      case interval: OnTimeInterval if interval.seconds * 1000 + chunkOpenTime < now =>
-        chunkOpenTime = now
-        currentCommitLogFileToPut.flush()
-      case interval: OnCountInterval if interval.count == chunkWriteCount =>
-        chunkWriteCount = 0
-        currentCommitLogFileToPut.flush()
+      case interval: OnTimeInterval if interval.seconds * 1000 + chunkOpenTime.get() < now =>
+        chunkOpenTime.set(now)
+        currentCommitLogFileToPut.get().flush()
+      case interval: OnCountInterval if interval.count == chunkWriteCount.get() =>
+        chunkWriteCount.set(0)
+        currentCommitLogFileToPut.get().flush()
       case _ =>
     }
 
     // If we want to open new File or if time between creation new files exceeds `millisInterval`
     if (startNew || timeExceeded()) close()
 
-    currentCommitLogFileToPut.put(messageType, message)
-    chunkWriteCount += 1
+    val currentFile = currentCommitLogFileToPut.get()
+    currentFile.put(messageType, message)
+    chunkWriteCount.incrementAndGet()
 
-    currentCommitLogFileToPut.absolutePath
+    currentFile.absolutePath
   }
 
   /** Finishes work with current file. */
-  def close(createNewFile: Boolean = true, withMD5: Boolean = true): String = this.synchronized {
-    val currentCommitLogFile = currentCommitLogFileToPut
+  def close(createNewFile: Boolean = true, withMD5: Boolean = true): String = {
+    val currentCommitLogFile = currentCommitLogFileToPut.get()
     val path = currentCommitLogFile.absolutePath
     if (createNewFile) {
-      currentCommitLogFileToPut = new CommitLogFile(nextFileID)
+      currentCommitLogFileToPut.set(new CommitLogFile(nextFileID))
     }
     currentCommitLogFile.close()
     resetCounters()
     path
   }
 
-  final def currentFileID: Long = currentCommitLogFileToPut.id
+  final def currentFileID: Long = currentCommitLogFileToPut.get().id
 
   private def resetCounters(): Unit = {
-    chunkWriteCount = 0
-    chunkOpenTime = System.currentTimeMillis()
+    chunkWriteCount.set(0)
+    chunkOpenTime.set(System.currentTimeMillis())
   }
 
   private def timeExceeded(): Boolean = {
-    (System.currentTimeMillis() - currentCommitLogFileToPut.creationTime) >= millisInterval
+    (System.currentTimeMillis() - currentCommitLogFileToPut.get().creationTime) >= millisInterval
   }
 }

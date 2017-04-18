@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
@@ -11,8 +11,6 @@ import com.bwsw.tstreamstransactionserver.netty._
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, _}
-import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.twitter.scrooge.ThriftStruct
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel._
@@ -24,6 +22,7 @@ import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.concurrent.{Future => ScalaFuture, Promise => ScalaPromise}
+import scala.concurrent.duration._
 
 
 /** A client who connects to a server.
@@ -64,25 +63,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     onZKConnectionStateChanged(newState)
   }
 
-
-  private final val expiredRequestInvalidator = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("ExpiredRequestInvalidator-%d").build())
-  private final val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]] = CacheBuilder.newBuilder()
-    .initialCapacity(15000)
-    .concurrencyLevel(clientOpts.threadPool)
-    .expireAfterWrite(clientOpts.requestTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-    .removalListener(new RemovalListener[java.lang.Integer, ScalaPromise[ThriftStruct]] {
-      override def onRemoval(notification: RemovalNotification[java.lang.Integer, ScalaPromise[ThriftStruct]]): Unit = {
-        val throwable = new RequestTimeoutException(notification.getKey, clientOpts.requestTimeoutMs)
-        if (notification.getValue.tryFailure(throwable)) {
-          if (logger.isWarnEnabled) logger.warn(throwable.getMessage)
-        }
-      }
-    }
-    ).build[java.lang.Integer, ScalaPromise[ThriftStruct]]()
-
-  expiredRequestInvalidator.scheduleAtFixedRate(() =>
-    reqIdToRep.cleanUp(), 0, scala.math.min(clientOpts.retryDelayMs, clientOpts.requestTimeoutMs), TimeUnit.MILLISECONDS
-  )
+  private final val reqIdToRep= new ConcurrentHashMap[Integer, ScalaPromise[ThriftStruct]](15000, 1.0f, clientOpts.threadPool)
 
   private val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
   private val bootstrap = new Bootstrap()
@@ -164,15 +145,17 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
       channel.write(message.toByteArray)
       reqIdToRep.put(messageId, promise)
-      channel.flush()
 
-      promise.future.map { response =>
-        reqIdToRep.invalidate(messageId)
+      val responseFuture = TimeoutScheduler.withTimeout(promise.future.map { response =>
+        ScalaFuture(reqIdToRep.remove(messageId))(context)
         response.asInstanceOf[Rep]
-      }.recoverWith { case error =>
-        reqIdToRep.invalidate(messageId)
+      })(methodContext, after = clientOpts.requestTimeoutMs.millis).recoverWith { case error =>
+        ScalaFuture(reqIdToRep.remove(messageId))(context)
         ScalaFuture.failed(error)
-      }
+      }(methodContext)
+
+      channel.flush()
+      responseFuture
     } else ScalaFuture.failed(new ServerUnreachableException(currentConnectionSocketAddress.toString))
   }
 
@@ -225,8 +208,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private final def tryCompleteRequest[Req, Rep](f: => ScalaFuture[Rep]) = {
-    f recoverWith {
+  private final def tryCompleteRequest[Req, Rep](f: => ScalaFuture[Rep])(implicit retryContext: concurrent.ExecutionContext) = {
+    f.recoverWith {
       case concreteThrowable: TokenInvalidException =>
         logger.warn(s"Token $token isn't valid. Retrying to get one from $currentConnectionSocketAddress.")
 
@@ -246,7 +229,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         }
       case otherThrowable =>
         ScalaFuture.failed(otherThrowable)
-    }
+    }(retryContext)
   }
 
   private final def onServerConnectionLostDefaultBehaviour(connectionSocket: String): Unit = {

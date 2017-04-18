@@ -1,8 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
+import java.util.concurrent.ConcurrentHashMap
+
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{MethodDoesnotFoundException, ServerUnreachableException}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
-import com.google.common.cache.Cache
 import com.twitter.scrooge.ThriftStruct
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -10,14 +11,14 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 @Sharable
-class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]], val client: Client,
+class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Integer, ScalaPromise[ThriftStruct]], val client: Client,
                     implicit val context: ExecutionContext)
   extends SimpleChannelInboundHandler[Message] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     import Descriptors._
 
     def retryCompletePromise(messageSeqId: Int, response: ThriftStruct): Unit = {
-      val request = reqIdToRep.getIfPresent(messageSeqId)
+      val request = reqIdToRep.get(messageSeqId)
       if (request != null) request.trySuccess(response)
     }
 
@@ -89,9 +90,13 @@ class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftSt
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+   import scala.collection.JavaConverters._
 
-    reqIdToRep.asMap().values()
-      .forEach(request => if (!request.isCompleted) request.tryFailure(new ServerUnreachableException(ctx.name())))
+    reqIdToRep.asScala.foreach{
+      case (key, request) if !request.isCompleted =>
+        request.tryFailure(new ServerUnreachableException(ctx.name()))
+        ScalaFuture(reqIdToRep.remove(key))
+    }
 
     if (!client.isShutdown) {
       ctx.channel().eventLoop().execute(() => client.reconnect())

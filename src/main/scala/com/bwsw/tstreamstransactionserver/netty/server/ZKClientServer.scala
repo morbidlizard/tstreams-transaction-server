@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
 import com.google.common.net.InetAddresses
+import io.netty.resolver.dns.DnsNameResolver
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
@@ -111,9 +112,15 @@ class ZKClientServer(serverAddress: String,
   override def close(): Unit = scala.util.Try(client.close())
 }
 
-object ZKClientServer {
+object ZKClientServer extends App {
   def isValidSocketAddress(inetAddress: String, port: Int): Boolean = {
-    if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536) true
+    val validHostname = scala.util.Try(java.net.InetAddress.getByName(inetAddress))
+    if (
+      port.toInt > 0 &&
+      port.toInt < 65536 &&
+      inetAddress != null &&
+      (InetAddresses.isInetAddress(inetAddress) || validHostname.isSuccess)
+    ) true
     else false
   }
 }

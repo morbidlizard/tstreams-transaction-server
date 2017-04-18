@@ -262,6 +262,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
 
+    Thread.sleep(3000)
     val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
     val resData = Await.result(client.getTransactionData(stream.name, partition, lastTransaction, 0, 10), secondsWait.seconds)
 

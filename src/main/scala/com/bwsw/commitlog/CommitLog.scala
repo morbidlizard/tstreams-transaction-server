@@ -72,7 +72,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     }
   }
 
-  private var currentCommitLogFileToPut = new AtomicReference[CommitLogFile](new CommitLogFile(nextFileID))
+  private val currentCommitLogFileToPut = new AtomicReference[CommitLogFile](new CommitLogFile(nextFileID))
   /** Puts record and its type to an appropriate file.
     *
     * Writes data to file in format (delimiter)(BASE64-encoded type and message). When writing to one file finished,

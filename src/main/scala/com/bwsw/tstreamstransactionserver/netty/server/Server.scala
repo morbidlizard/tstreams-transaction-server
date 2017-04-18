@@ -33,9 +33,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   @volatile private var isShutdown = false
 
   private val transactionServerSocketAddress = createTransactionServerAddress()
-  if (!ZKClientServer.isValidSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2))
-    throw new InvalidSocketAddress(s"Invalid socket address ${transactionServerSocketAddress._1}:${transactionServerSocketAddress._2}")
-
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
       case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)

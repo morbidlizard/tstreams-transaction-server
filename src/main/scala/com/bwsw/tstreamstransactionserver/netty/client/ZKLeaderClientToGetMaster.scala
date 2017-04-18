@@ -52,7 +52,7 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
         if (splitIndex != -1) {
           val (address, port) = addressPort.splitAt(splitIndex)
           val portToInt = scala.util.Try(port.tail.toInt)
-          if (InetAddresses.isInetAddress(address) && portToInt.isSuccess && portToInt.get > 0 && portToInt.get < 65536)
+          if (portToInt.isSuccess && InetSocketAddressClass.isValidSocketAddress(address, portToInt.get))
             master = Some(InetSocketAddressClass(address, portToInt.get))
           else {
             master = None

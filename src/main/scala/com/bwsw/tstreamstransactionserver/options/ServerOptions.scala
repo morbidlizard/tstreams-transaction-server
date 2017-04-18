@@ -18,9 +18,9 @@ object ServerOptions {
     *
     * @param key                the key to authorize.
     * @param activeTokensNumber the number of active tokens a server can handle over time.
-    * @param tokenTTL           the time a token live before expiration.
+    * @param tokenTtl           the time a token live before expiration.
     */
-  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTTL: Int = 300)
+  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTtl: Int = 300)
 
   /** The options are used to define folders for databases.
     *
@@ -132,13 +132,13 @@ object ServerOptions {
     *                                      If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read.
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
     * @param commitLogCloseDelayMs the time through a commit log file is closed.
-    * @param commitLogFileTTLSec the time a commit log files live before they are deleted.
+    * @param commitLogFileTtlSec the time a commit log files live before they are deleted.
     */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
                               commitLogCloseDelayMs: Int = 200,
-                              commitLogFileTTLSec: Int = 86400
+                              commitLogFileTtlSec: Int = 86400
                              )
 }
 

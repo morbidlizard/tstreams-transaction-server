@@ -74,7 +74,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   final def removeConsumerNotification(id: Long): Boolean = transactionServer.removeConsumerTransactionNotification(id)
 
 
-  private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTTLSec)
+  private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTtlSec)
   private val (commitLogQueue, commitLogLastId) = {
     val queue = new CommitLogQueueBootstrap(30, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
     val lastFileIDBerkeley = transactionServer.getLastProcessedCommitLogFileID.getOrElse(-1L)

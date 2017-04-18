@@ -9,23 +9,23 @@ package com.bwsw.tstreamstransactionserver.netty
   *  @param body a binary representation of information.
   *
   */
-case class Message(length: Int, protocol: Byte, body: Array[Byte], token: Int, method: Byte)
+case class Message(id: Long, length: Int, protocol: Byte, body: Array[Byte], token: Int, method: Byte)
 {
   /** Serializes a message. */
   def toByteArray: Array[Byte] = java.nio.ByteBuffer
     .allocate(Message.headerSize + body.length)
     .putInt(length)
+    .putLong(id)
     .put(protocol)
     .putInt(token)
     .put(method)
     .put(body)
     .array()
-
-  override def toString: String = s"message length: $length"
 }
 object Message {
   val headerSize: Byte = (
     java.lang.Integer.BYTES +    //length
+      java.lang.Long.BYTES +     //id
       java.lang.Byte.BYTES +     //protocol
       java.lang.Integer.BYTES +  //token
       java.lang.Byte.BYTES       //method
@@ -34,6 +34,7 @@ object Message {
   def fromByteArray(bytes: Array[Byte]): Message = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
     val length = buffer.getInt
+    val id     = buffer.getLong
     val protocol = buffer.get
     val token = buffer.getInt
     val method = buffer.get()
@@ -42,7 +43,7 @@ object Message {
       buffer.get(bytes)
       bytes
     }
-    Message(length, protocol, message, token, method)
+    Message(id, length, protocol, message, token, method)
   }
 }
 

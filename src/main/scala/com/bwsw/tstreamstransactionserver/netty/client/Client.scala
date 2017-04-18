@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
@@ -63,7 +63,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     onZKConnectionStateChanged(newState)
   }
 
-  private final val reqIdToRep= new ConcurrentHashMap[Integer, ScalaPromise[ThriftStruct]](15000, 1.0f, clientOpts.threadPool)
+  private final val reqIdToRep= new ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]](15000, 1.0f, clientOpts.threadPool)
 
   private val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
   private val bootstrap = new Bootstrap()
@@ -123,7 +123,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private final val nextSeqId = new AtomicInteger(1)
+  private final val nextSeqId = new AtomicLong(1L)
 
   /** A general method for sending requests to a server and getting a response back.
     *
@@ -141,7 +141,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val message = descriptor.encodeRequest(request)(messageId, token)
       validateMessageSize(message)
 
-      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
+//      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
 
       channel.write(message.toByteArray)
       reqIdToRep.put(messageId, promise)

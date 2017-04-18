@@ -22,13 +22,16 @@ class MessageDecoder extends ByteToMessageDecoder {
     else {
       in.markReaderIndex()
       val length = in.readInt()
+      val id     = in.readLong()
       val protocol = in.readByte()
       val token = in.readInt()
+      val method = in.readByte()
       if (length <= (readableBytes - Message.headerSize)) {
         val message = new Array[Byte](length)
         val buffer = in.readSlice(length)
         buffer.readBytes(message)
-        out.add(Message(length, protocol, message, token))
+        val messageObj = Message(id, length, protocol, message, token, method)
+        out.add(messageObj)
       } else in.resetReaderIndex()
     }
   }

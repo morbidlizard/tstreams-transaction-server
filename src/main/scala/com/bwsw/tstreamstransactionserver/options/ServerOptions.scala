@@ -8,11 +8,12 @@ object ServerOptions {
 
   /** The options are applied on bootstrap of a server.
     *
-    * @param host       ipv4 or ipv6 listen address in string representation.
+    * @param localHost local ipv4 or ipv6 listen address in string representation.
+    * @param globalHost global ipv4 or ipv6 listen address in string representation.
     * @param port       a port.
     * @param threadPool the number of threads of thread pool to serialize/deserialize requests/responses.
     */
-  case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 4)
+  case class BootstrapOptions(localHost: String = "127.0.0.1", globalHost: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 4)
 
   /** The options are used to validate client requests by a server.
     *

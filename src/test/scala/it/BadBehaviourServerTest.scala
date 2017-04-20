@@ -12,6 +12,7 @@ import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, Co
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{TransportOptions, _}
+import io.netty.channel.ChannelHandlerContext
 import org.apache.commons.io.FileUtils
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
@@ -42,10 +43,10 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
                             scheduledCommitLogImpl: ScheduledCommitLog,
                             packageTransmissionOptions: TransportOptions,
                             logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, packageTransmissionOptions, logger) {
-    override def invokeMethod(message: Message, inetAddress: String)(implicit context: ExecutionContext): Future[Message] = {
+    override protected def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
       serverGotRequest.getAndIncrement()
       Thread.sleep(requestTimeoutMs + 10)
-      super.invokeMethod(message, inetAddress)
+      super.invokeMethod(message, ctx)
     }
   }
 

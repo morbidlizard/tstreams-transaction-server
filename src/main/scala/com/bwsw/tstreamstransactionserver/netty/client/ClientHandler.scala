@@ -14,14 +14,13 @@ import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => Sca
 class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]], val client: Client,
                     implicit val context: ExecutionContext)
   extends SimpleChannelInboundHandler[Message] {
+
+  private def retryCompletePromise(messageSeqId: Long, response: ThriftStruct): Unit = {
+    val request = reqIdToRep.get(messageSeqId)
+    if (request != null) request.trySuccess(response)
+  }
+
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
-    import Descriptors._
-
-    def retryCompletePromise(messageSeqId: Long, response: ThriftStruct): Unit = {
-      val request = reqIdToRep.get(messageSeqId)
-      if (request != null) request.trySuccess(response)
-    }
-
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
       val response = message.method match {
         case Descriptors.GetCommitLogOffsets.methodID =>
@@ -83,13 +82,11 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
       retryCompletePromise(message.id, response)
     }
 
-
-
     invokeMethod(msg)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-   import scala.collection.JavaConverters._
+    import scala.collection.JavaConverters._
 
     reqIdToRep.asScala.foreach{
       case (key, request) if !request.isCompleted =>

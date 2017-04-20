@@ -26,7 +26,8 @@ object Descriptors {
                                                                                       codecReq: ThriftStructCodec3[Request],
                                                                                       codecRep: ThriftStructCodec3[Response],
                                                                                       protocolReq : TProtocolFactory,
-                                                                                      protocolRep : TProtocolFactory) {
+                                                                                      protocolRep : TProtocolFactory)
+  extends Product with Serializable {
 
     /** A method for building request/response methods to serialize.
       *
@@ -145,7 +146,6 @@ object Descriptors {
     }
   }
 
-
   case object GetCommitLogOffsets extends
     Descriptor(getCommitLogOffsetsMethod, 0:Byte, TransactionService.GetCommitLogOffsets.Args, TransactionService.GetCommitLogOffsets.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
@@ -196,4 +196,24 @@ object Descriptors {
 
   case object IsValid extends
     Descriptor(isValidMethod, 16:Byte, TransactionService.IsValid.Args, TransactionService.IsValid.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  lazy val methods = Array(
+    GetCommitLogOffsets,
+    PutStream,
+    CheckStreamExists,
+    GetStream,
+    DelStream,
+    PutTransaction,
+    PutTransactions,
+    PutSimpleTransactionAndData,
+    GetTransaction,
+    GetLastCheckpointedTransaction,
+    ScanTransactions,
+    PutTransactionData,
+    GetTransactionData,
+    PutConsumerCheckpoint,
+    GetConsumerState,
+    Authenticate,
+    IsValid
+  )
 }

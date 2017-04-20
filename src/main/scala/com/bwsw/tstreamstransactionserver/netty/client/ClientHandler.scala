@@ -22,64 +22,71 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
-      val response = message.method match {
-        case Descriptors.GetCommitLogOffsets.methodID =>
-          Descriptors.GetCommitLogOffsets.decodeResponse(message)
-
-        case Descriptors.PutStream.methodID =>
-          Descriptors.PutStream.decodeResponse(message)
-
-        case Descriptors.CheckStreamExists.methodID =>
-          Descriptors.CheckStreamExists.decodeResponse(message)
-
-        case Descriptors.GetStream.methodID =>
-          Descriptors.GetStream.decodeResponse(message)
-
-        case Descriptors.DelStream.methodID =>
-          Descriptors.DelStream.decodeResponse(message)
-
-        case Descriptors.PutTransaction.methodID =>
-          Descriptors.PutTransaction.decodeResponse(message)
-
-        case Descriptors.PutTransactions.methodID =>
-          Descriptors.PutTransactions.decodeResponse(message)
-
-        case Descriptors.PutSimpleTransactionAndData.methodID =>
-          Descriptors.PutSimpleTransactionAndData.decodeResponse(message)
-
-        case Descriptors.GetTransaction.methodID =>
-          Descriptors.GetTransaction.decodeResponse(message)
-
-        case Descriptors.GetLastCheckpointedTransaction.methodID =>
-          Descriptors.GetLastCheckpointedTransaction.decodeResponse(message)
-
-        case Descriptors.ScanTransactions.methodID =>
-          Descriptors.ScanTransactions.decodeResponse(message)
-
-        case Descriptors.PutTransactionData.methodID =>
-          Descriptors.PutTransactionData.decodeResponse(message)
-
-        case Descriptors.GetTransactionData.methodID =>
-          Descriptors.GetTransactionData.decodeResponse(message)
-
-        case Descriptors.PutConsumerCheckpoint.methodID =>
-          Descriptors.PutConsumerCheckpoint.decodeResponse(message)
-
-        case Descriptors.GetConsumerState.methodID =>
-          Descriptors.GetConsumerState.decodeResponse(message)
-
-        case Descriptors.Authenticate.methodID =>
-          Descriptors.Authenticate.decodeResponse(message)
-
-        case Descriptors.IsValid.methodID =>
-          Descriptors.IsValid.decodeResponse(message)
-
-        case methodByte =>
-          val throwable = new MethodDoesnotFoundException(methodByte.toString)
-          ctx.fireExceptionCaught(throwable)
-          throw throwable
+//      val response = message.method match {
+//        case Descriptors.GetCommitLogOffsets.methodID =>
+//          Descriptors.GetCommitLogOffsets.decodeResponse(message)
+//
+//        case Descriptors.PutStream.methodID =>
+//          Descriptors.PutStream.decodeResponse(message)
+//
+//        case Descriptors.CheckStreamExists.methodID =>
+//          Descriptors.CheckStreamExists.decodeResponse(message)
+//
+//        case Descriptors.GetStream.methodID =>
+//          Descriptors.GetStream.decodeResponse(message)
+//
+//        case Descriptors.DelStream.methodID =>
+//          Descriptors.DelStream.decodeResponse(message)
+//
+//        case Descriptors.PutTransaction.methodID =>
+//          Descriptors.PutTransaction.decodeResponse(message)
+//
+//        case Descriptors.PutTransactions.methodID =>
+//          Descriptors.PutTransactions.decodeResponse(message)
+//
+//        case Descriptors.PutSimpleTransactionAndData.methodID =>
+//          Descriptors.PutSimpleTransactionAndData.decodeResponse(message)
+//
+//        case Descriptors.GetTransaction.methodID =>
+//          Descriptors.GetTransaction.decodeResponse(message)
+//
+//        case Descriptors.GetLastCheckpointedTransaction.methodID =>
+//          Descriptors.GetLastCheckpointedTransaction.decodeResponse(message)
+//
+//        case Descriptors.ScanTransactions.methodID =>
+//          Descriptors.ScanTransactions.decodeResponse(message)
+//
+//        case Descriptors.PutTransactionData.methodID =>
+//          Descriptors.PutTransactionData.decodeResponse(message)
+//
+//        case Descriptors.GetTransactionData.methodID =>
+//          Descriptors.GetTransactionData.decodeResponse(message)
+//
+//        case Descriptors.PutConsumerCheckpoint.methodID =>
+//          Descriptors.PutConsumerCheckpoint.decodeResponse(message)
+//
+//        case Descriptors.GetConsumerState.methodID =>
+//          Descriptors.GetConsumerState.decodeResponse(message)
+//
+//        case Descriptors.Authenticate.methodID =>
+//          Descriptors.Authenticate.decodeResponse(message)
+//
+//        case Descriptors.IsValid.methodID =>
+//          Descriptors.IsValid.decodeResponse(message)
+//
+//        case methodByte =>
+//          val throwable = new MethodDoesnotFoundException(methodByte.toString)
+//          ctx.fireExceptionCaught(throwable)
+//          throw throwable
+//      }
+//      retryCompletePromise(message.id, response)
+      if (message.method < Descriptors.methods.length && message.method > -1) {
+        retryCompletePromise(message.id, Descriptors.methods(message.method).decodeResponse(message))
+      } else {
+        val throwable = new MethodDoesnotFoundException(message.method.toString)
+        ctx.fireExceptionCaught(throwable)
+        throw throwable
       }
-      retryCompletePromise(message.id, response)
     }
 
     invokeMethod(msg)

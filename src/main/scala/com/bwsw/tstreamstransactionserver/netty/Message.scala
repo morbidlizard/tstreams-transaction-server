@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty
 
 import io.netty.buffer.ByteBuf
+import io.netty.buffer.Unpooled._
 
 
 /** Message is a placeholder for some binary information.

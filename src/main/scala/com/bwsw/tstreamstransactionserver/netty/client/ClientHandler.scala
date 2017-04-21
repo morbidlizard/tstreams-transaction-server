@@ -90,7 +90,8 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
       }
     }
 
-    invokeMethod(Message.fromByteBuf(buf))
+    val message = Message.fromByteBuf(buf)
+    invokeMethod(message)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {

@@ -17,8 +17,9 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
 
   private val context: ExecutionContext = transactionServer.executionContext.context
-  override def channelRead0(ctx: ChannelHandlerContext, msg: ByteBuf): Unit = {
-    invokeMethod(Message.fromByteBuf(msg), ctx)
+  override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
+    val message = Message.fromByteBuf(buf)
+    invokeMethod(message, ctx)
   }
 
   private def isTooBigMetadataMessage(message: Message) = {
@@ -33,7 +34,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     isChannelActive = false
 //    if (logger.isInfoEnabled) logger.info(s"${ctx.channel().remoteAddress().toString} is inactive")
-//    channelInactive(ctx)
+    ctx.fireChannelInactive()
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
@@ -44,10 +45,8 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
 
   @inline
   private def sendResponseToClient(message: Message, ctx: ChannelHandlerContext): Unit = {
-    if (isChannelActive) {
-      val binaryResponse = message.toByteArray
-      ctx.writeAndFlush(binaryResponse)
-    }
+    val binaryResponse = message.toByteArray
+    if (isChannelActive) ctx.writeAndFlush(binaryResponse)
   }
 
   private val commitLogContext = transactionServer.executionContext.commitLogContext.getContext

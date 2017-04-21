@@ -5,19 +5,21 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitL
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, ObjectSerializer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc._
+import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.Logger
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 import scala.util.Try
 
-class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLog, packageTransmissionOpts: TransportOptions, logger: Logger) extends SimpleChannelInboundHandler[Message] {
+class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLog, packageTransmissionOpts: TransportOptions, logger: Logger) extends SimpleChannelInboundHandler[ByteBuf] {
   private val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
 
-
   private val context: ExecutionContext = transactionServer.executionContext.context
-  override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = invokeMethod(msg, ctx)
+  override def channelRead0(ctx: ChannelHandlerContext, msg: ByteBuf): Unit = {
+    invokeMethod(Message.fromByteBuf(msg), ctx)
+  }
 
   private def isTooBigMetadataMessage(message: Message) = {
     message.length > packageTransmissionOpts.maxMetadataPackageSize
@@ -252,7 +254,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         else {
           val txn = Descriptors.PutSimpleTransactionAndData.decodeRequest(message)
           transactionServer.putTransactionDataSync(txn.stream, txn.partition, txn.transaction, txn.data, txn.from)
-          val transactions = Seq(
+          val transactions = collection.immutable.Seq(
             Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Opened, txn.data.size, 3L)), None),
             Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Checkpointed, txn.data.size, 120L)), None)
           )

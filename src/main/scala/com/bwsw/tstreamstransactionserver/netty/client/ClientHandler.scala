@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{MethodDoesnotFoundException, ServerUnreachableException}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import com.twitter.scrooge.ThriftStruct
+import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 
@@ -13,14 +14,14 @@ import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => Sca
 @Sharable
 class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]], val client: Client,
                     implicit val context: ExecutionContext)
-  extends SimpleChannelInboundHandler[Message] {
+  extends SimpleChannelInboundHandler[ByteBuf] {
 
   private def retryCompletePromise(messageSeqId: Long, response: ThriftStruct): Unit = {
     val request = reqIdToRep.get(messageSeqId)
     if (request != null) request.trySuccess(response)
   }
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
+  override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
 //      val response = message.method match {
 //        case Descriptors.GetCommitLogOffsets.methodID =>
@@ -89,7 +90,7 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
       }
     }
 
-    invokeMethod(msg)
+    invokeMethod(Message.fromByteBuf(buf))
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {

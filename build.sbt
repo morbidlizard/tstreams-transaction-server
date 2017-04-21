@@ -73,6 +73,7 @@ libraryDependencies ++= Seq(
   //  "com.bwsw" % "journaled-commit-log_2.12" % "1.0.0-SNAPSHOT",
 
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",
+  "org.slf4j" % "slf4j-log4j12" % "1.7.24" % "provided",
   "org.slf4j" % "slf4j-simple" % "1.7.24" % "provided",
 
   ("org.apache.curator" % "curator-framework" % "2.12.0")

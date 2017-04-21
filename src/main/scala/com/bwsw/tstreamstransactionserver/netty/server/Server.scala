@@ -18,6 +18,7 @@ import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
+import org.slf4j.impl.SimpleLogger
 import org.slf4j.{Logger, LoggerFactory}
 
 
@@ -31,7 +32,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
             ) {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   @volatile private var isShutdown = false
-
   private val transactionServerSocketAddress = createTransactionServerAddress()
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {

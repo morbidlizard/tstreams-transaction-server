@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.client
 import java.util.concurrent.ConcurrentHashMap
 
 import com.twitter.scrooge.ThriftStruct
-import com.bwsw.tstreamstransactionserver.netty.{Message, MessageDecoder}
+import com.bwsw.tstreamstransactionserver.netty.Message
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.socket.SocketChannel
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder

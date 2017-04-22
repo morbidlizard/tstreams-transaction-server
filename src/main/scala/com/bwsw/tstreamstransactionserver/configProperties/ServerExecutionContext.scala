@@ -11,7 +11,7 @@ class ServerExecutionContext(nThreads: Int, berkeleyReadNThreads: Int, rocksWrit
   private val rocksWriteExecutionContext = ExecutionContext(Executors.newFixedThreadPool(rocksWriteNThreads, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
   private val rocksReadExecutionContext = ExecutionContext(Executors.newFixedThreadPool(rocksReadNThreads, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
   private val serverExecutionContext = ExecutionContext(Executors.newFixedThreadPool(nThreads, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
-  private val commitLogExecutionContext = ExecutionContext(Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLogPool-%d").build()))
+  private val commitLogExecutionContext = ExecutionContext(1, "CommitLogPool-%d")
 
   val context = serverExecutionContext.getContext
   val berkeleyWriteContext = berkeleyWriteExecutionContext.getContext

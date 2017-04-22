@@ -6,7 +6,6 @@ import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
-import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
@@ -14,6 +13,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.bootstrap.ServerBootstrap
+import io.netty.buffer.ByteBuf
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
@@ -25,7 +25,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
              storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: TransportOptions, zookeeperSpecificOpts: ServerOptions.ZooKeeperOptions,
-             serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, Logger) => SimpleChannelInboundHandler[Message] =
+             serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, Logger) => SimpleChannelInboundHandler[ByteBuf] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, logger),
              timer: Time = new Time{}
             ) {
@@ -59,8 +59,12 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   }
 
 
-  private val executionContext = new ServerExecutionContext(serverOpts.threadPool, berkeleyStorageOptions.berkeleyReadThreadPool,
-    rocksStorageOpts.writeThreadPool, rocksStorageOpts.readThreadPool)
+  private val executionContext = new ServerExecutionContext(
+    serverOpts.threadPool,
+    berkeleyStorageOptions.berkeleyReadThreadPool,
+    rocksStorageOpts.writeThreadPool,
+    rocksStorageOpts.readThreadPool
+  )
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
@@ -123,12 +127,11 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(serverHandler(transactionServer, scheduledCommitLogImpl, packageTransmissionOpts, logger)))
+        .childHandler(new ServerInitializer(serverHandler(transactionServer, scheduledCommitLogImpl, packageTransmissionOpts, logger), packageTransmissionOpts))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
-
       berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogCloseDelayMs*11/10, java.util.concurrent.TimeUnit.MILLISECONDS)
 

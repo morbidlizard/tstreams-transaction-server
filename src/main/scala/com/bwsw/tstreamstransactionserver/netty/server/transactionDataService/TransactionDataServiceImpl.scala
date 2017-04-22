@@ -53,7 +53,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   final def putTransactionDataSync(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
     if (data.isEmpty) true
     else {
-      val streamObj = getStreamFromOldestToNewest(stream).last
+      val streamObj = getMostRecentStream(stream)
       val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
 
       val batch = rocksDB.newBatch
@@ -69,27 +69,28 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
       }
       val isOkay = batch.write()
 
-      if (isOkay && logger.isDebugEnabled)
-        logger.debug(s"On stream $stream, partition: $partition, transaction $transaction saved transaction data successfully.")
-      else
-        logger.debug(s"On stream $stream, partition: $partition, transaction $transaction transaction data wasn't saved.")
+      if (logger.isDebugEnabled) {
+        if (isOkay)
+          logger.debug(s"On stream $stream, partition: $partition, transaction $transaction saved transaction data successfully.")
+        else
+          logger.debug(s"On stream $stream, partition: $partition, transaction $transaction transaction data wasn't saved.")
+      }
 
       isOkay
     }
   }
 
   override def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
-    if (data.isEmpty) ScalaFuture.successful(true) else {
-      ScalaFuture {
-        putTransactionDataSync(stream, partition, transaction, data, from)
-      }(executionContext.rocksWriteContext)
-    }
+    if (data.isEmpty) ScalaFuture.successful(true) else ScalaFuture {
+      putTransactionDataSync(stream, partition, transaction, data, from)
+    }(executionContext.rocksWriteContext)
   }
 
   override def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[ByteBuffer]] = {
-    val streamObj = getStreamFromOldestToNewest(stream).last
-    val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
     ScalaFuture {
+      val streamObj = getMostRecentStream(stream)
+      val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
+
       val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary
       val toSeqId = KeyDataSeq(Key(partition, transaction), to).toBinary
 
@@ -106,5 +107,5 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
     }(executionContext.rocksReadContext)
   }
 
-  def closeTransactionDataDatabases() = rocksDBStorageToStream.values().forEach(_.close())
+  def closeTransactionDataDatabases(): Unit = rocksDBStorageToStream.values().forEach(_.close())
 }

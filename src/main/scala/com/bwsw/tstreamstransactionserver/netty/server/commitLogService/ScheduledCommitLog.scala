@@ -33,7 +33,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
   def currentCommitLogFile: Long = commitLog.currentFileID
 
   def putData(messageType: Byte, message: Message) = {
-    this.synchronized(commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType))
+    commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
     true
   }
 

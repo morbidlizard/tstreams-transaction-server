@@ -47,7 +47,9 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
       val streamKey = StreamKey.entryToObject(keyFound)
       val streamValue = StreamValue.entryToObject(dataFound)
-      streamRecords += StreamRecord(streamKey, streamValue)
+      val streamRecord = StreamRecord(streamKey, streamValue)
+      if (!streamRecord.stream.deleted)
+        streamRecords += streamRecord
     }
     cursor.close()
 

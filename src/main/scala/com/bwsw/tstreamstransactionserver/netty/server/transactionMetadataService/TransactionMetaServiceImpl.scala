@@ -285,34 +285,32 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   def getBigCommit(fileID: Long) = new BigCommit(fileID)
 
 
-  final def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = {
+  final def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = ScalaFuture {
     val keyStream = getMostRecentStream(stream)
     val lastTransaction = getLastTransactionIDAndCheckpointedID(keyStream.streamNameAsLong, partition)
     if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
-      ScalaFuture.successful(TransactionInfo(exists = false, None))
+      TransactionInfo(exists = false, None)
     } else {
-      ScalaFuture {
-        val searchKey = new ProducerTransactionKey(keyStream.streamNameAsLong, partition, transaction).toDatabaseEntry
-        val searchData = new DatabaseEntry()
+      val searchKey = new ProducerTransactionKey(keyStream.streamNameAsLong, partition, transaction).toDatabaseEntry
+      val searchData = new DatabaseEntry()
 
-        val transactionDB = environment.beginTransaction(null, null)
-        val operationStatus = producerTransactionsDatabase.get(transactionDB, searchKey, searchData, null)
-        val maybeProducerTransactionRecord = if (operationStatus == OperationStatus.SUCCESS)
-          Some(new ProducerTransactionRecord(ProducerTransactionKey.entryToObject(searchKey), ProducerTransactionValue.entryToObject(searchData))) else None
+      val transactionDB = environment.beginTransaction(null, null)
+      val operationStatus = producerTransactionsDatabase.get(transactionDB, searchKey, searchData, LockMode.READ_UNCOMMITTED)
+      val maybeProducerTransactionRecord = if (operationStatus == OperationStatus.SUCCESS)
+        Some(new ProducerTransactionRecord(ProducerTransactionKey.entryToObject(searchKey), ProducerTransactionValue.entryToObject(searchData))) else None
 
-        maybeProducerTransactionRecord match {
-          case None =>
-            transactionDB.commit()
-            TransactionInfo(exists = true, None)
+      maybeProducerTransactionRecord match {
+        case None =>
+          transactionDB.commit()
+          TransactionInfo(exists = true, None)
 
-          case Some(producerTransactionRecord) =>
-            transactionDB.commit()
+        case Some(producerTransactionRecord) =>
+          transactionDB.commit()
 
-            TransactionInfo(exists = true, Some(recordToProducerTransaction(producerTransactionRecord, keyStream.name)))
-        }
-      }(executionContext.berkeleyReadContext)
+          TransactionInfo(exists = true, Some(recordToProducerTransaction(producerTransactionRecord, keyStream.name)))
+      }
     }
-  }
+  }(executionContext.berkeleyReadContext)
 
   final def getLastCheckpointedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture{
     val streamRecord = getMostRecentStream(stream)

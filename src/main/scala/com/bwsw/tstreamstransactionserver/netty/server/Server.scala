@@ -6,7 +6,7 @@ import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
-import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.netty.{InetSocketAddressClass, Message}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
@@ -39,6 +39,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       case _ => (serverOpts.globalHost, serverOpts.port)
     }
   }
+  if (!InetSocketAddressClass.isValidSocketAddress(serverOpts.localHost, serverOpts.port))
+    throw new InvalidSocketAddress(s"Invalid socket address $serverOpts.localHost:$serverOpts.port")
 
   private val zk = scala.util.Try(
     new ZKClientServer(

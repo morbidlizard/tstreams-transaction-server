@@ -18,7 +18,6 @@ import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
-import org.slf4j.impl.SimpleLogger
 import org.slf4j.{Logger, LoggerFactory}
 
 

@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Callable, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
@@ -171,12 +171,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       logger.debug(s"On stream:${key.stream} partition:${key.partition} last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now.")
   }
 
-  private def putTransactionsRunnable(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], berkeleyTransaction: com.sleepycat.je.Transaction) = new Runnable {
-    override def run(): Unit = {
-      putTransactions(transactions, berkeleyTransaction)
-    }
-  }
-
   private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], berkeleyTransaction: com.sleepycat.je.Transaction): Unit = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions, berkeleyTransaction)
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions, berkeleyTransaction)
@@ -265,25 +259,31 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   final class BigCommit(fileID: Long) {
     private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
 
-    def commitRunnable() = new Runnable {
-      override def run(): Unit = commit()
+    private class Commit extends Callable[Boolean] {
+      override def call(): Boolean = {
+        val key = CommitLogKey(fileID)
+        val value = new DatabaseEntry()
+        value.setData(Array[Byte]())
+
+        commitLogDatabase.putNoOverwrite(transactionDB, key.keyToDatabaseEntry, value)
+        scala.util.Try(transactionDB.commit()) match {
+          case scala.util.Success(_) => true
+          case scala.util.Failure(fail) => false
+        }
+      }
+    }
+
+    private class PutTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], berkeleyTransaction: com.sleepycat.je.Transaction) extends Callable[Unit] {
+      if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
+      override def call(): Unit = putTransactions(transactions, berkeleyTransaction)
     }
 
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
-      if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
-      executionContext.berkeleyWriteContext.submit(putTransactionsRunnable(transactions, transactionDB)).get()
+      executionContext.berkeleyWriteContext.submit(new PutTransactions(transactions, transactionDB)).get()
     }
 
     def commit(): Boolean = {
-      val key = CommitLogKey(fileID)
-      val value = new DatabaseEntry()
-      value.setData(Array[Byte]())
-
-      commitLogDatabase.putNoOverwrite(transactionDB, key.keyToDatabaseEntry, value)
-      scala.util.Try(transactionDB.commit()) match {
-        case scala.util.Success(_) => true
-        case scala.util.Failure(fail) => false
-      }
+      executionContext.berkeleyWriteContext.submit(new Commit()).get()
     }
 
     def abort(): Boolean = scala.util.Try(transactionDB.abort()) match {
@@ -403,14 +403,14 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(stream, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
   }
 
-  final class TransactionsToDeleteTask(timestampToDeleteTransactions: Long) extends Runnable {
+  final class TransactionsToDeleteTask(timestampToDeleteTransactions: Long) extends Callable[Unit] {
     private val lockMode = LockMode.READ_UNCOMMITTED_ALL
 
     private def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
     }
 
-    override def run(): Unit = {
+    override def call(): Unit = {
       if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
       val transactionDB = environment.beginTransaction(null, null)
       val cursorProducerTransactionsOpened = producerTransactionsWithOpenedStateDatabase.openCursor(transactionDB, null)
@@ -452,7 +452,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     }
   }
 
-  final def createTransactionsToDeleteTask(timestampToDeleteTransactions: Long) = new TransactionsToDeleteTask(timestampToDeleteTransactions)
+  final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long) = {
+    executionContext.berkeleyWriteContext.submit(new TransactionsToDeleteTask(timestampToDeleteTransactions)).get()
+  }
 
   final private[server] def closeTransactionMetaDatabases(): Unit = {
     scala.util.Try(commitLogDatabase.close())

@@ -160,9 +160,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       if (zk != null)
         zk.close()
 
-      if (transactionServer != null)
-        transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
-
       if (berkeleyWriterExecutor != null) {
         berkeleyWriterExecutor.shutdown()
         berkeleyWriterExecutor.awaitTermination(
@@ -185,6 +182,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       if (berkeleyWriter != null) {
         berkeleyWriter.run()
         berkeleyWriter.closeRocksDB()
+      }
+
+      if (transactionServer != null) {
+        transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
         transactionServer.closeAllDatabases()
       }
     }

@@ -96,7 +96,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
     bigCommit.putSomeTransactions(transactionsWithTimestamp)
     bigCommit.commit()
 
-    transactionService.createTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec)).run()
+    transactionService.createAndExecuteTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec))
     val expiredTransactions = producerTransactionsWithTimestamp.map { case (producerTxn, _) =>
       ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
     }

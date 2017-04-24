@@ -112,6 +112,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     if (createNewFile) {
       currentCommitLogFileToPut.set(new CommitLogFile(nextFileID))
     }
+    Thread.sleep(10L)
     currentCommitLogFile.close()
     resetCounters()
     path

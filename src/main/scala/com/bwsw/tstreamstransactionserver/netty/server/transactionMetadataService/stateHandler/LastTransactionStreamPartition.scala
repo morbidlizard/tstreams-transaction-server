@@ -64,22 +64,25 @@ trait LastTransactionStreamPartition {
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     if (lastTransactionOpt.isDefined) lastTransactionOpt
     else {
+      val berkeleyTxn = environment.beginTransaction(null, null)
       val dataFound = new DatabaseEntry()
       val binaryKey = key.toDatabaseEntry
       val lastOpenedTransaction =
-        if (lastTransactionDatabase.get(null, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+        if (lastTransactionDatabase.get(berkeleyTxn, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
           Some(TransactionID.entryToObject(dataFound))
         else None
-      lastOpenedTransaction match {
+      val result = lastOpenedTransaction match {
         case Some(openedTransaction) =>
           val lastCheckpointed =
-            if (lastCheckpointedTransactionDatabase.get(null, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+            if (lastCheckpointedTransactionDatabase.get(berkeleyTxn, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
               Some(TransactionID.entryToObject(dataFound))
             else None
 
           Some(LastOpenedAndCheckpointedTransaction(openedTransaction, lastCheckpointed))
         case None => None
       }
+      berkeleyTxn.commit()
+      result
     }
   }
 

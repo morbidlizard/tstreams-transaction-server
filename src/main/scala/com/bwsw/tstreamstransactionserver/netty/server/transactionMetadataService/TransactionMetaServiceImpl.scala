@@ -203,9 +203,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
 
             transactionsRamTable.put(producerTransactionRecord.key, producerTransactionRecord.producerTransaction)
             if (producerTransactionRecord.state == TransactionStates.Opened) {
-              scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.put(berkeleyTransaction, binaryKey, binaryTxn))
+              producerTransactionsWithOpenedStateDatabase.put(berkeleyTransaction, binaryKey, binaryTxn)
             } else {
-              scala.concurrent.blocking(producerTransactionsWithOpenedStateDatabase.delete(berkeleyTransaction, binaryKey))
+              producerTransactionsWithOpenedStateDatabase.delete(berkeleyTransaction, binaryKey)
             }
             if (areThereAnyProducerNotifies)
               tryCompleteProducerNotify(producerTransactionRecord)
@@ -268,9 +268,17 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         commitLogDatabase.putNoOverwrite(transactionDB, key.keyToDatabaseEntry, value)
         scala.util.Try(transactionDB.commit()) match {
           case scala.util.Success(_) => true
-          case scala.util.Failure(fail) => false
+          case scala.util.Failure(error) => throw error
         }
       }
+    }
+
+    private class Abort extends Callable[Boolean] {
+      override def call(): Boolean =
+        scala.util.Try(transactionDB.abort()) match {
+          case scala.util.Success(_) => true
+          case scala.util.Failure(error) => throw error
+        }
     }
 
     private class PutTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], berkeleyTransaction: com.sleepycat.je.Transaction) extends Callable[Unit] {
@@ -286,9 +294,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       executionContext.berkeleyWriteContext.submit(new Commit()).get()
     }
 
-    def abort(): Boolean = scala.util.Try(transactionDB.abort()) match {
-      case scala.util.Success(_) => true
-      case scala.util.Failure(_) => false
+    def abort(): Boolean = {
+      executionContext.berkeleyWriteContext.submit(new Abort()).get()
     }
   }
 

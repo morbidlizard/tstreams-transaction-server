@@ -6,7 +6,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
+import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
 import com.google.common.net.InetAddresses
+import io.netty.resolver.dns.DnsNameResolver
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
@@ -30,7 +32,7 @@ class ZKClientServer(serverAddress: String,
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val socketAddress: String =
-    if (ZKClientServer.isValidSocketAddress(serverAddress, serverPort)) s"$serverAddress:$serverPort"
+    if (InetSocketAddressClass.isValidSocketAddress(serverAddress, serverPort)) s"$serverAddress:$serverPort"
     else throw new InvalidSocketAddress(s"Invalid socket address $serverAddress:$serverPort")
 
   private val client = {
@@ -109,11 +111,4 @@ class ZKClientServer(serverAddress: String,
   }
 
   override def close(): Unit = scala.util.Try(client.close())
-}
-
-object ZKClientServer {
-  def isValidSocketAddress(inetAddress: String, port: Int): Boolean = {
-    if (inetAddress != null && InetAddresses.isInetAddress(inetAddress) && port.toInt > 0 && port.toInt < 65536) true
-    else false
-  }
 }

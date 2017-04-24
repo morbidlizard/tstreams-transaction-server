@@ -8,19 +8,19 @@ object ServerOptions {
 
   /** The options are applied on bootstrap of a server.
     *
-    * @param host       ipv4 or ipv6 listen address in string representation.
-    * @param port       a port.
+    * @param host ipv4 or ipv6 listen address in string representation.
+    * @param port a port.
     * @param threadPool the number of threads of thread pool to serialize/deserialize requests/responses.
     */
-  case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 2)
+  case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 4)
 
   /** The options are used to validate client requests by a server.
     *
     * @param key                the key to authorize.
     * @param activeTokensNumber the number of active tokens a server can handle over time.
-    * @param tokenTTL           the time a token live before expiration.
+    * @param tokenTtl           the time a token live before expiration.
     */
-  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTTL: Int = 300)
+  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTtl: Int = 300)
 
   /** The options are used to define folders for databases.
     *
@@ -53,9 +53,9 @@ object ServerOptions {
 
   /** The options for generating id for a new commit log file.
     *
-    * @param counterPathFileIDGen the coordination path for counter for generating and retrieving commit log file id.
+    * @param counterPathFileIdGen the coordination path for counter for generating and retrieving commit log file id.
     */
-  case class ZooKeeperOptions(counterPathFileIDGen: String = "/server_counter/file_id_gen")
+  case class ZooKeeperOptions(counterPathFileIdGen: String = "/server_counter/file_id_gen")
 
   /** The options are used for replication environment.
     *
@@ -132,13 +132,13 @@ object ServerOptions {
     *                                      If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read.
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
     * @param commitLogCloseDelayMs the time through a commit log file is closed.
-    * @param commitLogFileTTLSec the time a commit log files live before they are deleted.
+    * @param commitLogFileTtlSec the time a commit log files live before they are deleted.
     */
   case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               commitLogWriteSyncValue: Int = 0,
                               incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
                               commitLogCloseDelayMs: Int = 200,
-                              commitLogFileTTLSec: Int = 86400
+                              commitLogFileTtlSec: Int = 86400
                              )
 }
 

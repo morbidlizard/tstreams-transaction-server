@@ -1,4 +1,4 @@
-FROM ubuntu:trusty
+FROM ubuntu:xenial
 
 MAINTAINER BITWORKS
 
@@ -34,8 +34,8 @@ RUN sbt assembly
 
 RUN mv target/scala-2.12/tstreams-transaction-server-${version}.jar . && \
     mv /root/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-1.7.24.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-simple/jars/slf4j-simple-1.7.24.jar . && \
+    mv /root/.ivy2/cache/org.slf4j/slf4j-log4j12/jars/slf4j-log4j12-1.7.24.jar . && \
     sbt clean clean-files && \
     rm -rf /root/.ivy2/cache
 
-CMD java -Dconfig=/etc/conf/config.properties -classpath tstreams-transaction-server-${version}.jar:slf4j-simple-1.7.24.jar:slf4j-api-1.7.24.jar com.bwsw.tstreamstransactionserver.ServerLauncher
+CMD java -Dconfig=/etc/conf/config.properties -classpath tstreams-transaction-server-${version}.jar:slf4j-api-1.7.24.jar:slf4j-log4j12-1.7.24.jar com.bwsw.tstreamstransactionserver.ServerLauncher

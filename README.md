@@ -6,6 +6,7 @@ Implements Transaction storage server for T-Streams (hereinafter - TTS)
 - [Launching](#launching)
     - [Java](#java)
     - [Docker](#docker)
+- [License](#license)
 
 ## Launching
 
@@ -26,10 +27,10 @@ You should pass a file with properties in both cases. The file should contain th
 | path                             | The path where folders of Commit log, berkeley environment and rocksdb databases would be placed.  |string |/tmp| |
 | data.directory                   | The path where rocksdb databases are placed relatively to property "path".  |string |transaction_data| |
 | metadata.directory               | The path where a berkeley environment and it's databases are placed relatively to "path".  |string |transaction_metadata| |
-| commitlog.directory              | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
-| commitlog.rocksdb.directory      | the path where rocksdb with persisted commit log files is placed relatively to "path".  |string |commit_log_rocks| |
+| commit.log.directory             | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
+| commit.log.rocks.directory       | the path where rocksdb with persisted commit log files is placed relatively to "path".  |string |commit_log_rocks| |
 | berkeley.read.thread.pool        | The number of threads of pool are used to do read operations from BerkeleyDB je databases. Used for: getStream, getConsumerState, scanTransactions, getTransaction, getLastCheckpoitnedTransaction. |int    | 2| [1,...]|  
-| authKey                          | The special security token which is used by the slaves to authenticate on master.| string | server_group| |
+| auth.key                         | The special security token which is used by the slaves to authenticate on master.| string | server_group| |
 | endpoints                        | ???  |string | 127.0.0.1:8071 | |
 | name                             | ???  |string |server| |  
 | group                            | ???  |string |group| |  
@@ -53,7 +54,7 @@ You should pass a file with properties in both cases. The file should contain th
 | incomplete.commit.log.read.policy| Policies to read from commitlog files. If 'resync-majority' mode is chosen then ???(not implemented yet). If 'skip-log' mode is chosen commit log files than haven't md5 file are not read. If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read. If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working. |string |error |[resync-majority (mandatory for replicated mode), skip-log, try-read, error] |
 | commit.log.close.delay.ms        | the time through a commit log file is closed. |int  |200    |
 | commit.log.file.ttl.sec          | the time a commit log files live before they are deleted. | int | 86400 |
-| zk.counter.path.file.id.gen      | the coordination path for counter for generating and retrieving commit log file id. | string | /server_counter/file_id_gen |
+| counter.path.file.id.gen         | the coordination path for counter for generating and retrieving commit log file id. | string | /server_counter/file_id_gen |
 
 It isn't required to adhere the specified order of the properties, it's for example only. 
 But all properties should be defined with the exact names and appropriate types. 
@@ -72,7 +73,7 @@ java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-
 The docker file is in the root directory. To build image: 
 
 ```bash
-docker build --tag tts .
+docker build --tag tts .release_v1.2.9
 ```
 
 To run docker image you should provide a path to config directory where a file named 'config.properties' is:
@@ -81,3 +82,6 @@ To run docker image you should provide a path to config directory where a file n
 docker run -v <path_to_conf_directory>:/etc/conf tts
 ```
 
+## License
+
+Released under Apache 2.0 License

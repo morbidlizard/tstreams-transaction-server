@@ -6,6 +6,7 @@ import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
+import com.bwsw.tstreamstransactionserver.netty.{InetSocketAddressClass, Message}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
@@ -34,17 +35,15 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
             ) {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   @volatile private var isShutdown = false
-
   private val transactionServerSocketAddress = createTransactionServerAddress()
-  if (!ZKClientServer.isValidSocketAddress(transactionServerSocketAddress._1, transactionServerSocketAddress._2))
-    throw new InvalidSocketAddress(s"Invalid socket address ${transactionServerSocketAddress._1}:${transactionServerSocketAddress._2}")
-
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
       case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
       case _ => (serverOpts.host, serverOpts.port)
     }
   }
+  if (!InetSocketAddressClass.isValidSocketAddress(serverOpts.host, serverOpts.port))
+    throw new InvalidSocketAddress(s"Invalid socket address $serverOpts.localHost:$serverOpts.port")
 
   private val zk = scala.util.Try(
     new ZKClientServer(
@@ -81,7 +80,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   final def removeConsumerNotification(id: Long): Boolean = transactionServer.removeConsumerTransactionNotification(id)
 
 
-  private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTTLSec)
+  private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTtlSec)
   private val (commitLogQueue, commitLogLastId) = {
     val queue = new CommitLogQueueBootstrap(30, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
     val lastFileIDBerkeley = transactionServer.getLastProcessedCommitLogFileID.getOrElse(-1L)
@@ -113,7 +112,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
-  private val fileIDGenerator = new zk.FileIDGenerator(zookeeperSpecificOpts.counterPathFileIDGen, commitLogLastId)
+  private val fileIDGenerator = new zk.FileIDGenerator(zookeeperSpecificOpts.counterPathFileIdGen, commitLogLastId)
   val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions, fileIDGenerator.increment) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }

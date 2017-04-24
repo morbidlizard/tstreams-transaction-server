@@ -62,10 +62,10 @@ But all properties should be defined with the exact names and appropriate types.
 ### Java
 
 In addition to the properties file you should provide two dependencies through adding jars of 'slf4j-api-1.7.24' 
-and 'slf4j-simple-1.7.24' to a classpath, to launch TTS. That is run the following command:
+and 'slf4j-log4j12-1.7.24' to a classpath, to launch TTS. That is run the following command:
 
 ```bash
-java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-transaction-server-<version>.jar:<path_to_slf4j_api_jar>/slf4j-api-1.7.21.jar:<path_to_slf4j_impl_jar>/slf4j-simple-1.7.21.jar com.bwsw.tstreamstransactionserver.ServerLauncher
+java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-transaction-server-<version>.jar:<path_to_slf4j_api_jar>/slf4j-api-1.7.24.jar:<path_to_slf4j_impl_jar>/slf4j-log4j12-1.7.24.jar com.bwsw.tstreamstransactionserver.ServerLauncher
 ```
 
 ### Docker
@@ -73,7 +73,7 @@ java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-
 The docker file is in the root directory. To build image: 
 
 ```bash
-docker build --tag tts .release_v1.2.9
+docker build --tag tts .
 ```
 
 To run docker image you should provide a path to config directory where a file named 'config.properties' is:

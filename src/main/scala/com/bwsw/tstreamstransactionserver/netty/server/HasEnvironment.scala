@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.sleepycat.je.{Durability, Environment, EnvironmentConfig}
@@ -10,11 +11,17 @@ trait HasEnvironment {
   val environment: Environment = {
     val directory = new File(storageOpts.path, storageOpts.metadataDirectory)
     directory.mkdirs()
-    val defaultDurability = new Durability(Durability.SyncPolicy.WRITE_NO_SYNC, Durability.SyncPolicy.NO_SYNC, Durability.ReplicaAckPolicy.NONE)
+    val defaultDurability = new Durability(
+      Durability.SyncPolicy.WRITE_NO_SYNC,
+      Durability.SyncPolicy.NO_SYNC,
+      Durability.ReplicaAckPolicy.NONE
+    )
+
     val environment = {
       val environmentConfig = new EnvironmentConfig()
         .setAllowCreate(true)
         .setTransactional(true)
+        .setLockTimeout(1, TimeUnit.MILLISECONDS)
         .setSharedCache(true)
 
       //    config.berkeleyDBJEproperties foreach {

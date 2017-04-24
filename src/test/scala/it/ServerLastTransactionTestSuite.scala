@@ -66,8 +66,11 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       rocksStorageOpts = rocksStorageOptions
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
+        val transactionDB = environment.beginTransaction(null, null)
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
+        val lastTransaction = getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition, transactionDB)
+        transactionDB.commit()
+        lastTransaction
       }
     }
 
@@ -119,7 +122,10 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
+        val transactionDB = environment.beginTransaction(null, null)
+        val lastTransaction = getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition, transactionDB)
+        transactionDB.commit()
+        lastTransaction
       }
     }
 
@@ -177,7 +183,10 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
+        val transactionDB = environment.beginTransaction(null, null)
+        val lastTransaction = getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition, transactionDB)
+        transactionDB.commit()
+        lastTransaction
       }
     }
 
@@ -234,7 +243,10 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     ) {
       final def getLastTransactionIDWrapper(stream: String, partition: Int) = {
         val streamObj = getMostRecentStream(stream)
-        getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition)
+        val transactionDB = environment.beginTransaction(null, null)
+        val lastTransaction = getLastTransactionIDAndCheckpointedID(streamObj.streamNameAsLong, partition, transactionDB)
+        transactionDB.commit()
+        lastTransaction
       }
     }
 

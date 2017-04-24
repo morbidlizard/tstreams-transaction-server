@@ -193,7 +193,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
       }(context)
 
       case Descriptors.PutTransaction.methodID => ScalaFuture {
-        val response = if (!transactionServer.isValid(message.token)) {
+        if (!transactionServer.isValid(message.token)) {
           val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
         }

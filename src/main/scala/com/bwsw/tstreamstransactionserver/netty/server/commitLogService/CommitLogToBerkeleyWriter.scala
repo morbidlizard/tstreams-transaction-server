@@ -130,12 +130,14 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
     val iterator = file.getIterator
     helper(iterator)
     iterator.close()
-    bigCommit.commit()
+    val result = bigCommit.commit()
+    result
   }
 
   override def run(): Unit = {
     while(pathsToClosedCommitLogFiles.size() > 0) {
       val commitLogEntity = pathsToClosedCommitLogFiles.poll()
+
       if (commitLogEntity != null) {
         scala.util.Try {
           processAccordingToPolicy(commitLogEntity)

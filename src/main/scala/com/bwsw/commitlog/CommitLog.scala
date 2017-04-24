@@ -61,7 +61,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       fileStream.flush()
     }
 
-    private[CommitLog] def close(withMD5: Boolean = true): Unit = {
+    private[CommitLog] def close(withMD5: Boolean = true): Unit = this.synchronized {
       digestOutputStream.on(false)
       digestOutputStream.close()
       outputStream.close()
@@ -83,7 +83,7 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     * @param startNew start new file if true
     * @return name of file record was saved in
     */
-  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = {
+  def putRec(message: Array[Byte], messageType: Byte, startNew: Boolean = false): String = this.synchronized {
     val now: Long = System.currentTimeMillis()
     policy match {
       case interval: OnTimeInterval if interval.seconds * 1000 + chunkOpenTime.get() < now =>
@@ -106,13 +106,12 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   }
 
   /** Finishes work with current file. */
-  def close(createNewFile: Boolean = true, withMD5: Boolean = true): String = {
+  def close(createNewFile: Boolean = true, withMD5: Boolean = true): String = this.synchronized {
     val currentCommitLogFile = currentCommitLogFileToPut.get()
     val path = currentCommitLogFile.absolutePath
     if (createNewFile) {
       currentCommitLogFileToPut.set(new CommitLogFile(nextFileID))
     }
-    Thread.sleep(10L)
     currentCommitLogFile.close()
     resetCounters()
     path

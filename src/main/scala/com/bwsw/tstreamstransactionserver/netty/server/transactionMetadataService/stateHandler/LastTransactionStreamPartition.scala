@@ -59,29 +59,27 @@ trait LastTransactionStreamPartition {
 
   private final val lastTransactionStreamPartitionRamTable: Cache[KeyStreamPartition, LastOpenedAndCheckpointedTransaction] = fillLastTransactionStreamPartitionTable
 
-  final def getLastTransactionIDAndCheckpointedID(stream: Long, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
+  final def getLastTransactionIDAndCheckpointedID(stream: Long, partition: Int, transaction: com.sleepycat.je.Transaction): Option[LastOpenedAndCheckpointedTransaction] = {
     val key = KeyStreamPartition(stream, partition)
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     if (lastTransactionOpt.isDefined) lastTransactionOpt
     else {
-      val berkeleyTxn = environment.beginTransaction(null, null)
       val dataFound = new DatabaseEntry()
       val binaryKey = key.toDatabaseEntry
       val lastOpenedTransaction =
-        if (lastTransactionDatabase.get(berkeleyTxn, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+        if (lastTransactionDatabase.get(transaction, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
           Some(TransactionID.entryToObject(dataFound))
         else None
       val result = lastOpenedTransaction match {
         case Some(openedTransaction) =>
           val lastCheckpointed =
-            if (lastCheckpointedTransactionDatabase.get(berkeleyTxn, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+            if (lastCheckpointedTransactionDatabase.get(transaction, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
               Some(TransactionID.entryToObject(dataFound))
             else None
 
           Some(LastOpenedAndCheckpointedTransaction(openedTransaction, lastCheckpointed))
         case None => None
       }
-      berkeleyTxn.commit()
       result
     }
   }

@@ -145,12 +145,12 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
         helper(iterator, firstTransactionTimestamp, firstTransactionTimestamp)
         iterator.close()
         bigCommit.commit()
-          //        val (areTransactionsProcessed, lastTransactionTimestamp) = helper(iter, firstTransactionTimestamp, firstTransactionTimestamp)
-//        if (areTransactionsProcessed) {
-//          if (logger.isDebugEnabled) logger.debug(s"${file.getID} is processed successfully and all records from the file are persisted!")
-//          val cleanTask = transactionServer.createTransactionsToDeleteTask(lastTransactionTimestamp)
-//          cleanTask.run()
-//        } else throw new Exception("There is a bug; Stop server and fix code!")
+        //        val (areTransactionsProcessed, lastTransactionTimestamp) = helper(iter, firstTransactionTimestamp, firstTransactionTimestamp)
+        //        if (areTransactionsProcessed) {
+        //          if (logger.isDebugEnabled) logger.debug(s"${file.getID} is processed successfully and all records from the file are persisted!")
+        //          val cleanTask = transactionServer.createTransactionsToDeleteTask(lastTransactionTimestamp)
+        //          cleanTask.run()
+        //        } else throw new Exception("There is a bug; Stop server and fix code!")
         true
 
       case None =>

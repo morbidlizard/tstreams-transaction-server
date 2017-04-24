@@ -22,7 +22,7 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
-    def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
+    def invokeMethod(message: Message)(implicit context: ExecutionContext):Unit =  {
 //      val response = message.method match {
 //        case Descriptors.GetCommitLogOffsets.methodID =>
 //          Descriptors.GetCommitLogOffsets.decodeResponse(message)
@@ -97,16 +97,20 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     import scala.collection.JavaConverters._
 
-    reqIdToRep.asScala.foreach{
-      case (key, request) if !request.isCompleted =>
-        request.tryFailure(new ServerUnreachableException(ctx.name()))
-        ScalaFuture(reqIdToRep.remove(key))
-    }
+
+    ScalaFuture {
+      reqIdToRep.asScala.foreach {
+        case (key, request) if !request.isCompleted =>
+          request.tryFailure(new ServerUnreachableException(ctx.name()))
+          reqIdToRep.remove(key)
+      }
+    }(context)
+
+    ctx.fireChannelInactive()
 
     if (!client.isShutdown) {
       ctx.channel().eventLoop().execute(() => client.reconnect())
     }
-    super.channelInactive(ctx)
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {

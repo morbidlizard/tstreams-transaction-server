@@ -171,6 +171,12 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       logger.debug(s"On stream:${key.stream} partition:${key.partition} last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now.")
   }
 
+  private def putTransactionsRunnable(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], berkeleyTransaction: com.sleepycat.je.Transaction) = new Runnable {
+    override def run(): Unit = {
+      putTransactions(transactions, berkeleyTransaction)
+    }
+  }
+
   private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], berkeleyTransaction: com.sleepycat.je.Transaction): Unit = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions, berkeleyTransaction)
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions, berkeleyTransaction)
@@ -259,9 +265,13 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   final class BigCommit(fileID: Long) {
     private val transactionDB: com.sleepycat.je.Transaction = environment.beginTransaction(null, null)
 
+    def commitRunnable() = new Runnable {
+      override def run(): Unit = commit()
+    }
+
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
       if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
-      putTransactions(transactions, transactionDB)
+      executionContext.berkeleyWriteContext.submit(putTransactionsRunnable(transactions, transactionDB)).get()
     }
 
     def commit(): Boolean = {

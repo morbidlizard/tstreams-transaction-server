@@ -1,97 +1,107 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
+import java.util.concurrent.ConcurrentHashMap
+
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{MethodDoesnotFoundException, ServerUnreachableException}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
-import com.google.common.cache.Cache
 import com.twitter.scrooge.ThriftStruct
+import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 @Sharable
-class ClientHandler(private val reqIdToRep: Cache[Integer, ScalaPromise[ThriftStruct]], val client: Client,
+class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]], val client: Client,
                     implicit val context: ExecutionContext)
-  extends SimpleChannelInboundHandler[Message] {
-  override def channelRead0(ctx: ChannelHandlerContext, msg: Message): Unit = {
-    import Descriptors._
+  extends SimpleChannelInboundHandler[ByteBuf] {
 
-    def retryCompletePromise(messageSeqId: Int, response: ThriftStruct): Unit = {
-      val request = reqIdToRep.getIfPresent(messageSeqId)
-      if (request != null) request.trySuccess(response)
-    }
+  private def retryCompletePromise(messageSeqId: Long, response: ThriftStruct): Unit = {
+    val request = reqIdToRep.get(messageSeqId)
+    if (request != null) request.trySuccess(response)
+  }
 
+  override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
     def invokeMethod(message: Message)(implicit context: ExecutionContext): ScalaFuture[Unit] = ScalaFuture {
-      val (method, messageSeqId) = Descriptor.decodeMethodName(message)
-      val response = method match {
-        case `getCommitLogOffsetsMethod` =>
-          Descriptors.GetCommitLogOffsets.decodeResponse(message)
-
-        case `putStreamMethod` =>
-          Descriptors.PutStream.decodeResponse(message)
-
-        case `checkStreamExists` =>
-          Descriptors.CheckStreamExists.decodeResponse(message)
-
-        case `getStreamMethod` =>
-          Descriptors.GetStream.decodeResponse(message)
-
-        case `delStreamMethod` =>
-          Descriptors.DelStream.decodeResponse(message)
-
-        case `putTransactionMethod` =>
-          Descriptors.PutTransaction.decodeResponse(message)
-
-        case `putTransactionsMethod` =>
-          Descriptors.PutTransactions.decodeResponse(message)
-
-        case `putSimpleTransactionAndDataMethod` =>
-          Descriptors.PutSimpleTransactionAndData.decodeResponse(message)
-
-        case `getTransactionMethod` =>
-          Descriptors.GetTransaction.decodeResponse(message)
-
-        case `getLastCheckpointedTransactionMethod` =>
-          Descriptors.GetLastCheckpointedTransaction.decodeResponse(message)
-
-        case `scanTransactionsMethod` =>
-          Descriptors.ScanTransactions.decodeResponse(message)
-
-        case `putTransactionDataMethod` =>
-          Descriptors.PutTransactionData.decodeResponse(message)
-
-        case `getTransactionDataMethod` =>
-          Descriptors.GetTransactionData.decodeResponse(message)
-
-        case `putConsumerCheckpointMethod` =>
-          Descriptors.PutConsumerCheckpoint.decodeResponse(message)
-
-        case `getConsumerStateMethod` =>
-          Descriptors.GetConsumerState.decodeResponse(message)
-
-        case `authenticateMethod` =>
-          Descriptors.Authenticate.decodeResponse(message)
-
-        case `isValidMethod` =>
-          Descriptors.IsValid.decodeResponse(message)
-
-        case _ =>
-          val throwable = new MethodDoesnotFoundException(method)
-          ctx.fireExceptionCaught(throwable)
-          throw throwable
+//      val response = message.method match {
+//        case Descriptors.GetCommitLogOffsets.methodID =>
+//          Descriptors.GetCommitLogOffsets.decodeResponse(message)
+//
+//        case Descriptors.PutStream.methodID =>
+//          Descriptors.PutStream.decodeResponse(message)
+//
+//        case Descriptors.CheckStreamExists.methodID =>
+//          Descriptors.CheckStreamExists.decodeResponse(message)
+//
+//        case Descriptors.GetStream.methodID =>
+//          Descriptors.GetStream.decodeResponse(message)
+//
+//        case Descriptors.DelStream.methodID =>
+//          Descriptors.DelStream.decodeResponse(message)
+//
+//        case Descriptors.PutTransaction.methodID =>
+//          Descriptors.PutTransaction.decodeResponse(message)
+//
+//        case Descriptors.PutTransactions.methodID =>
+//          Descriptors.PutTransactions.decodeResponse(message)
+//
+//        case Descriptors.PutSimpleTransactionAndData.methodID =>
+//          Descriptors.PutSimpleTransactionAndData.decodeResponse(message)
+//
+//        case Descriptors.GetTransaction.methodID =>
+//          Descriptors.GetTransaction.decodeResponse(message)
+//
+//        case Descriptors.GetLastCheckpointedTransaction.methodID =>
+//          Descriptors.GetLastCheckpointedTransaction.decodeResponse(message)
+//
+//        case Descriptors.ScanTransactions.methodID =>
+//          Descriptors.ScanTransactions.decodeResponse(message)
+//
+//        case Descriptors.PutTransactionData.methodID =>
+//          Descriptors.PutTransactionData.decodeResponse(message)
+//
+//        case Descriptors.GetTransactionData.methodID =>
+//          Descriptors.GetTransactionData.decodeResponse(message)
+//
+//        case Descriptors.PutConsumerCheckpoint.methodID =>
+//          Descriptors.PutConsumerCheckpoint.decodeResponse(message)
+//
+//        case Descriptors.GetConsumerState.methodID =>
+//          Descriptors.GetConsumerState.decodeResponse(message)
+//
+//        case Descriptors.Authenticate.methodID =>
+//          Descriptors.Authenticate.decodeResponse(message)
+//
+//        case Descriptors.IsValid.methodID =>
+//          Descriptors.IsValid.decodeResponse(message)
+//
+//        case methodByte =>
+//          val throwable = new MethodDoesnotFoundException(methodByte.toString)
+//          ctx.fireExceptionCaught(throwable)
+//          throw throwable
+//      }
+//      retryCompletePromise(message.id, response)
+      if (message.method < Descriptors.methods.length && message.method > -1) {
+        retryCompletePromise(message.id, Descriptors.methods(message.method).decodeResponse(message))
+      } else {
+        val throwable = new MethodDoesnotFoundException(message.method.toString)
+        ctx.fireExceptionCaught(throwable)
+        throw throwable
       }
-      retryCompletePromise(messageSeqId, response)
     }
 
-
-
-    invokeMethod(msg)
+    val message = Message.fromByteBuf(buf)
+    invokeMethod(message)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+    import scala.collection.JavaConverters._
 
-    reqIdToRep.asMap().values()
-      .forEach(request => if (!request.isCompleted) request.tryFailure(new ServerUnreachableException(ctx.name())))
+    reqIdToRep.asScala.foreach{
+      case (key, request) if !request.isCompleted =>
+        request.tryFailure(new ServerUnreachableException(ctx.name()))
+        ScalaFuture(reqIdToRep.remove(key))
+    }
 
     if (!client.isShutdown) {
       ctx.channel().eventLoop().execute(() => client.reconnect())

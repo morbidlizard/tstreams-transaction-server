@@ -163,7 +163,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       server = serverBuilder
         .withServerStorageOptions(storageOptions)
         .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-        .withBootstrapOptions(BootstrapOptions(localHost = newHost, port = newPort))
+        .withBootstrapOptions(BootstrapOptions(host = newHost, port = newPort))
         .build()
       server.start()
     }).start()
@@ -222,7 +222,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     val serverBuilder = new ServerBuilder()
       .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withBootstrapOptions(BootstrapOptions(localHost = "1270.0.0.1"))
+      .withBootstrapOptions(BootstrapOptions(host = "1270.0.0.1"))
 
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()

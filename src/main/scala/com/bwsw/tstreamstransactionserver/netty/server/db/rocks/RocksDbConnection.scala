@@ -9,7 +9,7 @@ import org.rocksdb._
 class RocksDbConnection(rocksStorageOpts: RocksStorageOptions, absolutePath: String, ttl: Int = -1) extends Closeable {
   RocksDB.loadLibrary()
 
-  private val options = rocksStorageOpts.createDBOptions()
+  private val options: Options = rocksStorageOpts.createDBOptions()
   private val file = new File(absolutePath)
   private val client =  {
     FileUtils.forceMkdir(file)
@@ -57,7 +57,9 @@ class RocksDbConnection(rocksStorageOpts: RocksStorageOptions, absolutePath: Str
       val writeOptions = new WriteOptions()
       val status = scala.util.Try(client.write(writeOptions, batch)) match {
         case scala.util.Success(_) => true
-        case scala.util.Failure(throwable) => false
+        case scala.util.Failure(throwable) =>
+          throwable.printStackTrace()
+          false
       }
       writeOptions.close()
       batch.close()

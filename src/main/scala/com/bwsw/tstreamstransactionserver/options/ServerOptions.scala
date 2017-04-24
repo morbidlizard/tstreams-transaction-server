@@ -8,12 +8,11 @@ object ServerOptions {
 
   /** The options are applied on bootstrap of a server.
     *
-    * @param localHost local ipv4 or ipv6 listen address in string representation.
-    * @param globalHost global ipv4 or ipv6 listen address in string representation.
-    * @param port       a port.
+    * @param host ipv4 or ipv6 listen address in string representation.
+    * @param port a port.
     * @param threadPool the number of threads of thread pool to serialize/deserialize requests/responses.
     */
-  case class BootstrapOptions(localHost: String = "127.0.0.1", globalHost: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 4)
+  case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 4)
 
   /** The options are used to validate client requests by a server.
     *
@@ -86,7 +85,7 @@ object ServerOptions {
     *                 If false, then every store to stable storage will issue a fdatasync.
     *                 This parameter should be set to true while storing data to filesystem like ext3 that can lose files after a reboot.
     */
-  case class RocksStorageOptions(writeThreadPool: Int = 4, readThreadPool: Int = 2, ttlAddMs: Int = 50,
+  case class RocksStorageOptions(writeThreadPool: Int = 2, readThreadPool: Int = 2, ttlAddMs: Int = 50,
                                  createIfMissing: Boolean = true, maxBackgroundCompactions: Int = 1,
                                  allowOsBuffer: Boolean = true, compression: CompressionType = CompressionType.LZ4_COMPRESSION,
                                  useFsync: Boolean = true) {

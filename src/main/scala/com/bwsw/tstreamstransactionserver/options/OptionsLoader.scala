@@ -31,7 +31,7 @@ class OptionsLoader() {
   private def loadBootstrapOptions() = {
     val fields = getPropertiesOf(classOf[BootstrapOptions])
 
-    castCheck(BootstrapOptions(fields(0), fields(1), fields(2).toInt, fields(3).toInt))
+    castCheck(BootstrapOptions(fields(0), fields(1).toInt, fields(2).toInt))
   }
 
   private def loadServerAuthOptions() = {

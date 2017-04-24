@@ -1,13 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.PriorityBlockingQueue
+import java.util.concurrent.{Future, PriorityBlockingQueue}
 
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{Transaction, TransactionStates}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -116,55 +116,28 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
     val recordsToReadNumber = 1
     val bigCommit = transactionServer.getBigCommit(file.getID)
 
-    def getFirstRecordAndReturnIterator(iterator: CommitLogIterator): (CommitLogIterator, Seq[(Transaction, Long)]) = {
-      val (records, iter) = readRecordsFromCommitLogFile(iterator, 1)
-      (iter, records)
-    }
-
     @tailrec
-    def helper(iterator: CommitLogIterator, firstTransactionTimestamp: Long, lastTransactionTimestamp: Long): Long = {
+    def helper(iterator: CommitLogIterator): Unit = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
       bigCommit.putSomeTransactions(records)
-
-      val lastRecordTimestampOpt = records.lastOption match {
-        case Some((transaction, timestamp)) => timestamp
-        case None => lastTransactionTimestamp
-      }
-
       val isAnyElements = iter.hasNext()
-      if (isAnyElements) helper(iter, firstTransactionTimestamp, lastRecordTimestampOpt)
-      else {
-        lastRecordTimestampOpt
-      }
+      if (isAnyElements)
+        helper(iter)
+      else
+        ()
     }
 
-    val (iterator, firstRecord) = getFirstRecordAndReturnIterator(file.getIterator)
-    val isOkay = firstRecord.headOption match {
-      case Some((transaction, firstTransactionTimestamp)) =>
-        bigCommit.putSomeTransactions(firstRecord)
-        helper(iterator, firstTransactionTimestamp, firstTransactionTimestamp)
-        iterator.close()
-        bigCommit.commit()
-          //        val (areTransactionsProcessed, lastTransactionTimestamp) = helper(iter, firstTransactionTimestamp, firstTransactionTimestamp)
-//        if (areTransactionsProcessed) {
-//          if (logger.isDebugEnabled) logger.debug(s"${file.getID} is processed successfully and all records from the file are persisted!")
-//          val cleanTask = transactionServer.createTransactionsToDeleteTask(lastTransactionTimestamp)
-//          cleanTask.run()
-//        } else throw new Exception("There is a bug; Stop server and fix code!")
-        true
-
-      case None =>
-        iterator.close()
-        bigCommit.commit()
-        true
-    }
-
-    isOkay
+    val iterator = file.getIterator
+    helper(iterator)
+    iterator.close()
+    val result = bigCommit.commit()
+    result
   }
 
   override def run(): Unit = {
     while(pathsToClosedCommitLogFiles.size() > 0) {
       val commitLogEntity = pathsToClosedCommitLogFiles.poll()
+
       if (commitLogEntity != null) {
         scala.util.Try {
           processAccordingToPolicy(commitLogEntity)
@@ -174,7 +147,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
         }
       }
     }
-    if (pathsToClosedCommitLogFiles.isEmpty) transactionServer.createTransactionsToDeleteTask(getCurrentTime).run
+    if (pathsToClosedCommitLogFiles.isEmpty) transactionServer.createAndExecuteTransactionsToDeleteTask(getCurrentTime)
   }
 
   final def closeRocksDB(): Unit = rocksDb.close()

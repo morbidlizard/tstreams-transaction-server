@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.3.0-SNAPSHOT"
+version := "1.3.1-SNAPSHOT"
 
 scalaVersion := "2.12.1"
 
@@ -30,6 +30,7 @@ publishMavenStyle := true
 pomIncludeRepository := { _ => false }
 
 isSnapshot := true
+
 
 publishTo := {
   val nexus = "https://oss.sonatype.org/"
@@ -74,6 +75,7 @@ libraryDependencies ++= Seq(
 
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",
   "org.slf4j" % "slf4j-log4j12" % "1.7.24" % "provided",
+  "org.slf4j" % "slf4j-simple" % "1.7.24" % "provided",
 
   ("org.apache.curator" % "curator-framework" % "2.12.0")
     .exclude("log4j", "log4j")

@@ -1,5 +1,6 @@
 package com.bwsw.commitlog
 
+import java.nio.ByteBuffer
 import java.util.Base64
 
 import CommitLogRecord._
@@ -10,9 +11,14 @@ final class CommitLogRecord(val id: Long, val messageType: Byte, val message: Ar
 
   @inline
   def toByteArrayWithoutDelimiter: Array[Byte] = {
-    base64Encoder.encode(
-      (java.nio.ByteBuffer.allocate(java.lang.Long.BYTES).putLong(id).array() :+ messageType) ++: message
-    )
+    val buffer = ByteBuffer
+      .allocate(java.lang.Long.BYTES + java.lang.Byte.BYTES + message.length)
+      .putLong(id)
+      .put(messageType)
+      .put(message)
+    buffer.flip()
+
+    base64Encoder.encode(buffer).array()
   }
 
   override def equals(obj: scala.Any): Boolean = obj match {

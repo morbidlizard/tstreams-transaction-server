@@ -21,6 +21,9 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 
 class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOptions,
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
@@ -156,9 +159,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       if (zk != null)
         zk.close()
 
-      if (transactionServer != null)
-        transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
-
       if (berkeleyWriterExecutor != null) {
         berkeleyWriterExecutor.shutdown()
         berkeleyWriterExecutor.awaitTermination(
@@ -181,6 +181,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       if (berkeleyWriter != null) {
         berkeleyWriter.run()
         berkeleyWriter.closeRocksDB()
+      }
+
+      if (transactionServer != null) {
+        transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
         transactionServer.closeAllDatabases()
       }
     }

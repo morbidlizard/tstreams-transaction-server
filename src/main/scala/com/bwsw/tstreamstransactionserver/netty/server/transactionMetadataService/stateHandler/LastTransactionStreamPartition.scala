@@ -59,7 +59,7 @@ trait LastTransactionStreamPartition {
 
   private final val lastTransactionStreamPartitionRamTable: Cache[KeyStreamPartition, LastOpenedAndCheckpointedTransaction] = fillLastTransactionStreamPartitionTable
 
-  final def getLastTransactionIDAndCheckpointedID(stream: Long, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
+  final def getLastTransactionIDAndCheckpointedID(stream: Long, partition: Int, transaction: com.sleepycat.je.Transaction): Option[LastOpenedAndCheckpointedTransaction] = {
     val key = KeyStreamPartition(stream, partition)
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     if (lastTransactionOpt.isDefined) lastTransactionOpt
@@ -67,19 +67,20 @@ trait LastTransactionStreamPartition {
       val dataFound = new DatabaseEntry()
       val binaryKey = key.toDatabaseEntry
       val lastOpenedTransaction =
-        if (lastTransactionDatabase.get(null, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+        if (lastTransactionDatabase.get(transaction, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
           Some(TransactionID.entryToObject(dataFound))
         else None
-      lastOpenedTransaction match {
+      val result = lastOpenedTransaction match {
         case Some(openedTransaction) =>
           val lastCheckpointed =
-            if (lastCheckpointedTransactionDatabase.get(null, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+            if (lastCheckpointedTransactionDatabase.get(transaction, binaryKey, dataFound, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
               Some(TransactionID.entryToObject(dataFound))
             else None
 
           Some(LastOpenedAndCheckpointedTransaction(openedTransaction, lastCheckpointed))
         case None => None
       }
+      result
     }
   }
 
@@ -124,7 +125,7 @@ trait LastTransactionStreamPartition {
       lastCheckpointedTransactionDatabase.put(transaction, key.toDatabaseEntry, updatedTransactionID.toDatabaseEntry)
   }
 
-  private[transactionMetadataService] def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transaction: Long, isOpenedTransaction: Boolean): Unit = {
+  private[transactionMetadataService] def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition, transaction: Long, isOpenedTransaction: Boolean) = {
     val lastOpenedAndCheckpointedTransaction = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     lastOpenedAndCheckpointedTransaction match {
       case Some(x) =>

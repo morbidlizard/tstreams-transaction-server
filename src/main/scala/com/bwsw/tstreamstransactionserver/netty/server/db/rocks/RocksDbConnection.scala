@@ -36,7 +36,7 @@ class RocksDbConnection(rocksStorageOpts: RocksStorageOptions, absolutePath: Str
     record
   }
 
-  def iterator = client.newIterator()
+  def iterator: RocksIterator = client.newIterator()
   override def close(): Unit = client.close()
 
   final def closeAndDeleteFolder(): Unit = {

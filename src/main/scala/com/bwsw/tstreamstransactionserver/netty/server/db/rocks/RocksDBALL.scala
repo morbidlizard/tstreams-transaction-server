@@ -1,60 +1,69 @@
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
-import java.io.File
+import java.io.{Closeable, File}
 
 import org.apache.commons.io.FileUtils
 import org.rocksdb._
 
 import scala.collection.{JavaConverters, mutable}
 
-class RocksDBALL(absolutePath: String, descriptors: Seq[RocksDatabaseDescriptor]) {
+class RocksDBALL(absolutePath: String, descriptors: Seq[RocksDatabaseDescriptor], readMode: Boolean = false) extends Closeable{
   RocksDB.loadLibrary()
 
-  private val file = new File(absolutePath)
-
-  private val (client: TtlDB, descriptorsWorkWith, databaseHandlers) = {
-    val descriptorsWithDefault =
+  private val options = new DBOptions()
+    .setCreateIfMissing(true)
+    .setCreateMissingColumnFamilies(true)
+  
+  private[rocks] val (client, descriptorsWorkWith, databaseHandlers) = {
+    val descriptorsWithDefaultDescriptor =
       (new RocksDatabaseDescriptor("default".getBytes(), new ColumnFamilyOptions()) +: descriptors).toArray
-    val (columnFamilyDescriptors, ttls) = descriptorsWithDefault
+
+    val (columnFamilyDescriptors, ttls) = descriptorsWithDefaultDescriptor
       .map(descriptor => (new ColumnFamilyDescriptor(descriptor.name, descriptor.options), descriptor.ttl)
     ).unzip
 
-    val databaseHandlers = new java.util.ArrayList[ColumnFamilyHandle](descriptors.length)
+    val databaseHandlers = new java.util.ArrayList[ColumnFamilyHandle](columnFamilyDescriptors.length)
 
+    val file = new File(absolutePath)
     FileUtils.forceMkdir(file)
+
     val connection = TtlDB.open(
-      new DBOptions()
-        .setCreateIfMissing(true)
-        .setCreateMissingColumnFamilies(true),
+      options,
       file.getAbsolutePath,
       JavaConverters.seqAsJavaList(columnFamilyDescriptors),
       databaseHandlers,
       JavaConverters.seqAsJavaList(ttls),
-      false
+      readMode
     )
-    (connection, descriptorsWithDefault, JavaConverters.asScalaBuffer(databaseHandlers))
-  }
-
-  def reopenDatabaseWithNewTTL(index: Int, ttl: Int): Unit = this.synchronized{
-    val descriptor = descriptorsWorkWith(index)
-    val newDescriptor = new RocksDatabaseDescriptor(descriptor.name, descriptor.options, ttl)
-    descriptorsWorkWith(index) = newDescriptor
-    databaseHandlers(index).close()
-    databaseHandlers(index) = client.createColumnFamilyWithTtl(
-      new ColumnFamilyDescriptor(newDescriptor.name, newDescriptor.options), ttl
-    )
+    (connection, descriptorsWithDefaultDescriptor.toBuffer, JavaConverters.asScalaBuffer(databaseHandlers))
   }
 
   def getDatabasesNamesAndIndex: mutable.Seq[(Int, Array[Byte])] = descriptorsWorkWith.zipWithIndex.map{case (descriptor, index) => (index, descriptor.name)}
   def getDatabase(index: Int): RocksDBPartitionDatabase = new RocksDBPartitionDatabase(client, databaseHandlers(index))
-}
 
-object RocksDBALL extends App {
-  val descriptor = collection.mutable.Seq(
-    new RocksDatabaseDescriptor("test".getBytes(), new ColumnFamilyOptions())
-  )
-  val rocks = new RocksDBALL("/tmp/test", descriptor)
- // println(rocks.getDatabase(1).put("test".getBytes(), "abc".getBytes()))
-  rocks.reopenDatabaseWithNewTTL(1, 100)
-  println(rocks.getDatabase(1).getLastRecord)
+  def getRecordFromDatabase(index: Int, key: Array[Byte]): Array[Byte] = client.get(databaseHandlers(index), key)
+
+  def newBatch = new Batch
+  class Batch() {
+    private val batch  = new WriteBatch()
+    def put(index: Int, key: Array[Byte], data: Array[Byte]): Unit = {
+      batch.put(databaseHandlers(index), key, data)
+    }
+
+    def remove(index: Int, key: Array[Byte]): Unit = batch.remove(databaseHandlers(index), key)
+    def write(): Boolean = {
+      val writeOptions = new WriteOptions()
+      val status = scala.util.Try(client.write(writeOptions, batch)) match {
+        case scala.util.Success(_) => true
+        case scala.util.Failure(throwable) =>
+          throwable.printStackTrace()
+          false
+      }
+      writeOptions.close()
+      batch.close()
+      status
+    }
+  }
+
+  override def close(): Unit = client.close()
 }

@@ -2,9 +2,8 @@ package com.bwsw.commitlog.filesystem
 
 import java.io.BufferedInputStream
 
-import com.bwsw.commitlog.CommitLogRecord
-
-import scala.collection.mutable.ArrayBuffer
+import com.bwsw.commitlog.{CommitLogRecord, CommitLogRecordHeader}
+import CommitLogIterator.EOF
 
 abstract class CommitLogIterator extends Iterator[Either[NoSuchElementException, CommitLogRecord]] {
   protected val stream: BufferedInputStream
@@ -21,18 +20,24 @@ abstract class CommitLogIterator extends Iterator[Either[NoSuchElementException,
   override def next(): Either[NoSuchElementException, CommitLogRecord] = {
     if (!hasNext()) Left(new NoSuchElementException("There is no next commit log record!"))
     else {
-      val record = new ArrayBuffer[Byte]()
-      var byte = -1
-      while ( {
-        byte = stream.read()
-        byte != -1 && byte != 0
-      }) {
-        record += byte.toByte
-      }
-      CommitLogRecord.fromByteArrayWithoutDelimiter(record.toArray) match {
-        case scala.util.Left(_) => Left(new NoSuchElementException("There is no next commit log record!"))
-        case scala.util.Right(record) => Right(record)
+      val recordWithoutMessage = new Array[Byte](CommitLogRecord.headerSize)
+      var byte = stream.read(recordWithoutMessage)
+      if (byte != EOF && byte == CommitLogRecord.headerSize) {
+        val header = CommitLogRecordHeader.fromByteArray(recordWithoutMessage)
+        val message = new Array[Byte](header.messageLength)
+        byte = stream.read(message)
+        if (byte != EOF && byte == header.messageLength) {
+          Right(CommitLogRecord(header.id, header.messageType, message, header.timestamp))
+        } else {
+          Left(new NoSuchElementException("There is no next commit log record!"))
+        }
+      } else {
+        Left(new NoSuchElementException("There is no next commit log record!"))
       }
     }
   }
+}
+
+private object CommitLogIterator {
+  val EOF:Int = -1
 }

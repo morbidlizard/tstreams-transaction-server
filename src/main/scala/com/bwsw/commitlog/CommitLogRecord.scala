@@ -1,24 +1,21 @@
 package com.bwsw.commitlog
 
 import java.nio.ByteBuffer
-import java.util.Base64
 
 import CommitLogRecord._
 
-final class CommitLogRecord(val id: Long, val messageType: Byte, val message: Array[Byte])
+/** look at [[com.bwsw.commitlog.CommitLogRecordHeader]] when change attributes of this class  */
+final class CommitLogRecord(val id: Long, val messageType: Byte, val message: Array[Byte], val timestamp: Long = System.currentTimeMillis())
 {
-  def toByteArrayWithDelimiter: Array[Byte] = delimiter +: toByteArrayWithoutDelimiter
-
   @inline
-  def toByteArrayWithoutDelimiter: Array[Byte] = {
-    val buffer = ByteBuffer
-      .allocate(java.lang.Long.BYTES + java.lang.Byte.BYTES + message.length)
+  def toByteArray: Array[Byte] = {
+    ByteBuffer.allocate(size)
       .putLong(id)
       .put(messageType)
+      .putInt(message.length)
+      .putLong(timestamp)
       .put(message)
-    buffer.flip()
-
-    base64Encoder.encode(buffer).array()
+      .array()
   }
 
   override def equals(obj: scala.Any): Boolean = obj match {
@@ -29,27 +26,34 @@ final class CommitLogRecord(val id: Long, val messageType: Byte, val message: Ar
     case _ => false
   }
 
+  def size: Int = headerSize + message.length
 }
 object CommitLogRecord {
-  private val delimiter: Byte = 0
-  private val base64Encoder: Base64.Encoder = Base64.getEncoder
-  private val base64Decoder: Base64.Decoder = Base64.getDecoder
+  val headerSize: Int =
+    java.lang.Long.BYTES +     //id
+    java.lang.Byte.BYTES +     //messageType
+    java.lang.Integer.BYTES +  //messageLength
+    java.lang.Long.BYTES       //timestamp
 
-  final def apply(id: Long, messageType: Byte, message: Array[Byte]): CommitLogRecord = new CommitLogRecord(id, messageType, message)
 
-  final def fromByteArrayWithoutDelimiter(bytes: Array[Byte]): Either[IllegalArgumentException, CommitLogRecord] = {
+  final def apply(id: Long, messageType: Byte, message: Array[Byte], timestamp: Long): CommitLogRecord = new CommitLogRecord(id, messageType, message, timestamp)
+
+  final def fromByteArray(bytes: Array[Byte]): Either[IllegalArgumentException, CommitLogRecord] = {
     scala.util.Try {
-      val decodedRecord = base64Decoder.decode(bytes)
-      val (idBinary, messageTypeWithMessage) = decodedRecord.splitAt(java.lang.Long.BYTES)
-      val id = java.nio.ByteBuffer.wrap(idBinary).getLong
-      val messageType = messageTypeWithMessage.head
-      val message = messageTypeWithMessage.tail
-      new CommitLogRecord(id, messageType, message)
+      val buffer = ByteBuffer.wrap(bytes)
+      val id     = buffer.getLong()
+      val messageType   = buffer.get()
+      val messageLength = buffer.getInt()
+      val timestamp     = buffer.getLong()
+      val message       = {
+        val binaryMessage = new Array[Byte](messageLength)
+        buffer.get(binaryMessage)
+        binaryMessage
+      }
+      new CommitLogRecord(id, messageType, message, timestamp)
     } match {
       case scala.util.Success(binaryRecord) => scala.util.Right(binaryRecord)
       case scala.util.Failure(_) => scala.util.Left(new IllegalArgumentException("Commit log record is corrupted"))
     }
   }
-
-  final def fromByteArrayWithDelimiter(bytes: Array[Byte]): Either[IllegalArgumentException, CommitLogRecord] = fromByteArrayWithoutDelimiter(bytes.tail)
 }

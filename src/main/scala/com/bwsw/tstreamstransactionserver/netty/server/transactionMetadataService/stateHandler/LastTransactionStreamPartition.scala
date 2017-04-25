@@ -1,13 +1,15 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Callable, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.google.common.cache.Cache
 import com.sleepycat.je._
 
 trait LastTransactionStreamPartition {
   val environment: Environment
+  val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
 
   private final val lastTransactionDatabase = {
@@ -85,36 +87,42 @@ trait LastTransactionStreamPartition {
   }
 
 
-  final def deleteLastOpenedAndCheckpointedTransactions(stream: Long, transaction: com.sleepycat.je.Transaction): Unit = {
-    val from = KeyStreamPartition(stream, Int.MinValue).toDatabaseEntry
-    val to   = KeyStreamPartition(stream, Int.MaxValue).toDatabaseEntry
+  private class DeleteLastOpenedAndCheckpointedTransactions(stream: Long, transaction: com.sleepycat.je.Transaction) extends Callable[Unit]{
+    override def call(): Unit = {
+      val from = KeyStreamPartition(stream, Int.MinValue).toDatabaseEntry
+      val to   = KeyStreamPartition(stream, Int.MaxValue).toDatabaseEntry
 
-    val lockMode = LockMode.READ_UNCOMMITTED
+      val lockMode = LockMode.READ_UNCOMMITTED
 
-    val dataFound = new DatabaseEntry()
+      val dataFound = new DatabaseEntry()
 
-    var binaryKey = from
-    val lastTransactionDatabaseCursor = lastTransactionDatabase.openCursor(transaction, new CursorConfig())
-    if (lastTransactionDatabaseCursor.getSearchKeyRange(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS &&
-      lastTransactionDatabase.compareKeys(binaryKey, from) >= 0 && lastTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
-      lastTransactionDatabaseCursor.delete()
-      while (lastTransactionDatabaseCursor.getNext(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS && lastTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
+      var binaryKey = from
+      val lastTransactionDatabaseCursor = lastTransactionDatabase.openCursor(transaction, new CursorConfig())
+      if (lastTransactionDatabaseCursor.getSearchKeyRange(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS &&
+        lastTransactionDatabase.compareKeys(binaryKey, from) >= 0 && lastTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
         lastTransactionDatabaseCursor.delete()
+        while (lastTransactionDatabaseCursor.getNext(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS && lastTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
+          lastTransactionDatabaseCursor.delete()
+        }
       }
-    }
-    lastTransactionDatabaseCursor.close()
+      lastTransactionDatabaseCursor.close()
 
-    binaryKey = from
-    val lastCheckpointedTransactionDatabaseCursor = lastCheckpointedTransactionDatabase.openCursor(transaction, new CursorConfig())
-    if (lastCheckpointedTransactionDatabaseCursor.getSearchKeyRange(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS &&
-      lastCheckpointedTransactionDatabase.compareKeys(binaryKey, from) >= 0 && lastCheckpointedTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
-      lastCheckpointedTransactionDatabaseCursor.delete()
-      while (lastCheckpointedTransactionDatabaseCursor.getNext(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS && lastCheckpointedTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
+      binaryKey = from
+      val lastCheckpointedTransactionDatabaseCursor = lastCheckpointedTransactionDatabase.openCursor(transaction, new CursorConfig())
+      if (lastCheckpointedTransactionDatabaseCursor.getSearchKeyRange(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS &&
+        lastCheckpointedTransactionDatabase.compareKeys(binaryKey, from) >= 0 && lastCheckpointedTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
         lastCheckpointedTransactionDatabaseCursor.delete()
+        while (lastCheckpointedTransactionDatabaseCursor.getNext(binaryKey, dataFound, lockMode) == OperationStatus.SUCCESS && lastCheckpointedTransactionDatabase.compareKeys(binaryKey, to) <= 0) {
+          lastCheckpointedTransactionDatabaseCursor.delete()
+        }
       }
+      binaryKey = null
+      lastCheckpointedTransactionDatabaseCursor.close()
     }
-    binaryKey = null
-    lastCheckpointedTransactionDatabaseCursor.close()
+  }
+
+  final def deleteLastOpenedAndCheckpointedTransactions(stream: Long, transaction: com.sleepycat.je.Transaction): Unit = {
+    executionContext.berkeleyWriteContext.submit(new DeleteLastOpenedAndCheckpointedTransactions(stream, transaction)).get()
   }
 
   private[transactionMetadataService] final def putLastTransaction(key: KeyStreamPartition, transactionId: Long, isOpenedTransaction: Boolean, transaction: com.sleepycat.je.Transaction) = {

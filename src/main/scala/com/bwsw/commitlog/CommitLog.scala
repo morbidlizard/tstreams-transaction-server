@@ -50,8 +50,8 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
     private[CommitLog] val creationTime: Long = System.currentTimeMillis()
 
     private[CommitLog] def put(messageType: Byte, message: Array[Byte]): Unit = {
-      val commitLogRecord = CommitLogRecord(recordIDGen.getAndIncrement(), messageType, message)
-      val recordToBinary = commitLogRecord.toByteArrayWithDelimiter
+      val commitLogRecord = CommitLogRecord(recordIDGen.getAndIncrement(), messageType, message, System.currentTimeMillis())
+      val recordToBinary = commitLogRecord.toByteArray
       digestOutputStream.write(recordToBinary)
     }
 

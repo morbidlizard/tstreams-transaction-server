@@ -212,6 +212,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
               tryCompleteProducerNotify(producerTransactionRecord)
 
             producerTransactionsDatabase.put(berkeleyTransaction, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl)))
+            if (logger.isDebugEnabled) logger.debug(s"Producer transaction on stream: ${producerTransactionRecord.stream}" +
+              s"partition ${producerTransactionRecord.partition}, transactionId ${producerTransactionRecord.transactionID} " +
+              s"with state ${producerTransactionRecord.state} is ready for commit[commit id: ${berkeleyTransaction.getId}]"
+            )
           case scala.util.Failure(throwable) => //throwable.printStackTrace()
         }
       }
@@ -274,7 +278,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
 
         commitLogDatabase.put(transactionDB, key.keyToDatabaseEntry, value)
         scala.util.Try(transactionDB.commit()) match {
-          case scala.util.Success(_) => true
+          case scala.util.Success(_) =>
+            if (logger.isDebugEnabled) logger.debug(s"commit ${transactionDB.getId} is successfully fixed.")
+            true
           case scala.util.Failure(error) =>
             error.printStackTrace()
             false

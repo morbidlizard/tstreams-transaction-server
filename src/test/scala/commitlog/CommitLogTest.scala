@@ -5,7 +5,7 @@ import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.commitlog.CommitLog
+import com.bwsw.commitlog.{CommitLog, CommitLogRecord}
 import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
@@ -14,7 +14,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 class CommitLogTest extends FlatSpec with Matchers with BeforeAndAfterAll {
   val dir = new StringBuffer().append("target").append(File.separatorChar).append("clt").toString
   val rec = "sample record".map(_.toByte).toArray
-  val recordSize = 33
+  val recordSize = rec.length + CommitLogRecord.headerSize
   private val fileIDGen = new AtomicLong(0L)
 
   override def beforeAll() = {

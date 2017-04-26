@@ -103,7 +103,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
       ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
     }
 
-    Await.result(transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID), secondsAwait.seconds).producerTransactions should contain theSameElementsAs expiredTransactions
+    Await.result(transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)), secondsAwait.seconds).producerTransactions should contain theSameElementsAs expiredTransactions
 
     (minTransactionID to maxTransactionID) foreach { transactionID =>
       transactionService.checkTransactionExistInOpenedTable(stream.name, stream.partitions, transactionID) shouldBe false

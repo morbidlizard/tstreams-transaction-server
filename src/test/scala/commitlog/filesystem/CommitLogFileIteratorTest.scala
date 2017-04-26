@@ -70,7 +70,7 @@ class CommitLogFileIteratorTest extends FlatSpec with Matchers with BeforeAndAft
 
     val croppedFileName = fileName + ".cropped"
     val outputStream = new BufferedOutputStream(new FileOutputStream(croppedFileName))
-    Stream.continually(outputStream.write(bytesArray.slice(0, 36)))
+    outputStream.write(bytesArray.slice(0, 49))
     outputStream.close()
 
     val commitLogFileIterator = new CommitLogFileIterator(croppedFileName)
@@ -94,52 +94,6 @@ class CommitLogFileIteratorTest extends FlatSpec with Matchers with BeforeAndAft
     }
     commitLogFileIterator.hasNext shouldBe false
   }
-
-  it should "Throw IllegalArgumentException when separator at the beginning of file is missing" in {
-    val commitLog = new CommitLog(10, dir, nextFileID = fileIDGenerator.getAndIncrement)
-    commitLog.putRec(Array[Byte](6, 7, 8), 5, startNew = false)
-    commitLog.putRec(Array[Byte](7, 8, 9), 6, startNew = false)
-    commitLog.putRec(Array[Byte](5, 7, 9), 3, startNew = false)
-    val fileName = commitLog.putRec(Array[Byte](7, 8, 9), 6, startNew = false)
-    commitLog.close()
-
-    val bytesArray: Array[Byte] = Files.readAllBytes(Paths.get(fileName))
-
-    val croppedFileName = fileName + ".cropped"
-    val outputStream = new BufferedOutputStream(new FileOutputStream(croppedFileName))
-    Stream.continually(outputStream.write(bytesArray.slice(1, 35)))
-    outputStream.close()
-
-    intercept[IllegalArgumentException] {
-      val commitLogFileIterator = new CommitLogFileIterator(croppedFileName)
-    }
-  }
-
-//  it should "Throw IllegalArgumentException when separator is missing" in {
-//    val commitLog = new CommitLog(10, dir, nextFileID = fileIDGenerator.getAndIncrement)
-//    commitLog.putRec(Array[Byte](6, 7, 8), 5, startNew = false)
-//    commitLog.putRec(Array[Byte](7, 8, 9), 6, startNew = false)
-//    commitLog.putRec(Array[Byte](5, 7, 9), 3, startNew = false)
-//    val fileName = commitLog.putRec(Array[Byte](7, 8, 9), 6, startNew = false)
-//    commitLog.close()
-//
-//    val bytesArray: Array[Byte] = Files.readAllBytes(Paths.get(fileName))
-//
-//    val croppedFileName = fileName + ".cropped"
-//    val outputStream = new BufferedOutputStream(new FileOutputStream(croppedFileName))
-//    Stream.continually(outputStream.write(bytesArray.slice(0, 18)))
-//    Stream.continually(outputStream.write(bytesArray.slice(20, 35)))
-//    outputStream.close()
-//
-//    val commitLogFileIterator = new CommitLogFileIterator(croppedFileName)
-//    val record = commitLogFileIterator.next()
-//
-//    record.message sameElements Array[Byte](6, 7, 8).deep shouldBe true
-//    record.messageType shouldBe (5: Byte)
-//    intercept[IllegalArgumentException] {
-//      commitLogFileIterator.next()
-//    }
-//  }
 
   override def afterAll = {
     List(dir).foreach(dir =>

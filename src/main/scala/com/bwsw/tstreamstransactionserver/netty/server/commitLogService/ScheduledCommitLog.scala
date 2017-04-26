@@ -6,7 +6,7 @@ import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnTimeInterval}
 import com.bwsw.commitlog.filesystem.{CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.Time
-import com.bwsw.tstreamstransactionserver.netty.{Message, MessageWithTimestamp}
+import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{EveryNSeconds, EveryNewFile, EveryNth}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{CommitLogOptions, StorageOptions}
 import org.slf4j.LoggerFactory
@@ -33,7 +33,7 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
   def currentCommitLogFile: Long = commitLog.currentFileID
 
   def putData(messageType: Byte, message: Message) = {
-    commitLog.putRec(MessageWithTimestamp(message, getCurrentTime).toByteArray, messageType)
+    commitLog.putRec(message.toByteArray, messageType)
     true
   }
 

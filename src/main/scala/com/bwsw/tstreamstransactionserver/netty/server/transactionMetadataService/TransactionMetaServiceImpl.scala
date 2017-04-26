@@ -212,6 +212,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
               tryCompleteProducerNotify(producerTransactionRecord)
 
             producerTransactionsDatabase.put(berkeleyTransaction, binaryKey, binaryTxn, Put.OVERWRITE, new WriteOptions().setTTL(calculateTTLForBerkeleyRecord(stream.ttl)))
+            if (logger.isDebugEnabled) logger.debug(s"Producer transaction on stream: ${producerTransactionRecord.stream}" +
+              s"partition ${producerTransactionRecord.partition}, transactionId ${producerTransactionRecord.transactionID} " +
+              s"with state ${producerTransactionRecord.state} is ready for commit[commit id: ${berkeleyTransaction.getId}]"
+            )
           case scala.util.Failure(throwable) => //throwable.printStackTrace()
         }
       }
@@ -274,7 +278,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
 
         commitLogDatabase.put(transactionDB, key.keyToDatabaseEntry, value)
         scala.util.Try(transactionDB.commit()) match {
-          case scala.util.Success(_) => true
+          case scala.util.Success(_) =>
+            if (logger.isDebugEnabled) logger.debug(s"commit ${transactionDB.getId} is successfully fixed.")
+            true
           case scala.util.Failure(error) =>
             error.printStackTrace()
             false
@@ -352,7 +358,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     result
   }(executionContext.berkeleyReadContext)
 
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo] =
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo] =
     ScalaFuture {
       val lockMode = LockMode.READ_UNCOMMITTED_ALL
       val keyStream = getMostRecentStream(stream)
@@ -371,7 +377,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       if (logger.isDebugEnabled) logger.debug(s"Trying to retrieve transactions on stream $stream, partition: $partition in range [$from, $to]." +
         s"Actually as lt ${if (lastOpenedTransactionID == -1) "doesn't exist" else s"is $lastOpenedTransactionID"} the range is [$from, $toTransactionID].")
 
-      if (toTransactionID < from) ScanTransactionsInfo(lastOpenedTransactionID, Seq())
+      if (toTransactionID < from || count == 0) ScanTransactionsInfo(lastOpenedTransactionID, Seq())
       else {
         val lastTransactionID = new ProducerTransactionKey(keyStream.streamNameAsLong, partition, toTransactionID).toDatabaseEntry
         def moveCursorToKey: Option[ProducerTransactionRecord] = {
@@ -398,8 +404,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
             //return transactions until first opened one.
             var txnState: TransactionStates = producerTransactionKey.state
             while (
-              cursor.getNext(transactionID, dataFound, lockMode) == OperationStatus.SUCCESS &&
-                (producerTransactionsDatabase.compareKeys(transactionID, lastTransactionID) <= 0 && txnState != TransactionStates.Opened)
+              !states.contains(txnState) &&
+                producerTransactions.length < count &&
+                cursor.getNext(transactionID, dataFound, lockMode) == OperationStatus.SUCCESS &&
+                (producerTransactionsDatabase.compareKeys(transactionID, lastTransactionID) <= 0)
             ) {
               val producerTransaction = ProducerTransactionRecord(ProducerTransactionKey.entryToObject(transactionID), ProducerTransactionValue.entryToObject(dataFound))
               txnState = producerTransaction.state
@@ -413,7 +421,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
               com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
             }
 
-            ScanTransactionsInfo(lastOpenedTransactionID, producerTransactions map producerTransactionKeyToProducerTransaction filter lambda)
+            val result = if (states.contains(txnState)) producerTransactions.init else producerTransactions
+            ScanTransactionsInfo(lastOpenedTransactionID, result map producerTransactionKeyToProducerTransaction)
         }
       }
     }(executionContext.berkeleyReadContext)

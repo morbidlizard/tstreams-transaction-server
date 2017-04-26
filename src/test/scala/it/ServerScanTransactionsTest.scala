@@ -97,7 +97,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 2L , 4L), 5.seconds)
+      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
 
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe 3L
@@ -131,7 +131,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
 
     streams foreach { stream =>
-      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 2L , 4L), 5.seconds)
+      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
 
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe -1L
@@ -185,7 +185,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L), 5.seconds)
+      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result.lastOpenedTransactionID shouldBe 3L
@@ -236,9 +236,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 5L), 5.seconds)
+      val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
 
-      result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(2)._1)
+      result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1)
       result.lastOpenedTransactionID shouldBe 5L
     }
     transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
@@ -291,18 +291,18 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result1 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L), 5.seconds)
+      val result1 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
       result1.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result1.lastOpenedTransactionID  shouldBe 5L
 
-      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L), 5.seconds)
-      result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1,producerTransactionsWithTimestamp.last._1)
+      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
+      result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result2.lastOpenedTransactionID shouldBe 5L
     }
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
-  it should "correctly return producerTransactions with defined lambda(which discard all producers transactions thereby retuning an empty collection of them) on: LT >= B: " +
+  it should "correctly return producerTransactions with defined count and states(which discard all producers transactions thereby retuning an empty collection of them) on: LT >= B: " +
     "return (LT, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
@@ -352,14 +352,14 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, txn => txn.transactionID > 5L), 5.seconds)
+      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, 0, Set(TransactionStates.Opened)), 5.seconds)
       result2.producerTransactions shouldBe empty
       result2.lastOpenedTransactionID  shouldBe 5L
     }
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
-  it should "correctly return producerTransactions with defined lambda(which accepts all producers transactions thereby retuning all of them) on: LT >= B: " +
+  it should "correctly return producerTransactions with defined count and states(which accepts all producers transactions thereby retuning all of them) on: LT >= B: " +
     "return (LT, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
@@ -410,8 +410,8 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, txn => txn.transactionID <= 5L), 5.seconds)
-      result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1,producerTransactionsWithTimestamp.last._1)
+      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, 5, Set(TransactionStates.Opened)), 5.seconds)
+      result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result2.lastOpenedTransactionID  shouldBe 5L
     }
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
@@ -457,7 +457,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     bigCommit1.putSomeTransactions(txns)
     bigCommit1.commit()
 
-    val res = Await.result(transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsAwait.seconds)
+    val res = Await.result(transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsAwait.seconds)
 
     res.producerTransactions.size shouldBe transactions.size
 
@@ -532,7 +532,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val firstTransaction = transactions.head
       val lastTransaction = transactions.last
 
-      val res = Await.result(transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), 5.seconds)
+      val res = Await.result(transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
       res.producerTransactions.size shouldBe transactions1.size
     }
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
@@ -565,7 +565,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
     val firstTransaction = transactions.head
     val lastTransaction = transactions.last
-    val res = Await.result(transactionServer.scanTransactions(stream.name, 1, firstTransaction, lastTransaction), secondsAwait.seconds)
+    val res = Await.result(transactionServer.scanTransactions(stream.name, 1, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsAwait.seconds)
     res.producerTransactions.size shouldBe 0
 
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
@@ -607,7 +607,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     bigCommit1.commit()
 
 
-    val res = Await.result(transactionServer.scanTransactions(stream.name, 1, lastTransaction, firstTransaction), secondsAwait.seconds)
+    val res = Await.result(transactionServer.scanTransactions(stream.name, 1, lastTransaction, firstTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsAwait.seconds)
     res.producerTransactions.size shouldBe 0
 
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()

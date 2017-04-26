@@ -202,12 +202,12 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val fromID = producerTransactions.minBy(_.transactionID).transactionID
     val toID = producerTransactions.maxBy(_.transactionID).transactionID
 
-    val resultBeforeDeleting = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
+    val resultBeforeDeleting = Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID, Int.MaxValue, Set()), secondsWait.seconds).producerTransactions
     resultBeforeDeleting should not be empty
 
     Await.result(client.delStream(stream), secondsWait.seconds)
     assertThrows[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist] {
-      Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
+      Await.result(client.scanTransactions(stream.name, stream.partitions, fromID, toID, Int.MaxValue, Set()), secondsWait.seconds).producerTransactions
     }
   }
 
@@ -286,21 +286,21 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     transactionServer.berkeleyWriter.run()
 
 
-    val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from), secondsWait.seconds)
+    val resFrom_1From = Await.result(client.scanTransactions(stream.name, stream.partitions, from - 1, from, Int.MaxValue, Set()), secondsWait.seconds)
     resFrom_1From.producerTransactions.size shouldBe 1
     resFrom_1From.producerTransactions.head.transactionID shouldBe from
 
 
-    val resFromFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, from, from), secondsWait.seconds)
+    val resFromFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, from, from, Int.MaxValue, Set()), secondsWait.seconds)
     resFromFrom.producerTransactions.size shouldBe 1
     resFromFrom.producerTransactions.head.transactionID shouldBe from
 
 
-    val resToFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, to, from), secondsWait.seconds)
+    val resToFrom = Await.result(client.scanTransactions(stream.name, stream.partitions, to, from, Int.MaxValue, Set()), secondsWait.seconds)
     resToFrom.producerTransactions.size shouldBe 0
 
     val producerTransactionsByState = producerTransactions.groupBy(_.state)
-    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to), secondsWait.seconds).producerTransactions
+    val res = Await.result(client.scanTransactions(stream.name, stream.partitions, from, to, Int.MaxValue, Set()), secondsWait.seconds).producerTransactions
 
     val producerOpenedTransactions = producerTransactionsByState(TransactionStates.Opened).sortBy(_.transactionID)
 
@@ -500,8 +500,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val firstTransaction = transactions.head
     val lastTransaction = transactions.last
 
-    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
+    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds)
 
-    res.producerTransactions.size shouldBe transactions1.size + 1
+    res.producerTransactions.size shouldBe transactions1.size
   }
 }

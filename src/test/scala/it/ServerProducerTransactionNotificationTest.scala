@@ -263,7 +263,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
 
     Thread.sleep(3000)
-    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
+    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds)
     val resData = Await.result(client.getTransactionData(stream.name, partition, lastTransaction, 0, 10), secondsWait.seconds)
 
 
@@ -298,7 +298,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
 
-    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction), secondsWait.seconds)
+    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds)
 
     res.producerTransactions.size shouldBe transactions.size
   }
@@ -361,7 +361,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       client.putProducerState(ProducerTransaction(stream.name, 2, firstTransaction22, TransactionStates.Updated, 1, 120L))
     }
 
-    val res = Await.result(client.scanTransactions(stream.name, 1, firstTransaction1 - 45L , firstTransaction1), secondsWait.seconds)
+    val res = Await.result(client.scanTransactions(stream.name, 1, firstTransaction1 - 45L , firstTransaction1, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds)
     res.producerTransactions.head == ProducerTransaction(stream.name, 1, firstTransaction1, TransactionStates.Checkpointed, 1, 120L)
   }
 }

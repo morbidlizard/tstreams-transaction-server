@@ -43,7 +43,7 @@ trait TransactionMetaService[+MM[_]] extends ThriftService {
   
   def putSimpleTransactionAndData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): MM[Boolean]
   
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: Seq[Byte] = Seq[Byte]()): MM[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo]
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()): MM[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo]
   
   def getTransaction(stream: String, partition: Int, transaction: Long): MM[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo]
   
@@ -1768,8 +1768,10 @@ object TransactionMetaService { self =>
       val FromFieldManifest = implicitly[Manifest[Long]]
       val ToField = new TField("to", TType.I64, 4)
       val ToFieldManifest = implicitly[Manifest[Long]]
-      val LambdaField = new TField("lambda", TType.LIST, 5)
-      val LambdaFieldManifest = implicitly[Manifest[Seq[Byte]]]
+      val CountField = new TField("count", TType.I32, 5)
+      val CountFieldManifest = implicitly[Manifest[Int]]
+      val StatesField = new TField("states", TType.SET, 6)
+      val StatesFieldManifest = implicitly[Manifest[Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]]]
     
       /**
        * Field information in declaration order.
@@ -1820,12 +1822,23 @@ object TransactionMetaService { self =>
           None
         ),
         new ThriftStructFieldInfo(
-          LambdaField,
+          CountField,
           false,
           false,
-          LambdaFieldManifest,
+          CountFieldManifest,
           _root_.scala.None,
-          _root_.scala.Some(implicitly[Manifest[Byte]]),
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          StatesField,
+          false,
+          false,
+          StatesFieldManifest,
+          _root_.scala.None,
+          _root_.scala.Some(implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]]),
           immutable$Map.empty[String, String],
           immutable$Map.empty[String, String],
           None
@@ -1863,9 +1876,14 @@ object TransactionMetaService { self =>
               val field = original.to
               field
             },
-          lambda =
+          count =
             {
-              val field = original.lambda
+              val field = original.count
+              field
+            },
+          states =
+            {
+              val field = original.states
               field.map { field =>
                 field
               }
@@ -1881,7 +1899,8 @@ object TransactionMetaService { self =>
         var partition: Int = 0
         var from: Long = 0L
         var to: Long = 0L
-        var lambda: Seq[Byte] = Seq[Byte]()
+        var count: Int = 0
+        var states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1946,12 +1965,25 @@ object TransactionMetaService { self =>
                 }
               case 5 =>
                 _field.`type` match {
-                  case TType.LIST =>
-                    lambda = readLambdaValue(_iprot)
+                  case TType.I32 =>
+                    count = readCountValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.LIST
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'lambda' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'count' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case 6 =>
+                _field.`type` match {
+                  case TType.SET =>
+                    states = readStatesValue(_iprot)
+                  case _actualType =>
+                    val _expectedType = TType.SET
+                    throw new TProtocolException(
+                      "Received wrong type for field 'states' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -1972,7 +2004,8 @@ object TransactionMetaService { self =>
           partition,
           from,
           to,
-          lambda,
+          count,
+          states,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -1985,17 +2018,19 @@ object TransactionMetaService { self =>
         partition: Int,
         from: Long,
         to: Long,
-        lambda: Seq[Byte] = Seq[Byte]()
+        count: Int,
+        states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()
       ): Args =
         new Args(
           stream,
           partition,
           from,
           to,
-          lambda
+          count,
+          states
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple5[String, Int, Long, Long, Seq[Byte]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple6[String, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]]] = _root_.scala.Some(_item.toTuple)
     
     
       @inline private def readStreamValue(_iprot: TProtocol): String = {
@@ -2054,48 +2089,51 @@ object TransactionMetaService { self =>
         _oprot.writeI64(to_item)
       }
     
-      @inline private def readLambdaValue(_iprot: TProtocol): Seq[Byte] = {
-        val _list = _iprot.readListBegin()
-        if (_list.size == 0) {
-          _iprot.readListEnd()
-          Nil
+      @inline private def readCountValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
+      }
+    
+      @inline private def writeCountField(count_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(CountField)
+        writeCountValue(count_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeCountValue(count_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(count_item)
+      }
+    
+      @inline private def readStatesValue(_iprot: TProtocol): Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = {
+        val _set = _iprot.readSetBegin()
+        if (_set.size == 0) {
+          _iprot.readSetEnd()
+          Set.empty[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]
         } else {
-          val _rv = new mutable$ArrayBuffer[Byte](_list.size)
+          val _rv = new mutable$HashSet[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]
           var _i = 0
-          while (_i < _list.size) {
+          while (_i < _set.size) {
             _rv += {
-              _iprot.readByte()
+              com.bwsw.tstreamstransactionserver.rpc.TransactionStates.getOrUnknown(_iprot.readI32())
             }
             _i += 1
           }
-          _iprot.readListEnd()
+          _iprot.readSetEnd()
           _rv
         }
       }
     
-      @inline private def writeLambdaField(lambda_item: Seq[Byte], _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(LambdaField)
-        writeLambdaValue(lambda_item, _oprot)
+      @inline private def writeStatesField(states_item: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates], _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StatesField)
+        writeStatesValue(states_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeLambdaValue(lambda_item: Seq[Byte], _oprot: TProtocol): Unit = {
-        _oprot.writeListBegin(new TList(TType.BYTE, lambda_item.size))
-        lambda_item match {
-          case _: IndexedSeq[_] =>
-            var _i = 0
-            val _size = lambda_item.size
-            while (_i < _size) {
-              val lambda_item_element = lambda_item(_i)
-              _oprot.writeByte(lambda_item_element)
-              _i += 1
-            }
-          case _ =>
-            lambda_item.foreach { lambda_item_element =>
-              _oprot.writeByte(lambda_item_element)
-            }
+      @inline private def writeStatesValue(states_item: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates], _oprot: TProtocol): Unit = {
+        _oprot.writeSetBegin(new TSet(TType.I32, states_item.size))
+        states_item.foreach { states_item_element =>
+          _oprot.writeI32(states_item_element.value)
         }
-        _oprot.writeListEnd()
+        _oprot.writeSetEnd()
       }
     
     
@@ -2106,10 +2144,11 @@ object TransactionMetaService { self =>
         val partition: Int,
         val from: Long,
         val to: Long,
-        val lambda: Seq[Byte],
+        val count: Int,
+        val states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product5[String, Int, Long, Long, Seq[Byte]]
+      with _root_.scala.Product6[String, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
@@ -2119,13 +2158,15 @@ object TransactionMetaService { self =>
         partition: Int,
         from: Long,
         to: Long,
-        lambda: Seq[Byte] = Seq[Byte]()
+        count: Int,
+        states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()
       ) = this(
         stream,
         partition,
         from,
         to,
-        lambda,
+        count,
+        states,
         Map.empty
       )
     
@@ -2133,15 +2174,17 @@ object TransactionMetaService { self =>
       def _2 = partition
       def _3 = from
       def _4 = to
-      def _5 = lambda
+      def _5 = count
+      def _6 = states
     
-      def toTuple: _root_.scala.Tuple5[String, Int, Long, Long, Seq[Byte]] = {
+      def toTuple: _root_.scala.Tuple6[String, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]] = {
         (
           stream,
           partition,
           from,
           to,
-          lambda
+          count,
+          states
         )
       }
     
@@ -2154,7 +2197,8 @@ object TransactionMetaService { self =>
         writePartitionField(partition, _oprot)
         writeFromField(from, _oprot)
         writeToField(to, _oprot)
-        if (lambda ne null) writeLambdaField(lambda, _oprot)
+        writeCountField(count, _oprot)
+        if (states ne null) writeStatesField(states, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -2167,7 +2211,8 @@ object TransactionMetaService { self =>
         partition: Int = this.partition,
         from: Long = this.from,
         to: Long = this.to,
-        lambda: Seq[Byte] = this.lambda,
+        count: Int = this.count,
+        states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = this.states,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
@@ -2175,7 +2220,8 @@ object TransactionMetaService { self =>
           partition,
           from,
           to,
-          lambda,
+          count,
+          states,
           _passthroughFields
         )
     
@@ -2195,14 +2241,15 @@ object TransactionMetaService { self =>
       override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
     
     
-      override def productArity: Int = 5
+      override def productArity: Int = 6
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.stream
         case 1 => this.partition
         case 2 => this.from
         case 3 => this.to
-        case 4 => this.lambda
+        case 4 => this.count
+        case 5 => this.states
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     

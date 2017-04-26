@@ -626,9 +626,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   @throws[Exception]
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, lambda: ProducerTransaction => Boolean = txn => true): ScalaFuture[ScanTransactionsInfo] = {
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: Set[TransactionStates]): ScalaFuture[ScanTransactionsInfo] = {
     require(from >= 0 && to >= 0, s"Calling method scanTransactions requires that bounds: 'from' and 'to' are both positive(actually from and to are: [$from, $to])")
-    if (to < from) {
+    if (to < from || count == 0) {
       onShutdownThrowException()
       val lastOpenedTransactionID = -1L
       ScalaFuture.successful(ScanTransactionsInfo(lastOpenedTransactionID, collection.immutable.Seq()))
@@ -639,7 +639,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       tryCompleteRequest(
         method[TransactionService.ScanTransactions.Args,TransactionService.ScanTransactions.Result, ScanTransactionsInfo](
           Descriptors.ScanTransactions,
-          TransactionService.ScanTransactions.Args(stream, partition, from, to, ObjectSerializer.serialize(lambda)),
+          TransactionService.ScanTransactions.Args(stream, partition, from, to, count, states),
           x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
         )(context)
       )(context)

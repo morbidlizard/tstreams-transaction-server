@@ -12,7 +12,7 @@ import org.json4s.jackson.Serialization
 
 import scala.collection.mutable.ArrayBuffer
 
-object RocksUtilite {
+object DumpProcessedCommitLogUtility {
   RocksDB.loadLibrary()
 
   sealed trait Transaction

@@ -50,20 +50,6 @@ object RocksUtilite {
   }
 
 
-
-  def producerTransactionToString(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, record: com.bwsw.commitlog.CommitLogRecord) = {
-    import producerTransaction._
-    s"record[id ${record.id}, timestamp ${record.timestamp}]: " +
-      s"Producer Transaction -> stream:$stream, partition:$partition ,id:$transactionID, state:$state, ttl:$ttl"
-  }
-
-  def consumerTransactionToString(consumerTransaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction, record: com.bwsw.commitlog.CommitLogRecord) = {
-    import consumerTransaction._
-    s"record[id ${record.id}, timestamp ${record.timestamp}]: " +
-      s"Consumer Transaction -> stream:$stream, partition:$partition ,id:$transactionID, name:$name"
-  }
-
-
   def RecordToProducerOrConsumerTransaction(key: Array[Byte], value:Array[Byte]): CommitLogFile = {
     val fileKey = FileKey.fromByteArray(key)
     val fileValue = FileValue.fromByteArray(value)

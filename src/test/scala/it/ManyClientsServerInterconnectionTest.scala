@@ -165,7 +165,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     val toID = producerTransactions.maxBy(_.transactionID).transactionID
 
     assertThrows[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist] {
-      Await.result(firstClient.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions
+      Await.result(firstClient.scanTransactions(stream.name, stream.partitions, fromID, toID, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds).producerTransactions
     }
   }
 
@@ -205,7 +205,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     val fromID = producerTransactions.head.transactionID
     val toID = producerTransactions.last.transactionID
 
-    Await.result(firstClient.scanTransactions(stream.name, stream.partitions, fromID, toID), secondsWait.seconds).producerTransactions should have size txnNumber
+    Await.result(firstClient.scanTransactions(stream.name, stream.partitions, fromID, toID, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds).producerTransactions should have size txnNumber
   }
 
 

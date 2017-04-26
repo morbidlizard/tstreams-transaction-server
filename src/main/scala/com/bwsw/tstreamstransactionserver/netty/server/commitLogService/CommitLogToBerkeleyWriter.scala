@@ -164,7 +164,7 @@ object CommitLogToBerkeleyWriter {
   private def deserializeSetConsumerState(message: Message) = Descriptors.PutConsumerCheckpoint.decodeRequest(message)
 
 
-  private def retrieveTransactions(record: CommitLogRecord): Seq[(Transaction, Long)] = record.messageType match {
+  def retrieveTransactions(record: CommitLogRecord): Seq[(Transaction, Long)] = record.messageType match {
     case `putTransactionType` =>
       val txn = deserializePutTransaction(Message.fromByteArray(record.message))
       Seq((txn.transaction, record.timestamp))

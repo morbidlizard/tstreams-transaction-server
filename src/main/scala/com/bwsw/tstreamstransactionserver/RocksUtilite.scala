@@ -38,13 +38,11 @@ object RocksUtilite {
 
     val iterator = client.newIterator()
     iterator.seekToFirst()
-    var counter = 5
-    while (iterator.isValid && counter < 100) {
+    while (iterator.isValid) {
       val key = iterator.key()
       val value = iterator.value()
       val json = pretty(render(Extraction.decompose(RecordToProducerOrConsumerTransaction(key, value))))
       println(json)
-      counter = counter+1
       iterator.next()
     }
     iterator.close()

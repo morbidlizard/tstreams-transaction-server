@@ -1,33 +1,30 @@
 package com.bwsw.tstreamstransactionserver.configProperties
 
-import java.util.concurrent.Executors
-
 import com.bwsw.tstreamstransactionserver.netty.ExecutionContext
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 class ServerExecutionContext(nThreads: Int, berkeleyReadNThreads: Int, rocksWriteNThreads: Int, rocksReadNThreads: Int) {
-  private val berkeleyWriteExecutionContext = ExecutionContext(1, "BerkeleyWritePool-%d")
-  private val berkeleyReadExecutionContext = ExecutionContext(Executors.newFixedThreadPool(berkeleyReadNThreads, new ThreadFactoryBuilder().setNameFormat("BerkeleyReadPool-%d").build()))
-  private val rocksWriteExecutionContext = ExecutionContext(Executors.newFixedThreadPool(rocksWriteNThreads, new ThreadFactoryBuilder().setNameFormat("RocksWritePool-%d").build()))
-  private val rocksReadExecutionContext = ExecutionContext(Executors.newFixedThreadPool(rocksReadNThreads, new ThreadFactoryBuilder().setNameFormat("RocksReadPool-%d").build()))
-  private val serverExecutionContext = ExecutionContext(Executors.newFixedThreadPool(nThreads, new ThreadFactoryBuilder().setNameFormat("ServerPool-%d").build()))
-  private val commitLogExecutionContext = ExecutionContext(1, "CommitLogPool-%d")
+  private val commitLogExecutionContext = ExecutionContext("CommitLogPool-%d")
+  private val berkeleyWriteExecutionContext = ExecutionContext("BerkeleyWritePool-%d")
+  private val berkeleyReadExecutionContext = ExecutionContext(berkeleyReadNThreads,"BerkeleyReadPool-%d")
+  private val rocksWriteExecutionContext = ExecutionContext(rocksWriteNThreads, "RocksWritePool-%d")
+  private val rocksReadExecutionContext = ExecutionContext(rocksReadNThreads, "RocksReadPool-%d")
+  private val serverExecutionContext = ExecutionContext(nThreads, "ServerPool-%d")
 
-  val context = serverExecutionContext.getContext
+  val commitLogContext = commitLogExecutionContext.getContext
   val berkeleyWriteContext = berkeleyWriteExecutionContext.getContext
   val berkeleyReadContext = berkeleyReadExecutionContext.getContext
   val rocksWriteContext = rocksWriteExecutionContext.getContext
   val rocksReadContext = rocksReadExecutionContext.getContext
-  val commitLogContext = commitLogExecutionContext
+  val context = serverExecutionContext.getContext
 
   def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted(): Unit = {
     val contexts = collection.immutable.Seq(
+      commitLogExecutionContext,
       berkeleyWriteExecutionContext,
       berkeleyReadExecutionContext,
       rocksWriteExecutionContext,
       rocksReadExecutionContext,
-      serverExecutionContext,
-      commitLogContext
+      serverExecutionContext
     )
     contexts foreach (context => context.stopAccessNewTasks())
     contexts foreach (context => context.awaitAllCurrentTasksAreCompleted())

@@ -6,13 +6,15 @@ import com.bwsw.tstreamstransactionserver.netty.ExecutionContext
 
 class ClientExecutionContext(nThreads: Int) {
   private lazy val executionContext = ExecutionContext(
-    Executors.newFixedThreadPool(nThreads, new ThreadFactoryBuilder().setNameFormat("ClientPool-%d").build())
+    nThreads, "ClientPool-%d"
   )
 
   lazy val context = executionContext.getContext
 
+  def stopAccessNewTasks(): Unit = executionContext.stopAccessNewTasks()
+  def awaitAllCurrentTasksAreCompleted(): Unit = executionContext.awaitAllCurrentTasksAreCompleted()
   def stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted(): Unit = {
-    executionContext.stopAccessNewTasks()
-    executionContext.awaitAllCurrentTasksAreCompleted()
+    stopAccessNewTasks()
+    awaitAllCurrentTasksAreCompleted()
   }
 }

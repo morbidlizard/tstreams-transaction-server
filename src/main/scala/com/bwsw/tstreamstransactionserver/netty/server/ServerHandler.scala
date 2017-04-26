@@ -49,7 +49,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
     if (isChannelActive) ctx.writeAndFlush(binaryResponse)
   }
 
-  private val commitLogContext = transactionServer.executionContext.commitLogContext.getContext
+  private val commitLogContext = transactionServer.executionContext.commitLogContext
   protected def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
 
     implicit val (messageId: Long, token) = (message.id, message.token)

@@ -39,7 +39,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** A special context for making requests asynchronously, although they are processed sequentially;
     * If's for: putTransaction, putTransactions, setConsumerState.
     */
-  private[client] final val processTransactionsPutOperationPool = ExecutionContext(1, "ClientTransactionPool-%d")
+  private[client] final val processTransactionsPutOperationPool = ExecutionContext("ClientTransactionPool-%d")
 
   private final val executionContext = new ClientExecutionContext(clientOpts.threadPool)
 

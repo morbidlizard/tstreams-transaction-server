@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
 class FileValue(val fileContent: Array[Byte], val fileMD5Content: Option[Array[Byte]]) {
-  final def toByteArray = fileMD5Content match {
+  final def toByteArray: Array[Byte] = fileMD5Content match {
     case Some(md5Content) =>
       require(md5Content.length == FileValue.MD5_SUM_LENGTH)
       (FileValue.MD5_FILE_EXIST +: md5Content) ++ fileContent
@@ -36,7 +36,7 @@ object FileValue {
 
   def apply(fileContent: Array[Byte], fileMD5Content: Option[Array[Byte]]): FileValue = new FileValue(fileContent, fileMD5Content)
 
-  final def fromByteArray(bytes: Array[Byte]) = {
+  final def fromByteArray(bytes: Array[Byte]): FileValue = {
     val md5_flag = bytes.head
     val other = bytes.tail
     if (md5_flag == NO_MD5_FILE)

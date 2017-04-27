@@ -20,7 +20,19 @@ case class ProducerTransactionKey(stream: Long, partition: Int, transactionID: L
     else if (this.transactionID > that.transactionID) 1
     else 0
   }
-  override def toString: String = s"stream:$stream\tpartition:$partition\tid:$transactionID"
+
+  def toByteArray: Array[Byte] = {
+    val buffer = java.nio.ByteBuffer.allocate(
+      java.lang.Long.BYTES +
+      java.lang.Integer.BYTES +
+      java.lang.Long.BYTES
+    )
+    buffer
+      .putLong(stream)
+      .putInt(partition)
+      .putLong(transactionID)
+      .array()
+  }
 }
 
 object ProducerTransactionKey extends TupleBinding[ProducerTransactionKey] {
@@ -35,6 +47,14 @@ object ProducerTransactionKey extends TupleBinding[ProducerTransactionKey] {
     output.writeLong(key.stream)
     output.writeInt(key.partition)
     output.writeLong(key.transactionID)
+  }
+
+  def fromByteArray(bytes: Array[Byte]): ProducerTransactionKey = {
+    val buffer = java.nio.ByteBuffer.wrap(bytes)
+    val stream = buffer.getLong
+    val partition = buffer.getInt
+    val transactionID = buffer.getLong
+    ProducerTransactionKey(stream, partition, transactionID)
   }
 }
 

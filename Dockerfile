@@ -17,7 +17,7 @@ RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | te
 RUN echo "deb http://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list && \
     apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 642AC823 && \
     apt-get update && \
-    apt-get install -y --no-install-recommends sbt && \
+    apt-get install -y --allow-unauthenticated --no-install-recommends sbt && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

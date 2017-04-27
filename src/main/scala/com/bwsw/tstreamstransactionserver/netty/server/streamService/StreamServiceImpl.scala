@@ -136,9 +136,9 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
             mostRecentStreamRecord.stream.deleted = true
             val result = streamDatabase.put(berkeleyTransaction, mostRecentStreamRecord.key.toDatabaseEntry, mostRecentStreamRecord.stream.toDatabaseEntry)
             if (result == OperationStatus.SUCCESS) {
-              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.streamNameAsLong, berkeleyTransaction)
+//              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.streamNameAsLong, berkeleyTransaction)
               berkeleyTransaction.commit()
-              closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.streamNameAsLong)
+//              closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.streamNameAsLong)
               if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
               true
             } else {

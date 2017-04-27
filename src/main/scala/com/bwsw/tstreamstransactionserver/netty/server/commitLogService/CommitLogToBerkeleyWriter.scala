@@ -2,10 +2,11 @@ package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
 import java.util.concurrent.{Future, PriorityBlockingQueue}
 
+import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message, MessageWithTimestamp}
+import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
 import com.bwsw.tstreamstransactionserver.rpc.{Transaction, TransactionStates}
 import org.slf4j.LoggerFactory
@@ -98,9 +99,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
       val record = iter.next()
       record.right.foreach { record =>
         scala.util.Try {
-          val (messageType, message) = (record.messageType, record.message)
-          val messageWithTimestamp = MessageWithTimestamp.fromByteArray(message)
-          CommitLogToBerkeleyWriter.retrieveTransactions(messageType, messageWithTimestamp)
+          CommitLogToBerkeleyWriter.retrieveTransactions(record)
         } match {
           case scala.util.Success(transactions) => buffer ++= transactions
           case _ =>
@@ -165,16 +164,17 @@ object CommitLogToBerkeleyWriter {
   private def deserializeSetConsumerState(message: Message) = Descriptors.PutConsumerCheckpoint.decodeRequest(message)
 
 
-  private def retrieveTransactions(messageType: Byte, messageWithTimestamp: MessageWithTimestamp): Seq[(Transaction, Long)] = messageType match {
+  private def retrieveTransactions(record: CommitLogRecord): Seq[(Transaction, Long)] = record.messageType match {
     case `putTransactionType` =>
-      val txn = deserializePutTransaction(messageWithTimestamp.message)
-      Seq((txn.transaction, messageWithTimestamp.timestamp))
+      val txn = deserializePutTransaction(Message.fromByteArray(record.message))
+      Seq((txn.transaction, record.timestamp))
     case `putTransactionsType` =>
-      val txns = deserializePutTransactions(messageWithTimestamp.message)
-      txns.transactions.map(txn => (txn, messageWithTimestamp.timestamp))
+      val txns = deserializePutTransactions(Message.fromByteArray(record.message))
+      txns.transactions.map(txn => (txn, record.timestamp))
     case `setConsumerStateType` =>
-      val args = deserializeSetConsumerState(messageWithTimestamp.message)
+      val args = deserializeSetConsumerState(Message.fromByteArray(record.message))
       val consumerTransaction = com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction(args.stream, args.partition, args.transaction, args.name)
-      Seq((Transaction(None, Some(consumerTransaction)), messageWithTimestamp.timestamp))
+      Seq((Transaction(None, Some(consumerTransaction)), record.timestamp))
+    case _ => throw new IllegalArgumentException("Undefined method type for retrieving message from commit log record")
   }
 }

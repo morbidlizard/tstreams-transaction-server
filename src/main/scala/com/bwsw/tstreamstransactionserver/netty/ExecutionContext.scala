@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.ThreadPoolExecutor.DiscardPolicy
+import java.util.concurrent.{Executors, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -24,6 +25,7 @@ class ExecutionContext(nContexts: Int, f: => java.util.concurrent.ExecutorServic
 
   def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
 
+  Executors.newFixedThreadPool(4)
   def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContext.TasksCompletedTLL, TimeUnit.MILLISECONDS))
 }
 
@@ -32,10 +34,16 @@ object ExecutionContext {
   /** The time to wait all tasks completed by thread pool */
   private val TasksCompletedTLL = 10000
 
-  def apply(contextNum: Int, f: => java.util.concurrent.ExecutorService): ExecutionContext = new ExecutionContext(contextNum, f)
-  /** Creates a number of single-threaded contexts with names */
-  def apply(contextNum: Int, nameFormat: String) = new ExecutionContext(contextNum, Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat(nameFormat).build()))
-  /** Creates a context with 1 pool of any executor service*/
-  def apply(f: => java.util.concurrent.ExecutorService) = new ExecutionContext(1, f)
+  /** Creates an 1 single-threaded context with name */
+  def apply(nameFormat: String) = new ExecutionContext(
+    1,
+    new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
+  )
+  /** Creates witFixedThreadPool with defined threadNumber*/
+  def apply(threadNumber: Int, nameFormat: String) = new ExecutionContext(
+    1,
+    new ThreadPoolExecutor(threadNumber, threadNumber, 0L, TimeUnit.MILLISECONDS,
+      new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
+  )
 }
 

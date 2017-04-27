@@ -52,7 +52,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   private final def getProducerTransactionFromServer(transactionServer: TransactionServer, producerTransaction: ProducerTransaction) = {
     Await.result(
-      transactionServer.scanTransactions(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, producerTransaction.transactionID),
+      transactionServer.scanTransactions(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, producerTransaction.transactionID, Int.MaxValue, Set()),
       5.seconds
     ).producerTransactions.head
   }

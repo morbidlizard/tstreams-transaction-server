@@ -2,7 +2,7 @@ FROM ubuntu:xenial
 
 MAINTAINER BITWORKS
 
-ENV version 1.3.1-SNAPSHOT
+ENV version 1.3.3-SNAPSHOT
 
 # Install Oracle JDK 8
 RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | tee /etc/apt/sources.list.d/webupd8team-java.list && \

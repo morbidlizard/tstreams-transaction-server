@@ -262,7 +262,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     data should contain theSameElementsAs dataFromDatabase
   }
 
-  "ac" should "put transactions and get them back(scanTransactions)" in {
+  it should "put transactions and get them back(scanTransactions)" in {
     val stream = getRandomStream
     Await.result(client.putStream(stream), secondsWait.seconds)
 

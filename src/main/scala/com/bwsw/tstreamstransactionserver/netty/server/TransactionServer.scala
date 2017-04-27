@@ -7,10 +7,6 @@ import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServi
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.sleepycat.je.Transaction
-
-import scala.concurrent.{Future => ScalaFuture}
-
 
 
 class TransactionServer(override val executionContext: ServerExecutionContext,

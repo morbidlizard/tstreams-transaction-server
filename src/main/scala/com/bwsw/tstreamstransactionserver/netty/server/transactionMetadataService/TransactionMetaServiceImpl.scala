@@ -9,7 +9,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecor
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment, StreamCache}
 import com.bwsw.tstreamstransactionserver.rpc._
-import com.sleepycat.je._
+
 import org.rocksdb.RocksIterator
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -40,6 +40,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       .build[ProducerTransactionKey, ProducerTransactionValue]()
 
     val iterator = producerTransactionsWithOpenedStateDatabase.iterator
+    iterator.seekToFirst()
     while (iterator.isValid) {
       cache.put(ProducerTransactionKey.fromByteArray(iterator.key()), ProducerTransactionValue.fromByteArray(iterator.value()))
       iterator.next()
@@ -137,12 +138,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   }
 
   private final def groupProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]) = producerTransactions.toArray.groupBy(txn => txn.key)
-
-
-  private final def calculateTTLForBerkeleyRecord(ttl: Long) = {
-    val convertedTTL = TimeUnit.SECONDS.toHours(ttl)
-    if (convertedTTL == 0L) 1 else scala.math.abs(convertedTTL.toInt)
-  }
 
   private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition, producerTransactionWithNewState: ProducerTransactionRecord, batch: Batch): Unit = {
     updateLastTransactionStreamPartitionRamTable(key, producerTransactionWithNewState.transactionID, isOpenedTransaction = false)
@@ -327,13 +322,13 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case None => (-1L, from - 1L)
       }
 
-      println(lastOpenedTransactionID, toTransactionID)
       if (logger.isDebugEnabled) logger.debug(s"Trying to retrieve transactions on stream $stream, partition: $partition in range [$from, $to]." +
         s"Actually as lt ${if (lastOpenedTransactionID == -1) "doesn't exist" else s"is $lastOpenedTransactionID"} the range is [$from, $toTransactionID].")
 
       if (toTransactionID < from || count == 0) ScanTransactionsInfo(lastOpenedTransactionID, Seq())
       else {
         val iterator = producerTransactionsDatabase.iterator
+
 
         val lastTransactionID = new ProducerTransactionKey(keyStream.id, partition, toTransactionID).toByteArray
         def moveCursorToKey: Option[ProducerTransactionRecord] = {
@@ -388,8 +383,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   }
 
   final class TransactionsToDeleteTask(timestampToDeleteTransactions: Long) extends Callable[Unit] {
-    private val lockMode = LockMode.READ_UNCOMMITTED_ALL
-
     private def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
     }
@@ -399,10 +392,10 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       val batch = rocksMetaServiceDB.newBatch
 
       def deleteTransactionIfExpired(iterator: RocksIterator): Boolean = {
-        if (iterator.isValid) {
+        val result = if (iterator.isValid) {
           val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
           val toDelete: Boolean = doesProducerTransactionExpired(producerTransactionValue)
-          val result = if (toDelete) {
+          if (toDelete) {
             if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
 
             val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
@@ -417,9 +410,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
             batch.remove(HasEnvironment.TRANSACTION_OPEN_STORE, iterator.key())
             true
           } else true
-          iterator.next()
-          result
         } else false
+        iterator.next()
+        result
       }
 
       @tailrec
@@ -436,7 +429,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     }
   }
 
-  final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long) = {
-//    executionContext.berkeleyWriteContext.submit(new TransactionsToDeleteTask(timestampToDeleteTransactions)).get()
+  final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {
+    executionContext.berkeleyWriteContext.submit(new TransactionsToDeleteTask(timestampToDeleteTransactions)).get()
   }
 }

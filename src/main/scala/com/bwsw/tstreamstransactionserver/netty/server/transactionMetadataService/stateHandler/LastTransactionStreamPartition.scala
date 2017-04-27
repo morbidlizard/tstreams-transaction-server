@@ -55,16 +55,15 @@ trait LastTransactionStreamPartition {
   final def getLastTransactionIDAndCheckpointedID(stream: Long, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
     val key = KeyStreamPartition(stream, partition)
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
-    lastTransactionOpt.flatMap{_ =>
+    lastTransactionOpt.flatMap { _ =>
       val binaryKey = key.toByteArray
-      Option(lastTransactionDatabase.get(binaryKey)).flatMap{dataFound =>
-        val openedTransaction =TransactionID.fromByteArray(dataFound)
-        LastOpenedAndCheckpointedTransaction(openedTransaction, None)
-
-        Option(lastCheckpointedTransactionDatabase.get(binaryKey)).map{dataFound =>
-          val lastCheckpointed = TransactionID.fromByteArray(dataFound)
+      Option(lastTransactionDatabase.get(binaryKey)).flatMap { dataFound1 =>
+        val openedTransaction = TransactionID.fromByteArray(dataFound1)
+        val checkpointed = Option(lastCheckpointedTransactionDatabase.get(binaryKey)).map { dataFound2 =>
+          val lastCheckpointed = TransactionID.fromByteArray(dataFound2)
           LastOpenedAndCheckpointedTransaction(openedTransaction, Some(lastCheckpointed))
         }
+        if (checkpointed.isDefined) checkpointed else Some(LastOpenedAndCheckpointedTransaction(openedTransaction, None))
       }
     }
   }

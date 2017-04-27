@@ -2,17 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import java.nio.charset.StandardCharsets
 
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionKey.objectToEntry
-import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
-import com.sleepycat.je.DatabaseEntry
-
 case class ConsumerTransactionKey(name: String, stream: java.lang.Long, partition: java.lang.Integer) {
-  def toDatabaseEntry: DatabaseEntry = {
-    val databaseEntry = new DatabaseEntry()
-    objectToEntry(this, databaseEntry)
-    databaseEntry
-  }
-
   def toByteArray: Array[Byte] = {
     val nameBinary = name.getBytes(ConsumerTransactionKey.charset)
     val nameFieldSize = java.lang.Integer.BYTES
@@ -29,21 +19,8 @@ case class ConsumerTransactionKey(name: String, stream: java.lang.Long, partitio
 
 }
 
-object ConsumerTransactionKey extends TupleBinding[ConsumerTransactionKey] {
+object ConsumerTransactionKey {
   val charset = StandardCharsets.UTF_8
-
-  override def entryToObject(input: TupleInput): ConsumerTransactionKey = {
-    val name = input.readString()
-    val stream = input.readLong()
-    val partition = input.readInt()
-    ConsumerTransactionKey(name, stream, partition)
-  }
-
-  override def objectToEntry(key: ConsumerTransactionKey, output: TupleOutput): Unit = {
-    output.writeString(key.name)
-    output.writeLong(key.stream)
-    output.writeInt(key.partition)
-  }
 
   def fromByteArray(bytes: Array[Byte]): ConsumerTransactionKey = {
     val buffer     = java.nio.ByteBuffer.wrap(bytes)

@@ -13,35 +13,34 @@ class RocksDBPartitionDatabase(client: TtlDB, databaseHandler: ColumnFamilyHandl
     true
   }
 
-  def singleDelete(key: Array[Byte]): Boolean = {
-    client.singleDelete(databaseHandler, key)
+  def delete(key: Array[Byte]): Boolean = {
+    client.delete(databaseHandler, key)
     true
   }
 
   def getLastRecord: Option[(Array[Byte], Array[Byte])] = {
-    val iterator = client.newIterator(databaseHandler)
-    iterator.seekToLast()
-    val record = if (iterator.isValid) {
-      val keyValue = (iterator.key(), iterator.value())
+    val iter = iterator
+    iter.seekToLast()
+    val record = if (iter.isValid) {
+      val keyValue = (iter.key(), iter.value())
       Some(keyValue)
     }
     else {
       None
     }
-    iterator.close()
+    iter.close()
     record
   }
 
-  def iterator: RocksIterator = client.newIterator()
+  def iterator: RocksIterator = client.newIterator(databaseHandler)
 
   def newBatch = new Batch
   class Batch() {
     private val batch  = new WriteBatch()
-    def put(key: Array[Byte], data: Array[Byte]): Unit = {
-      batch.put(databaseHandler, key,data)
-    }
 
+    def put(key: Array[Byte], data: Array[Byte]): Unit = batch.put(databaseHandler, key, data)
     def remove(key: Array[Byte]): Unit = batch.remove(databaseHandler, key)
+
     def write(): Boolean = {
       val writeOptions = new WriteOptions()
       val status = scala.util.Try(client.write(writeOptions, batch)) match {

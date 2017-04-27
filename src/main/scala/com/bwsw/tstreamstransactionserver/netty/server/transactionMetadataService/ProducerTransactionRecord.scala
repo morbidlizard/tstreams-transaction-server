@@ -1,7 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
-import com.sleepycat.je.{Database, Put, Transaction, WriteOptions}
 
 case class ProducerTransactionRecord(key: ProducerTransactionKey, producerTransaction: ProducerTransactionValue) {
   def stream: Long = key.stream

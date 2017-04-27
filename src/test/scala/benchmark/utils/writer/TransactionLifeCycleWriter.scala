@@ -26,6 +26,8 @@ class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends
         globalProgress += 1
       }
 
+      println(Await.result(client.scanTransactions("test_stream",7, 149328289079100001L, 149328289126000001L, Int.MaxValue, Set(TransactionStates.Opened)), 10.seconds))
+
       val openedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Opened)
       val closedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Checkpointed, openedProducerTransaction.transactionID)
       val t =

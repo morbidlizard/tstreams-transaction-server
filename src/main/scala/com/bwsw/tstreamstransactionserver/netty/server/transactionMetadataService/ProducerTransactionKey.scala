@@ -1,15 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey.objectToEntry
-import com.sleepycat.bind.tuple.{TupleBinding, TupleInput, TupleOutput}
-import com.sleepycat.je.DatabaseEntry
+
 
 case class ProducerTransactionKey(stream: Long, partition: Int, transactionID: Long) extends Ordered[ProducerTransactionKey]{
-  def toDatabaseEntry: DatabaseEntry = {
-    val databaseEntry = new DatabaseEntry()
-    objectToEntry(this, databaseEntry)
-    databaseEntry
-  }
+
 
   override def compare(that: ProducerTransactionKey): Int = {
     if (this.stream < that.stream) -1
@@ -35,20 +29,7 @@ case class ProducerTransactionKey(stream: Long, partition: Int, transactionID: L
   }
 }
 
-object ProducerTransactionKey extends TupleBinding[ProducerTransactionKey] {
-  override def entryToObject(input: TupleInput): ProducerTransactionKey = {
-    val stream = input.readLong()
-    val partition = input.readInt()
-    val transactionID = input.readLong()
-    ProducerTransactionKey(stream, partition, transactionID)
-  }
-
-  override def objectToEntry(key: ProducerTransactionKey, output: TupleOutput): Unit = {
-    output.writeLong(key.stream)
-    output.writeInt(key.partition)
-    output.writeLong(key.transactionID)
-  }
-
+object ProducerTransactionKey {
   def fromByteArray(bytes: Array[Byte]): ProducerTransactionKey = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
     val stream = buffer.getLong

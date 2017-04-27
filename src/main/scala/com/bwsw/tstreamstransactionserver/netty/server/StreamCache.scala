@@ -27,7 +27,7 @@ trait StreamCache {
 
   private[server] final def getStreamObjByID(stream: Long): StreamRecord = {
     import scala.collection.JavaConverters._
-    val recentNotDeletedStreamOpt = streamCache.values().asScala.find(x => x.lastOption.get.streamNameAsLong == stream)
+    val recentNotDeletedStreamOpt = streamCache.values().asScala.find(x => x.lastOption.get.id == stream)
     recentNotDeletedStreamOpt match {
       case Some(streamObj) if !streamObj.last.stream.deleted => streamObj.last
       case _ =>

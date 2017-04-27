@@ -1,9 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 case class StreamRecord(key: StreamKey, stream: StreamValue) {
-  def streamNameAsLong = key.streamNameAsLong
-  def name = stream.name
-  def partitions = stream.partitions
-  def ttl  = stream.ttl
-  def description = stream.description
+  def id: Long = key.id
+  def name: String = stream.name
+  def partitions: Int = stream.partitions
+  def ttl: Long = stream.ttl
+  def description: Option[String] = stream.description
 }

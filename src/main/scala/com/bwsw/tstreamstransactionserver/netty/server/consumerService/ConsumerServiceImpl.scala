@@ -26,7 +26,7 @@ trait ConsumerServiceImpl extends Authenticable with ConsumerTransactionStateNot
   def getConsumerState(name: String, stream: String, partition: Int): ScalaFuture[Long] =
     ScalaFuture {
       val berkeleyTransaction = environment.beginTransaction(null, null)
-      val streamNameAsLong = getMostRecentStream(stream).streamNameAsLong
+      val streamNameAsLong = getMostRecentStream(stream).id
       val consumerTransactionKey = ConsumerTransactionKey(name, streamNameAsLong, partition).toDatabaseEntry
       val consumerTransactionValue = new DatabaseEntry()
       val result: Long =

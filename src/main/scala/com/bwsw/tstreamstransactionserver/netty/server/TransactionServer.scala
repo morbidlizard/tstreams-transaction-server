@@ -2,6 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.Batch
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl
@@ -20,9 +21,9 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
                        )
   extends HasEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
 {
-  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], parentBerkeleyTxn: com.sleepycat.je.Transaction): Unit = putConsumersCheckpoints(consumerTransactions, parentBerkeleyTxn)
+  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): Unit = putConsumersCheckpoints(consumerTransactions, batch)
   override def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit = removeRocksDBDatabaseAndDeleteFolder(stream)
-  override def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, transaction: Transaction): Unit = deleteLastOpenedAndCheckpointedTransactions(stream, transaction)
+  override def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, batch: Batch): Unit = deleteLastOpenedAndCheckpointedTransactions(stream, batch)
 
   final def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases(): Unit = {
     stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
@@ -34,12 +35,7 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
   }
 
   final def closeAllDatabases(): Unit = {
-    closeStreamDatabase()
-    closeLastTransactionStreamPartitionDatabases()
+    rocksMetaServiceDB.close()
     closeTransactionDataDatabases()
-    closeConsumerDatabase()
-    closeTransactionMetaDatabases()
-
-    closeTransactionMetaEnvironment()
   }
 }

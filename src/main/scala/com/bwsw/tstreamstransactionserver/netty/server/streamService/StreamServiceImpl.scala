@@ -1,8 +1,11 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
+import java.util.concurrent.atomic.AtomicLong
+
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache, Time}
+import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL, RocksDBPartitionDatabase}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment, StreamCache, Time}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.rpc.StreamService
 import com.sleepycat.bind.tuple.StringBinding
@@ -18,60 +21,34 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 {
 
   val executionContext: ServerExecutionContext
-  val storageOpts: StorageOptions
-
-  private val logger = LoggerFactory.getLogger(this.getClass)
-
-  val environment: Environment
+  val rocksMetaServiceDB: RocksDBALL
   val timer: Time
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val streamDatabase: RocksDBPartitionDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.STREAM_STORE_INDEX)
+
   def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit
-  def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, transaction: com.sleepycat.je.Transaction): Unit
+  def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, batch: Batch): Unit
 
-  private val streamStoreName = "StreamStore"
-  private val streamDatabase = {
-    val dbConfig = new DatabaseConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-      .setSortedDuplicates(false)
-    val storeName = streamStoreName//storageOpts.streamStorageName
-    environment.openDatabase(null, storeName, dbConfig)
-  }
-
-  private def fillStreamRAMTable(): Unit = {
-    val keyFound  = new DatabaseEntry()
-    val dataFound = new DatabaseEntry()
-
+  private def fillStreamRAMTable(): Long = {
     val streamRecords = ArrayBuffer[StreamRecord]()
-    val cursor = streamDatabase.openCursor(new DiskOrderedCursorConfig())
-    while (cursor.getNext(keyFound, dataFound, null) == OperationStatus.SUCCESS) {
-      val streamKey = StreamKey.entryToObject(keyFound)
-      val streamValue = StreamValue.entryToObject(dataFound)
+    val iterator = streamDatabase.iterator
+    iterator.seekToFirst()
+
+    while (iterator.isValid) {
+      val streamKey = StreamKey.fromByteArray(iterator.key())
+      val streamValue = StreamValue.fromByteArray(iterator.value())
       val streamRecord = StreamRecord(streamKey, streamValue)
       if (!streamRecord.stream.deleted)
         streamRecords += streamRecord
+      iterator.next()
     }
-    cursor.close()
+    iterator.close()
 
     streamRecords.groupBy(_.name).foreach{case(name, streams) => streamCache.put(name, streams)}
+    streamRecords.lastOption.map(_.id).getOrElse(0L)
   }
-  fillStreamRAMTable()
-
-
-  private val streamSequenceName = s"SEQ_$streamStoreName"
-  private val streamSequenceDB = {
-    val dbConfig = new DatabaseConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-      .setSortedDuplicates(false)
-    environment.openDatabase(null, streamSequenceName, dbConfig)
-  }
-
-  private val streamSeq = {
-    val key = new DatabaseEntry()
-    StringBinding.stringToEntry(streamSequenceName, key)
-    streamSequenceDB.openSequence(null, key, new SequenceConfig().setAllowCreate(true))
-  }
+  private val idGen = new AtomicLong(fillStreamRAMTable())
 
   override def getStreamFromOldestToNewest(stream: String): ArrayBuffer[StreamRecord] =
     if (streamCache.containsKey(stream)) streamCache.get(stream)
@@ -84,36 +61,31 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
 
   override def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] =
     ScalaFuture {
-      val transactionDB = environment.beginTransaction(null, new TransactionConfig())
-
       val isOkay = if (streamCache.containsKey(stream)) {
         val streams = streamCache.get(stream)
         val mostRecentStreamRecord = streams.last
 
         if (mostRecentStreamRecord.stream.deleted) {
-          val newStreamKey = StreamKey(streamSeq.get(transactionDB, 1))
+          val newStreamKey = StreamKey(idGen.getAndIncrement())
           val newStreamValue = StreamValue(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
           streamCache.get(stream) += StreamRecord(newStreamKey, newStreamValue)
-          streamDatabase.putNoOverwrite(transactionDB, newStreamKey.toDatabaseEntry, newStreamValue.toDatabaseEntry) == OperationStatus.SUCCESS
+          streamDatabase.put(newStreamKey.toByteArray, newStreamValue.toByteArray)
         } else false
       }
       else {
-        val newKey = StreamKey(streamSeq.get(transactionDB, 1))
+        val newKey = StreamKey(idGen.getAndIncrement())
         val newStream = StreamValue(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
         streamCache.put(stream, ArrayBuffer(StreamRecord(newKey, newStream)))
-        streamDatabase.putNoOverwrite(transactionDB, newKey.toDatabaseEntry, newStream.toDatabaseEntry) == OperationStatus.SUCCESS
+        streamDatabase.put(newKey.toByteArray, newStream.toByteArray)
       }
 
       if (isOkay) {
         if (logger.isDebugEnabled()) logger.debug(s"Stream $stream with number of partitons $partitions, with $ttl and $description is saved successfully.")
-        transactionDB.commit()
-        true
       } else {
         if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't saved.")
-        transactionDB.abort()
-        false
       }
 
+      isOkay
     }(executionContext.berkeleyWriteContext)
 
   override def checkStreamExists(stream: String): ScalaFuture[Boolean] =
@@ -131,29 +103,20 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
             if (logger.isDebugEnabled()) logger.debug(s"Stream $stream has been already removed.")
             false
           } else {
-
-            val berkeleyTransaction = environment.beginTransaction(null, new TransactionConfig())
+            val batch = rocksMetaServiceDB.newBatch
             mostRecentStreamRecord.stream.deleted = true
-            val result = streamDatabase.put(berkeleyTransaction, mostRecentStreamRecord.key.toDatabaseEntry, mostRecentStreamRecord.stream.toDatabaseEntry)
-            if (result == OperationStatus.SUCCESS) {
-//              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.streamNameAsLong, berkeleyTransaction)
-              berkeleyTransaction.commit()
-//              closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.streamNameAsLong)
+            val isOkay = batch.put(HasEnvironment.STREAM_STORE_INDEX, mostRecentStreamRecord.key.toByteArray, mostRecentStreamRecord.stream.toByteArray)
+            if (isOkay) {
+//              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.id, batch)
+//              closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.id)
+              batch.write()
               if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
-              true
             } else {
               if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")
-              berkeleyTransaction.abort()
-              false
             }
+            isOkay
           }
         case scala.util.Failure(throwable) => false
       }
     }(executionContext.berkeleyWriteContext)
-
-  private[server] def closeStreamDatabase(): Unit = {
-    scala.util.Try(streamSeq.close())
-    scala.util.Try(streamSequenceDB.close())
-    scala.util.Try(streamDatabase.close())
-  }
 }

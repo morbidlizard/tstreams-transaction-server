@@ -8,7 +8,15 @@ class RocksDBPartitionDatabase(client: TtlDB, databaseHandler: ColumnFamilyHandl
   def get(key: Array[Byte]): Array[Byte] = client.get(databaseHandler, key)
 
   @throws[RocksDBException]
-  def put(key: Array[Byte], data: Array[Byte]): Unit = client.put(databaseHandler, key, data)
+  def put(key: Array[Byte], data: Array[Byte]): Boolean = {
+    client.put(databaseHandler, key, data)
+    true
+  }
+
+  def singleDelete(key: Array[Byte]): Boolean = {
+    client.singleDelete(databaseHandler, key)
+    true
+  }
 
   def getLastRecord: Option[(Array[Byte], Array[Byte])] = {
     val iterator = client.newIterator(databaseHandler)

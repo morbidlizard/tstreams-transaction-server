@@ -1,38 +1,34 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import java.io.File
-import java.util.concurrent.TimeUnit
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDatabaseDescriptor}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
-import com.sleepycat.je.{Durability, Environment, EnvironmentConfig}
+import org.rocksdb.ColumnFamilyOptions
 
 trait HasEnvironment {
   val storageOpts: StorageOptions
-  val environment: Environment = {
-    val directory = new File(storageOpts.path, storageOpts.metadataDirectory)
-    directory.mkdirs()
-    val defaultDurability = new Durability(
-      Durability.SyncPolicy.WRITE_NO_SYNC,
-      Durability.SyncPolicy.NO_SYNC,
-      Durability.ReplicaAckPolicy.NONE
+
+  val rocksMetaServiceDB: RocksDBALL = new RocksDBALL(
+    storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
+    Seq(
+      RocksDatabaseDescriptor("StreamStore".getBytes(),                        new ColumnFamilyOptions()),
+      RocksDatabaseDescriptor("LastOpenedTransactionStorage".getBytes(),       new ColumnFamilyOptions()),
+      RocksDatabaseDescriptor("LastCheckpointedTransactionStorage".getBytes(), new ColumnFamilyOptions()),
+      RocksDatabaseDescriptor("ConsumerStore".getBytes(),                      new ColumnFamilyOptions()),
+      RocksDatabaseDescriptor("CommitLogStore".getBytes(),                     new ColumnFamilyOptions()),
+      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                new ColumnFamilyOptions()),
+      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                new ColumnFamilyOptions()),
+      RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               new ColumnFamilyOptions())
     )
+  )
+}
 
-    val environment = {
-      val environmentConfig = new EnvironmentConfig()
-        .setAllowCreate(true)
-        .setTransactional(true)
-        .setLockTimeout(1, TimeUnit.MILLISECONDS)
-        .setSharedCache(true)
-
-      //    config.berkeleyDBJEproperties foreach {
-      //      case (name, value) => environmentConfig.setConfigParam(name,value)
-      //    } //todo it will be deprecated soon
-
-
-      environmentConfig.setDurabilityVoid(defaultDurability)
-
-      new Environment(directory, environmentConfig)
-    }
-    environment
-  }
+object HasEnvironment {
+  val STREAM_STORE_INDEX = 1
+  val LAST_OPENED_TRANSACTION_STORAGE = 2
+  val LAST_CHECKPOINTED_TRANSACTION_STORAGE = 3
+  val CONSUMER_STORE = 4
+  val COMMIT_LOG_STORE = 5
+  val TRANSACTION_ALL_STORE = 6
+  val TRANSACTION_OPEN_STORE = 7
 }

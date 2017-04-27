@@ -1,44 +1,30 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.netty.server.Authenticable
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
-import com.sleepycat.je._
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment}
+import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Future => ScalaFuture}
 
 trait ConsumerServiceImpl extends Authenticable with ConsumerTransactionStateNotifier {
   val executionContext: ServerExecutionContext
-  val storageOpts: StorageOptions
+  val rocksMetaServiceDB: RocksDBALL
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-
-  val environment: Environment
-  val consumerDatabase = {
-    val dbConfig = new DatabaseConfig()
-      .setAllowCreate(true)
-      .setTransactional(true)
-
-    environment.openDatabase(null, "ConsumerStore"/*storageOpts.consumerStorageName*/, dbConfig)
-  }
+  private val consumerDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.CONSUMER_STORE)
 
   def getConsumerState(name: String, stream: String, partition: Int): ScalaFuture[Long] =
     ScalaFuture {
-      val berkeleyTransaction = environment.beginTransaction(null, null)
       val streamNameAsLong = getMostRecentStream(stream).id
-      val consumerTransactionKey = ConsumerTransactionKey(name, streamNameAsLong, partition).toDatabaseEntry
-      val consumerTransactionValue = new DatabaseEntry()
-      val result: Long =
-        if (consumerDatabase.get(berkeleyTransaction, consumerTransactionKey, consumerTransactionValue, LockMode.DEFAULT) == OperationStatus.SUCCESS)
-          ConsumerTransactionValue.entryToObject(consumerTransactionValue).transactionId
-        else {
-          if (logger.isDebugEnabled()) logger.debug(s"There is no checkpointed consumer transaction on stream $name, partition $partition with name: $name. Returning -1")
-          -1L
-        }
-
-      berkeleyTransaction.commit()
-      result
+      val consumerTransactionKey = ConsumerTransactionKey(name, streamNameAsLong, partition).toByteArray
+      val consumerTransactionValue = Option(consumerDatabase.get(consumerTransactionKey))
+      consumerTransactionValue.map(bytes =>
+        ConsumerTransactionValue.fromByteArray(bytes).transactionId
+      ).getOrElse{
+        if (logger.isDebugEnabled()) logger.debug(s"There is no checkpointed consumer transaction on stream $name, partition $partition with name: $name. Returning -1L")
+        -1L
+      }
     }(executionContext.berkeleyReadContext)
 
 
@@ -50,16 +36,15 @@ trait ConsumerServiceImpl extends Authenticable with ConsumerTransactionStateNot
     consumerTransactions.groupBy(txn => txn.key)
   }
 
-  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord], berkeleyTransaction: com.sleepycat.je.Transaction): Unit =
+  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): Unit =
   {
     if (logger.isDebugEnabled()) logger.debug(s"Trying to commit consumer transactions: $consumerTransactions")
     groupProducerTransactions(consumerTransactions) foreach {case (key, txns) =>
       val theLastStateTransaction = transitConsumerTransactionToNewState(txns)
-      val consumerTransactionValueBinary = theLastStateTransaction.consumerTransaction.toDatabaseEntry
-      val consumerTransactionKeyBinary = key.toDatabaseEntry
-      consumerDatabase.put(berkeleyTransaction, consumerTransactionKeyBinary, consumerTransactionValueBinary)
+      val consumerTransactionValueBinary = theLastStateTransaction.consumerTransaction.toByteArray
+      val consumerTransactionKeyBinary = key.toByteArray
+      batch.put(HasEnvironment.CONSUMER_STORE, consumerTransactionKeyBinary, consumerTransactionValueBinary)
       if (areThereAnyConsumerNotifies) tryCompleteConsumerNotify(theLastStateTransaction)
     }
   }
-  private[server] def closeConsumerDatabase() = scala.util.Try(consumerDatabase.close())
 }

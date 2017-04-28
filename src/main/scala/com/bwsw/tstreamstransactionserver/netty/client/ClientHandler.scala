@@ -86,15 +86,13 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-    import scala.collection.JavaConverters._
     ctx.fireChannelInactive()
 
-    reqIdToRep.asScala.foreach {
-      case (key, request) if !request.isCompleted =>
-        request.tryFailure(new ServerUnreachableException(ctx.name()))
-        reqIdToRep.remove(key)
-    }
-    
+    val remoteAddress = ctx.channel().remoteAddress().toString
+    reqIdToRep.forEach((t: Long, promise: ScalaPromise[ThriftStruct]) => {
+      promise.tryFailure(new ServerUnreachableException(remoteAddress))
+    })
+
     if (!client.isShutdown) {
       ctx.channel().eventLoop().execute(() => client.reconnect())
     }

@@ -203,7 +203,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         else {
           val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message)
           logSuccessfulProcession(Descriptors.PutTransaction.name)
-          val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isPutted)))(messageId, token)
+          val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(true)))(messageId, token)
           sendResponseToClient(response, ctx)
         }
       }(commitLogContext)

@@ -356,43 +356,42 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(stream, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
   }
 
-  final class TransactionsToDeleteTask(timestampToDeleteTransactions: Long) extends Callable[Unit] {
-    private def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
+
+  def transactionsToDeleteTask(timestampToDeleteTransactions: Long) {
+    def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
     }
 
-    override def call(): Unit = {
-      if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
-      val batch = rocksMetaServiceDB.newBatch
+    if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
+    val batch = rocksMetaServiceDB.newBatch
 
-      val iterator = producerTransactionsWithOpenedStateDatabase.iterator
-      iterator.seekToFirst()
+    val iterator = producerTransactionsWithOpenedStateDatabase.iterator
+    iterator.seekToFirst()
 
-      while (iterator.isValid) {
-        val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
-        if (doesProducerTransactionExpired(producerTransactionValue)) {
-          if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
+    while (iterator.isValid) {
+      val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
+      if (doesProducerTransactionExpired(producerTransactionValue)) {
+        if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
 
-          val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
-          val key = iterator.key()
-          val producerTransactionKey = ProducerTransactionKey.fromByteArray(key)
+        val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
+        val key = iterator.key()
+        val producerTransactionKey = ProducerTransactionKey.fromByteArray(key)
 
-          val canceledTransactionRecordDueExpiration = transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
-          if (areThereAnyProducerNotifies) tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
+        val canceledTransactionRecordDueExpiration = transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
+        if (areThereAnyProducerNotifies) tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
 
-          transactionsRamTable.invalidate(producerTransactionKey)
-          batch.put(HasEnvironment.TRANSACTION_ALL_STORE, key, canceledTransactionRecordDueExpiration.producerTransaction.toByteArray)
+        transactionsRamTable.invalidate(producerTransactionKey)
+        batch.put(HasEnvironment.TRANSACTION_ALL_STORE, key, canceledTransactionRecordDueExpiration.producerTransaction.toByteArray)
 
-          batch.remove(HasEnvironment.TRANSACTION_OPEN_STORE, key)
-        }
-        iterator.next()
+        batch.remove(HasEnvironment.TRANSACTION_OPEN_STORE, key)
       }
-      iterator.close()
-      batch.write()
+      iterator.next()
     }
+    iterator.close()
+    batch.write()
   }
 
   final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {
-    executionContext.serverWriteContext.submit(new TransactionsToDeleteTask(timestampToDeleteTransactions)).get()
+    transactionsToDeleteTask(timestampToDeleteTransactions)
   }
 }

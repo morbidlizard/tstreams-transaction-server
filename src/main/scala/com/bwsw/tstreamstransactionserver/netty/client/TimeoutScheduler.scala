@@ -19,9 +19,7 @@ object TimeoutScheduler{
     timer.newTimeout((timeout: Timeout) => {
       val requestTimeoutException = new RequestTimeoutException(reqId, after.toMillis)
       val isExpired = promise.tryFailure(requestTimeoutException)
-      if (isExpired && logger.isDebugEnabled)
-        logger.debug(requestTimeoutException.getMessage)
-      if (isExpired) println("asdasdasdasdsd")
+      if (isExpired && logger.isDebugEnabled) logger.debug(requestTimeoutException.getMessage)
     }, after.toNanos, TimeUnit.NANOSECONDS)
   }
 

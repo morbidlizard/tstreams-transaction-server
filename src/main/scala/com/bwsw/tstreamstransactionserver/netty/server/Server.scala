@@ -149,12 +149,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
     if (!isShutdown) {
       isShutdown = true
       if (bossGroup != null) {
-        bossGroup.shutdownGracefully()
-        bossGroup.terminationFuture()
+        bossGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS).sync()
       }
       if (workerGroup != null) {
-        workerGroup.shutdownGracefully()
-        workerGroup.terminationFuture()
+        workerGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS).sync()
       }
       if (zk != null)
         zk.close()

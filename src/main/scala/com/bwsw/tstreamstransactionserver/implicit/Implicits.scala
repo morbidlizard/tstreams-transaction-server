@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.`implicit`
 
 import java.nio.ByteBuffer
+import java.util.Comparator
 
 import com.google.common.primitives.UnsignedBytes
 
@@ -23,5 +24,5 @@ object Implicits {
     bytes
   }
 
-  val ByteArray = UnsignedBytes.lexicographicalComparator()
+  val ByteArray: Comparator[Array[Byte]] = UnsignedBytes.lexicographicalComparator()
 }

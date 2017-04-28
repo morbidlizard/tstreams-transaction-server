@@ -10,6 +10,6 @@ object Services extends Installer {
     clearDB()
     startTransactionServer()
     Thread.sleep(1000L)
-//    createStream(streamName, clients)
+    createStream(streamName, clients)
   }
 }

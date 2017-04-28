@@ -26,6 +26,7 @@ class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends
         globalProgress += 1
       }
 
+
       val openedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Opened)
       val closedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Checkpointed, openedProducerTransaction.transactionID)
       val t =

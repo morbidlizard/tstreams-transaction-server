@@ -63,7 +63,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
 
     def logUnsuccessfulProcessing(method: String, error: Throwable): Unit = if (logger.isDebugEnabled) logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id}:  $method is failed while processing!", error)
 
-    if (logger.isDebugEnabled) logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id} with undefined yet method is invoked.")
+    if (logger.isDebugEnabled) logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id} method is invoked.")
 
     message.method match {
 

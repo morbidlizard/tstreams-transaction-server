@@ -54,7 +54,6 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   private val bootstrapOptions = BootstrapOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
   private val storageOptions = StorageOptions()
-  private val berkeleyStorageOptions = BerkeleyStorageOptions()
   private val rocksStorageOptions = RocksStorageOptions()
   private val packageTransmissionOptions = TransportOptions()
   private val commitLogOptions = CommitLogOptions()
@@ -65,7 +64,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     server = new Server(
       authOptions, zookeeperOptions,
       bootstrapOptions, serverReplicationOptions,
-      storageOptions, berkeleyStorageOptions, rocksStorageOptions, commitLogOptions,
+      storageOptions, rocksStorageOptions, commitLogOptions,
       packageTransmissionOptions,
       zookeeperSpecificOptions,
       serverHandler

@@ -93,7 +93,7 @@ trait LastTransactionStreamPartition {
   }
 
   final def deleteLastOpenedAndCheckpointedTransactions(stream: Long, batch: Batch): Unit = {
-    executionContext.berkeleyWriteContext.submit(new DeleteLastOpenedAndCheckpointedTransactions(stream, batch)).get()
+    executionContext.serverWriteContext.submit(new DeleteLastOpenedAndCheckpointedTransactions(stream, batch)).get()
   }
 
   private[transactionMetadataService] final def putLastTransaction(key: KeyStreamPartition, transactionId: Long, isOpenedTransaction: Boolean, batch: Batch) = {

@@ -27,7 +27,7 @@ import scala.concurrent.duration._
 
 class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOptions,
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
-             storageOpts: StorageOptions, berkeleyStorageOptions: BerkeleyStorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
+             storageOpts: StorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: TransportOptions, zookeeperSpecificOpts: ServerOptions.ZooKeeperOptions,
              serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, Logger) => SimpleChannelInboundHandler[ByteBuf] =
              (server, journaledCommitLogImpl, packageTransmissionOpts, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, logger),
@@ -62,10 +62,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 
 
   private val executionContext = new ServerExecutionContext(
-    serverOpts.threadPool,
-    berkeleyStorageOptions.berkeleyReadThreadPool,
-    rocksStorageOpts.writeThreadPool,
-    rocksStorageOpts.readThreadPool
+    rocksStorageOpts.readThreadPool,
+    rocksStorageOpts.writeThreadPool
   )
   private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
 

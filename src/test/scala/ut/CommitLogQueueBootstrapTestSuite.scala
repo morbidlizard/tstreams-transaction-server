@@ -16,7 +16,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   //arrange
   val authOptions = AuthOptions()
   val rocksStorageOptions = RocksStorageOptions()
-  val executionContext = new ServerExecutionContext(2, 1, 1, 1)
+  val executionContext = new ServerExecutionContext(2, 2)
   val storageOptions = StorageOptions(new StringBuffer().append("target").append(File.separatorChar).append("clqb").toString)
   val transactionService = new TransactionServer(executionContext, authOptions, storageOptions, rocksStorageOptions)
   val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)

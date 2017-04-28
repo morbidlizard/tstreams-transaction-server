@@ -42,7 +42,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
-  private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
@@ -56,7 +55,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       serverOpts = serverBootstrapOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
-      berkeleyStorageOptions = serverBerkeleyStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,

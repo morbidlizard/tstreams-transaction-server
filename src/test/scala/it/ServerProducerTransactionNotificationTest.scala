@@ -29,7 +29,6 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
-  private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
@@ -43,7 +42,6 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       serverOpts = serverBootstrapOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
-      berkeleyStorageOptions = serverBerkeleyStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,

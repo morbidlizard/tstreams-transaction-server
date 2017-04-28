@@ -13,7 +13,6 @@ import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Future => ScalaFuture}
 
 trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
   with Authenticable
@@ -261,11 +260,11 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     }
 
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
-      executionContext.berkeleyWriteContext.submit(new PutTransactions(transactions)).get()
+      executionContext.serverWriteContext.submit(new PutTransactions(transactions)).get()
     }
 
     def commit(): Boolean = {
-      executionContext.berkeleyWriteContext.submit(new Commit()).get()
+      executionContext.serverWriteContext.submit(new Commit()).get()
     }
 
     //    def abort(): Boolean = {
@@ -276,7 +275,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   def getBigCommit(fileID: Long) = new BigCommit(fileID)
 
 
-  final def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = ScalaFuture {
+  final def getTransaction(stream: String, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
     val keyStream = getMostRecentStream(stream)
     val lastTransaction = getLastTransactionIDAndCheckpointedID(keyStream.id, partition)
     if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
@@ -293,9 +292,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
           TransactionInfo(exists = true, Some(recordToProducerTransaction(producerTransactionRecord, keyStream.name)))
       }
     }
-  }(executionContext.berkeleyReadContext)
+  }
 
-  final def getLastCheckpointedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture {
+  final def getLastCheckpointedTransaction(stream: String, partition: Int): Option[Long] = {
     val streamRecord = getMostRecentStream(stream)
     val result = getLastTransactionIDAndCheckpointedID(streamRecord.id, partition) match {
       case Some(last) => last.checkpointed match {
@@ -305,12 +304,12 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       case None => None
     }
     result
-  }(executionContext.berkeleyReadContext)
+  }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
 
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo] =
-    ScalaFuture {
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =
+    {
       val keyStream = getMostRecentStream(stream)
 
       val (lastOpenedTransactionID, toTransactionID) = getLastTransactionIDAndCheckpointedID(keyStream.id, partition) match {
@@ -374,7 +373,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
             ScanTransactionsInfo(lastOpenedTransactionID, result map producerTransactionKeyToProducerTransaction)
         }
       }
-    }(executionContext.berkeleyReadContext)
+    }
 
   private def recordToProducerTransaction(txn: ProducerTransactionRecord, stream: String) = {
     com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(stream, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
@@ -417,6 +416,6 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   }
 
   final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {
-    executionContext.berkeleyWriteContext.submit(new TransactionsToDeleteTask(timestampToDeleteTransactions)).get()
+    executionContext.serverWriteContext.submit(new TransactionsToDeleteTask(timestampToDeleteTransactions)).get()
   }
 }

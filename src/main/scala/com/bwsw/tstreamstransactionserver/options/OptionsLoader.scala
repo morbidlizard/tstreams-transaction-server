@@ -22,7 +22,6 @@ class OptionsLoader() {
   private val bootstrapOptions = loadBootstrapOptions()
   private val serverReplicationOptions = loadServerReplicationOptions()
   private val serverStorageOptions = loadServerStorageOptions()
-  private val berkeleyStorageOptions = loadServerBerkeleyStorageOptions()
   private val serverRocksStorageOptions = loadServerRocksStorageOptions()
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
   private val commitLogOptions = loadCommitLogOptions()
@@ -31,7 +30,7 @@ class OptionsLoader() {
   private def loadBootstrapOptions() = {
     val fields = getPropertiesOf(classOf[BootstrapOptions])
 
-    castCheck(BootstrapOptions(fields(0), fields(1).toInt, fields(2).toInt))
+    castCheck(BootstrapOptions(fields(0), fields(1).toInt))
   }
 
   private def loadServerAuthOptions() = {
@@ -44,12 +43,6 @@ class OptionsLoader() {
     val fields = getPropertiesOf(classOf[StorageOptions])
 
     castCheck(StorageOptions(fields(0), fields(1), fields(2), fields(3), fields(4)))
-  }
-
-  private def loadServerBerkeleyStorageOptions() = {
-    val fields = getPropertiesOf(classOf[BerkeleyStorageOptions])
-
-    castCheck(BerkeleyStorageOptions(fields(0).toInt))
   }
 
   private def loadServerReplicationOptions() = {
@@ -134,10 +127,6 @@ class OptionsLoader() {
 
   def getServerStorageOptions = {
     serverStorageOptions
-  }
-
-  def getBerkeleyStoragaeOptions = {
-    berkeleyStorageOptions
   }
 
   def getServerRocksStorageOptions = {

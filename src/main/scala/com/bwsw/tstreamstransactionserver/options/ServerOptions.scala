@@ -10,9 +10,8 @@ object ServerOptions {
     *
     * @param host ipv4 or ipv6 listen address in string representation.
     * @param port a port.
-    * @param threadPool the number of threads of thread pool to serialize/deserialize requests/responses.
     */
-  case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071, threadPool: Int = 4)
+  case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071)
 
   /** The options are used to validate client requests by a server.
     *
@@ -38,19 +37,6 @@ object ServerOptions {
                               * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
                               * berkeleyReadThreadPool: Int = 2 */)
 
-  /** The options for berkeley db je.
-    *
-    * @param berkeleyReadThreadPool the number of threads of pool are used to do read operations from BerkeleyDB je databases.
-    *                               Used for [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.scanTransactions]],
-    *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getTransaction]],
-    *                               [[com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl.getLastCheckpointedTransaction]],
-    *                               [[com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl.getStream]],
-    *                               [[com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl.checkStreamExists]],
-    *                               [[com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl.getConsumerState]]
-    *
-    */
-  case class BerkeleyStorageOptions(berkeleyReadThreadPool: Int = 2) extends AnyVal
-
   /** The options for generating id for a new commit log file.
     *
     * @param counterPathFileIdGen the coordination path for counter for generating and retrieving commit log file id.
@@ -72,9 +58,9 @@ object ServerOptions {
     *
     *
     * @param writeThreadPool the number of threads of pool are used to do write operations from Rocksdb databases.
-    *                        Used for [[com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl.putTransactionData]]
+    *                        Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
     * @param readThreadPool the number of threads of pool are used to do read operations from Rocksdb databases.
-    *                       Used for [[com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl.getTransactionData]]
+    *                       Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
     * @param ttlAddMs the time to add to [[com.bwsw.tstreamstransactionserver.rpc.Stream.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
     * @param createIfMissing if true, the database will be created if it is missing.
     * @param maxBackgroundCompactions is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.

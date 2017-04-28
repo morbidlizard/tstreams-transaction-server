@@ -13,8 +13,6 @@ import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction,
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 
 class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
@@ -57,7 +55,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
     val maxTTLForProducerTransactionSec = 5
@@ -80,7 +78,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
     def ttlSec = rand.nextInt(maxTTLForProducerTransactionSec)
 
     val stream = getRandomStream
-    Await.ready(transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsAwait.seconds)
+    transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val currentTime = System.currentTimeMillis()
     val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] = Array.fill(producerTxnNumber) {
@@ -101,7 +99,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
       ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
     }
 
-    Await.result(transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)), secondsAwait.seconds).producerTransactions should contain theSameElementsAs expiredTransactions
+    transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)).producerTransactions should contain theSameElementsAs expiredTransactions
 
     (minTransactionID to maxTransactionID) foreach { transactionID =>
       transactionService.checkTransactionExistInOpenedTable(stream.name, stream.partitions, transactionID) shouldBe false

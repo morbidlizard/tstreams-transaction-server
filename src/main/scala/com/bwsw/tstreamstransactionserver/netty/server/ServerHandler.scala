@@ -16,7 +16,8 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
   private val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
 
-  private val context: ExecutionContext = transactionServer.executionContext.context
+  private val serverWriteContext: ExecutionContext = transactionServer.executionContext.serverWriteContext
+  private val serverReadContext: ExecutionContext = transactionServer.executionContext.serverReadContext
 
   override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
     val message = Message.fromByteBuf(buf)
@@ -91,7 +92,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
               sendResponseToClient(response, ctx)
           }
         }
-      }(context)
+      }(serverReadContext)
 
       case Descriptors.PutStream.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
@@ -105,24 +106,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.PutStream.decodeRequest(message)
-          transactionServer.putStream(args.stream, args.partitions, args.description, args.ttl)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.PutStream.name)
-              val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(result)))(messageId, message.token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.PutStream.name, error)
-              val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.putStream(args.stream, args.partitions, args.description, args.ttl)
+          logSuccessfulProcession(Descriptors.PutStream.name)
+          val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(result)))(messageId, message.token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.PutStream.name, error)
           val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverWriteContext)
 
 
       case Descriptors.CheckStreamExists.methodID => ScalaFuture {
@@ -136,24 +130,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           sendResponseToClient(response, ctx)
         } else {
           val args = Descriptors.CheckStreamExists.decodeRequest(message)
-          transactionServer.checkStreamExists(args.stream)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.CheckStreamExists.name)
-              val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(result)))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.CheckStreamExists.name, error)
-              val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.checkStreamExists(args.stream)
+          logSuccessfulProcession(Descriptors.CheckStreamExists.name)
+          val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(result)))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.CheckStreamExists.name, error)
           val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverReadContext)
 
       case Descriptors.GetStream.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
@@ -167,24 +154,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.GetStream.decodeRequest(message)
-          transactionServer.getStream(args.stream)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.GetStream.name)
-              val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(result)))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.GetStream.name, error)
-              val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.getStream(args.stream)
+          logSuccessfulProcession(Descriptors.GetStream.name)
+          val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(result)))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetStream.name, error)
           val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverReadContext)
 
       case Descriptors.DelStream.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
@@ -198,24 +178,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.DelStream.decodeRequest(message)
-          transactionServer.delStream(args.stream)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.DelStream.name)
-              val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(result)))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.DelStream.name, error)
-              val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.delStream(args.stream)
+          logSuccessfulProcession(Descriptors.DelStream.name)
+          val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(result)))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.DelStream.name, error)
           val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverWriteContext)
 
       case Descriptors.PutTransaction.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
@@ -277,7 +250,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val txn = Descriptors.PutSimpleTransactionAndData.decodeRequest(message)
-          transactionServer.putTransactionDataSync(txn.stream, txn.partition, txn.transaction, txn.data, txn.from)
+          transactionServer.putTransactionData(txn.stream, txn.partition, txn.transaction, txn.data, txn.from)
           val transactions = collection.immutable.Seq(
             Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Opened, txn.data.size, 3L)), None),
             Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Checkpointed, txn.data.size, 120L)), None)
@@ -307,24 +280,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.GetTransaction.decodeRequest(message)
-          transactionServer.getTransaction(args.stream, args.partition, args.transaction)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.GetTransaction.name)
-              val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(Some(result)))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.GetTransaction.name, error)
-              val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.getTransaction(args.stream, args.partition, args.transaction)
+          logSuccessfulProcession(Descriptors.GetTransaction.name)
+          val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(Some(result)))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetTransaction.name, error)
           val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverReadContext)
 
 
       case Descriptors.GetLastCheckpointedTransaction.methodID => ScalaFuture {
@@ -339,24 +305,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.GetLastCheckpointedTransaction.decodeRequest(message)
-          transactionServer.getLastCheckpointedTransaction(args.stream, args.partition)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.GetLastCheckpointedTransaction.name)
-              val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(result))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.GetLastCheckpointedTransaction.name, error)
-              val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.getLastCheckpointedTransaction(args.stream, args.partition)
+          logSuccessfulProcession(Descriptors.GetLastCheckpointedTransaction.name)
+          val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(result))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetLastCheckpointedTransaction.name, error)
           val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverReadContext)
 
       case Descriptors.ScanTransactions.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
@@ -370,24 +329,16 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.ScanTransactions.decodeRequest(message)
-          transactionServer.scanTransactions(args.stream, args.partition, args.from, args.to, args.count, args.states)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.ScanTransactions.name)
-              val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(result)))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.ScanTransactions.name, error)
-              val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.scanTransactions(args.stream, args.partition, args.from, args.to, args.count, args.states)
+          logSuccessfulProcession(Descriptors.ScanTransactions.name)
+          val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(result)))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
-        .recover { case error =>
+      }(serverReadContext).recover { case error =>
           logUnsuccessfulProcessing(Descriptors.ScanTransactions.name, error)
           val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverReadContext)
 
       case Descriptors.PutTransactionData.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
@@ -401,24 +352,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.PutTransactionData.decodeRequest(message)
-          transactionServer.putTransactionData(args.stream, args.partition, args.transaction, args.data, args.from)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.PutTransactionData.name)
-              val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(result)))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.PutTransactionData.name, error)
-              val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.putTransactionData(args.stream, args.partition, args.transaction, args.data, args.from)
+          logSuccessfulProcession(Descriptors.PutTransactionData.name)
+          val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(result)))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.PutTransactionData.name, error)
           val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverWriteContext)
 
       case Descriptors.GetTransactionData.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
@@ -432,24 +376,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.GetTransactionData.decodeRequest(message)
-          transactionServer.getTransactionData(args.stream, args.partition, args.transaction, args.from, args.to)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.GetTransactionData.name)
-              val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(result)))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.GetTransactionData.name, error)
-              val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.getTransactionData(args.stream, args.partition, args.transaction, args.from, args.to)
+          logSuccessfulProcession(Descriptors.GetTransactionData.name)
+          val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(result)))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetTransactionData.name, error)
           val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverWriteContext)
 
 
       case Descriptors.PutConsumerCheckpoint.methodID => ScalaFuture {
@@ -488,24 +425,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.GetConsumerState.decodeRequest(message)
-          transactionServer.getConsumerState(args.name, args.stream, args.partition)
-            .map { result =>
-              logSuccessfulProcession(Descriptors.GetConsumerState.name)
-              val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(result)))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
-            .recover { case error =>
-              logUnsuccessfulProcessing(Descriptors.GetConsumerState.name, error)
-              val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
-            }(context)
+          val result = transactionServer.getConsumerState(args.name, args.stream, args.partition)
+          logSuccessfulProcession(Descriptors.GetConsumerState.name)
+          val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(result)))(messageId, token)
+          sendResponseToClient(response, ctx)
         }
-      }(context)
+      }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetConsumerState.name, error)
           val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(context)
+        }(serverReadContext)
 
       case Descriptors.Authenticate.methodID =>
         val args = Descriptors.Authenticate.decodeRequest(message)

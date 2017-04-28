@@ -6,16 +6,12 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL, RocksDBPartitionDatabase}
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment, StreamCache, Time}
-import com.bwsw.tstreamstransactionserver.rpc.StreamService
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Future => ScalaFuture}
 
-trait StreamServiceImpl extends StreamService[ScalaFuture]
-  with Authenticable
-  with StreamCache
-{
+trait StreamServiceImpl extends Authenticable
+  with StreamCache {
 
   val executionContext: ServerExecutionContext
   val rocksMetaServiceDB: RocksDBALL
@@ -25,6 +21,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
   private val streamDatabase: RocksDBPartitionDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.STREAM_STORE_INDEX)
 
   def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit
+
   def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, batch: Batch): Unit
 
   private def fillStreamRAMTable(): Long = {
@@ -42,9 +39,10 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }
     iterator.close()
 
-    streamRecords.groupBy(_.name).foreach{case(name, streams) => streamCache.put(name, streams)}
+    streamRecords.groupBy(_.name).foreach { case (name, streams) => streamCache.put(name, streams) }
     streamRecords.lastOption.map(_.id).getOrElse(0L)
   }
+
   private val idGen = new AtomicLong(fillStreamRAMTable())
 
   override def getStreamFromOldestToNewest(stream: String): ArrayBuffer[StreamRecord] =
@@ -56,64 +54,62 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
     }
 
 
-  override def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] =
-    ScalaFuture {
-      val isOkay = if (streamCache.containsKey(stream)) {
-        val streams = streamCache.get(stream)
-        val mostRecentStreamRecord = streams.last
+  def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Boolean = {
+    val isOkay = if (streamCache.containsKey(stream)) {
+      val streams = streamCache.get(stream)
+      val mostRecentStreamRecord = streams.last
 
+      if (mostRecentStreamRecord.stream.deleted) {
+        val newStreamKey = StreamKey(idGen.getAndIncrement())
+        val newStreamValue = StreamValue(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
+        streamCache.get(stream) += StreamRecord(newStreamKey, newStreamValue)
+        streamDatabase.put(newStreamKey.toByteArray, newStreamValue.toByteArray)
+      } else false
+    }
+    else {
+      val newKey = StreamKey(idGen.getAndIncrement())
+      val newStream = StreamValue(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
+      streamCache.put(stream, ArrayBuffer(StreamRecord(newKey, newStream)))
+      streamDatabase.put(newKey.toByteArray, newStream.toByteArray)
+    }
+
+    if (isOkay) {
+      if (logger.isDebugEnabled()) logger.debug(s"Stream $stream with number of partitons $partitions, with $ttl and $description is saved successfully.")
+    } else {
+      if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't saved.")
+    }
+
+    isOkay
+  }
+
+  def checkStreamExists(stream: String): Boolean =
+    scala.util.Try(getMostRecentStream(stream)).isSuccess
+
+  def getStream(stream: String): com.bwsw.tstreamstransactionserver.rpc.Stream =
+    getMostRecentStream(stream).stream
+
+  def delStream(stream: String): Boolean = {
+    scala.util.Try(getStreamFromOldestToNewest(stream)) match {
+      case scala.util.Success(streamObjects) =>
+        val mostRecentStreamRecord = streamObjects.last
         if (mostRecentStreamRecord.stream.deleted) {
-          val newStreamKey = StreamKey(idGen.getAndIncrement())
-          val newStreamValue = StreamValue(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
-          streamCache.get(stream) += StreamRecord(newStreamKey, newStreamValue)
-          streamDatabase.put(newStreamKey.toByteArray, newStreamValue.toByteArray)
-        } else false
-      }
-      else {
-        val newKey = StreamKey(idGen.getAndIncrement())
-        val newStream = StreamValue(stream, partitions, description, ttl, timer.getCurrentTime, deleted = false)
-        streamCache.put(stream, ArrayBuffer(StreamRecord(newKey, newStream)))
-        streamDatabase.put(newKey.toByteArray, newStream.toByteArray)
-      }
-
-      if (isOkay) {
-        if (logger.isDebugEnabled()) logger.debug(s"Stream $stream with number of partitons $partitions, with $ttl and $description is saved successfully.")
-      } else {
-        if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't saved.")
-      }
-
-      isOkay
-    }(executionContext.berkeleyWriteContext)
-
-  override def checkStreamExists(stream: String): ScalaFuture[Boolean] =
-    ScalaFuture(scala.util.Try(getMostRecentStream(stream)).isSuccess)(executionContext.berkeleyReadContext)
-
-  override def getStream(stream: String): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] =
-    ScalaFuture(getMostRecentStream(stream).stream)(executionContext.berkeleyReadContext)
-
-  override def delStream(stream: String): ScalaFuture[Boolean] =
-    ScalaFuture {
-      scala.util.Try(getStreamFromOldestToNewest(stream)) match {
-        case scala.util.Success(streamObjects) =>
-          val mostRecentStreamRecord = streamObjects.last
-          if (mostRecentStreamRecord.stream.deleted) {
-            if (logger.isDebugEnabled()) logger.debug(s"Stream $stream has been already removed.")
-            false
+          if (logger.isDebugEnabled()) logger.debug(s"Stream $stream has been already removed.")
+          false
+        } else {
+          val batch = rocksMetaServiceDB.newBatch
+          mostRecentStreamRecord.stream.deleted = true
+          val isOkay = batch.put(HasEnvironment.STREAM_STORE_INDEX, mostRecentStreamRecord.key.toByteArray, mostRecentStreamRecord.stream.toByteArray)
+          if (isOkay) {
+            //              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.id, batch)
+            closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.id)
+            batch.write()
+            if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
           } else {
-            val batch = rocksMetaServiceDB.newBatch
-            mostRecentStreamRecord.stream.deleted = true
-            val isOkay = batch.put(HasEnvironment.STREAM_STORE_INDEX, mostRecentStreamRecord.key.toByteArray, mostRecentStreamRecord.stream.toByteArray)
-            if (isOkay) {
-//              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.id, batch)
-              closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.id)
-              batch.write()
-              if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
-            } else {
-              if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")
-            }
-            isOkay
+            if (logger.isDebugEnabled()) logger.debug(s"Stream $stream isn't removed.")
           }
-        case scala.util.Failure(throwable) => false
-      }
-    }(executionContext.berkeleyWriteContext)
+          isOkay
+        }
+      case scala.util.Failure(throwable) => false
+    }
+  }
 }

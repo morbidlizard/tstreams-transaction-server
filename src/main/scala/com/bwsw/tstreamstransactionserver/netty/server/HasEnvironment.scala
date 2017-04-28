@@ -17,7 +17,6 @@ trait HasEnvironment {
       RocksDatabaseDescriptor("ConsumerStore".getBytes(),                      new ColumnFamilyOptions()),
       RocksDatabaseDescriptor("CommitLogStore".getBytes(),                     new ColumnFamilyOptions()),
       RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                new ColumnFamilyOptions()),
-      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                new ColumnFamilyOptions()),
       RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               new ColumnFamilyOptions())
     )
   )

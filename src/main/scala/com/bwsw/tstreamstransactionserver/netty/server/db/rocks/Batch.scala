@@ -22,6 +22,7 @@ class Batch(client: TtlDB, databaseHandlers: Seq[ColumnFamilyHandle], idGenerato
         throwable.printStackTrace()
         false
     }
+
     writeOptions.close()
     batch.close()
     status

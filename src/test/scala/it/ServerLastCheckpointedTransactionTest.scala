@@ -45,7 +45,6 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
-  private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
@@ -59,7 +58,6 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
       serverOpts = serverBootstrapOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
-      berkeleyStorageOptions = serverBerkeleyStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,

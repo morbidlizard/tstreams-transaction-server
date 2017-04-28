@@ -54,7 +54,6 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   private val bootstrapOptions = BootstrapOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
   private val storageOptions = StorageOptions()
-  private val berkeleyStorageOptions = BerkeleyStorageOptions()
   private val rocksStorageOptions = RocksStorageOptions()
   private val packageTransmissionOptions = TransportOptions()
   private val commitLogOptions = CommitLogOptions()
@@ -65,7 +64,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     server = new Server(
       authOptions, zookeeperOptions,
       bootstrapOptions, serverReplicationOptions,
-      storageOptions, berkeleyStorageOptions, rocksStorageOptions, commitLogOptions,
+      storageOptions, rocksStorageOptions, commitLogOptions,
       packageTransmissionOptions,
       zookeeperSpecificOptions,
       serverHandler
@@ -97,17 +96,17 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   "Client" should "send request with such ttl that it will never converge to a stable state due to the pipeline." in {
     startTransactionServer()
 
-    val retryDelayMsForThat = 100
-
     val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
     val address = zkTestServer.getConnectString
     val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = address)
 
+    val retryDelayMsForThat = 100
+    val retryCount = 10
     val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
       requestTimeoutMs = requestTimeoutMs,
       retryDelayMs = retryDelayMsForThat,
-      connectionTimeoutMs = 5000,
-      requestTimeoutRetryCount = 100
+      connectionTimeoutMs = 1000,
+      requestTimeoutRetryCount = retryCount
     )
 
     val clientTimeoutRequestCounter = new AtomicInteger(0)
@@ -118,16 +117,14 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
       }
     }
 
-    val stream = getRandomStream
-
-    scala.util.Try(Await.ready(client.putStream(stream), secondsWait.seconds))
-
     client.shutdown()
     server.shutdown()
 
+    //client on start tries to authenticate but can't because of timeout on request
+
     val serverRequestCounter = serverGotRequest.get()
     val (trialsLeftBound, trialsRightBound) = {
-      val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt / (requestTimeoutMs + retryDelayMsForThat)
+      val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt / requestTimeoutMs
       (trials - trials * 30 / 100, trials + trials * 30 / 100)
     }
 
@@ -137,7 +134,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
 
     //Client hook works only on a request, so, if request fails - the hook would stop to work.
     //Taking in account all of the above, counter of clientTimeoutRequestCounter may show that it send one request less.
-    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 2 //authenticate gives one more request
+    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 1
   }
 
   it should "throw an user defined exception on overriding onRequestTimeout method" in {

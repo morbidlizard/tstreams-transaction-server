@@ -11,8 +11,6 @@ import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
 import scala.annotation.tailrec
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future => ScalaFuture}
 import scala.language.reflectiveCalls
 
 class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeAndAfterEach {
@@ -52,7 +50,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -73,9 +71,9 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     }
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -105,7 +103,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -126,9 +124,9 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     }
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -166,7 +164,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
     val streamsNumber = 1
@@ -185,9 +183,9 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     }
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -222,7 +220,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -243,9 +241,9 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     }
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
     @tailrec
     def getLastTransactionID(producerTransactions: List[ProducerTransaction], acc: Option[Long]): Option[Long] = {

@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.3.3-SNAPSHOT"
+version := "1.3.4-SNAPSHOT"
 
 scalaVersion := "2.12.1"
 
@@ -69,7 +69,7 @@ libraryDependencies ++= Seq(
 //  "com.sleepycat" % "je" % "7.3.7",
   "org.scalactic" %% "scalactic" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
-  "io.netty" % "netty-all" % "4.1.7.Final",
+  "io.netty" % "netty-all" % "4.1.9.Final",
   "org.json4s" %% "json4s-jackson" % "3.5.1",
 
 //  "com.bwsw" % "journaled-commit-log_2.12" % "1.0.0-SNAPSHOT",

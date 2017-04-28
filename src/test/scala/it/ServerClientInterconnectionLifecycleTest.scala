@@ -33,28 +33,26 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val streamAfterDelete = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, Some("Previous one was deleted"), 538L)
 
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
     val transactionServiceServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = AuthOptions(),
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions
     )
-    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
-    Await.result(transactionServiceServer.delStream(stream.name), secondsWait.seconds)
-    Await.result(transactionServiceServer.putStream(streamAfterDelete.name, streamAfterDelete.partitions, streamAfterDelete.description, streamAfterDelete.ttl), secondsWait.seconds)
+    transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    transactionServiceServer.delStream(stream.name)
+    transactionServiceServer.putStream(streamAfterDelete.name, streamAfterDelete.partitions, streamAfterDelete.description, streamAfterDelete.ttl)
 
-    val retrievedStream = Await.result(transactionServiceServer.getStream(streamAfterDelete.name), secondsWait.seconds)
+    val retrievedStream = transactionServiceServer.getStream(streamAfterDelete.name)
 
     streamAfterDelete shouldBe retrievedStream
     transactionServiceServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
   private final def getProducerTransactionFromServer(transactionServer: TransactionServer, producerTransaction: ProducerTransaction) = {
-    Await.result(
-      transactionServer.scanTransactions(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, producerTransaction.transactionID, Int.MaxValue, Set()),
-      5.seconds
-    ).producerTransactions.head
+    transactionServer.scanTransactions(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, producerTransaction.transactionID, Int.MaxValue, Set())
+      .producerTransactions.head
   }
 
   private final def transitOneTransactionToAnotherState(transactionServiceServer: TransactionServer, in: ProducerTransaction, toUpdateIn: ProducerTransaction, out: ProducerTransaction, timeBetweenTransactionSec: Long) = {
@@ -76,7 +74,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
     val transactionServiceServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = AuthOptions(),
@@ -84,7 +82,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
-    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
+    transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val openedTTL = 2
     val checkpointedTTL = 3
@@ -97,7 +95,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
     val transactionServiceServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = AuthOptions(),
@@ -105,7 +103,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
-    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
+    transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val openedTTL = 4
     val checkpointedTTL = 2
@@ -118,7 +116,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
     val transactionServiceServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = AuthOptions(),
@@ -126,7 +124,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
-    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
+    transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val openedTTL = 7L
     val updatedTTL1 = openedTTL
@@ -152,7 +150,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
     val transactionServiceServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = AuthOptions(),
@@ -160,7 +158,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
-    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
+    transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val openedTTL = 7L
     val updatedTTL1 = 5L
@@ -189,7 +187,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Cancel->Updated->Checkpointed. Should return Invalid Transaction(due to transaction with Cancel state)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
     val transactionServiceServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = AuthOptions(),
@@ -197,7 +195,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
-    Await.result(transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsWait.seconds)
+    transactionServiceServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val openedTTL = 7L
     val updatedTTL1 = 4L

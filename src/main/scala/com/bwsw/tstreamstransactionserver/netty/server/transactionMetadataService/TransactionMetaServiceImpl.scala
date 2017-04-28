@@ -13,7 +13,6 @@ import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Future => ScalaFuture}
 
 trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
   with Authenticable
@@ -231,52 +230,29 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   final class BigCommit(fileID: Long) {
     private val batch = rocksMetaServiceDB.newBatch
 
-    private class Commit extends Callable[Boolean] {
-      override def call(): Boolean = {
-        val key = CommitLogKey(fileID).toByteArray
-        val value = Array[Byte]()
-
-        batch.put(HasEnvironment.COMMIT_LOG_STORE, key, value)
-        if (batch.write()) {
-          if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
-          true
-        } else {
-          false
-        }
-      }
-    }
-
-    //    private class Abort extends Callable[Boolean] {
-    //      override def call(): Boolean =
-    //        scala.util.Try(transactionDB.abort()) match {
-    //          case scala.util.Success(_) => true
-    //          case scala.util.Failure(error) => throw error
-    //        }
-    //    }
-
-    private class PutTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]) extends Callable[Unit] {
-      if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
-
-      override def call(): Unit = putTransactions(transactions, batch)
-    }
-
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
-      executionContext.berkeleyWriteContext.submit(new PutTransactions(transactions)).get()
+      if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
+      putTransactions(transactions, batch)
     }
 
     def commit(): Boolean = {
-      executionContext.berkeleyWriteContext.submit(new Commit()).get()
-    }
+      val key = CommitLogKey(fileID).toByteArray
+      val value = Array[Byte]()
 
-    //    def abort(): Boolean = {
-    //      executionContext.berkeleyWriteContext.submit(new Abort()).get()
-    //    }
+      batch.put(HasEnvironment.COMMIT_LOG_STORE, key, value)
+      if (batch.write()) {
+        if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
+        true
+      } else {
+        false
+      }
+    }
   }
 
   def getBigCommit(fileID: Long) = new BigCommit(fileID)
 
 
-  final def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo] = ScalaFuture {
+  final def getTransaction(stream: String, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
     val keyStream = getMostRecentStream(stream)
     val lastTransaction = getLastTransactionIDAndCheckpointedID(keyStream.id, partition)
     if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
@@ -293,9 +269,9 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
           TransactionInfo(exists = true, Some(recordToProducerTransaction(producerTransactionRecord, keyStream.name)))
       }
     }
-  }(executionContext.berkeleyReadContext)
+  }
 
-  final def getLastCheckpointedTransaction(stream: String, partition: Int): ScalaFuture[Option[Long]] = ScalaFuture {
+  final def getLastCheckpointedTransaction(stream: String, partition: Int): Option[Long] = {
     val streamRecord = getMostRecentStream(stream)
     val result = getLastTransactionIDAndCheckpointedID(streamRecord.id, partition) match {
       case Some(last) => last.checkpointed match {
@@ -305,12 +281,12 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       case None => None
     }
     result
-  }(executionContext.berkeleyReadContext)
+  }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
 
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo] =
-    ScalaFuture {
+  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =
+    {
       val keyStream = getMostRecentStream(stream)
 
       val (lastOpenedTransactionID, toTransactionID) = getLastTransactionIDAndCheckpointedID(keyStream.id, partition) match {
@@ -374,49 +350,48 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
             ScanTransactionsInfo(lastOpenedTransactionID, result map producerTransactionKeyToProducerTransaction)
         }
       }
-    }(executionContext.berkeleyReadContext)
+    }
 
   private def recordToProducerTransaction(txn: ProducerTransactionRecord, stream: String) = {
     com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(stream, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
   }
 
-  final class TransactionsToDeleteTask(timestampToDeleteTransactions: Long) extends Callable[Unit] {
-    private def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
+
+  def transactionsToDeleteTask(timestampToDeleteTransactions: Long) {
+    def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
     }
 
-    override def call(): Unit = {
-      if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
-      val batch = rocksMetaServiceDB.newBatch
+    if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
+    val batch = rocksMetaServiceDB.newBatch
 
-      val iterator = producerTransactionsWithOpenedStateDatabase.iterator
-      iterator.seekToFirst()
+    val iterator = producerTransactionsWithOpenedStateDatabase.iterator
+    iterator.seekToFirst()
 
-      while (iterator.isValid) {
-        val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
-        if (doesProducerTransactionExpired(producerTransactionValue)) {
-          if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
+    while (iterator.isValid) {
+      val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
+      if (doesProducerTransactionExpired(producerTransactionValue)) {
+        if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
 
-          val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
-          val key = iterator.key()
-          val producerTransactionKey = ProducerTransactionKey.fromByteArray(key)
+        val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
+        val key = iterator.key()
+        val producerTransactionKey = ProducerTransactionKey.fromByteArray(key)
 
-          val canceledTransactionRecordDueExpiration = transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
-          if (areThereAnyProducerNotifies) tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
+        val canceledTransactionRecordDueExpiration = transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
+        if (areThereAnyProducerNotifies) tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
 
-          transactionsRamTable.invalidate(producerTransactionKey)
-          batch.put(HasEnvironment.TRANSACTION_ALL_STORE, key, canceledTransactionRecordDueExpiration.producerTransaction.toByteArray)
+        transactionsRamTable.invalidate(producerTransactionKey)
+        batch.put(HasEnvironment.TRANSACTION_ALL_STORE, key, canceledTransactionRecordDueExpiration.producerTransaction.toByteArray)
 
-          batch.remove(HasEnvironment.TRANSACTION_OPEN_STORE, key)
-        }
-        iterator.next()
+        batch.remove(HasEnvironment.TRANSACTION_OPEN_STORE, key)
       }
-      iterator.close()
-      batch.write()
+      iterator.next()
     }
+    iterator.close()
+    batch.write()
   }
 
   final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {
-    executionContext.berkeleyWriteContext.submit(new TransactionsToDeleteTask(timestampToDeleteTransactions)).get()
+    transactionsToDeleteTask(timestampToDeleteTransactions)
   }
 }

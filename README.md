@@ -20,7 +20,6 @@ You should pass a file with properties in both cases. The file should contain th
 | -------------                    | ------------- | ------------- | ------------- | ------------- |
 | host                             | ipv4 or ipv6 listen address. |string | 127.0.0.1| |
 | port                             | A port.  |int    |8071| |
-| thread.pool                      | The number of threads of thread pool to serialize/deserialize requests/responses.  |int    | 4| [1,...]|
 | key                              | The key to authorize.  |string |key| |
 | active.tokens.number             | The number of active tokens a server can handle over time.  |int    |100| [1,...]|
 | token.ttl                        | The time a token live before expiration.  |int    | 120| [1,...]|
@@ -28,8 +27,7 @@ You should pass a file with properties in both cases. The file should contain th
 | data.directory                   | The path where rocksdb databases are placed relatively to property "path".  |string |transaction_data| |
 | metadata.directory               | The path where a berkeley environment and it's databases are placed relatively to "path".  |string |transaction_metadata| |
 | commit.log.directory             | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
-| commit.log.rocks.directory       | the path where rocksdb with persisted commit log files is placed relatively to "path".  |string |commit_log_rocks| |
-| berkeley.read.thread.pool        | The number of threads of pool are used to do read operations from BerkeleyDB je databases. Used for: getStream, getConsumerState, scanTransactions, getTransaction, getLastCheckpoitnedTransaction. |int    | 2| [1,...]|  
+| commit.log.rocks.directory       | the path where rocksdb with persisted commit log files is placed relatively to "path".  |string |commit_log_rocks| |  
 | auth.key                         | The special security token which is used by the slaves to authenticate on master.| string | server_group| |
 | endpoints                        | ???  |string | 127.0.0.1:8071 | |
 | name                             | ???  |string |server| |  

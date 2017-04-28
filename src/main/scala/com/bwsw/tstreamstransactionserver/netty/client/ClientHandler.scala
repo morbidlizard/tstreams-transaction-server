@@ -23,90 +23,75 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
 
   override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
     def invokeMethod(message: Message)(implicit context: ExecutionContext):Unit =  {
-//      val response = message.method match {
-//        case Descriptors.GetCommitLogOffsets.methodID =>
-//          Descriptors.GetCommitLogOffsets.decodeResponse(message)
-//
-//        case Descriptors.PutStream.methodID =>
-//          Descriptors.PutStream.decodeResponse(message)
-//
-//        case Descriptors.CheckStreamExists.methodID =>
-//          Descriptors.CheckStreamExists.decodeResponse(message)
-//
-//        case Descriptors.GetStream.methodID =>
-//          Descriptors.GetStream.decodeResponse(message)
-//
-//        case Descriptors.DelStream.methodID =>
-//          Descriptors.DelStream.decodeResponse(message)
-//
-//        case Descriptors.PutTransaction.methodID =>
-//          Descriptors.PutTransaction.decodeResponse(message)
-//
-//        case Descriptors.PutTransactions.methodID =>
-//          Descriptors.PutTransactions.decodeResponse(message)
-//
-//        case Descriptors.PutSimpleTransactionAndData.methodID =>
-//          Descriptors.PutSimpleTransactionAndData.decodeResponse(message)
-//
-//        case Descriptors.GetTransaction.methodID =>
-//          Descriptors.GetTransaction.decodeResponse(message)
-//
-//        case Descriptors.GetLastCheckpointedTransaction.methodID =>
-//          Descriptors.GetLastCheckpointedTransaction.decodeResponse(message)
-//
-//        case Descriptors.ScanTransactions.methodID =>
-//          Descriptors.ScanTransactions.decodeResponse(message)
-//
-//        case Descriptors.PutTransactionData.methodID =>
-//          Descriptors.PutTransactionData.decodeResponse(message)
-//
-//        case Descriptors.GetTransactionData.methodID =>
-//          Descriptors.GetTransactionData.decodeResponse(message)
-//
-//        case Descriptors.PutConsumerCheckpoint.methodID =>
-//          Descriptors.PutConsumerCheckpoint.decodeResponse(message)
-//
-//        case Descriptors.GetConsumerState.methodID =>
-//          Descriptors.GetConsumerState.decodeResponse(message)
-//
-//        case Descriptors.Authenticate.methodID =>
-//          Descriptors.Authenticate.decodeResponse(message)
-//
-//        case Descriptors.IsValid.methodID =>
-//          Descriptors.IsValid.decodeResponse(message)
-//
-//        case methodByte =>
-//          val throwable = new MethodDoesnotFoundException(methodByte.toString)
-//          ctx.fireExceptionCaught(throwable)
-//          throw throwable
-//      }
-//      retryCompletePromise(message.id, response)
-      if (message.method < Descriptors.methods.length && message.method > -1) {
-        retryCompletePromise(message.id, Descriptors.methods(message.method).decodeResponse(message))
-      } else {
-        val throwable = new MethodDoesnotFoundException(message.method.toString)
-        ctx.fireExceptionCaught(throwable)
-        throw throwable
+      message.method match {
+        case Descriptors.GetCommitLogOffsets.methodID =>
+          ScalaFuture(retryCompletePromise(message.id, Descriptors.GetCommitLogOffsets.decodeResponse(message)))
+
+        case Descriptors.PutStream.methodID =>
+          retryCompletePromise(message.id, Descriptors.PutStream.decodeResponse(message)) 
+
+        case Descriptors.CheckStreamExists.methodID =>
+          retryCompletePromise(message.id, Descriptors.CheckStreamExists.decodeResponse(message)) 
+
+        case Descriptors.GetStream.methodID =>
+          ScalaFuture(retryCompletePromise(message.id, Descriptors.GetStream.decodeResponse(message)))(context)
+
+        case Descriptors.DelStream.methodID =>
+          retryCompletePromise(message.id, Descriptors.DelStream.decodeResponse(message)) 
+
+        case Descriptors.PutTransaction.methodID =>
+          retryCompletePromise(message.id, Descriptors.PutTransaction.decodeResponse(message)) 
+
+        case Descriptors.PutTransactions.methodID =>
+          retryCompletePromise(message.id, Descriptors.PutTransactions.decodeResponse(message)) 
+
+        case Descriptors.PutSimpleTransactionAndData.methodID =>
+          retryCompletePromise(message.id, Descriptors.PutSimpleTransactionAndData.decodeResponse(message)) 
+
+        case Descriptors.GetTransaction.methodID =>
+          retryCompletePromise(message.id, Descriptors.GetTransaction.decodeResponse(message)) 
+
+        case Descriptors.GetLastCheckpointedTransaction.methodID =>
+          ScalaFuture(retryCompletePromise(message.id, Descriptors.GetLastCheckpointedTransaction.decodeResponse(message)))
+
+        case Descriptors.ScanTransactions.methodID =>
+          ScalaFuture(retryCompletePromise(message.id, Descriptors.ScanTransactions.decodeResponse(message)))(context)
+
+        case Descriptors.PutTransactionData.methodID =>
+          retryCompletePromise(message.id, Descriptors.PutTransactionData.decodeResponse(message)) 
+
+        case Descriptors.GetTransactionData.methodID =>
+          ScalaFuture(retryCompletePromise(message.id, Descriptors.GetTransactionData.decodeResponse(message)))(context)
+
+        case Descriptors.PutConsumerCheckpoint.methodID =>
+          retryCompletePromise(message.id, Descriptors.PutConsumerCheckpoint.decodeResponse(message)) 
+
+        case Descriptors.GetConsumerState.methodID =>
+          retryCompletePromise(message.id, Descriptors.GetConsumerState.decodeResponse(message)) 
+
+        case Descriptors.Authenticate.methodID =>
+          retryCompletePromise(message.id, Descriptors.Authenticate.decodeResponse(message)) 
+
+        case Descriptors.IsValid.methodID =>
+          retryCompletePromise(message.id, Descriptors.IsValid.decodeResponse(message)) 
+
+        case methodByte =>
+          val throwable = new MethodDoesnotFoundException(methodByte.toString)
+          ctx.fireExceptionCaught(throwable)
+          throw throwable
       }
     }
-
     val message = Message.fromByteBuf(buf)
     invokeMethod(message)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
-    import scala.collection.JavaConverters._
-
-
-    ScalaFuture {
-      reqIdToRep.asScala.foreach {
-        case (key, request) if !request.isCompleted =>
-          request.tryFailure(new ServerUnreachableException(ctx.name()))
-          reqIdToRep.remove(key)
-      }
-    }(context)
-
     ctx.fireChannelInactive()
+
+    val remoteAddress = ctx.channel().remoteAddress().toString
+    reqIdToRep.forEach((t: Long, promise: ScalaPromise[ThriftStruct]) => {
+      promise.tryFailure(new ServerUnreachableException(remoteAddress))
+    })
 
     if (!client.isShutdown) {
       ctx.channel().eventLoop().execute(() => client.reconnect())

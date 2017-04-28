@@ -38,7 +38,6 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
-  private val serverBerkeleyStorageOptions = ServerOptions.BerkeleyStorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
@@ -52,7 +51,6 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       serverOpts = serverBootstrapOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
-      berkeleyStorageOptions = serverBerkeleyStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
@@ -195,16 +193,16 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
     result.currentConstructedCommitLog shouldBe 1L
   }
 
-  it should "return -1 for currentProcessedCommitLog(as writer thread doesn't run on data) and 3 for currentConstructedCommitLog(as 3 commit log files are closed)" in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait.seconds)
-
-    transactionServer.scheduledCommitLogImpl.run()
-    transactionServer.scheduledCommitLogImpl.run()
-    transactionServer.scheduledCommitLogImpl.run()
-
-    val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
-    result.currentProcessedCommitLog   shouldBe -1L
-    result.currentConstructedCommitLog shouldBe 3L
-  }
+//  it should "return -1 for currentProcessedCommitLog(as writer thread doesn't run on data) and 3 for currentConstructedCommitLog(as 3 commit log files are closed)" in {
+//    val stream = getRandomStream
+//    Await.result(client.putStream(stream), secondsWait.seconds)
+//
+//    transactionServer.scheduledCommitLogImpl.run()
+//    transactionServer.scheduledCommitLogImpl.run()
+//    transactionServer.scheduledCommitLogImpl.run()
+//
+//    val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
+//    result.currentProcessedCommitLog   shouldBe -1L
+//    result.currentConstructedCommitLog shouldBe 3L
+//  }
 }

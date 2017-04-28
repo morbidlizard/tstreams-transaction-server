@@ -13,7 +13,6 @@ object ServerLauncher {
       .withAuthOptions(optionsLoader.getServerAuthOptions)
       .withServerReplicationOptions(optionsLoader.getServerReplicationOptions)
       .withServerStorageOptions(optionsLoader.getServerStorageOptions)
-      .withBerkeleyStorageOptions(optionsLoader.getBerkeleyStoragaeOptions)
       .withServerRocksStorageOptions(optionsLoader.getServerRocksStorageOptions)
       .withZookeeperOptions(optionsLoader.getZookeeperOptions)
       .withPackageTransmissionOptions(optionsLoader.getPackageTransmissionOptions)

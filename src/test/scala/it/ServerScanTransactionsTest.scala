@@ -1,7 +1,6 @@
 package it
 
 import java.io.File
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
@@ -11,8 +10,6 @@ import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction,
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future => ScalaFuture}
 
 class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
@@ -53,7 +50,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -67,9 +64,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -97,7 +94,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
+      val result = transactionServer.scanTransactions(stream.name, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe 3L
@@ -111,7 +108,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -125,13 +122,12 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
-
+    )
 
     streams foreach { stream =>
-      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
+      val result = transactionServer.scanTransactions(stream.name, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe -1L
@@ -144,7 +140,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -158,9 +154,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -185,7 +181,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
+      val result = transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result.lastOpenedTransactionID shouldBe 3L
@@ -198,7 +194,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -212,9 +208,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -236,7 +232,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result = Await.result(transactionService.scanTransactions(stream.name, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
+      val result = transactionService.scanTransactions(stream.name, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1)
       result.lastOpenedTransactionID shouldBe 5L
@@ -249,7 +245,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -263,9 +259,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -291,11 +287,11 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       bigCommit.putSomeTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result1 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
+      val result1 = transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
       result1.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result1.lastOpenedTransactionID  shouldBe 5L
 
-      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
+      val result2 = transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened))
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result2.lastOpenedTransactionID shouldBe 5L
     }
@@ -307,7 +303,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -321,9 +317,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -352,7 +348,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, 0, Set(TransactionStates.Opened)), 5.seconds)
+      val result2 = transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, 0, Set(TransactionStates.Opened))
       result2.producerTransactions shouldBe empty
       result2.lastOpenedTransactionID  shouldBe 5L
     }
@@ -364,7 +360,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -378,9 +374,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -410,7 +406,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result2 = Await.result(transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, 5, Set(TransactionStates.Opened)), 5.seconds)
+      val result2 = transactionServer.scanTransactions(stream.name, stream.partitions, 0L , 5L, 5, Set(TransactionStates.Opened))
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result2.lastOpenedTransactionID  shouldBe 5L
     }
@@ -421,7 +417,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -433,7 +429,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val stream = getRandomStream
-    Await.result(transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsAwait.seconds)
+    transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val ALL = 80
     var currentTime = System.currentTimeMillis()
@@ -457,7 +453,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     bigCommit1.putSomeTransactions(txns)
     bigCommit1.commit()
 
-    val res = Await.result(transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsAwait.seconds)
+    val res = transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
 
     res.producerTransactions.size shouldBe transactions.size
 
@@ -469,7 +465,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -483,9 +479,9 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
-    Await.ready(ScalaFuture.sequence(streams.map(stream =>
+    streams.foreach(stream =>
       transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    ).toSeq)(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsAwait.seconds)
+    )
 
 
     streams foreach { stream =>
@@ -532,7 +528,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
       val firstTransaction = transactions.head
       val lastTransaction = transactions.last
 
-      val res = Await.result(transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), 5.seconds)
+      val res = transactionServer.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
       res.producerTransactions.size shouldBe transactions1.size
     }
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
@@ -542,7 +538,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -554,7 +550,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val stream = getRandomStream
-    Await.result(transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsAwait.seconds)
+    transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val ALL = 100
     var currentTime = System.currentTimeMillis()
@@ -565,7 +561,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
     val firstTransaction = transactions.head
     val lastTransaction = transactions.last
-    val res = Await.result(transactionServer.scanTransactions(stream.name, 1, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsAwait.seconds)
+    val res = transactionServer.scanTransactions(stream.name, 1, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
     res.producerTransactions.size shouldBe 0
 
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
@@ -575,7 +571,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 1, 1, 1)
+    val serverExecutionContext = new ServerExecutionContext(2, 2)
 
     val secondsAwait = 5
 
@@ -587,7 +583,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     )
 
     val stream = getRandomStream
-    Await.result(transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), secondsAwait.seconds)
+    transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val ALL = 80
 
@@ -607,7 +603,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     bigCommit1.commit()
 
 
-    val res = Await.result(transactionServer.scanTransactions(stream.name, 1, lastTransaction, firstTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsAwait.seconds)
+    val res = transactionServer.scanTransactions(stream.name, 1, lastTransaction, firstTransaction, Int.MaxValue, Set(TransactionStates.Opened))
     res.producerTransactions.size shouldBe 0
 
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()

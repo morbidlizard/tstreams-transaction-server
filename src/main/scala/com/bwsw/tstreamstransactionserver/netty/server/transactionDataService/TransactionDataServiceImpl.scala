@@ -9,14 +9,11 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnectio
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.rpc.TransactionDataService
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Future => ScalaFuture}
 
-trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
-  with Authenticable
+trait TransactionDataServiceImpl extends Authenticable
   with StreamCache {
 
   val executionContext: ServerExecutionContext
@@ -40,6 +37,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   }
 
   private val pathForData = s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.dataDirectory}${java.io.File.separatorChar}"
+
   private def getStorage(keyStream: StreamRecord, ttl: Long) = {
     val key = StorageName(keyStream.key.id.toString)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
@@ -50,7 +48,7 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
   }
 
 
-  final def putTransactionDataSync(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
+  final def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
     if (data.isEmpty) true
     else {
       val streamObj = getMostRecentStream(stream)
@@ -80,31 +78,23 @@ trait TransactionDataServiceImpl extends TransactionDataService[ScalaFuture]
     }
   }
 
-  override def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): ScalaFuture[Boolean] = {
-    if (data.isEmpty) ScalaFuture.successful(true) else ScalaFuture {
-      putTransactionDataSync(stream, partition, transaction, data, from)
-    }(executionContext.rocksWriteContext)
-  }
+  def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): Seq[ByteBuffer] = {
+    val streamObj = getMostRecentStream(stream)
+    val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
 
-  override def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[ByteBuffer]] = {
-    ScalaFuture {
-      val streamObj = getMostRecentStream(stream)
-      val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
+    val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary
+    val toSeqId = KeyDataSeq(Key(partition, transaction), to).toBinary
 
-      val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary
-      val toSeqId = KeyDataSeq(Key(partition, transaction), to).toBinary
+    val iterator = rocksDB.iterator
+    iterator.seek(fromSeqId)
 
-      val iterator = rocksDB.iterator
-      iterator.seek(fromSeqId)
-
-      val data = new ArrayBuffer[ByteBuffer](to - from)
-      while (iterator.isValid && ByteArray.compare(iterator.key(), toSeqId) <= 0) {
-        data += java.nio.ByteBuffer.wrap(iterator.value())
-        iterator.next()
-      }
-      iterator.close()
-      data
-    }(executionContext.rocksReadContext)
+    val data = new ArrayBuffer[ByteBuffer](to - from)
+    while (iterator.isValid && ByteArray.compare(iterator.key(), toSeqId) <= 0) {
+      data += java.nio.ByteBuffer.wrap(iterator.value())
+      iterator.next()
+    }
+    iterator.close()
+    data
   }
 
   def closeTransactionDataDatabases(): Unit = rocksDBStorageToStream.values().forEach(_.close())

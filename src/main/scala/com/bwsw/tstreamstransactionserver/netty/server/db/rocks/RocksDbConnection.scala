@@ -6,14 +6,14 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOpt
 import org.apache.commons.io.FileUtils
 import org.rocksdb._
 
-class RocksDbConnection(rocksStorageOpts: RocksStorageOptions, absolutePath: String, ttl: Int = -1) extends Closeable {
+class RocksDbConnection(rocksStorageOpts: RocksStorageOptions, absolutePath: String, ttl: Int = -1, readOnly: Boolean = false) extends Closeable {
   RocksDB.loadLibrary()
 
   private val options: Options = rocksStorageOpts.createDBOptions()
   private val file = new File(absolutePath)
   private val client =  {
     FileUtils.forceMkdir(file)
-    TtlDB.open(options, file.getAbsolutePath, ttl, false)
+    TtlDB.open(options, file.getAbsolutePath, ttl, readOnly)
   }
 
 

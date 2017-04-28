@@ -73,13 +73,18 @@ java -Dconfig=<path_to_config>/config.properties -cp <path_to_TTS_jar>/tstreams-
 The docker file is in the root directory. To build image: 
 
 ```bash
-docker build --tag tts .
+docker build --tag bwsw/tstreams-transaction-server .
 ```
 
-To run docker image you should provide a path to config directory where a file named 'config.properties' is:
+To download image use:
+```bash
+docker pull bwsw/tstreams-transaction-server
+```
+
+To run docker image you should provide a path to config directory where a file named 'config.properties' is, specify the external host and port to be able to connect:
 
 ```bash
-docker run -v <path_to_conf_directory>:/etc/conf tts
+docker run -v <path_to_conf_directory>:/etc/conf -p <external_port>:<port> -e HOST=<external_host> -e PORT0=<external_port> bwsw/tstreams-transaction-server
 ```
 
 ## License

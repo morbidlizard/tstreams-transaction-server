@@ -105,7 +105,7 @@ trait StreamServiceImpl extends StreamService[ScalaFuture]
             val isOkay = batch.put(HasEnvironment.STREAM_STORE_INDEX, mostRecentStreamRecord.key.toByteArray, mostRecentStreamRecord.stream.toByteArray)
             if (isOkay) {
 //              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.id, batch)
-//              closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.id)
+              closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.id)
               batch.write()
               if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
             } else {

@@ -230,46 +230,23 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
   final class BigCommit(fileID: Long) {
     private val batch = rocksMetaServiceDB.newBatch
 
-    private class Commit extends Callable[Boolean] {
-      override def call(): Boolean = {
-        val key = CommitLogKey(fileID).toByteArray
-        val value = Array[Byte]()
-
-        batch.put(HasEnvironment.COMMIT_LOG_STORE, key, value)
-        if (batch.write()) {
-          if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
-          true
-        } else {
-          false
-        }
-      }
-    }
-
-    //    private class Abort extends Callable[Boolean] {
-    //      override def call(): Boolean =
-    //        scala.util.Try(transactionDB.abort()) match {
-    //          case scala.util.Success(_) => true
-    //          case scala.util.Failure(error) => throw error
-    //        }
-    //    }
-
-    private class PutTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]) extends Callable[Unit] {
-      if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
-
-      override def call(): Unit = putTransactions(transactions, batch)
-    }
-
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
-      executionContext.serverWriteContext.submit(new PutTransactions(transactions)).get()
+      if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
+      putTransactions(transactions, batch)
     }
 
     def commit(): Boolean = {
-      executionContext.serverWriteContext.submit(new Commit()).get()
-    }
+      val key = CommitLogKey(fileID).toByteArray
+      val value = Array[Byte]()
 
-    //    def abort(): Boolean = {
-    //      executionContext.berkeleyWriteContext.submit(new Abort()).get()
-    //    }
+      batch.put(HasEnvironment.COMMIT_LOG_STORE, key, value)
+      if (batch.write()) {
+        if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
+        true
+      } else {
+        false
+      }
+    }
   }
 
   def getBigCommit(fileID: Long) = new BigCommit(fileID)

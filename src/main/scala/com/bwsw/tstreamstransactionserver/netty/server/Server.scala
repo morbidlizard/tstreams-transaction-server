@@ -110,6 +110,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
+
+
   private val fileIDGenerator = new zk.FileIDGenerator(zookeeperSpecificOpts.counterPathFileIdGen, commitLogLastId)
   val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions, fileIDGenerator.increment) {
     override def getCurrentTime: Long = timer.getCurrentTime
@@ -133,7 +135,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
       berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, commitLogOptions.commitLogCloseDelayMs*11/10, java.util.concurrent.TimeUnit.MILLISECONDS)
+      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       zk.putSocketAddress(zookeeperOpts.prefix)
 

@@ -116,37 +116,37 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
     val bigCommit = transactionServer.getBigCommit(file.getID)
 
     @tailrec
-    def helper(iterator: CommitLogIterator): Unit = {
+    def helper(iterator: CommitLogIterator, lastTransationTimestamp: Option[Long]): Option[Long] = {
       val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
       bigCommit.putSomeTransactions(records)
       val isAnyElements = iter.hasNext()
-      if (isAnyElements)
-        helper(iter)
+      if (isAnyElements) {
+        val lastTransactionTimestampInRecord = records.lastOption.map(_._2)
+        helper(iter, if (lastTransactionTimestampInRecord.isDefined) lastTransactionTimestampInRecord else lastTransationTimestamp)
+      }
       else
-        ()
+        lastTransationTimestamp
     }
 
     val iterator = file.getIterator
-    helper(iterator)
+    val lastTransactionTimestamp = helper(iterator, None)
     iterator.close()
     val result = bigCommit.commit()
+    lastTransactionTimestamp.orElse(Some(System.currentTimeMillis()))
+      .foreach (timestamp => transactionServer.createAndExecuteTransactionsToDeleteTask(timestamp))
     result
   }
 
   override def run(): Unit = {
-    while(pathsToClosedCommitLogFiles.size() > 0) {
-      val commitLogEntity = pathsToClosedCommitLogFiles.poll()
-
-      if (commitLogEntity != null) {
-        scala.util.Try {
-          processAccordingToPolicy(commitLogEntity)
-        } match {
-          case scala.util.Success(_) =>
-          case scala.util.Failure(error) => error.printStackTrace()
-        }
+    val commitLogEntity = pathsToClosedCommitLogFiles.poll()
+    if (commitLogEntity != null) {
+      scala.util.Try {
+        processAccordingToPolicy(commitLogEntity)
+      } match {
+        case scala.util.Success(_) =>
+        case scala.util.Failure(error) => error.printStackTrace()
       }
     }
-    if (pathsToClosedCommitLogFiles.isEmpty) transactionServer.createAndExecuteTransactionsToDeleteTask(getCurrentTime)
   }
 
   final def closeRocksDB(): Unit = rocksDb.close()

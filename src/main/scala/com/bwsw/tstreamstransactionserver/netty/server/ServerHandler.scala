@@ -338,7 +338,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           logUnsuccessfulProcessing(Descriptors.ScanTransactions.name, error)
           val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(serverReadContext)
+        }(serverWriteContext)
 
       case Descriptors.PutTransactionData.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
@@ -430,12 +430,12 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(result)))(messageId, token)
           sendResponseToClient(response, ctx)
         }
-      }(serverReadContext)
+      }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetConsumerState.name, error)
           val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
           sendResponseToClient(response, ctx)
-        }(serverReadContext)
+        }(serverWriteContext)
 
       case Descriptors.Authenticate.methodID =>
         val args = Descriptors.Authenticate.decodeRequest(message)

@@ -31,6 +31,8 @@ pomIncludeRepository := { _ => false }
 
 isSnapshot := true
 
+test in assembly := {}
+
 
 publishTo := {
   val nexus = "https://oss.sonatype.org/"

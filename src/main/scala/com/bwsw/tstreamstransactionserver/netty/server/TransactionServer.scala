@@ -8,6 +8,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.Tr
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 
+import scala.collection.mutable.ListBuffer
+
 
 class TransactionServer(override val executionContext: ServerExecutionContext,
                         override val authOpts: AuthOptions,
@@ -17,7 +19,7 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
                        )
   extends HasEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
 {
-  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): Unit = putConsumersCheckpoints(consumerTransactions, batch)
+  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): ListBuffer[Unit => Unit] = putConsumersCheckpoints(consumerTransactions, batch)
   override def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit = removeRocksDBDatabaseAndDeleteFolder(stream)
   override def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, batch: Batch): Unit = deleteLastOpenedAndCheckpointedTransactions(stream, batch)
 

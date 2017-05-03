@@ -32,7 +32,7 @@ trait ConsumerTransactionStateNotifier extends StreamCache {
 
   private[consumerService] final def areThereAnyConsumerNotifies = !consumerNotifies.isEmpty
 
-  private[consumerService] final def tryCompleteConsumerNotify(consumerTransactionRecord: ConsumerTransactionRecord): Unit = {
+  private[consumerService] final def tryCompleteConsumerNotify: ConsumerTransactionRecord => Unit => Unit = {consumerTransactionRecord => _ =>
     scala.util.Try(getStreamObjByID(consumerTransactionRecord.stream)) match {
       case scala.util.Success(stream) =>
         consumerNotifies.values().forEach(notify =>

@@ -205,7 +205,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         Await.ready(authenticate(), clientOpts.requestTimeoutMs.seconds)
         previousException match {
           case Some(exception: TokenInvalidException) =>
-            throw exception
+            (concreteThrowable, concreteThrowable, clientOpts.requestTimeoutRetryCount - 1)
           case _ =>
             (concreteThrowable, concreteThrowable, clientOpts.requestTimeoutRetryCount)
         }

@@ -211,8 +211,10 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     def fire(): Unit = {
       if (channel.isActive)
         channel.writeAndFlush(message.toByteArray, channel.voidPromise())
-      else
+      else {
+        reconnect()
         fire()
+      }
     }
     fire()
   }

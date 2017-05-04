@@ -40,25 +40,27 @@ object Descriptors {
       *
       */
     @inline
-    private final def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Long, token: Int): Message = {
+    private final def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message = {
       val buffer = new TMemoryBuffer(128)
       val oprot = protocol.getProtocol(buffer)
 
       entity.write(oprot)
 
       val bytes = util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-      Message(messageId, bytes.length, getProtocolID(protocol), bytes, token, methodID)
+      val isFireAndForgetMethodToByte = if (isFireAndForgetMethod) 1:Byte else 0:Byte
+      Message(messageId, bytes.length, getProtocolID(protocol), bytes, token, methodID, isFireAndForgetMethodToByte)
     }
 
     /** A method for serializing request and adding an id to id. */
     @inline
-    final def encodeRequest(entity: Request)(messageId: Long, token: Int): Message = {
-      encode(entity, protocolReq, messageId, token)
-    }
+    final def encodeRequest(entity: Request)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
+      encode(entity, protocolReq, messageId, token, isFireAndForgetMethod)
+
 
     /** A method for serializing response and adding an id to id. */
     @inline
-    final def encodeResponse(entity: Response)(messageId: Long, token: Int): Message = encode(entity, protocolRep, messageId, token)
+    final def encodeResponse(entity: Response)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
+    encode(entity, protocolRep, messageId, token, isFireAndForgetMethod)
 
 
     /** A method for deserialization request.

@@ -170,7 +170,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
 
       reqIdToRep.put(messageId, promise)
-      val message = descriptor.encodeRequest(request)(messageId, token)
+      val message = descriptor.encodeRequest(request)(messageId, token, isFireAndForgetMethod = false)
       validateMessageSize(message)
       channel.write(message.toByteArray)
 
@@ -188,6 +188,33 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       channel.flush()
       responseFuture
     }
+  }
+
+  @throws[ServerUnreachableException]
+  private final def methodFireAndForget[Req <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, _],
+                                                             request: Req
+                                                            ): Unit = {
+
+    if (token == -1)
+      scala.util.Try(Await.ready(authenticate(), clientOpts.requestTimeoutMs.millis)) match {
+        case scala.util.Failure(_) => throw new TokenInvalidException()
+        case _ => // do nothing.
+      }
+
+    val messageId = nextSeqId.getAndIncrement()
+    val message = descriptor.encodeRequest(request)(messageId, token, isFireAndForgetMethod = true)
+
+    if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
+    validateMessageSize(message)
+
+    @tailrec
+    def fire(): Unit = {
+      if (channel.isActive)
+        channel.writeAndFlush(message.toByteArray, channel.voidPromise())
+      else
+        fire()
+    }
+    fire()
   }
 
   private def validateMessageSize(message: Message): Unit = {
@@ -520,7 +547,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @param partition   a partition of stream.
     * @param transaction a transaction id.
     * @param data        a producer transaction data.
-    * @param from        a left bound to put producer transaction data to start with.
     * @return Future of putSimpleTransactionAndData operation that can be completed or not. If it is completed it returns:
     *         1) TRUE if transaction is persisted in commit log file for next processing and it's data is persisted successfully too, otherwise FALSE.
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -531,15 +557,33 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def putSimpleTransactionAndData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
+  def putSimpleTransactionAndData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]]): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $stream, partition $partition with data: $data")
     onShutdownThrowException()
 
     method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Boolean](
       Descriptors.PutSimpleTransactionAndData,
-      TransactionService.PutSimpleTransactionAndData.Args(stream, partition, transaction, data, from),
+      TransactionService.PutSimpleTransactionAndData.Args(stream, partition, transaction, data),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
+  }
+
+
+  /** Puts in fire and forget policy manner 'simplified' producer transaction that already has Chekpointed state with it's data.
+    *
+    * @param stream      a name of stream.
+    * @param partition   a partition of stream.
+    * @param transaction a transaction id.
+    * @param data        a producer transaction data.
+    */
+  def putSimpleTransactionAndDataWithoutResponse(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]]): Unit = {
+    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $stream, partition $partition with data: $data")
+    onShutdownThrowException()
+
+    methodFireAndForget[TransactionService.PutSimpleTransactionAndData.Args](
+      Descriptors.PutSimpleTransactionAndData,
+      TransactionService.PutSimpleTransactionAndData.Args(stream, partition, transaction, data)
+    )
   }
 
   /** Retrieves a producer transaction by id

@@ -89,7 +89,7 @@ service TransactionMetaService {
 
    bool putTransactions(1: list<Transaction> transactions) throws (1:ServerException error),
 
-   bool putSimpleTransactionAndData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data, 5: i32 from) throws (1:ServerException error),
+   bool putSimpleTransactionAndData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data) throws (1:ServerException error),
 
    ScanTransactionsInfo scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType from, 4: transactionIDType to, 5: i32 count, 6: set<TransactionStates> states) throws (1:ServerException error),
 
@@ -140,7 +140,7 @@ service TransactionService {
 
   bool putTransactions(1: list<Transaction> transactions) throws (1:ServerException error),
 
-  bool putSimpleTransactionAndData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data, 5: i32 from) throws (1:ServerException error),
+  bool putSimpleTransactionAndData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data) throws (1:ServerException error),
 
   ScanTransactionsInfo scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType from, 4: transactionIDType to, 5: i32 count, 6: set<TransactionStates> states) throws (1:ServerException error),
 

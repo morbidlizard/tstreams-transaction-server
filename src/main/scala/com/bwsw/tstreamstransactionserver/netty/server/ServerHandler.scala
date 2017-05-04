@@ -47,9 +47,11 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
   }
 
   @inline
-  private def sendResponseToClient(message: Message, ctx: ChannelHandlerContext): Unit = {
-    val binaryResponse = message.toByteArray
-    if (isChannelActive) ctx.writeAndFlush(binaryResponse)
+  private def sendResponseToClient(message: => Message, ctx: ChannelHandlerContext, isFireAndForgetMethod: Boolean): Unit = {
+    if (!isFireAndForgetMethod) {
+      val binaryResponse = message.toByteArray
+      if (isChannelActive) ctx.writeAndFlush(binaryResponse)
+    }
   }
 
   private val commitLogContext = transactionServer.executionContext.commitLogContext
@@ -66,12 +68,13 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
 
     if (logger.isDebugEnabled) logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id} method is invoked.")
 
+    val isFireAndForgetMethod = if (message.isFireAndForgetMethod == (1:Byte)) true else false
     message.method match {
 
       case Descriptors.GetCommitLogOffsets.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.GetCommitLogOffsets.encodeResponse(TransactionService.GetCommitLogOffsets.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetCommitLogOffsets.encodeResponse(TransactionService.GetCommitLogOffsets.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         } else {
           val result: Try[Message] = scala.util.Try(Descriptors.GetCommitLogOffsets.encodeResponse(
             TransactionService.GetCommitLogOffsets.Result(
@@ -80,361 +83,361 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
                 scheduledCommitLog.currentCommitLogFile)
               )
             )
-          )(messageId, message.token))
+          )(messageId, message.token, isFireAndForgetMethod))
 
           result match {
             case scala.util.Success(response) =>
               logSuccessfulProcession(Descriptors.GetCommitLogOffsets.name)
-              sendResponseToClient(response, ctx)
+              sendResponseToClient(response, ctx, isFireAndForgetMethod)
             case scala.util.Failure(error) =>
               logUnsuccessfulProcessing(Descriptors.GetCommitLogOffsets.name, error)
-              val response = Descriptors.GetCommitLogOffsets.encodeResponse(TransactionService.GetCommitLogOffsets.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-              sendResponseToClient(response, ctx)
+              lazy val response = Descriptors.GetCommitLogOffsets.encodeResponse(TransactionService.GetCommitLogOffsets.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+              sendResponseToClient(response, ctx, isFireAndForgetMethod)
           }
         }
       }(serverReadContext)
 
       case Descriptors.PutStream.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.PutStream.name, packageTooBigException)
-          val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.PutStream.decodeRequest(message)
           val result = transactionServer.putStream(args.stream, args.partitions, args.description, args.ttl)
           logSuccessfulProcession(Descriptors.PutStream.name)
-          val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(result)))(messageId, message.token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(result)))(messageId, message.token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.PutStream.name, error)
-          val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverWriteContext)
 
 
       case Descriptors.CheckStreamExists.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.CheckStreamExists.name, packageTooBigException)
-          val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         } else {
           val args = Descriptors.CheckStreamExists.decodeRequest(message)
           val result = transactionServer.checkStreamExists(args.stream)
           logSuccessfulProcession(Descriptors.CheckStreamExists.name)
-          val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(result)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.CheckStreamExists.name, error)
-          val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverReadContext)
 
       case Descriptors.GetStream.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.GetStream.name, packageTooBigException)
-          val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetStream.decodeRequest(message)
           val result = transactionServer.getStream(args.stream)
           logSuccessfulProcession(Descriptors.GetStream.name)
-          val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(result)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetStream.name, error)
-          val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverReadContext)
 
       case Descriptors.DelStream.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.DelStream.name, packageTooBigException)
-          val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.DelStream.decodeRequest(message)
           val result = transactionServer.delStream(args.stream)
           logSuccessfulProcession(Descriptors.DelStream.name)
-          val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(result)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.DelStream.name, error)
-          val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverWriteContext)
 
       case Descriptors.PutTransaction.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.PutTransaction.name, packageTooBigException)
-          val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message)
           logSuccessfulProcession(Descriptors.PutTransaction.name)
-          val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(true)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(true)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(commitLogContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.PutTransaction.name, error)
-          val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(commitLogContext)
 
 
       case Descriptors.PutTransactions.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.PutTransactions.name, packageTooBigException)
-          val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message)
           logSuccessfulProcession(Descriptors.PutTransactions.name)
-          val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isPutted)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(Some(isPutted)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(commitLogContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.PutTransactions.name, error)
-          val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(commitLogContext)
 
 
       case Descriptors.PutSimpleTransactionAndData.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.PutSimpleTransactionAndData.name, packageTooBigException)
-          val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val txn = Descriptors.PutSimpleTransactionAndData.decodeRequest(message)
-          transactionServer.putTransactionData(txn.stream, txn.partition, txn.transaction, txn.data, txn.from)
+          transactionServer.putTransactionData(txn.stream, txn.partition, txn.transaction, txn.data, 0)
           val transactions = collection.immutable.Seq(
             Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Opened, txn.data.size, 3L)), None),
             Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Checkpointed, txn.data.size, 120L)), None)
           )
-          val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(TransactionService.PutTransactions.Args(transactions))(messageId, token)
+          val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(TransactionService.PutTransactions.Args(transactions))(messageId, token, isFireAndForgetMethod)
           val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, messageForPutTransactions)
           logSuccessfulProcession(Descriptors.PutSimpleTransactionAndData.name)
-          val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(Some(isPutted)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(Some(isPutted)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(commitLogContext).recover { case error =>
         logUnsuccessfulProcessing(Descriptors.PutSimpleTransactionAndData.name, error)
-        val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-        sendResponseToClient(response, ctx)
+        lazy val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+        sendResponseToClient(response, ctx, isFireAndForgetMethod)
       }(commitLogContext)
 
 
       case Descriptors.GetTransaction.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.GetTransaction.name, packageTooBigException)
-          val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetTransaction.decodeRequest(message)
           val result = transactionServer.getTransaction(args.stream, args.partition, args.transaction)
           logSuccessfulProcession(Descriptors.GetTransaction.name)
-          val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(Some(result)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetTransaction.name, error)
-          val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverReadContext)
 
 
       case Descriptors.GetLastCheckpointedTransaction.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.GetLastCheckpointedTransaction.name, packageTooBigException)
-          val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetLastCheckpointedTransaction.decodeRequest(message)
           val result = transactionServer.getLastCheckpointedTransaction(args.stream, args.partition)
           logSuccessfulProcession(Descriptors.GetLastCheckpointedTransaction.name)
-          val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(result))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(result))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverReadContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetLastCheckpointedTransaction.name, error)
-          val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverReadContext)
 
       case Descriptors.ScanTransactions.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.ScanTransactions.name, packageTooBigException)
-          val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.ScanTransactions.decodeRequest(message)
           val result = transactionServer.scanTransactions(args.stream, args.partition, args.from, args.to, args.count, args.states)
           logSuccessfulProcession(Descriptors.ScanTransactions.name)
-          val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(result)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverReadContext).recover { case error =>
           logUnsuccessfulProcessing(Descriptors.ScanTransactions.name, error)
-          val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverWriteContext)
 
       case Descriptors.PutTransactionData.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigDataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.PutTransactionData.name, packageTooBigException)
-          val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.PutTransactionData.decodeRequest(message)
           val result = transactionServer.putTransactionData(args.stream, args.partition, args.transaction, args.data, args.from)
           logSuccessfulProcession(Descriptors.PutTransactionData.name)
-          val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(result)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.PutTransactionData.name, error)
-          val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverWriteContext)
 
       case Descriptors.GetTransactionData.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.GetTransactionData.name, packageTooBigException)
-          val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetTransactionData.decodeRequest(message)
           val result = transactionServer.getTransactionData(args.stream, args.partition, args.transaction, args.from, args.to)
           logSuccessfulProcession(Descriptors.GetTransactionData.name)
-          val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(result)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetTransactionData.name, error)
-          val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverWriteContext)
 
 
       case Descriptors.PutConsumerCheckpoint.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.PutConsumerCheckpoint.name, packageTooBigException)
-          val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message)
           logSuccessfulProcession(Descriptors.PutConsumerCheckpoint.name)
-          val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(Some(isPutted)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(Some(isPutted)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(commitLogContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.PutConsumerCheckpoint.name, error)
-          val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(commitLogContext)
 
 
       case Descriptors.GetConsumerState.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
-          val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else if (isTooBigPackage) {
           logUnsuccessfulProcessing(Descriptors.GetConsumerState.name, packageTooBigException)
-          val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetConsumerState.decodeRequest(message)
           val result = transactionServer.getConsumerState(args.name, args.stream, args.partition)
           logSuccessfulProcession(Descriptors.GetConsumerState.name)
-          val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(result)))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverWriteContext)
         .recover { case error =>
           logUnsuccessfulProcessing(Descriptors.GetConsumerState.name, error)
-          val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token)
-          sendResponseToClient(response, ctx)
+          lazy val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(error.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverWriteContext)
 
       case Descriptors.Authenticate.methodID =>
@@ -442,16 +445,16 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         val result = transactionServer.authenticate(args.authKey)
         val authInfo = AuthInfo(result, packageTransmissionOpts.maxMetadataPackageSize, packageTransmissionOpts.maxDataPackageSize)
         logSuccessfulProcession(Descriptors.Authenticate.name)
-        val response = Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(authInfo)))(messageId, token)
-        sendResponseToClient(response, ctx)
+        val response = Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(authInfo)))(messageId, token, isFireAndForgetMethod)
+        sendResponseToClient(response, ctx, isFireAndForgetMethod)
 
 
       case Descriptors.IsValid.methodID =>
         val args = Descriptors.IsValid.decodeRequest(message)
         val result = transactionServer.isValid(args.token)
         logSuccessfulProcession(Descriptors.IsValid.name)
-        val response = Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(result)))(messageId, token)
-        sendResponseToClient(response, ctx)
+        val response = Descriptors.IsValid.encodeResponse(TransactionService.IsValid.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+        sendResponseToClient(response, ctx, isFireAndForgetMethod)
     }
   }
 }

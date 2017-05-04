@@ -247,7 +247,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       batch.put(HasEnvironment.COMMIT_LOG_STORE, key, value)
       if (batch.write()) {
         if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
-        notifications foreach (notification => notification())
+        notifications foreach (notification => notification(()))
         true
       } else {
         false
@@ -398,7 +398,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     iterator.close()
     batch.write()
 
-    notifications.foreach(notification => notification())
+    notifications.foreach(notification => notification(()))
   }
 
   final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {

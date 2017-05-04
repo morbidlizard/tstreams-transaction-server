@@ -152,7 +152,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @return a response from server(however, it may return an exception from server).
     *
     */
-  @throws[ServerUnreachableException]
   private final def method[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Descriptors.Descriptor[Req, Rep],
                                                                         request: Req,
                                                                         f: Rep => A,
@@ -190,7 +189,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  @throws[ServerUnreachableException]
+  @throws[TokenInvalidException]
+  @throws[PackageTooBigException]
   private final def methodFireAndForget[Req <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, _],
                                                              request: Req
                                                             ): Unit = {

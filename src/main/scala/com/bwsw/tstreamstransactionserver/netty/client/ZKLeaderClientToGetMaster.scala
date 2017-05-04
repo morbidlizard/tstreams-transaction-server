@@ -13,7 +13,14 @@ import org.apache.curator.framework.state.ConnectionStateListener
 import org.slf4j.LoggerFactory
 
 
-class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, connectionTimeoutMillis: Int, policy: RetryPolicy, prefix: String, connectionStateListener: ConnectionStateListener)
+class ZKLeaderClientToGetMaster(endpoints: String,
+                                sessionTimeoutMillis: Int,
+                                connectionTimeoutMillis: Int,
+                                policy: RetryPolicy,
+                                prefix: String,
+                                connectionStateListener: ConnectionStateListener,
+                                onCoordinationPathChangeDo: => Unit
+                               )
   extends NodeCacheListener with Closeable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -52,17 +59,22 @@ class ZKLeaderClientToGetMaster(endpoints: String, sessionTimeoutMillis: Int, co
         if (splitIndex != -1) {
           val (address, port) = addressPort.splitAt(splitIndex)
           val portToInt = scala.util.Try(port.tail.toInt)
-          if (portToInt.isSuccess && InetSocketAddressClass.isValidSocketAddress(address, portToInt.get))
+          if (portToInt.isSuccess && InetSocketAddressClass.isValidSocketAddress(address, portToInt.get)) {
             master = Some(InetSocketAddressClass(address, portToInt.get))
+            onCoordinationPathChangeDo
+          }
           else {
             master = None
+            onCoordinationPathChangeDo
             if (logger.isDebugEnabled) logger.debug(s"On Zookeeper server(s) ${connection.getZookeeperClient.getCurrentConnectionString} data(now it is $addressPort) in coordination path $prefix is corrupted!")
           }
         } else {
           master = None
+          onCoordinationPathChangeDo
           if (logger.isDebugEnabled) logger.debug(s"On Zookeeper server(s) ${connection.getZookeeperClient.getCurrentConnectionString} data(now it is $addressPort) in coordination path $prefix is corrupted!")
         }
-      case None => master = None
+      case None =>
+        master = None
     }
   }
 }

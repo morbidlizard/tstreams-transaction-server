@@ -53,9 +53,16 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
-  private final val zKLeaderClient = new ZKLeaderClientToGetMaster(zookeeperOpts.endpoints,
-    zookeeperOpts.sessionTimeoutMs, zookeeperOpts.connectionTimeoutMs,
-    new RetryForever(zookeeperOpts.retryDelayMs), zookeeperOpts.prefix, zkListener)
+
+  private final val zKLeaderClient = new ZKLeaderClientToGetMaster(
+    zookeeperOpts.endpoints,
+    zookeeperOpts.sessionTimeoutMs,
+    zookeeperOpts.connectionTimeoutMs,
+    new RetryForever(zookeeperOpts.retryDelayMs),
+    zookeeperOpts.prefix,
+    zkListener,
+    reconnect()
+  )
   zKLeaderClient.start()
 
   private final def onZKConnectionStateChangedDefaultBehaviour(newState: ConnectionState): Unit = {
@@ -76,6 +83,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     .option[java.lang.Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, int2Integer(clientOpts.connectionTimeoutMs))
     .handler(new ClientInitializer(reqIdToRep, this, context))
 
+
+  private val authenticateLock = new java.util.concurrent.locks.ReentrantLock
   @volatile private var channel: Channel = connect()
 
   @tailrec
@@ -98,9 +107,17 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   final def currentConnectionSocketAddress: Option[InetSocketAddressClass] = zKLeaderClient.master
 
-
-  private[client] def reconnect(): Unit = this.synchronized {
-    channel = connect()
+  private val channelLock = new java.util.concurrent.locks.ReentrantLock
+  private[client] def reconnect(): Unit = {
+    val isLocked = channelLock.tryLock()
+    if (isLocked) {
+      try {
+        channel.closeFuture().sync()
+        channel = connect()
+      } finally {
+        channelLock.unlock()
+      }
+    }
   }
 
   /** Retries to get ipAddres:port from zooKeeper server.
@@ -164,7 +181,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         .recoverWith { case error =>
           reqIdToRep.remove(messageId)
           val (currentException, _, counter) = checkError(error, previousException, retryCount)
-          if (counter == 0) ScalaFuture.failed(error)
+          if (counter == 0) {ScalaFuture.failed(error)}
           else method(descriptor, request, f, Some(currentException), counter)
         }(methodContext)
 
@@ -188,7 +205,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
         Await.ready(authenticate(), clientOpts.requestTimeoutMs.seconds)
         previousException match {
           case Some(exception: TokenInvalidException) =>
-            throw exception
+            (concreteThrowable, concreteThrowable, clientOpts.requestTimeoutRetryCount - 1)
           case _ =>
             (concreteThrowable, concreteThrowable, clientOpts.requestTimeoutRetryCount)
         }
@@ -207,7 +224,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
             previousException match {
               case Some(exception: RequestTimeoutException) =>
                 if (retryCount == 0) {
-                  channel.close().sync()
                   reconnect()
                   (exception, concreteThrowable, Int.MaxValue)
                 }
@@ -251,8 +267,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   @volatile private var token: Int = -1
   @volatile private var maxMetadataPackageSize: Int = -1
   @volatile private var maxDataPackageSize: Int = -1
-  Await.ready(authenticate(), clientOpts.connectionTimeoutMs.seconds)
-
 
   /** Retrieving an offset between last processed commit log file and current commit log file where a server writes data.
     *
@@ -772,19 +786,27 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         4) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   private def authenticate(): ScalaFuture[Unit] = {
-    if (logger.isInfoEnabled) logger.info("authenticate method is invoked.")
-    onShutdownThrowException()
-    val authKey = authOpts.key
-    method[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, Unit](
-      Descriptors.Authenticate,
-      TransactionService.Authenticate.Args(authKey),
-      x => {
-        val authInfo = x.success.get
-        token = authInfo.token
-        maxDataPackageSize = authInfo.maxDataPackageSize
-        maxMetadataPackageSize = authInfo.maxMetadataPackageSize
+    val isLocked = authenticateLock.tryLock()
+    if (isLocked) {
+      try {
+        if (logger.isInfoEnabled) logger.info("authenticate method is invoked.")
+        onShutdownThrowException()
+        val authKey = authOpts.key
+        method[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, Unit](
+          Descriptors.Authenticate,
+          TransactionService.Authenticate.Args(authKey),
+          x => {
+            val authInfo = x.success.get
+            token = authInfo.token
+            maxDataPackageSize = authInfo.maxDataPackageSize
+            maxMetadataPackageSize = authInfo.maxMetadataPackageSize
+          }
+        )(context)
       }
-    )(context)
+      finally {
+        authenticateLock.unlock()
+      }
+    } else ScalaFuture.successful[Unit](Unit)
   }
 
   /** It Disconnects client from server slightly */

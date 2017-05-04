@@ -2,7 +2,7 @@ package it
 
 import java.io.File
 import java.util
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkGetMasterException, ZkNoConnectionException}
 import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
@@ -156,34 +156,37 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     val clientBuilder = new ClientBuilder()
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
 
-
-    var server: Server = null
     val storageOptions = StorageOptions()
-    def startTransactionServer(newHost: String, newPort: Int) = new Thread(() => {
-      server = serverBuilder
+
+    def startTransactionServer(newHost: String, newPort: Int) = {
+      val server = serverBuilder
         .withServerStorageOptions(storageOptions)
         .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
         .withBootstrapOptions(BootstrapOptions(host = newHost, port = newPort))
         .build()
-      server.start()
-    }).start()
+      val latch = new CountDownLatch(1)
+      new Thread(() => {
+        latch.countDown()
+        server.start()
+      }).start()
+      latch.await()
+      server
+    }
 
 
     val host = "127.0.0.1"
     val initialPort = 8071
     val newPort = 8073
 
-    startTransactionServer(host, initialPort)
+    val server1 = startTransactionServer(host, initialPort)
 
-    Thread.sleep(500)
     val client = clientBuilder.build()
 
     val initialSocketAddress = client.currentConnectionSocketAddress.get
-    server.shutdown()
-    startTransactionServer(host, newPort)
+    server1.shutdown()
+    val server2 = startTransactionServer(host, newPort)
 
-
-    Thread.sleep(500)
+    Thread.sleep(200)
     val newSocketAddress = client.currentConnectionSocketAddress.get
 
     initialSocketAddress shouldBe InetSocketAddressClass(host, initialPort)
@@ -191,7 +194,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
     client.shutdown()
     zkTestServer.close()
-    server.shutdown()
+    server2.shutdown()
 
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))

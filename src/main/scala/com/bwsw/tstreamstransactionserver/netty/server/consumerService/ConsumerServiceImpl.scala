@@ -5,6 +5,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnviro
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable.ListBuffer
+
 
 trait ConsumerServiceImpl extends Authenticable with ConsumerTransactionStateNotifier {
   val executionContext: ServerExecutionContext
@@ -34,14 +36,16 @@ trait ConsumerServiceImpl extends Authenticable with ConsumerTransactionStateNot
     consumerTransactions.groupBy(txn => txn.key)
   }
 
-  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): Unit = {
+  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): ListBuffer[Unit => Unit] = {
     if (logger.isDebugEnabled()) logger.debug(s"Trying to commit consumer transactions: $consumerTransactions")
+    val notifications = new ListBuffer[Unit => Unit]()
     groupProducerTransactions(consumerTransactions) foreach { case (key, txns) =>
       val theLastStateTransaction = transitConsumerTransactionToNewState(txns)
       val consumerTransactionValueBinary = theLastStateTransaction.consumerTransaction.toByteArray
       val consumerTransactionKeyBinary = key.toByteArray
       batch.put(HasEnvironment.CONSUMER_STORE, consumerTransactionKeyBinary, consumerTransactionValueBinary)
-      if (areThereAnyConsumerNotifies) tryCompleteConsumerNotify(theLastStateTransaction)
+      if (areThereAnyConsumerNotifies) notifications += tryCompleteConsumerNotify(theLastStateTransaction)
     }
+    notifications
   }
 }

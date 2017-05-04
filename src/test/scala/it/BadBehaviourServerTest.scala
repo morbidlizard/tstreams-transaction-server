@@ -117,6 +117,9 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
       }
     }
 
+    val stream = getRandomStream
+    scala.util.Try(Await.ready(client.putStream(stream), secondsWait.seconds))
+
     client.shutdown()
     server.shutdown()
 

@@ -35,6 +35,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   private def onShutdownThrowException(): Unit =
     if (isShutdown) throw ClientIllegalOperationAfterShutdown
 
+  private val authenticateLock = new java.util.concurrent.locks.ReentrantLock
+  private val channelLock = new java.util.concurrent.locks.ReentrantLock
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   /** A special context for making requests asynchronously, although they are processed sequentially;
@@ -84,7 +87,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     .handler(new ClientInitializer(reqIdToRep, this, context))
 
 
-  private val authenticateLock = new java.util.concurrent.locks.ReentrantLock
   @volatile private var channel: Channel = connect()
 
   @tailrec
@@ -106,8 +108,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
 
   final def currentConnectionSocketAddress: Option[InetSocketAddressClass] = zKLeaderClient.master
-
-  private val channelLock = new java.util.concurrent.locks.ReentrantLock
   private[client] def reconnect(): Unit = {
     val isLocked = channelLock.tryLock()
     if (isLocked) {

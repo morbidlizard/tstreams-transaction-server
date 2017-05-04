@@ -4,7 +4,7 @@ import java.net.SocketTimeoutException
 
 object Throwable {
   val TokenInvalidExceptionMessage: String = "Token isn't valid."
-  class TokenInvalidException extends IllegalArgumentException(TokenInvalidExceptionMessage)
+  class TokenInvalidException(message: String = TokenInvalidExceptionMessage) extends IllegalArgumentException(message)
 
   val serverConnectionExceptionMessage: String = "Can't connect to Server."
   class ServerConnectionException extends SocketTimeoutException(serverConnectionExceptionMessage)

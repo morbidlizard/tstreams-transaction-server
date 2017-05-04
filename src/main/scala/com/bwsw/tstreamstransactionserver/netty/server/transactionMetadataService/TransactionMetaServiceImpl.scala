@@ -74,7 +74,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case (Some(txn), _) =>
           //even if producer transaction is belonged to deleted stream we can omit such transaction, as client shouldn't see it.
           scala.util.Try(getMostRecentStream(txn.stream)) match {
-            case scala.util.Success(recentStream) =>
+            case scala.util.Success(recentStream) if !recentStream.stream.deleted =>
               val key = KeyStreamPartition(recentStream.id, txn.partition)
               if (txn.state != TransactionStates.Opened) {
                 producerTransactions += ((txn, timestamp))
@@ -91,7 +91,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case (_, Some(txn)) =>
           scala.util.Try(getMostRecentStream(txn.stream)) match {
             //even if consumer transaction is belonged to deleted stream we can omit such transaction, as client shouldn't see it.
-            case scala.util.Success(recentStream) =>
+            case scala.util.Success(recentStream) if !recentStream.stream.deleted =>
               val key = KeyStreamPartition(recentStream.id, txn.partition)
               consumerTransactions += ((txn, timestamp))
             case _ => //It doesn't matter

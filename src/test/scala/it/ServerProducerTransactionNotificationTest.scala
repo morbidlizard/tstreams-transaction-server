@@ -226,7 +226,27 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       latch1.countDown()
     )
 
-    client.putSimpleTransactionAndData(stream.name, partition, transactionID, Seq(Array[Byte]()), 0)
+    client.putSimpleTransactionAndData(stream.name, partition, transactionID, Seq(Array[Byte]()))
+    latch1.await(3, TimeUnit.SECONDS) shouldBe true
+
+    val res = Await.result(client.getTransaction(stream.name, partition, transactionID), secondsWait.seconds)
+    res._2.get shouldBe ProducerTransaction(stream.name, partition, transactionID, TransactionStates.Checkpointed, 1, 120L)
+    res.exists shouldBe true
+  }
+
+  it should "[fire and forget policy] put 'simple' producerTransaction and should get it" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+    val partition = 1
+
+    val transactionID = System.currentTimeMillis()
+    val latch1 = new CountDownLatch(1)
+    transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
+      producerTransaction.transactionID == transactionID && producerTransaction.state == TransactionStates.Checkpointed,
+      latch1.countDown()
+    )
+
+    client.putSimpleTransactionAndDataWithoutResponse(stream.name, partition, transactionID, Seq(Array[Byte]()))
     latch1.await(3, TimeUnit.SECONDS) shouldBe true
 
     val res = Await.result(client.getTransaction(stream.name, partition, transactionID), secondsWait.seconds)
@@ -255,7 +275,42 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     val partition = 1
     val data = Array.fill(10)(rand.nextInt(100000).toString.getBytes)
     transactions.foreach { t =>
-      client.putSimpleTransactionAndData(stream.name, partition, t, data, 0)
+      client.putSimpleTransactionAndData(stream.name, partition, t, data)
+    }
+
+    putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
+
+    Thread.sleep(3000)
+    val res = Await.result(client.scanTransactions(stream.name, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds)
+    val resData = Await.result(client.getTransactionData(stream.name, partition, lastTransaction, 0, 10), secondsWait.seconds)
+
+
+    res.producerTransactions.size shouldBe transactions.size
+    resData should contain theSameElementsInOrderAs data
+  }
+
+  it should "[fire and forget policy] put 'simple' producer transactions and should get them all" in {
+    val stream = getRandomStream
+    Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val putCounter = new CountDownLatch(1)
+
+    val ALL = 80
+    var currentTime = System.currentTimeMillis()
+    val transactions = for (i <- 0 until ALL) yield {
+      currentTime = currentTime + 1L
+      currentTime
+    }
+    val firstTransaction = transactions.head
+    val lastTransaction = transactions.last
+
+
+    transactionServer.notifyProducerTransactionCompleted(t => t.transactionID == lastTransaction && t.state == TransactionStates.Checkpointed, putCounter.countDown())
+
+    val partition = 1
+    val data = Array.fill(10)(rand.nextInt(100000).toString.getBytes)
+    transactions.foreach { t =>
+      client.putSimpleTransactionAndDataWithoutResponse(stream.name, partition, t, data)
     }
 
     putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true

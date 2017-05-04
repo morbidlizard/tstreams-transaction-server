@@ -12,7 +12,7 @@ import io.netty.buffer.Unpooled._
   *  @param body a binary representation of information.
   *
   */
-case class Message(id: Long, length: Int, protocol: Byte, body: Array[Byte], token: Int, method: Byte)
+case class Message(id: Long, length: Int, protocol: Byte, body: Array[Byte], token: Int, method: Byte, isFireAndForgetMethod: Byte)
 {
   /** Serializes a message. */
   def toByteArray: Array[Byte] = java.nio.ByteBuffer
@@ -21,6 +21,7 @@ case class Message(id: Long, length: Int, protocol: Byte, body: Array[Byte], tok
     .put(protocol)
     .putInt(token)
     .put(method)
+    .put(isFireAndForgetMethod)
     .putInt(length)
     .put(body)
     .array()
@@ -30,7 +31,8 @@ object Message {
       java.lang.Long.BYTES +     //id
       java.lang.Byte.BYTES +     //protocol
       java.lang.Integer.BYTES +  //token
-      java.lang.Byte.BYTES       //method
+      java.lang.Byte.BYTES +     //method
+      java.lang.Byte.BYTES       //isFireAndForgetMethod
     ).toByte
   val lengthFieldSize =  java.lang.Integer.BYTES //length
 
@@ -41,13 +43,14 @@ object Message {
     val protocol = buffer.get
     val token = buffer.getInt
     val method = buffer.get()
+    val isFireAndForgetMethod = buffer.get()
     val length = buffer.getInt
     val message = {
       val bytes = new Array[Byte](buffer.limit() - headerFieldSize - lengthFieldSize)
       buffer.get(bytes)
       bytes
     }
-    Message(id, length, protocol, message, token, method)
+    Message(id, length, protocol, message, token, method, isFireAndForgetMethod)
   }
 
   def fromByteBuf(buf: ByteBuf): Message = {
@@ -55,13 +58,14 @@ object Message {
     val protocol = buf.readByte()
     val token    = buf.readInt()
     val method   = buf.readByte()
+    val isFireAndForgetMethod = buf.readByte()
     val length   = buf.readInt()
     val message = {
       val bytes = new Array[Byte](buf.readableBytes())
       buf.readBytes(bytes)
       bytes
     }
-    Message(id, length, protocol, message, token, method)
+    Message(id, length, protocol, message, token, method, isFireAndForgetMethod)
   }
 
 }

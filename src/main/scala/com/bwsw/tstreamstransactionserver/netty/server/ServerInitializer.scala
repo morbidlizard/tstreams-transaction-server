@@ -15,7 +15,8 @@ class ServerInitializer(serverHandler: => SimpleChannelInboundHandler[ByteBuf], 
     ch.pipeline()
       .addLast(new ByteArrayEncoder())
       .addLast(new LengthFieldBasedFrameDecoder(
-        packageTransmissionOpts.maxDataPackageSize max packageTransmissionOpts.maxMetadataPackageSize,
+        Int.MaxValue,
+        //packageTransmissionOpts.maxDataPackageSize max packageTransmissionOpts.maxMetadataPackageSize,
         Message.headerFieldSize,
         Message.lengthFieldSize)
       )

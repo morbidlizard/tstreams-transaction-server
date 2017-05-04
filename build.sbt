@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.3.4-SNAPSHOT"
+version := "1.3.5-SNAPSHOT"
 
 scalaVersion := "2.12.1"
 
@@ -30,7 +30,6 @@ publishMavenStyle := true
 pomIncludeRepository := { _ => false }
 
 isSnapshot := true
-
 
 publishTo := {
   val nexus = "https://oss.sonatype.org/"

@@ -60,7 +60,6 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       throw throwable
   }
 
-
   private val executionContext = new ServerExecutionContext(
     rocksStorageOpts.readThreadPool,
     rocksStorageOpts.writeThreadPool

@@ -9,16 +9,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecor
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment, StreamCache}
 import com.bwsw.tstreamstransactionserver.rpc._
-
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
   with Authenticable
   with ProducerTransactionStateNotifier {
 
-  def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): Unit
+  def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): ListBuffer[Unit => Unit]
 
   val executionContext: ServerExecutionContext
   val rocksMetaServiceDB: RocksDBALL
@@ -75,7 +74,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case (Some(txn), _) =>
           //even if producer transaction is belonged to deleted stream we can omit such transaction, as client shouldn't see it.
           scala.util.Try(getMostRecentStream(txn.stream)) match {
-            case scala.util.Success(recentStream) =>
+            case scala.util.Success(recentStream) if !recentStream.stream.deleted =>
               val key = KeyStreamPartition(recentStream.id, txn.partition)
               if (txn.state != TransactionStates.Opened) {
                 producerTransactions += ((txn, timestamp))
@@ -92,7 +91,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         case (_, Some(txn)) =>
           scala.util.Try(getMostRecentStream(txn.stream)) match {
             //even if consumer transaction is belonged to deleted stream we can omit such transaction, as client shouldn't see it.
-            case scala.util.Success(recentStream) =>
+            case scala.util.Success(recentStream) if !recentStream.stream.deleted =>
               val key = KeyStreamPartition(recentStream.id, txn.partition)
               consumerTransactions += ((txn, timestamp))
             case _ => //It doesn't matter
@@ -143,10 +142,11 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       logger.debug(s"On stream:${key.stream} partition:${key.partition} last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now.")
   }
 
-  private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], batch: Batch): Unit = {
+  private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)], batch: Batch): ListBuffer[Unit => Unit] = {
     val (producerTransactions, consumerTransactions) = decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions, batch)
     val groupedProducerTransactionsWithTimestamp = groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions)
 
+    val notifications = new scala.collection.mutable.ListBuffer[Unit => Unit]()
     groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
       val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
       groupedProducerTransactions foreach { case (key, txns) =>
@@ -180,8 +180,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
             else {
               batch.remove(HasEnvironment.TRANSACTION_OPEN_STORE, binaryKey)
             }
-            if (areThereAnyProducerNotifies)
-              tryCompleteProducerNotify(producerTransactionRecord)
+
+            if (areThereAnyProducerNotifies) notifications += tryCompleteProducerNotify(producerTransactionRecord)
 
             batch.put(HasEnvironment.TRANSACTION_ALL_STORE, binaryKey, binaryTxn)
             if (logger.isDebugEnabled) logger.debug(s"Producer transaction on stream: ${producerTransactionRecord.stream}" +
@@ -193,7 +193,11 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       }
     }
     val consumerTransactionsToProcess = decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions)
-    if (consumerTransactionsToProcess.nonEmpty) putConsumerTransactions(consumerTransactionsToProcess, batch)
+    val notificationAboutProducerAndConsumerTransactiomns = if (consumerTransactionsToProcess.nonEmpty)
+      notifications ++ putConsumerTransactions(consumerTransactionsToProcess, batch)
+    else
+      notifications
+    notificationAboutProducerAndConsumerTransactiomns
   }
 
 
@@ -229,10 +233,11 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
 
   final class BigCommit(fileID: Long) {
     private val batch = rocksMetaServiceDB.newBatch
+    private val notifications = new scala.collection.mutable.ListBuffer[Unit => Unit]
 
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
       if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
-      putTransactions(transactions, batch)
+      notifications ++= putTransactions(transactions, batch)
     }
 
     def commit(): Boolean = {
@@ -242,6 +247,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
       batch.put(HasEnvironment.COMMIT_LOG_STORE, key, value)
       if (batch.write()) {
         if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
+        notifications foreach (notification => notification())
         true
       } else {
         false
@@ -368,6 +374,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     val iterator = producerTransactionsWithOpenedStateDatabase.iterator
     iterator.seekToFirst()
 
+    val notifications = new ListBuffer[Unit => Unit]()
     while (iterator.isValid) {
       val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
       if (doesProducerTransactionExpired(producerTransactionValue)) {
@@ -378,7 +385,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
         val producerTransactionKey = ProducerTransactionKey.fromByteArray(key)
 
         val canceledTransactionRecordDueExpiration = transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
-        if (areThereAnyProducerNotifies) tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
+        if (areThereAnyProducerNotifies)
+          notifications += tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
 
         transactionsRamTable.invalidate(producerTransactionKey)
         batch.put(HasEnvironment.TRANSACTION_ALL_STORE, key, canceledTransactionRecordDueExpiration.producerTransaction.toByteArray)
@@ -389,6 +397,8 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
     }
     iterator.close()
     batch.write()
+
+    notifications.foreach(notification => notification())
   }
 
   final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {

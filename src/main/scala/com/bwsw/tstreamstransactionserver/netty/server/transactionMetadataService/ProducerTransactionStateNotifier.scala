@@ -32,7 +32,7 @@ trait ProducerTransactionStateNotifier extends StreamCache {
 
   private[transactionMetadataService] final def areThereAnyProducerNotifies = !producerNotifies.isEmpty
 
-  private[transactionMetadataService] final def tryCompleteProducerNotify(producerTransactionRecord: ProducerTransactionRecord): Unit = {
+  private[transactionMetadataService] final def tryCompleteProducerNotify: ProducerTransactionRecord => Unit => Unit = {producerTransactionRecord => _ =>
     scala.util.Try(getStreamObjByID(producerTransactionRecord.stream)) match {
       case scala.util.Success(stream) =>
         producerNotifies.values().forEach(notify =>

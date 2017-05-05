@@ -34,7 +34,7 @@ trait ProducerTransactionStateNotifier {
   private[transactionMetadataService] final def tryCompleteProducerNotify: ProducerTransactionRecord => Unit => Unit = { producerTransactionRecord =>
     _ =>
       producerNotifies.values().forEach(notify =>
-        if (notify.notifyOn(ProducerTransactionRecord)) notify.notificationPromise.trySuccess(value = Unit))
+        if (notify.notifyOn(producerTransactionRecord)) notify.notificationPromise.trySuccess(value = Unit))
   }
 }
 

@@ -1,11 +1,11 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
 
-case class KeyStreamPartition(stream: Long, partition: Int) {
+case class KeyStreamPartition(stream: Int, partition: Int) {
 
   def toByteArray: Array[Byte] = {
     val buffer = java.nio.ByteBuffer.allocate(
-      java.lang.Long.BYTES + java.lang.Integer.BYTES
+      java.lang.Integer.BYTES + java.lang.Integer.BYTES
     )
     buffer
       .putLong(stream)
@@ -17,7 +17,7 @@ case class KeyStreamPartition(stream: Long, partition: Int) {
 object KeyStreamPartition {
   def fromByteArray(bytes: Array[Byte]): KeyStreamPartition = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
-    val stream = buffer.getLong
+    val stream = buffer.getInt
     val partition = buffer.getInt
     KeyStreamPartition(stream, partition)
   }

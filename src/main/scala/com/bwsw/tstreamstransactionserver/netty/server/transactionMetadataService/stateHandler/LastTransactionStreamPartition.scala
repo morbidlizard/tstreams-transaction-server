@@ -48,8 +48,8 @@ class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
 
   private final val lastTransactionStreamPartitionRamTable: Cache[KeyStreamPartition, LastOpenedAndCheckpointedTransaction] = fillLastTransactionStreamPartitionTable
 
-  final def getLastTransactionIDAndCheckpointedID(stream: Long, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
-    val key = KeyStreamPartition(stream, partition)
+  final def getLastTransactionIDAndCheckpointedID(streamID: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
+    val key = KeyStreamPartition(streamID, partition)
     val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
     lastTransactionOpt.flatMap { _ =>
       val binaryKey = key.toByteArray
@@ -65,9 +65,9 @@ class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
   }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
-  final def deleteLastOpenedAndCheckpointedTransactions(stream: Long, batch: Batch) {
-    val from = KeyStreamPartition(stream, Int.MinValue).toByteArray
-    val to = KeyStreamPartition(stream, Int.MaxValue).toByteArray
+  final def deleteLastOpenedAndCheckpointedTransactions(streamID: Int, batch: Batch) {
+    val from = KeyStreamPartition(streamID, Int.MinValue).toByteArray
+    val to = KeyStreamPartition(streamID, Int.MaxValue).toByteArray
 
     val lastTransactionDatabaseIterator = lastTransactionDatabase.iterator
     lastTransactionDatabaseIterator.seek(from)

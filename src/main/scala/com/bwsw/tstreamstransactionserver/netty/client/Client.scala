@@ -615,7 +615,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     method[TransactionService.GetLastCheckpointedTransaction.Args, TransactionService.GetLastCheckpointedTransaction.Result, Long](
       Descriptors.GetLastCheckpointedTransaction,
       TransactionService.GetLastCheckpointedTransaction.Args(streamID, partition),
-      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.getOrElse(-1L)
+      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
 

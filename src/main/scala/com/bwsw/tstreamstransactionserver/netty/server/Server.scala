@@ -64,7 +64,14 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
     rocksStorageOpts.readThreadPool,
     rocksStorageOpts.writeThreadPool
   )
-  private val transactionServer = new TransactionServer(executionContext, authOpts, storageOpts, rocksStorageOpts, timer)
+  private val transactionServer = new TransactionServer(
+    executionContext,
+    authOpts,
+    storageOpts,
+    rocksStorageOpts,
+    zk.streamDatabase(s"zookeeperOpts.prefix/streams"),
+    timer
+  )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
     transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
@@ -80,7 +87,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTtlSec)
   private val (commitLogQueue, commitLogLastId) = {
     val queue = new CommitLogQueueBootstrap(30, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
-    val lastFileIDBerkeley = transactionServer.getLastProcessedCommitLogFileID.getOrElse(-1L)
+    val lastFileIDBerkeley = transactionServer.getLastProcessedCommitLogFileID
 
     val (priorityQueue, maxCommitLogFileID) = queue.fillQueue()
 
@@ -194,8 +201,8 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
 
     val berkeleyProcessedFileIDMax = transactionServer.getLastProcessedCommitLogFileID
     val (allFilesIDsToProcess, allFilesToDelete: Map[Long, CommitLogFile]) =
-      if (berkeleyProcessedFileIDMax.isDefined)
-        (allFiles.filterKeys(_ > berkeleyProcessedFileIDMax.get), allFiles.filterKeys(_ <= berkeleyProcessedFileIDMax.get))
+      if (berkeleyProcessedFileIDMax > -1)
+        (allFiles.filterKeys(_ > berkeleyProcessedFileIDMax), allFiles.filterKeys(_ <= berkeleyProcessedFileIDMax))
       else
         (allFiles, collection.immutable.Map())
 

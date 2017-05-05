@@ -173,7 +173,7 @@ object CommitLogToBerkeleyWriter {
       txns.transactions.map(txn => (txn, record.timestamp))
     case `setConsumerStateType` =>
       val args = deserializeSetConsumerState(Message.fromByteArray(record.message))
-      val consumerTransaction = com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction(args.stream, args.partition, args.transaction, args.name)
+      val consumerTransaction = com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction(args.streamID, args.partition, args.transaction, args.name)
       Seq((Transaction(None, Some(consumerTransaction)), record.timestamp))
     case _ => throw new IllegalArgumentException("Undefined method type for retrieving message from commit log record")
   }

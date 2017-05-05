@@ -52,7 +52,7 @@ class TransactionDataServiceImpl(executionContext: ServerExecutionContext,
   final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
     if (data.isEmpty) true
     else {
-      val streamObj = getMostRecentStream(stream)
+      val streamObj = streamCache.getStream(streamID)
       val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
 
       val batch = rocksDB.newBatch

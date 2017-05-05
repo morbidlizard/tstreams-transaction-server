@@ -17,7 +17,7 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
                         override val rocksStorageOpts: RocksStorageOptions,
                         override val timer: Time = new Time{}
                        )
-  extends HasEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
+  extends RocksStorage with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
 {
   override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): ListBuffer[Unit => Unit] = putConsumersCheckpoints(consumerTransactions, batch)
   override def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit = removeRocksDBDatabaseAndDeleteFolder(stream)

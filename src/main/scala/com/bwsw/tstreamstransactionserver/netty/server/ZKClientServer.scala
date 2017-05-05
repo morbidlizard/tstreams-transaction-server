@@ -82,9 +82,21 @@ class ZKClientServer(serverAddress: String,
           val streamValueBinary = client.getData.forPath(id)
           val streamKey   = StreamKey(id.toInt)
           val streamValue = StreamValue.fromByteArray(streamValueBinary)
+          if (logger.isDebugEnabled)
+            logger.debug(s"Loading stream to cache: " +
+              s"id ${streamKey.id}, " +
+              s"name ${streamValue.name}, " +
+              s"partitions ${streamValue.partitions}, " +
+              s"description ${streamValue.description}" +
+              s"ttl ${streamValue.ttl}"
+            )
           StreamRecord(streamKey, streamValue)
         }
-      }.getOrElse(Seq.empty[StreamRecord])
+      }.getOrElse{
+        if (logger.isDebugEnabled)
+          logger.debug(s"There are no streams on path $path, may be it's first run of TTS.")
+        Seq.empty[StreamRecord]
+      }
 
       streams.foreach(record => streamCache.put(record.key, record.stream))
     }
@@ -97,21 +109,35 @@ class ZKClientServer(serverAddress: String,
         .withMode(CreateMode.PERSISTENT_SEQUENTIAL)
         .forPath(streamsPath, streamValue.toByteArray)
       val streamKey = StreamKey(id.toInt)
+      if (logger.isDebugEnabled)
+        logger.debug(s"Persisted stream: " +
+          s"id ${streamKey.id}, " +
+          s"name ${streamValue.name}, " +
+          s"partitions ${streamValue.partitions}, " +
+          s"description ${streamValue.description}" +
+          s"ttl ${streamValue.ttl}"
+        )
+      StreamRecord(streamKey, streamValue)
       streamCache.put(streamKey, streamValue)
       streamKey
     }
 
     override def checkStreamExists(streamID: Int): Boolean = {
       val streamKey = StreamKey(streamID)
-      Option(streamCache.get(streamKey))
+      val doesExist = Option(streamCache.get(streamKey))
         .orElse(Option(client.checkExists().forPath(buildPath(streamID))))
         .exists(_ => true)
+      if (logger.isDebugEnabled)
+        logger.debug(s"Stream with id $streamID ${if (doesExist) "exists" else "doesn't exist"}")
+      doesExist
     }
 
     override def delStream(streamID: Int): Boolean = {
       if (checkStreamExists(streamID)) {
         client.delete().forPath(buildPath(streamID))
         streamCache.remove( StreamKey(streamID))
+        if (logger.isDebugEnabled)
+          logger.debug(s"Stream with id $streamID is deleted")
         true
       }
       else false
@@ -125,6 +151,7 @@ class ZKClientServer(serverAddress: String,
           val streamValueOpt = Option(client.getData.forPath(buildPath(streamID)))
           streamValueOpt.map { streamValueBinary =>
             val streamValue = StreamValue.fromByteArray(streamValueBinary)
+            streamCache.put(streamKey, streamValue)
             StreamRecord(streamKey, streamValue)
           }
         }

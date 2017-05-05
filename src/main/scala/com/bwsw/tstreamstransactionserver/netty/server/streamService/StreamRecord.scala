@@ -1,6 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
-case class StreamRecord(key: StreamKey, stream: StreamValue) extends com.bwsw.tstreamstransactionserver.rpc.Stream {
+import com.bwsw.tstreamstransactionserver.rpc.Stream
+
+case class StreamRecord(key: StreamKey, stream: StreamValue) extends Stream {
   def id: Int = key.id
   override def name: String = stream.name
   override def partitions: Int = stream.partitions

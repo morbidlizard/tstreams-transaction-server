@@ -1,7 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment}
+import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamCache
 import org.slf4j.LoggerFactory
@@ -9,13 +8,12 @@ import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
 
 
-class ConsumerServiceImpl(executionContext: ServerExecutionContext,
-                          rocksMetaServiceDB: RocksDBALL,
+class ConsumerServiceImpl(rocksMetaServiceDB: RocksDBALL,
                           streamCache: StreamCache
                          ) extends ConsumerTransactionStateNotifier
 {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val consumerDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.CONSUMER_STORE)
+  private val consumerDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.CONSUMER_STORE)
 
   def getConsumerState(name: String, streamID: Int, partition: Int): Long = {
     val consumerTransactionKey = ConsumerTransactionKey(name, streamID, partition).toByteArray
@@ -44,7 +42,7 @@ class ConsumerServiceImpl(executionContext: ServerExecutionContext,
       val theLastStateTransaction = transitConsumerTransactionToNewState(txns)
       val consumerTransactionValueBinary = theLastStateTransaction.consumerTransaction.toByteArray
       val consumerTransactionKeyBinary = key.toByteArray
-      batch.put(HasEnvironment.CONSUMER_STORE, consumerTransactionKeyBinary, consumerTransactionValueBinary)
+      batch.put(RocksStorage.CONSUMER_STORE, consumerTransactionKeyBinary, consumerTransactionValueBinary)
       if (areThereAnyConsumerNotifies) notifications += tryCompleteConsumerNotify(theLastStateTransaction)
     }
     notifications

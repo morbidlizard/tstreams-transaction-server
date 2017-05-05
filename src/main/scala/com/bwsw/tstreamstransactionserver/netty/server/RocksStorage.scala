@@ -5,13 +5,10 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, Roc
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import org.rocksdb.ColumnFamilyOptions
 
-trait HasEnvironment {
-  val storageOpts: StorageOptions
-
+class RocksStorage(storageOpts: StorageOptions) {
   val rocksMetaServiceDB: RocksDBALL = new RocksDBALL(
     storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
     Seq(
-      RocksDatabaseDescriptor("StreamStore".getBytes(),                        new ColumnFamilyOptions()),
       RocksDatabaseDescriptor("LastOpenedTransactionStorage".getBytes(),       new ColumnFamilyOptions()),
       RocksDatabaseDescriptor("LastCheckpointedTransactionStorage".getBytes(), new ColumnFamilyOptions()),
       RocksDatabaseDescriptor("ConsumerStore".getBytes(),                      new ColumnFamilyOptions()),
@@ -22,12 +19,11 @@ trait HasEnvironment {
   )
 }
 
-object HasEnvironment {
-  val STREAM_STORE_INDEX = 1
-  val LAST_OPENED_TRANSACTION_STORAGE = 2
-  val LAST_CHECKPOINTED_TRANSACTION_STORAGE = 3
-  val CONSUMER_STORE = 4
-  val COMMIT_LOG_STORE = 5
-  val TRANSACTION_ALL_STORE = 6
-  val TRANSACTION_OPEN_STORE = 7
+object RocksStorage {
+  val LAST_OPENED_TRANSACTION_STORAGE = 1
+  val LAST_CHECKPOINTED_TRANSACTION_STORAGE = 2
+  val CONSUMER_STORE = 3
+  val COMMIT_LOG_STORE = 4
+  val TRANSACTION_ALL_STORE = 5
+  val TRANSACTION_OPEN_STORE = 6
 }

@@ -404,14 +404,14 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def getStream(id: Int): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] = {
+  def getStream(id: Int): ScalaFuture[Option[com.bwsw.tstreamstransactionserver.rpc.Stream]] = {
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $id.")
     onShutdownThrowException()
 
-    method[TransactionService.GetStream.Args, TransactionService.GetStream.Result, com.bwsw.tstreamstransactionserver.rpc.Stream](
+    method[TransactionService.GetStream.Args, TransactionService.GetStream.Result, Option[com.bwsw.tstreamstransactionserver.rpc.Stream]](
       Descriptors.GetStream,
       TransactionService.GetStream.Args(id),
-      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success
     )(context)
   }
 

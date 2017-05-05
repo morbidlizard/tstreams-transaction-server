@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCache, StreamKey}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamKey
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
 import com.bwsw.tstreamstransactionserver.rpc._
@@ -13,7 +13,6 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
-                                 streamCache: StreamCache,
                                  lastTransactionStreamPartition: LastTransactionStreamPartition,
                                  consumerService: ConsumerServiceImpl)
   extends TransactionStateHandler
@@ -266,7 +265,6 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
   }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
-
   def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =
     {
       val (lastOpenedTransactionID, toTransactionID) = getLastTransactionIDAndCheckpointedID(streamID, partition) match {
@@ -309,9 +307,9 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
 
             var txnState: TransactionStates = producerTransactionKey.state
             while (
-              !states.contains(txnState) &&
+              iterator.isValid &&
                 producerTransactions.length < count &&
-                iterator.isValid &&
+                !states.contains(txnState) &&
                 (comparator.compare(iterator.key(), lastTransactionID) <= 0)
             ) {
               val producerTransaction = ProducerTransactionRecord(ProducerTransactionKey.fromByteArray(iterator.key()), ProducerTransactionValue.fromByteArray(iterator.value()))

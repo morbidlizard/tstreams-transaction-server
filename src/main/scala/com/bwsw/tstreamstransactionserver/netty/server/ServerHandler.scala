@@ -159,7 +159,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           val args = Descriptors.GetStream.decodeRequest(message)
           val result = transactionServer.getStream(args.streamID)
           logSuccessfulProcession(Descriptors.GetStream.name)
-          lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(result))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverReadContext)

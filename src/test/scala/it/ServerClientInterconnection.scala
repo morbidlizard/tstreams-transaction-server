@@ -183,7 +183,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     Await.result(client.delStream(streamID), secondsWait.seconds)  shouldBe false
   }
 
-  it should "put stream, then delete this stream, and server shouldn't save producer and consumer transactions on putting them by client" in {
+  it should "put stream, then delete this stream, and server should save producer and consumer transactions on putting them by client" in {
     val stream = getRandomStream
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
     val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamID, stream)).filter(_.state == TransactionStates.Opened)
@@ -207,9 +207,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     resultBeforeDeleting should not be empty
 
     Await.result(client.delStream(streamID), secondsWait.seconds)
-    assertThrows[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist] {
-      Await.result(client.scanTransactions(streamID, stream.partitions, fromID, toID, Int.MaxValue, Set()), secondsWait.seconds).producerTransactions
-    }
+    Await.result(client.scanTransactions(streamID, stream.partitions, fromID, toID, Int.MaxValue, Set()), secondsWait.seconds)
+      .producerTransactions should contain theSameElementsInOrderAs resultBeforeDeleting
   }
 
   it should "throw an exception when the a server isn't available for time greater than in config" in {

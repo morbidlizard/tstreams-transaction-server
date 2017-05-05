@@ -34,15 +34,13 @@ class TransactionServer(val executionContext: ServerExecutionContext,
     streamCache
   )
   private val consumerServiceImpl = new ConsumerServiceImpl(
-    rocksStorage.rocksMetaServiceDB,
-    streamCache
+    rocksStorage.rocksMetaServiceDB
   )
   private val lastTransactionStreamPartition = new LastTransactionStreamPartition(
     rocksStorage.rocksMetaServiceDB
   )
   private[server] val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
     rocksStorage.rocksMetaServiceDB,
-    streamCache,
     lastTransactionStreamPartition,
     consumerServiceImpl
   )
@@ -53,7 +51,7 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
-    transactionMetaServiceImpl.notifyProducerTransactionCompleted(onNotificationCompleted, Boolean)
+    transactionMetaServiceImpl.notifyProducerTransactionCompleted(onNotificationCompleted, func)
 
   final def removeProducerTransactionNotification(id: Long): Boolean =
     transactionMetaServiceImpl.removeProducerTransactionNotification(id)
@@ -73,7 +71,7 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   final def checkStreamExists(streamID: Int): Boolean =
     streamServiceImpl.checkStreamExists(streamID)
 
-  final def getStream(streamID: Int): rpc.Stream =
+  final def getStream(streamID: Int): Option[rpc.Stream] =
     streamServiceImpl.getStream(streamID)
 
   final def delStream(streamID: Int): Boolean =

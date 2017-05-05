@@ -8,9 +8,8 @@ import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
 
 
-class ConsumerServiceImpl(rocksMetaServiceDB: RocksDBALL,
-                          streamCache: StreamCache
-                         ) extends ConsumerTransactionStateNotifier
+class ConsumerServiceImpl(rocksMetaServiceDB: RocksDBALL)
+  extends ConsumerTransactionStateNotifier
 {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val consumerDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.CONSUMER_STORE)

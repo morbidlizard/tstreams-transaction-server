@@ -136,7 +136,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
     val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
-    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe false
+    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
 
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
 

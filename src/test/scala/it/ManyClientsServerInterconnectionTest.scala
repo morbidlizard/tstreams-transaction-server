@@ -136,7 +136,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
   val secondsWait = 5
 
-  "One client" should "put stream, then another client should delete it. After that the first client tries to put transactions and gets an exception." in {
+  "One client" should "put stream, then another client should delete it. After that the first client tries to put transactions and doesn't get an exception." in {
     val stream = getRandomStream
 
     val firstClient = clients(0)
@@ -149,24 +149,23 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
 
-    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe false
+    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
     Await.result(secondClient.delStream(streamID), secondsWait.seconds) shouldBe true
 
     //transactions are processed in the async mode
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
 
-    //it's required to close a current commit log file
     TestTimer.updateTime(System.currentTimeMillis() + maxIdleTimeBetweenRecordsMs)
-    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
+    //it's required to close a current commit log file
+    transactionServer.scheduledCommitLogImpl.run()
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.berkeleyWriter.run()
 
     val fromID = producerTransactions.minBy(_.transactionID).transactionID
     val toID = producerTransactions.maxBy(_.transactionID).transactionID
 
-    assertThrows[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist] {
-      Await.result(firstClient.scanTransactions(streamID, stream.partitions, fromID, toID, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds).producerTransactions
-    }
+    Await.result(firstClient.scanTransactions(streamID, stream.partitions, fromID, toID, Int.MaxValue, Set()), secondsWait.seconds)
+      .producerTransactions should not be empty
   }
 
   "One client" should "put stream, then another client should delete it and put with the same name. " +
@@ -183,11 +182,10 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
 
     Await.result(secondClient.delStream(streamID), secondsWait.seconds) shouldBe true
-    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe true
+    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
 
     val currentStream = Await.result(firstClient.getStream(streamID), secondsWait.seconds)
-    currentStream should not be stream
-    currentStream shouldBe streamUpdated
+    currentStream shouldBe None
 
     //transactions are processed in the async mode
     Await.result(firstClient.putTransactions(

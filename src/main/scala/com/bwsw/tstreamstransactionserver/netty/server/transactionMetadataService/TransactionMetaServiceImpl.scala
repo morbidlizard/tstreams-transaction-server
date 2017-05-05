@@ -46,7 +46,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
 
   private val transactionsRamTable: com.google.common.cache.Cache[ProducerTransactionKey, ProducerTransactionValue] = fillOpenedTransactionsRAMTable
 
-  protected def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] = {
+  def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] = {
     val transaction = Option(transactionsRamTable.getIfPresent(key))
     if (transaction.isDefined) transaction
     else {

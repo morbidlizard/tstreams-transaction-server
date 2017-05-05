@@ -7,11 +7,11 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TransactionDataWriter(streamName: String, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
+class TransactionDataWriter(streamID: Int, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, dataSize: Int, filename: String) {
     val client = new ClientBuilder().build()
 
-    var producerTransaction = createTransaction(streamName, partition, TransactionStates.Opened)
+    var producerTransaction = createTransaction(streamID, partition, TransactionStates.Opened)
     println("Open a txn: " + time(Await.result(client.putTransactions(Seq(producerTransaction), Seq()),10.seconds)) + " ms")
 
     val data = createTransactionData(dataSize)
@@ -30,7 +30,7 @@ class TransactionDataWriter(streamName: String, partition: Int = 1) extends Tran
     println(s"Write to file $filename")
     writeDataTransactionsAndTime(filename, result)
 
-    producerTransaction = createTransaction(streamName, partition, TransactionStates.Checkpointed, producerTransaction.transactionID)
+    producerTransaction = createTransaction(streamID, partition, TransactionStates.Checkpointed, producerTransaction.transactionID)
     println("Close a txn: " + time(Await.result(client.putTransactions(Seq(producerTransaction), Seq()),10.seconds)) + " ms")
 
     client.shutdown()

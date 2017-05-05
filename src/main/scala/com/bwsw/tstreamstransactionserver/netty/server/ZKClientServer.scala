@@ -72,15 +72,21 @@ class ZKClientServer(serverAddress: String,
 
   final class StreamDatabaseZK(path: String) extends StreamCache {
     import scala.collection.JavaConverters._
-
     private val streamCache = new java.util.concurrent.ConcurrentHashMap[StreamKey, StreamValue]()
+
+    private val seqPrefix = "id"
+    private val streamsPath = s"$path/$seqPrefix"
+    private def buildPath(streamID: Int): String = f"$streamsPath$streamID%010d"
+    private def getIDFromPath(pathWithId: String): String = pathWithId.splitAt(path.length + seqPrefix.length + 1)._2
+    private def getID(id: String): String = id.splitAt(seqPrefix.length + 1)._2
+
     private def initializeCache(): Unit = {
       val statOpt = Option(client.checkExists().creatingParentContainersIfNeeded().forPath(path))
       val streams = statOpt.map{_ =>
         val streamsIds = client.getChildren.forPath(path).asScala
         streamsIds.map{id =>
-          val streamValueBinary = client.getData.forPath(id)
-          val streamKey   = StreamKey(id.toInt)
+          val streamValueBinary = client.getData.forPath(path + '/' + id)
+          val streamKey   = StreamKey(getID(id).toInt)
           val streamValue = StreamValue.fromByteArray(streamValueBinary)
           if (logger.isDebugEnabled)
             logger.debug(s"Loading stream to cache: " +
@@ -101,14 +107,14 @@ class ZKClientServer(serverAddress: String,
       streams.foreach(record => streamCache.put(record.key, record.stream))
     }
 
-    private val streamsPath = s"$path/"
-    private def buildPath(streamID: Int): String = s"$streamsPath$streamID"
     override def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): StreamKey = {
       val streamValue = StreamValue(stream, partitions, description, ttl)
+
       val id = client.create()
+        .creatingParentsIfNeeded()
         .withMode(CreateMode.PERSISTENT_SEQUENTIAL)
         .forPath(streamsPath, streamValue.toByteArray)
-      val streamKey = StreamKey(id.toInt)
+      val streamKey = StreamKey(getIDFromPath(id).toInt)
       if (logger.isDebugEnabled)
         logger.debug(s"Persisted stream: " +
           s"id ${streamKey.id}, " +

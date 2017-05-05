@@ -5,6 +5,7 @@ import benchmark.utils.writer.TransactionDataWriter
 
 object OneTransactionTest extends Launcher {
   override val streamName = "stream"
+  override val streamID = 1
   override val clients = 1
   private val txnCount = 1000000
   private val dataSize = 1
@@ -17,6 +18,6 @@ object OneTransactionTest extends Launcher {
 
   override def launchClients(): Unit = {
     val filename = rand.nextInt(100) + s"TransactionDataWriterTo1PartitionOSOC.csv"
-    new TransactionDataWriter(streamName).run(txnCount, dataSize, filename)
+    new TransactionDataWriter(streamID).run(txnCount, dataSize, filename)
   }
 }

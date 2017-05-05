@@ -114,11 +114,11 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
       override val ttl: Long = Long.MaxValue
     }
 
-  private def getRandomConsumerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream) =
+  private def getRandomConsumerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream) =
     new ConsumerTransaction {
       override val transactionID: Long = scala.util.Random.nextLong()
       override val name: String = rand.nextInt(10000).toString
-      override val stream: String = streamObj.name
+      override val stream: Int = streamID
       override val partition: Int = streamObj.partitions
     }
 
@@ -133,7 +133,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     val firstClient = clients(0)
     val secondClient = clients(1)
 
-    Await.result(firstClient.putStream(stream), secondsWait.seconds)
+    val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
     val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe false
@@ -141,41 +141,41 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
 
     //transactions are processed in the async mode
-    val producerTransaction1 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
+    val producerTransaction1 = ProducerTransaction(streamID, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
 
     Await.result(secondClient.putProducerState(producerTransaction1), secondsWait.seconds) shouldBe true
     Await.result(secondClient.putProducerState(producerTransaction1.copy(state = TransactionStates.Checkpointed)), secondsWait.seconds) shouldBe true
-    Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe -1L
-    Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe -1L
+    Await.result(firstClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe -1L
+    Await.result(secondClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe -1L
 
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
-    Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
-    Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
+    Await.result(firstClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
+    Await.result(secondClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
 
-    val producerTransaction2 = ProducerTransaction(stream.name, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
+    val producerTransaction2 = ProducerTransaction(streamID, stream.partitions, TestTimer.getCurrentTime, TransactionStates.Opened, -1, Long.MaxValue)
     Await.result(secondClient.putProducerState(producerTransaction2.copy()), secondsWait.seconds) shouldBe true
     Await.result(secondClient.putProducerState(producerTransaction2.copy(state = TransactionStates.Checkpointed)), secondsWait.seconds) shouldBe true
     Await.result(secondClient.putProducerState(producerTransaction2.copy(state = TransactionStates.Opened, transactionID = TestTimer.getCurrentTime + 1L)), secondsWait.seconds) shouldBe true
 
-    Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
-    Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
+    Await.result(firstClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
+    Await.result(secondClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
 
 
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
-    Await.result(firstClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
-    Await.result(secondClient.getLastCheckpointedTransaction(stream.name, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
+    Await.result(firstClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
+    Await.result(secondClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
   }
 
   it should "return last checkpointed transaction" in {
@@ -189,27 +189,27 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     val client = clients(0)
 
     val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("test_stream", 32, None, 360)
-    Await.result(client.putStream(stream), secondsWait.seconds)
+    val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
     val partition = 1
-    Await.result(client.putProducerState(ProducerTransaction(stream.name, partition, transactions.head, TransactionStates.Opened, -1, 120)), secondsWait.seconds) shouldBe true
-    Await.result(client.putProducerState(ProducerTransaction(stream.name, partition, transactions.head, TransactionStates.Checkpointed, -1, 120)), secondsWait.seconds) shouldBe true
+    Await.result(client.putProducerState(ProducerTransaction(streamID, partition, transactions.head, TransactionStates.Opened, -1, 120)), secondsWait.seconds) shouldBe true
+    Await.result(client.putProducerState(ProducerTransaction(streamID, partition, transactions.head, TransactionStates.Checkpointed, -1, 120)), secondsWait.seconds) shouldBe true
 
     Await.ready(
       ScalaFuture.sequence(
-        transactions.drop(1).map(t => client.putProducerState(ProducerTransaction(stream.name, partition, t, TransactionStates.Opened, -1, 120)))
+        transactions.drop(1).map(t => client.putProducerState(ProducerTransaction(streamID, partition, t, TransactionStates.Opened, -1, 120)))
       )(implicitly, scala.concurrent.ExecutionContext.Implicits.global), secondsWait.seconds)
 
 
     //it's required to close a current commit log file
     TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
+    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.scheduledCommitLogImpl.run()
     transactionServer.berkeleyWriter.run()
 
 
-    val retrievedTransaction = Await.result(client.getLastCheckpointedTransaction(stream.name,partition),secondsWait.seconds)
+    val retrievedTransaction = Await.result(client.getLastCheckpointedTransaction(streamID, partition),secondsWait.seconds)
     retrievedTransaction shouldEqual transaction
   }
 }

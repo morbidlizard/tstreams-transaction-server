@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceIm
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCache, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.TransactionMetaServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue, TransactionMetaServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc
@@ -84,6 +84,9 @@ class TransactionServer(val executionContext: ServerExecutionContext,
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): TransactionInfo =
     transactionMetaServiceImpl.getTransaction(streamID, partition, transaction)
+
+  final def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] =
+    transactionMetaServiceImpl.getOpenedTransaction(key)
 
   final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] =
     lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)

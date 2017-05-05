@@ -5,17 +5,17 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class ConsumerServiceTest extends FlatSpec with Matchers {
   "Key" should "be serialized/deserialized" in {
-    val key = ConsumerTransactionKey("testCheckpoint", 1L, 5)
+    val key = ConsumerTransactionKey("testCheckpoint", 1, 5)
     ConsumerTransactionKey.fromByteArray(key.toByteArray) shouldBe key
   }
 
   it should "be serialized/deserialized with negative stream" in {
-    val key = ConsumerTransactionKey("testCheckpoint", -1L, 5)
+    val key = ConsumerTransactionKey("testCheckpoint", -1, 5)
     ConsumerTransactionKey.fromByteArray(key.toByteArray) shouldBe key
   }
 
   it should "be serialized/deserialized with negative partition" in {
-    val key = ConsumerTransactionKey("testCheckpoint", -1L, -5)
+    val key = ConsumerTransactionKey("testCheckpoint", -1, -5)
     ConsumerTransactionKey.fromByteArray(key.toByteArray) shouldBe key
   }
 

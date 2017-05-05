@@ -8,7 +8,7 @@ case class KeyStreamPartition(stream: Int, partition: Int) {
       java.lang.Integer.BYTES + java.lang.Integer.BYTES
     )
     buffer
-      .putLong(stream)
+      .putInt(stream)
       .putInt(partition)
       .array()
   }

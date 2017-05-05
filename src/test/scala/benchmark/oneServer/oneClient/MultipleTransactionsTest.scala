@@ -5,6 +5,7 @@ import benchmark.utils.writer.TransactionMetadataWriter
 
 object MultipleTransactionsTest extends Launcher {
   override val streamName = "stream"
+  override val streamID = 1
   override val clients = 1
   private val txnCount = 1000000
   private val rand = new scala.util.Random()
@@ -16,6 +17,6 @@ object MultipleTransactionsTest extends Launcher {
 
   override def launchClients() = {
     val filename = rand.nextInt(100) + s"_${txnCount}TransactionMetadataWriterOSOC.csv"
-    new TransactionMetadataWriter(streamName).run(txnCount, filename)
+    new TransactionMetadataWriter(streamID).run(txnCount, filename)
   }
 }

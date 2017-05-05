@@ -12,9 +12,8 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   val ts = 640836800000L
   val openedTTL = 2
   val quantity = -1
-  val streamName = "stream_test"
+  val streamID = 101
   val streamPartitions = 1
-  val streamNameToLong = streamName.hashCode.toLong
 
   it should "not put producerTransaction with state: Checkpointed. " +
     "It should throw an exception (due an invalid transition of state machine)" in {
@@ -302,8 +301,8 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   }
 
   private def createProducerTransaction(transactionState: TransactionStates, ts: Long) = {
-    val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamName, streamPartitions, ts, transactionState, quantity, openedTTL)
+    val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamID, streamPartitions, ts, transactionState, quantity, openedTTL)
 
-    ProducerTransactionRecord(producerTransaction, streamNameToLong, ts)
+    ProducerTransactionRecord(producerTransaction, ts)
   }
 }

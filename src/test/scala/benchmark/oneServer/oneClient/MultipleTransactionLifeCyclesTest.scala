@@ -5,6 +5,7 @@ import benchmark.utils.writer.TransactionLifeCycleWriter
 
 object MultipleTransactionLifeCyclesTest extends Launcher {
   override val streamName = "stream"
+  override val streamID = 1
   override val clients = 1
   private val txnCount = 1000000
   private val dataSize = 1
@@ -17,6 +18,6 @@ object MultipleTransactionLifeCyclesTest extends Launcher {
 
   override def launchClients() = {
     val filename = rand.nextInt(100) + s"_${txnCount}TransactionLifeCycleWriterOSOC.csv"
-    new TransactionLifeCycleWriter(streamName).run(txnCount, dataSize, filename)
+    new TransactionLifeCycleWriter(streamID).run(txnCount, dataSize, filename)
   }
 }

@@ -7,22 +7,22 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 class TransactionMetaServiceTest extends FlatSpec with Matchers {
 
   "Key" should "be serialized/deserialized" in {
-    val key = ProducerTransactionKey(1L, 10, 15L)
+    val key = ProducerTransactionKey(1, 10, 15L)
     ProducerTransactionKey.fromByteArray(key.toByteArray) shouldBe key
   }
 
   it should "be serialized/deserialized with negative stream" in {
-    val key = ProducerTransactionKey(-1L, 10, 15L)
+    val key = ProducerTransactionKey(-1, 10, 15L)
     ProducerTransactionKey.fromByteArray(key.toByteArray) shouldBe key
   }
 
   it should "be serialized/deserialized with negative partition" in {
-    val key = ProducerTransactionKey(1L, -10, 15L)
+    val key = ProducerTransactionKey(1, -10, 15L)
     ProducerTransactionKey.fromByteArray(key.toByteArray) shouldBe key
   }
 
   it should "be serialized/deserialized with negative transaction" in {
-    val key = ProducerTransactionKey(1L, 10, -15L)
+    val key = ProducerTransactionKey(1, 10, -15L)
     ProducerTransactionKey.fromByteArray(key.toByteArray) shouldBe key
   }
 

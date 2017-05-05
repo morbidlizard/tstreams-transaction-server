@@ -69,7 +69,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
     authOpts,
     storageOpts,
     rocksStorageOpts,
-    zk.streamDatabase(s"zookeeperOpts.prefix/streams"),
+    zk.streamDatabase(s"/test/streams"),
     timer
   )
 

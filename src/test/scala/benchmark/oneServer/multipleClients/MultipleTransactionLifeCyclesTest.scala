@@ -6,8 +6,9 @@ import benchmark.utils.writer.TransactionLifeCycleWriter
 import scala.collection.mutable.ArrayBuffer
 
 object MultipleTransactionLifeCyclesTest extends Launcher {
-  override val streamName = "stream"
   override val clients = 4
+  override val streamName = "stream"
+  override val streamID = 1
   private val txnCount = 1000000
   private val dataSize = 1
   private val clientThreads = ArrayBuffer[Thread]()
@@ -25,7 +26,7 @@ object MultipleTransactionLifeCyclesTest extends Launcher {
       val thread = new Thread(new Runnable {
         override def run(): Unit = {
           val filename = rand.nextInt(100) + s"_${txnCount}TransactionLifeCycleWriterOSMC.csv"
-          new TransactionLifeCycleWriter(streamName, x).run(txnCount, dataSize, filename)
+          new TransactionLifeCycleWriter(streamID, x).run(txnCount, dataSize, filename)
         }
       })
       clientThreads.+=(thread)

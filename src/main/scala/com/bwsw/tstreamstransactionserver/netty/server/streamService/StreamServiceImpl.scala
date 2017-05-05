@@ -4,25 +4,21 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL, RocksDBPartitionDatabase}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment, StreamCache, Time}
+import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDBPartitionDatabase}
+import com.bwsw.tstreamstransactionserver.netty.server._
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
 
-trait StreamServiceImpl extends Authenticable
-  with StreamCache {
-
-  val executionContext: ServerExecutionContext
-  val rocksMetaServiceDB: RocksDBALL
-  val timer: Time
+class StreamServiceImpl(executionContext: ServerExecutionContext,
+                        rocksMetaServiceDB: RocksDBALL,
+                        timer: Time,
+                        zooKeeperClient: ZKClientServer
+                       ) extends StreamCache
+{
 
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val streamDatabase: RocksDBPartitionDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.STREAM_STORE_INDEX)
-
-  def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit
-
-  def removeLastOpenedAndCheckpointedTransactionRecords(stream: Long, batch: Batch): Unit
 
   private def fillStreamRAMTable(): Long = {
     val streamRecords = ArrayBuffer[StreamRecord]()
@@ -101,7 +97,7 @@ trait StreamServiceImpl extends Authenticable
           val isOkay = batch.put(HasEnvironment.STREAM_STORE_INDEX, mostRecentStreamRecord.key.toByteArray, mostRecentStreamRecord.stream.toByteArray)
           if (isOkay) {
             //              removeLastOpenedAndCheckpointedTransactionRecords(mostRecentStreamRecord.id, batch)
-            closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.id)
+//            closeRocksDBConnectionAndDeleteFolder(mostRecentStreamRecord.id)
             batch.write()
             if (logger.isDebugEnabled()) logger.debug(s"Stream $stream is removed successfully.")
           } else {

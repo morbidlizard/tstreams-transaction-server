@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamCache
 import com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction
 
 import scala.concurrent.ExecutionContext

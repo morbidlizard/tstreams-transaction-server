@@ -32,8 +32,8 @@ import scala.collection.{Map, Set}
 object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
   private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
   val Struct = new TStruct("ProducerTransaction")
-  val StreamField = new TField("stream", TType.STRING, 1)
-  val StreamFieldManifest = implicitly[Manifest[String]]
+  val StreamField = new TField("stream", TType.I32, 1)
+  val StreamFieldManifest = implicitly[Manifest[Int]]
   val PartitionField = new TField("partition", TType.I32, 2)
   val PartitionFieldManifest = implicitly[Manifest[Int]]
   val TransactionIDField = new TField("transactionID", TType.I64, 3)
@@ -125,7 +125,6 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
    * Checks that all required fields are non-null.
    */
   def validate(_item: ProducerTransaction): Unit = {
-    if (_item.stream == null) throw new TProtocolException("Required field stream cannot be null")
     if (_item.state == null) throw new TProtocolException("Required field state cannot be null")
   }
 
@@ -169,7 +168,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
 
   private[this] def lazyDecode(_iprot: LazyTProtocol): ProducerTransaction = {
 
-    var streamOffset: Int = -1
+    var stream: Int = 0
     var _got_stream = false
     var partition: Int = 0
     var _got_partition = false
@@ -195,12 +194,12 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
         _field.id match {
           case 1 =>
             _field.`type` match {
-              case TType.STRING =>
-                streamOffset = _iprot.offsetSkipString
+              case TType.I32 =>
     
+                stream = readStreamValue(_iprot)
                 _got_stream = true
               case _actualType =>
-                val _expectedType = TType.STRING
+                val _expectedType = TType.I32
                 throw new TProtocolException(
                   "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
@@ -304,7 +303,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       _iprot.buffer,
       _start_offset,
       _iprot.offset,
-      streamOffset,
+      stream,
       partition,
       transactionID,
       state,
@@ -324,7 +323,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
     }
 
   private[this] def eagerDecode(_iprot: TProtocol): ProducerTransaction = {
-    var stream: String = null
+    var stream: Int = 0
     var _got_stream = false
     var partition: Int = 0
     var _got_partition = false
@@ -348,11 +347,11 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
         _field.id match {
           case 1 =>
             _field.`type` match {
-              case TType.STRING =>
+              case TType.I32 =>
                 stream = readStreamValue(_iprot)
                 _got_stream = true
               case _actualType =>
-                val _expectedType = TType.STRING
+                val _expectedType = TType.I32
                 throw new TProtocolException(
                   "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
                     ttypeToString(_expectedType),
@@ -461,7 +460,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
   }
 
   def apply(
-    stream: String,
+    stream: Int,
     partition: Int,
     transactionID: Long,
     state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates,
@@ -477,21 +476,21 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       ttl
     )
 
-  def unapply(_item: ProducerTransaction): _root_.scala.Option[_root_.scala.Tuple6[String, Int, Long, com.bwsw.tstreamstransactionserver.rpc.TransactionStates, Int, Long]] = _root_.scala.Some(_item.toTuple)
+  def unapply(_item: ProducerTransaction): _root_.scala.Option[_root_.scala.Tuple6[Int, Int, Long, com.bwsw.tstreamstransactionserver.rpc.TransactionStates, Int, Long]] = _root_.scala.Some(_item.toTuple)
 
 
-  @inline private def readStreamValue(_iprot: TProtocol): String = {
-    _iprot.readString()
+  @inline private def readStreamValue(_iprot: TProtocol): Int = {
+    _iprot.readI32()
   }
 
-  @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
+  @inline private def writeStreamField(stream_item: Int, _oprot: TProtocol): Unit = {
     _oprot.writeFieldBegin(StreamField)
     writeStreamValue(stream_item, _oprot)
     _oprot.writeFieldEnd()
   }
 
-  @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-    _oprot.writeString(stream_item)
+  @inline private def writeStreamValue(stream_item: Int, _oprot: TProtocol): Unit = {
+    _oprot.writeI32(stream_item)
   }
 
   @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -577,7 +576,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
    * new instances.
    */
   class Immutable(
-      val stream: String,
+      val stream: Int,
       val partition: Int,
       val transactionID: Long,
       val state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates,
@@ -586,7 +585,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
     extends ProducerTransaction {
     def this(
-      stream: String,
+      stream: Int,
       partition: Int,
       transactionID: Long,
       state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates,
@@ -612,7 +611,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       _buf: Array[Byte],
       _start_offset: Int,
       _end_offset: Int,
-      streamOffset: Int,
+      val stream: Int,
       val partition: Int,
       val transactionID: Long,
       val state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates,
@@ -628,12 +627,6 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
       }
     }
 
-    lazy val stream: String =
-      if (streamOffset == -1)
-        null
-      else {
-        _proto.decodeString(_buf, streamOffset)
-      }
 
     /**
      * Override the super hash code to make it a lazy val rather than def.
@@ -656,7 +649,7 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
    */
   trait Proxy extends ProducerTransaction {
     protected def _underlying_ProducerTransaction: ProducerTransaction
-    override def stream: String = _underlying_ProducerTransaction.stream
+    override def stream: Int = _underlying_ProducerTransaction.stream
     override def partition: Int = _underlying_ProducerTransaction.partition
     override def transactionID: Long = _underlying_ProducerTransaction.transactionID
     override def state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates = _underlying_ProducerTransaction.state
@@ -668,13 +661,13 @@ object ProducerTransaction extends ThriftStructCodec3[ProducerTransaction] {
 
 trait ProducerTransaction
   extends ThriftStruct
-  with _root_.scala.Product6[String, Int, Long, com.bwsw.tstreamstransactionserver.rpc.TransactionStates, Int, Long]
+  with _root_.scala.Product6[Int, Int, Long, com.bwsw.tstreamstransactionserver.rpc.TransactionStates, Int, Long]
   with HasThriftStructCodec3[ProducerTransaction]
   with java.io.Serializable
 {
   import ProducerTransaction._
 
-  def stream: String
+  def stream: Int
   def partition: Int
   def transactionID: Long
   def state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates
@@ -690,7 +683,7 @@ trait ProducerTransaction
   def _5 = quantity
   def _6 = ttl
 
-  def toTuple: _root_.scala.Tuple6[String, Int, Long, com.bwsw.tstreamstransactionserver.rpc.TransactionStates, Int, Long] = {
+  def toTuple: _root_.scala.Tuple6[Int, Int, Long, com.bwsw.tstreamstransactionserver.rpc.TransactionStates, Int, Long] = {
     (
       stream,
       partition,
@@ -716,7 +709,7 @@ trait ProducerTransaction
         val _fieldOpt: _root_.scala.Option[TField] =
           _fieldId match {
             case 1 =>
-              if (stream ne null) {
+              if (true) {
                 writeStreamValue(stream, _oprot)
                 _root_.scala.Some(ProducerTransaction.StreamField)
               } else {
@@ -783,7 +776,7 @@ trait ProducerTransaction
    * _passthroughFields.
    */
   def setField(_blob: TFieldBlob): ProducerTransaction = {
-    var stream: String = this.stream
+    var stream: Int = this.stream
     var partition: Int = this.partition
     var transactionID: Long = this.transactionID
     var state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates = this.state
@@ -822,7 +815,7 @@ trait ProducerTransaction
    * from the passthroughFields map, if present.
    */
   def unsetField(_fieldId: Short): ProducerTransaction = {
-    var stream: String = this.stream
+    var stream: Int = this.stream
     var partition: Int = this.partition
     var transactionID: Long = this.transactionID
     var state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates = this.state
@@ -831,7 +824,7 @@ trait ProducerTransaction
 
     _fieldId match {
       case 1 =>
-        stream = null
+        stream = 0
       case 2 =>
         partition = 0
       case 3 =>
@@ -876,7 +869,7 @@ trait ProducerTransaction
   override def write(_oprot: TProtocol): Unit = {
     ProducerTransaction.validate(this)
     _oprot.writeStructBegin(Struct)
-    if (stream ne null) writeStreamField(stream, _oprot)
+    writeStreamField(stream, _oprot)
     writePartitionField(partition, _oprot)
     writeTransactionIDField(transactionID, _oprot)
     if (state ne null) writeStateField(state, _oprot)
@@ -890,7 +883,7 @@ trait ProducerTransaction
   }
 
   def copy(
-    stream: String = this.stream,
+    stream: Int = this.stream,
     partition: Int = this.partition,
     transactionID: Long = this.transactionID,
     state: com.bwsw.tstreamstransactionserver.rpc.TransactionStates = this.state,

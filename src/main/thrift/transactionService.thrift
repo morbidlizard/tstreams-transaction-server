@@ -8,7 +8,7 @@ enum TransactionStates {
     Checkpointed = 5
 }
 
-typedef string StreamType
+typedef i32    StreamIDType
 typedef i32    PartitionType
 typedef i64    transactionIDType
 typedef i32    tokenType
@@ -20,7 +20,7 @@ struct CommitLogInfo {
 }
 
 struct ProducerTransaction {
-   1: required StreamType          stream
+   1: required StreamIDType        stream
    2: required PartitionType       partition
    3: required transactionIDType   transactionID
    4: required TransactionStates   state
@@ -29,7 +29,7 @@ struct ProducerTransaction {
 }
 
 struct ConsumerTransaction {
-   1: required StreamType          stream
+   1: required StreamIDType        stream
    2: required PartitionType       partition
    3: required transactionIDType   transactionID
    4: required string              name
@@ -41,7 +41,7 @@ struct Transaction {
 }
 
 struct Stream {
-    1: required StreamType    name
+    1: required string        name
     2: required i32           partitions
     3: optional string        description
     4: required tllType       ttl
@@ -72,13 +72,13 @@ exception ServerException {
 
 service StreamService {
 
-  bool putStream(1: StreamType stream, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
+  bool putStream(1: string stream, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
 
-  bool checkStreamExists(1: StreamType stream) throws (1:ServerException error),
+  bool checkStreamExists(1: StreamIDType streamID) throws (1:ServerException error),
 
-  Stream getStream(1: StreamType stream) throws (1:ServerException error),
+  Stream getStream(1: StreamIDType streamID) throws (1:ServerException error),
 
-  bool delStream(1: StreamType stream) throws (1:ServerException error)
+  bool delStream(1: StreamIDType streamID) throws (1:ServerException error)
 }
 
 
@@ -89,30 +89,30 @@ service TransactionMetaService {
 
    bool putTransactions(1: list<Transaction> transactions) throws (1:ServerException error),
 
-   bool putSimpleTransactionAndData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data) throws (1:ServerException error),
+   bool putSimpleTransactionAndData(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data) throws (1:ServerException error),
 
-   ScanTransactionsInfo scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType from, 4: transactionIDType to, 5: i32 count, 6: set<TransactionStates> states) throws (1:ServerException error),
+   ScanTransactionsInfo scanTransactions(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType from, 4: transactionIDType to, 5: i32 count, 6: set<TransactionStates> states) throws (1:ServerException error),
 
-   TransactionInfo getTransaction(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error),
+   TransactionInfo getTransaction(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error),
 
-   transactionIDType getLastCheckpointedTransaction(1: StreamType stream, 2: PartitionType partition) throws (1:ServerException error)
+   transactionIDType getLastCheckpointedTransaction(1: StreamIDType streamID, 2: PartitionType partition) throws (1:ServerException error)
 }
 
 
 
 service TransactionDataService {
 
-  bool putTransactionData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data, 5: i32 from) throws (1:ServerException error),
+  bool putTransactionData(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data, 5: i32 from) throws (1:ServerException error),
 
-  list <binary> getTransactionData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: i32 from, 5: i32 to) throws (1:ServerException error)
+  list <binary> getTransactionData(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction, 4: i32 from, 5: i32 to) throws (1:ServerException error)
 }
 
 
 service ConsumerService {
 
- bool putConsumerCheckpoint(1: string name, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction) throws (1:ServerException error),
+ bool putConsumerCheckpoint(1: string name, 2: StreamIDType streamID, 3: PartitionType partition, 4: transactionIDType transaction) throws (1:ServerException error),
 
- i64 getConsumerState(1: string name, 2: StreamType stream, 3: PartitionType partition) throws (1:ServerException error)
+ i64 getConsumerState(1: string name, 2: StreamIDType streamID, 3: PartitionType partition) throws (1:ServerException error)
 }
 
 
@@ -128,33 +128,33 @@ service TransactionService {
 
   CommitLogInfo getCommitLogOffsets() throws (1:ServerException error)
 
-  bool putStream(1: StreamType stream, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
+  StreamIDType putStream(1: string stream, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
 
-  bool checkStreamExists(1: StreamType stream) throws (1:ServerException error),
+  bool checkStreamExists(1: StreamIDType streamID) throws (1:ServerException error),
 
-  Stream getStream(1: StreamType stream) throws (1:ServerException error),
+  Stream getStream(1: StreamIDType streamID) throws (1:ServerException error),
 
-  bool delStream(1: StreamType stream) throws (1:ServerException error),
+  bool delStream(1: StreamIDType streamID) throws (1:ServerException error),
 
   bool putTransaction(1: Transaction transaction) throws (1:ServerException error),
 
   bool putTransactions(1: list<Transaction> transactions) throws (1:ServerException error),
 
-  bool putSimpleTransactionAndData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data) throws (1:ServerException error),
+  bool putSimpleTransactionAndData(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data) throws (1:ServerException error),
 
-  ScanTransactionsInfo scanTransactions(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType from, 4: transactionIDType to, 5: i32 count, 6: set<TransactionStates> states) throws (1:ServerException error),
+  ScanTransactionsInfo scanTransactions(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType from, 4: transactionIDType to, 5: i32 count, 6: set<TransactionStates> states) throws (1:ServerException error),
 
-  TransactionInfo getTransaction(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error),
+  TransactionInfo getTransaction(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction) throws (1:ServerException error),
 
-  transactionIDType getLastCheckpointedTransaction(1: StreamType stream, 2: PartitionType partition) throws (1:ServerException error),
+  transactionIDType getLastCheckpointedTransaction(1: StreamIDType streamID, 2: PartitionType partition) throws (1:ServerException error),
 
-  bool putTransactionData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data, 5: i32 from) throws (1:ServerException error),
+  bool putTransactionData(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data, 5: i32 from) throws (1:ServerException error),
 
-  list <binary> getTransactionData(1: StreamType stream, 2: PartitionType partition, 3: transactionIDType transaction, 4: i32 from, 5: i32 to) throws (1:ServerException error),
+  list <binary> getTransactionData(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction, 4: i32 from, 5: i32 to) throws (1:ServerException error),
 
-  bool putConsumerCheckpoint(1: string name, 2: StreamType stream, 3: PartitionType partition, 4: transactionIDType transaction) throws (1:ServerException error),
+  bool putConsumerCheckpoint(1: string name, 2: StreamIDType streamID, 3: PartitionType partition, 4: transactionIDType transaction) throws (1:ServerException error),
 
-  transactionIDType getConsumerState(1: string name, 2: StreamType stream, 3: PartitionType partition) throws (1:ServerException error),
+  transactionIDType getConsumerState(1: string name, 2: StreamIDType streamID, 3: PartitionType partition) throws (1:ServerException error),
 
   AuthInfo authenticate(1: string authKey),
 

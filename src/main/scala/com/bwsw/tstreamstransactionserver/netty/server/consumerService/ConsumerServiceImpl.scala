@@ -3,21 +3,22 @@ package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamCache
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
 
 
-trait ConsumerServiceImpl extends Authenticable with ConsumerTransactionStateNotifier {
-  val executionContext: ServerExecutionContext
-  val rocksMetaServiceDB: RocksDBALL
-
+class ConsumerServiceImpl(executionContext: ServerExecutionContext,
+                          rocksMetaServiceDB: RocksDBALL,
+                          streamCache: StreamCache
+                         ) extends ConsumerTransactionStateNotifier
+{
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val consumerDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.CONSUMER_STORE)
 
-  def getConsumerState(name: String, stream: String, partition: Int): Long = {
-    val streamNameAsLong = getMostRecentStream(stream).id
-    val consumerTransactionKey = ConsumerTransactionKey(name, streamNameAsLong, partition).toByteArray
+  def getConsumerState(name: String, streamID: Int, partition: Int): Long = {
+    val consumerTransactionKey = ConsumerTransactionKey(name, streamID, partition).toByteArray
     val consumerTransactionValue = Option(consumerDatabase.get(consumerTransactionKey))
     consumerTransactionValue.map(bytes =>
       ConsumerTransactionValue.fromByteArray(bytes).transactionId

@@ -7,6 +7,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
 import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCache, StreamKey, StreamRecord, StreamValue}
+import com.bwsw.tstreamstransactionserver.rpc
 import com.google.common.net.InetAddresses
 import io.netty.resolver.dns.DnsNameResolver
 import org.apache.curator.RetryPolicy
@@ -26,8 +28,8 @@ class ZKClientServer(serverAddress: String,
                      sessionTimeoutMillis: Int,
                      connectionTimeoutMillis: Int,
                      policy: RetryPolicy
-                               )
-  extends Closeable {
+                    ) extends Closeable
+{
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -68,33 +70,102 @@ class ZKClientServer(serverAddress: String,
     }
   }
 
-  final def replicationGroup(path: String) = new ReplicationGroup(path)
-  final class ReplicationGroup(path: String) {
-    import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheListener}
-    import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
+  final class StreamDatabaseZK(path: String) extends StreamCache {
     import scala.collection.JavaConverters._
 
-    final class Listener(listener: PathChildrenCacheListener) {
-      private val cache = new PathChildrenCache(client, path, true)
-      cache.getListenable.addListener(listener)
-      cache.start()
+    private val streamCache = new java.util.concurrent.ConcurrentHashMap[StreamKey, StreamValue]()
+    private def initializeCache(): Unit = {
+      val statOpt = Option(client.checkExists().creatingParentContainersIfNeeded().forPath(path))
+      val streams = statOpt.map{_ =>
+        val streamsIds = client.getChildren.forPath(path).asScala
+        streamsIds.map{id =>
+          val streamValueBinary = client.getData.forPath(id)
+          val streamKey   = StreamKey(id.toInt)
+          val streamValue = StreamValue.fromByteArray(streamValueBinary)
+          StreamRecord(streamKey, streamValue)
+        }
+      }.getOrElse(Seq.empty[StreamRecord])
 
-      def close(): Unit = cache.close()
+      streams.foreach(record => streamCache.put(record.key, record.stream))
     }
 
-    final class Election(listener: LeaderLatchListener) {
-      private val leaderLatch = new LeaderLatch(client, path, socketAddress, LeaderLatch.CloseMode.NOTIFY_LEADER)
-      leaderLatch.addListener(listener)
-
-      def participants: Iterable[Participant] = leaderLatch.getParticipants.asScala
-
-      def join(): Unit = leaderLatch.start()
-      def leave(): Unit = leaderLatch.close(LeaderLatch.CloseMode.NOTIFY_LEADER)
+    private val streamsPath = s"$path/"
+    private def buildPath(streamID: Int): String = s"$streamsPath$streamID"
+    override def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): StreamKey = {
+      val streamValue = StreamValue(stream, partitions, description, ttl)
+      val id = client.create()
+        .withMode(CreateMode.PERSISTENT_SEQUENTIAL)
+        .forPath(streamsPath, streamValue.toByteArray)
+      val streamKey = StreamKey(id.toInt)
+      streamCache.put(streamKey, streamValue)
+      streamKey
     }
 
-    def election(listener: LeaderLatchListener) = new Election(listener)
-    def listener(listener: PathChildrenCacheListener) = new Listener(listener)
+    override def checkStreamExists(streamID: Int): Boolean = {
+      val streamKey = StreamKey(streamID)
+      Option(streamCache.get(streamKey))
+        .orElse(Option(client.checkExists().forPath(buildPath(streamID))))
+        .exists(_ => true)
+    }
+
+    override def delStream(streamID: Int): Boolean = {
+      if (checkStreamExists(streamID)) {
+        client.delete().forPath(buildPath(streamID))
+        streamCache.remove( StreamKey(streamID))
+        true
+      }
+      else false
+    }
+
+    override def getStream(streamID: Int): Option[StreamRecord] = {
+      val streamKey = StreamKey(streamID)
+      Option(streamCache.get(streamKey))
+        .map(streamValue => StreamRecord(streamKey, streamValue))
+        .orElse {
+          val streamValueOpt = Option(client.getData.forPath(buildPath(streamID)))
+          streamValueOpt.map { streamValueBinary =>
+            val streamValue = StreamValue.fromByteArray(streamValueBinary)
+            StreamRecord(streamKey, streamValue)
+          }
+        }
+    }
+
+    override def getAllStreams: Seq[StreamRecord] = {
+      streamCache.asScala.map{case (key,value) => StreamRecord(key,value)}.toSeq
+    }
+    initializeCache()
   }
+
+  def streamDatabase(path: String) = new StreamDatabaseZK(path)
+
+
+//  final def replicationGroup(path: String) = new ReplicationGroup(path)
+//  final class ReplicationGroup(path: String) {
+//    import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheListener}
+//    import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
+//    import scala.collection.JavaConverters._
+//
+//    final class Listener(listener: PathChildrenCacheListener) {
+//      private val cache = new PathChildrenCache(client, path, true)
+//      cache.getListenable.addListener(listener)
+//      cache.start()
+//
+//      def close(): Unit = cache.close()
+//    }
+//
+//    final class Election(listener: LeaderLatchListener) {
+//      private val leaderLatch = new LeaderLatch(client, path, socketAddress, LeaderLatch.CloseMode.NOTIFY_LEADER)
+//      leaderLatch.addListener(listener)
+//
+//      def participants: Iterable[Participant] = leaderLatch.getParticipants.asScala
+//
+//      def join(): Unit = leaderLatch.start()
+//      def leave(): Unit = leaderLatch.close(LeaderLatch.CloseMode.NOTIFY_LEADER)
+//    }
+//
+//    def election(listener: LeaderLatchListener) = new Election(listener)
+//    def listener(listener: PathChildrenCacheListener) = new Listener(listener)
+//  }
 
 
   final def putSocketAddress(path: String): Try[String] = {

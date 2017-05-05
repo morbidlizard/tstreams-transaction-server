@@ -31,6 +31,7 @@ object Throwable {
     private val message: String = if (isPartialMessage) s"Stream $stream doesn't exist in database!" else stream
   } with NoSuchElementException(message)
 
+
   val PackageTooBigExceptionMessagePart: String = "A size of client request is greater"
   class PackageTooBigException(msg: String = "") extends Exception(msg)
 

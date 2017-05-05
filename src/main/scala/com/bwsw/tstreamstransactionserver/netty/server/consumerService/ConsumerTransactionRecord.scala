@@ -4,7 +4,7 @@ case class ConsumerTransactionRecord(key: ConsumerTransactionKey, consumerTransa
 {
   def transactionID: Long = consumerTransaction.transactionId
   def name: String = key.name
-  def stream: Long = Long2long(key.stream)
+  def stream: Long = Long2long(key.streamID)
   def partition: Int = key.partition
   def timestamp: Long = Long2long(consumerTransaction.timestamp)
   override def toString: String = s"Consumer transaction: stream:$stream, partition:$partition, transaction:$transactionID, name:$name"

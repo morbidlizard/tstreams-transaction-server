@@ -5,9 +5,9 @@ import java.util.concurrent.{Callable, TimeUnit}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCache, StreamRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment, StreamCache}
+import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
 

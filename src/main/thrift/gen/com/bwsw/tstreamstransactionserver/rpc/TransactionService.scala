@@ -39,33 +39,33 @@ trait TransactionService[+MM[_]] extends ThriftService {
   
   def getCommitLogOffsets(): MM[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo]
   
-  def putStream(stream: String, partitions: Int, description: Option[String] = None, ttl: Long): MM[Boolean]
+  def putStream(stream: String, partitions: Int, description: Option[String] = None, ttl: Long): MM[Int]
   
-  def checkStreamExists(stream: String): MM[Boolean]
+  def checkStreamExists(streamID: Int): MM[Boolean]
   
-  def getStream(stream: String): MM[com.bwsw.tstreamstransactionserver.rpc.Stream]
+  def getStream(streamID: Int): MM[com.bwsw.tstreamstransactionserver.rpc.Stream]
   
-  def delStream(stream: String): MM[Boolean]
+  def delStream(streamID: Int): MM[Boolean]
   
   def putTransaction(transaction: com.bwsw.tstreamstransactionserver.rpc.Transaction): MM[Boolean]
   
   def putTransactions(transactions: Seq[com.bwsw.tstreamstransactionserver.rpc.Transaction] = Seq[com.bwsw.tstreamstransactionserver.rpc.Transaction]()): MM[Boolean]
   
-  def putSimpleTransactionAndData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): MM[Boolean]
+  def putSimpleTransactionAndData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): MM[Boolean]
   
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()): MM[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo]
+  def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()): MM[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo]
   
-  def getTransaction(stream: String, partition: Int, transaction: Long): MM[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo]
+  def getTransaction(streamID: Int, partition: Int, transaction: Long): MM[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo]
   
-  def getLastCheckpointedTransaction(stream: String, partition: Int): MM[Long]
+  def getLastCheckpointedTransaction(streamID: Int, partition: Int): MM[Long]
   
-  def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): MM[Boolean]
+  def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer] = Seq[ByteBuffer](), from: Int): MM[Boolean]
   
-  def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): MM[Seq[ByteBuffer]]
+  def getTransactionData(streamID: Int, partition: Int, transaction: Long, from: Int, to: Int): MM[Seq[ByteBuffer]]
   
-  def putConsumerCheckpoint(name: String, stream: String, partition: Int, transaction: Long): MM[Boolean]
+  def putConsumerCheckpoint(name: String, streamID: Int, partition: Int, transaction: Long): MM[Boolean]
   
-  def getConsumerState(name: String, stream: String, partition: Int): MM[Long]
+  def getConsumerState(name: String, streamID: Int, partition: Int): MM[Long]
   
   def authenticate(authKey: String): MM[com.bwsw.tstreamstransactionserver.rpc.AuthInfo]
   
@@ -854,13 +854,13 @@ object TransactionService { self =>
       def _codec: ThriftStructCodec3[Args] = Args
     }
 
-    type SuccessType = Boolean
+    type SuccessType = Int
     
     object Result extends ThriftStructCodec3[Result] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("putStream_result")
-      val SuccessField = new TField("success", TType.BOOL, 0)
-      val SuccessFieldManifest = implicitly[Manifest[Boolean]]
+      val SuccessField = new TField("success", TType.I32, 0)
+      val SuccessFieldManifest = implicitly[Manifest[Int]]
       val ErrorField = new TField("error", TType.STRUCT, 1)
       val ErrorFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
     
@@ -924,7 +924,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Result = {
-        var success: _root_.scala.Option[Boolean] = _root_.scala.None
+        var success: _root_.scala.Option[Int] = _root_.scala.None
         var error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
@@ -938,10 +938,10 @@ object TransactionService { self =>
             _field.id match {
               case 0 =>
                 _field.`type` match {
-                  case TType.BOOL =>
+                  case TType.I32 =>
                     success = _root_.scala.Some(readSuccessValue(_iprot))
                   case _actualType =>
-                    val _expectedType = TType.BOOL
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
                       "Received wrong type for field 'success' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
@@ -983,7 +983,7 @@ object TransactionService { self =>
       }
     
       def apply(
-        success: _root_.scala.Option[Boolean] = _root_.scala.None,
+        success: _root_.scala.Option[Int] = _root_.scala.None,
         error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ): Result =
         new Result(
@@ -991,21 +991,21 @@ object TransactionService { self =>
           error
         )
     
-      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Int], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readSuccessValue(_iprot: TProtocol): Boolean = {
-        _iprot.readBool()
+      @inline private def readSuccessValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeSuccessField(success_item: Boolean, _oprot: TProtocol): Unit = {
+      @inline private def writeSuccessField(success_item: Int, _oprot: TProtocol): Unit = {
         _oprot.writeFieldBegin(SuccessField)
         writeSuccessValue(success_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeSuccessValue(success_item: Boolean, _oprot: TProtocol): Unit = {
-        _oprot.writeBool(success_item)
+      @inline private def writeSuccessValue(success_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(success_item)
       }
     
       @inline private def readErrorValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ServerException = {
@@ -1026,17 +1026,17 @@ object TransactionService { self =>
     }
     
     class Result(
-        val success: _root_.scala.Option[Boolean],
+        val success: _root_.scala.Option[Int],
         val error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
-      extends ThriftResponse[Boolean] with ThriftStruct
-      with _root_.scala.Product2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
+      extends ThriftResponse[Int] with ThriftStruct
+      with _root_.scala.Product2[Option[Int], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
       with HasThriftStructCodec3[Result]
       with java.io.Serializable
     {
       import Result._
       def this(
-        success: _root_.scala.Option[Boolean] = _root_.scala.None,
+        success: _root_.scala.Option[Int] = _root_.scala.None,
         error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
       ) = this(
         success,
@@ -1047,14 +1047,14 @@ object TransactionService { self =>
       def _1 = success
       def _2 = error
     
-      def toTuple: _root_.scala.Tuple2[Option[Boolean], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]] = {
+      def toTuple: _root_.scala.Tuple2[Option[Int], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]] = {
         (
           success,
           error
         )
       }
     
-      def successField: Option[Boolean] = success
+      def successField: Option[Int] = success
       def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(error)
     
     
@@ -1071,7 +1071,7 @@ object TransactionService { self =>
       }
     
       def copy(
-        success: _root_.scala.Option[Boolean] = this.success,
+        success: _root_.scala.Option[Int] = this.success,
         error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = this.error,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Result =
@@ -1139,18 +1139,18 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("checkStreamExists_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
     
       /**
        * Field information in declaration order.
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -1170,9 +1170,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             }
         )
@@ -1182,7 +1182,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1195,12 +1195,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -1217,7 +1217,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -1226,56 +1226,56 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String
+        streamID: Int
       ): Args =
         new Args(
-          stream
+          streamID
         )
     
-      def unapply(_item: Args): _root_.scala.Option[String] = _root_.scala.Some(_item.stream)
+      def unapply(_item: Args): _root_.scala.Option[Int] = _root_.scala.Some(_item.streamID)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
     
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product1[String]
+      with _root_.scala.Product1[Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String
+        streamID: Int
       ) = this(
-        stream,
+        streamID,
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
     
     
     
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -1284,11 +1284,11 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           _passthroughFields
         )
     
@@ -1311,7 +1311,7 @@ object TransactionService { self =>
       override def productArity: Int = 1
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -1605,18 +1605,18 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("getStream_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
     
       /**
        * Field information in declaration order.
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -1636,9 +1636,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             }
         )
@@ -1648,7 +1648,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -1661,12 +1661,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -1683,7 +1683,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -1692,56 +1692,56 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String
+        streamID: Int
       ): Args =
         new Args(
-          stream
+          streamID
         )
     
-      def unapply(_item: Args): _root_.scala.Option[String] = _root_.scala.Some(_item.stream)
+      def unapply(_item: Args): _root_.scala.Option[Int] = _root_.scala.Some(_item.streamID)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
     
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product1[String]
+      with _root_.scala.Product1[Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String
+        streamID: Int
       ) = this(
-        stream,
+        streamID,
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
     
     
     
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -1750,11 +1750,11 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           _passthroughFields
         )
     
@@ -1777,7 +1777,7 @@ object TransactionService { self =>
       override def productArity: Int = 1
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -2071,18 +2071,18 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("delStream_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
     
       /**
        * Field information in declaration order.
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -2102,9 +2102,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             }
         )
@@ -2114,7 +2114,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
     
@@ -2127,12 +2127,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -2149,7 +2149,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           if (_passthroughFields == null)
             NoPassthroughFields
           else
@@ -2158,56 +2158,56 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String
+        streamID: Int
       ): Args =
         new Args(
-          stream
+          streamID
         )
     
-      def unapply(_item: Args): _root_.scala.Option[String] = _root_.scala.Some(_item.stream)
+      def unapply(_item: Args): _root_.scala.Option[Int] = _root_.scala.Some(_item.streamID)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
     
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product1[String]
+      with _root_.scala.Product1[Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String
+        streamID: Int
       ) = this(
-        stream,
+        streamID,
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
     
     
     
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
         }
@@ -2216,11 +2216,11 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           _passthroughFields
         )
     
@@ -2243,7 +2243,7 @@ object TransactionService { self =>
       override def productArity: Int = 1
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
     
@@ -3501,8 +3501,8 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("putSimpleTransactionAndData_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
       val PartitionField = new TField("partition", TType.I32, 2)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
       val TransactionField = new TField("transaction", TType.I64, 3)
@@ -3515,10 +3515,10 @@ object TransactionService { self =>
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -3571,9 +3571,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             },
           partition =
@@ -3600,7 +3600,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var partition: Int = 0
         var transaction: Long = 0L
         var data: Seq[ByteBuffer] = Seq[ByteBuffer]()
@@ -3616,12 +3616,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -3677,7 +3677,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           data,
@@ -3689,33 +3689,33 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long,
         data: Seq[ByteBuffer] = Seq[ByteBuffer]()
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           data
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple4[String, Int, Long, Seq[ByteBuffer]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple4[Int, Int, Long, Seq[ByteBuffer]]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
       @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -3794,38 +3794,38 @@ object TransactionService { self =>
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val partition: Int,
         val transaction: Long,
         val data: Seq[ByteBuffer],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product4[String, Int, Long, Seq[ByteBuffer]]
+      with _root_.scala.Product4[Int, Int, Long, Seq[ByteBuffer]]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long,
         data: Seq[ByteBuffer] = Seq[ByteBuffer]()
       ) = this(
-        stream,
+        streamID,
         partition,
         transaction,
         data,
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
       def _2 = partition
       def _3 = transaction
       def _4 = data
     
-      def toTuple: _root_.scala.Tuple4[String, Int, Long, Seq[ByteBuffer]] = {
+      def toTuple: _root_.scala.Tuple4[Int, Int, Long, Seq[ByteBuffer]] = {
         (
-          stream,
+          streamID,
           partition,
           transaction,
           data
@@ -3837,7 +3837,7 @@ object TransactionService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         writePartitionField(partition, _oprot)
         writeTransactionField(transaction, _oprot)
         if (data ne null) writeDataField(data, _oprot)
@@ -3849,14 +3849,14 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         partition: Int = this.partition,
         transaction: Long = this.transaction,
         data: Seq[ByteBuffer] = this.data,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           data,
@@ -3882,7 +3882,7 @@ object TransactionService { self =>
       override def productArity: Int = 4
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case 1 => this.partition
         case 2 => this.transaction
         case 3 => this.data
@@ -4179,8 +4179,8 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("scanTransactions_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
       val PartitionField = new TField("partition", TType.I32, 2)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
       val FromField = new TField("from", TType.I64, 3)
@@ -4197,10 +4197,10 @@ object TransactionService { self =>
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -4275,9 +4275,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             },
           partition =
@@ -4314,7 +4314,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var partition: Int = 0
         var from: Long = 0L
         var to: Long = 0L
@@ -4332,12 +4332,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -4419,7 +4419,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           partition,
           from,
           to,
@@ -4433,7 +4433,7 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String,
+        streamID: Int,
         partition: Int,
         from: Long,
         to: Long,
@@ -4441,7 +4441,7 @@ object TransactionService { self =>
         states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           from,
           to,
@@ -4449,21 +4449,21 @@ object TransactionService { self =>
           states
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple6[String, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple6[Int, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
       @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -4559,7 +4559,7 @@ object TransactionService { self =>
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val partition: Int,
         val from: Long,
         val to: Long,
@@ -4567,20 +4567,20 @@ object TransactionService { self =>
         val states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates],
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product6[String, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]]
+      with _root_.scala.Product6[Int, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String,
+        streamID: Int,
         partition: Int,
         from: Long,
         to: Long,
         count: Int,
         states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()
       ) = this(
-        stream,
+        streamID,
         partition,
         from,
         to,
@@ -4589,16 +4589,16 @@ object TransactionService { self =>
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
       def _2 = partition
       def _3 = from
       def _4 = to
       def _5 = count
       def _6 = states
     
-      def toTuple: _root_.scala.Tuple6[String, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]] = {
+      def toTuple: _root_.scala.Tuple6[Int, Int, Long, Long, Int, Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]] = {
         (
-          stream,
+          streamID,
           partition,
           from,
           to,
@@ -4612,7 +4612,7 @@ object TransactionService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         writePartitionField(partition, _oprot)
         writeFromField(from, _oprot)
         writeToField(to, _oprot)
@@ -4626,7 +4626,7 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         partition: Int = this.partition,
         from: Long = this.from,
         to: Long = this.to,
@@ -4635,7 +4635,7 @@ object TransactionService { self =>
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           from,
           to,
@@ -4663,7 +4663,7 @@ object TransactionService { self =>
       override def productArity: Int = 6
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case 1 => this.partition
         case 2 => this.from
         case 3 => this.to
@@ -4962,8 +4962,8 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("getTransaction_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
       val PartitionField = new TField("partition", TType.I32, 2)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
       val TransactionField = new TField("transaction", TType.I64, 3)
@@ -4974,10 +4974,10 @@ object TransactionService { self =>
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -5019,9 +5019,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             },
           partition =
@@ -5041,7 +5041,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var partition: Int = 0
         var transaction: Long = 0L
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
@@ -5056,12 +5056,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -5104,7 +5104,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           if (_passthroughFields == null)
@@ -5115,31 +5115,31 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           transaction
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple3[String, Int, Long]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple3[Int, Int, Long]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
       @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -5174,34 +5174,34 @@ object TransactionService { self =>
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val partition: Int,
         val transaction: Long,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product3[String, Int, Long]
+      with _root_.scala.Product3[Int, Int, Long]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long
       ) = this(
-        stream,
+        streamID,
         partition,
         transaction,
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
       def _2 = partition
       def _3 = transaction
     
-      def toTuple: _root_.scala.Tuple3[String, Int, Long] = {
+      def toTuple: _root_.scala.Tuple3[Int, Int, Long] = {
         (
-          stream,
+          streamID,
           partition,
           transaction
         )
@@ -5212,7 +5212,7 @@ object TransactionService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         writePartitionField(partition, _oprot)
         writeTransactionField(transaction, _oprot)
         if (_passthroughFields.nonEmpty) {
@@ -5223,13 +5223,13 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         partition: Int = this.partition,
         transaction: Long = this.transaction,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           _passthroughFields
@@ -5254,7 +5254,7 @@ object TransactionService { self =>
       override def productArity: Int = 3
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case 1 => this.partition
         case 2 => this.transaction
         case _ => throw new IndexOutOfBoundsException(n.toString)
@@ -5550,8 +5550,8 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("getLastCheckpointedTransaction_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
       val PartitionField = new TField("partition", TType.I32, 2)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
     
@@ -5560,10 +5560,10 @@ object TransactionService { self =>
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -5594,9 +5594,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             },
           partition =
@@ -5611,7 +5611,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var partition: Int = 0
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
@@ -5625,12 +5625,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -5660,7 +5660,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           partition,
           if (_passthroughFields == null)
             NoPassthroughFields
@@ -5670,29 +5670,29 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String,
+        streamID: Int,
         partition: Int
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple2[String, Int]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple2[Int, Int]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
       @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -5713,30 +5713,30 @@ object TransactionService { self =>
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val partition: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product2[String, Int]
+      with _root_.scala.Product2[Int, Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String,
+        streamID: Int,
         partition: Int
       ) = this(
-        stream,
+        streamID,
         partition,
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
       def _2 = partition
     
-      def toTuple: _root_.scala.Tuple2[String, Int] = {
+      def toTuple: _root_.scala.Tuple2[Int, Int] = {
         (
-          stream,
+          streamID,
           partition
         )
       }
@@ -5746,7 +5746,7 @@ object TransactionService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         writePartitionField(partition, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
@@ -5756,12 +5756,12 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         partition: Int = this.partition,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           _passthroughFields
         )
@@ -5785,7 +5785,7 @@ object TransactionService { self =>
       override def productArity: Int = 2
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case 1 => this.partition
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }
@@ -6080,8 +6080,8 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("putTransactionData_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
       val PartitionField = new TField("partition", TType.I32, 2)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
       val TransactionField = new TField("transaction", TType.I64, 3)
@@ -6096,10 +6096,10 @@ object TransactionService { self =>
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -6163,9 +6163,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             },
           partition =
@@ -6197,7 +6197,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var partition: Int = 0
         var transaction: Long = 0L
         var data: Seq[ByteBuffer] = Seq[ByteBuffer]()
@@ -6214,12 +6214,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -6288,7 +6288,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           data,
@@ -6301,35 +6301,35 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long,
         data: Seq[ByteBuffer] = Seq[ByteBuffer](),
         from: Int
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           data,
           from
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple5[String, Int, Long, Seq[ByteBuffer], Int]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple5[Int, Int, Long, Seq[ByteBuffer], Int]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
       @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -6422,26 +6422,26 @@ object TransactionService { self =>
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val partition: Int,
         val transaction: Long,
         val data: Seq[ByteBuffer],
         val from: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product5[String, Int, Long, Seq[ByteBuffer], Int]
+      with _root_.scala.Product5[Int, Int, Long, Seq[ByteBuffer], Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long,
         data: Seq[ByteBuffer] = Seq[ByteBuffer](),
         from: Int
       ) = this(
-        stream,
+        streamID,
         partition,
         transaction,
         data,
@@ -6449,15 +6449,15 @@ object TransactionService { self =>
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
       def _2 = partition
       def _3 = transaction
       def _4 = data
       def _5 = from
     
-      def toTuple: _root_.scala.Tuple5[String, Int, Long, Seq[ByteBuffer], Int] = {
+      def toTuple: _root_.scala.Tuple5[Int, Int, Long, Seq[ByteBuffer], Int] = {
         (
-          stream,
+          streamID,
           partition,
           transaction,
           data,
@@ -6470,7 +6470,7 @@ object TransactionService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         writePartitionField(partition, _oprot)
         writeTransactionField(transaction, _oprot)
         if (data ne null) writeDataField(data, _oprot)
@@ -6483,7 +6483,7 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         partition: Int = this.partition,
         transaction: Long = this.transaction,
         data: Seq[ByteBuffer] = this.data,
@@ -6491,7 +6491,7 @@ object TransactionService { self =>
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           data,
@@ -6518,7 +6518,7 @@ object TransactionService { self =>
       override def productArity: Int = 5
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case 1 => this.partition
         case 2 => this.transaction
         case 3 => this.data
@@ -6816,8 +6816,8 @@ object TransactionService { self =>
     object Args extends ThriftStructCodec3[Args] {
       private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
       val Struct = new TStruct("getTransactionData_args")
-      val StreamField = new TField("stream", TType.STRING, 1)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
       val PartitionField = new TField("partition", TType.I32, 2)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
       val TransactionField = new TField("transaction", TType.I64, 3)
@@ -6832,10 +6832,10 @@ object TransactionService { self =>
        */
       lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -6899,9 +6899,9 @@ object TransactionService { self =>
     
       def withoutPassthroughFields(original: Args): Args =
         new Args(
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             },
           partition =
@@ -6931,7 +6931,7 @@ object TransactionService { self =>
       }
     
       override def decode(_iprot: TProtocol): Args = {
-        var stream: String = null
+        var streamID: Int = 0
         var partition: Int = 0
         var transaction: Long = 0L
         var from: Int = 0
@@ -6948,12 +6948,12 @@ object TransactionService { self =>
             _field.id match {
               case 1 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -7022,7 +7022,7 @@ object TransactionService { self =>
         _iprot.readStructEnd()
     
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           from,
@@ -7035,35 +7035,35 @@ object TransactionService { self =>
       }
     
       def apply(
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long,
         from: Int,
         to: Int
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           from,
           to
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple5[String, Int, Long, Int, Int]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple5[Int, Int, Long, Int, Int]] = _root_.scala.Some(_item.toTuple)
     
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
       @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -7126,26 +7126,26 @@ object TransactionService { self =>
     }
     
     class Args(
-        val stream: String,
+        val streamID: Int,
         val partition: Int,
         val transaction: Long,
         val from: Int,
         val to: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product5[String, Int, Long, Int, Int]
+      with _root_.scala.Product5[Int, Int, Long, Int, Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long,
         from: Int,
         to: Int
       ) = this(
-        stream,
+        streamID,
         partition,
         transaction,
         from,
@@ -7153,15 +7153,15 @@ object TransactionService { self =>
         Map.empty
       )
     
-      def _1 = stream
+      def _1 = streamID
       def _2 = partition
       def _3 = transaction
       def _4 = from
       def _5 = to
     
-      def toTuple: _root_.scala.Tuple5[String, Int, Long, Int, Int] = {
+      def toTuple: _root_.scala.Tuple5[Int, Int, Long, Int, Int] = {
         (
-          stream,
+          streamID,
           partition,
           transaction,
           from,
@@ -7174,7 +7174,7 @@ object TransactionService { self =>
       override def write(_oprot: TProtocol): Unit = {
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         writePartitionField(partition, _oprot)
         writeTransactionField(transaction, _oprot)
         writeFromField(from, _oprot)
@@ -7187,7 +7187,7 @@ object TransactionService { self =>
       }
     
       def copy(
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         partition: Int = this.partition,
         transaction: Long = this.transaction,
         from: Int = this.from,
@@ -7195,7 +7195,7 @@ object TransactionService { self =>
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
-          stream,
+          streamID,
           partition,
           transaction,
           from,
@@ -7222,7 +7222,7 @@ object TransactionService { self =>
       override def productArity: Int = 5
     
       override def productElement(n: Int): Any = n match {
-        case 0 => this.stream
+        case 0 => this.streamID
         case 1 => this.partition
         case 2 => this.transaction
         case 3 => this.from
@@ -7554,8 +7554,8 @@ object TransactionService { self =>
       val Struct = new TStruct("putConsumerCheckpoint_args")
       val NameField = new TField("name", TType.STRING, 1)
       val NameFieldManifest = implicitly[Manifest[String]]
-      val StreamField = new TField("stream", TType.STRING, 2)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 2)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
       val PartitionField = new TField("partition", TType.I32, 3)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
       val TransactionField = new TField("transaction", TType.I64, 4)
@@ -7577,10 +7577,10 @@ object TransactionService { self =>
           None
         ),
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -7627,9 +7627,9 @@ object TransactionService { self =>
               val field = original.name
               field
             },
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             },
           partition =
@@ -7650,7 +7650,7 @@ object TransactionService { self =>
     
       override def decode(_iprot: TProtocol): Args = {
         var name: String = null
-        var stream: String = null
+        var streamID: Int = 0
         var partition: Int = 0
         var transaction: Long = 0L
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
@@ -7678,12 +7678,12 @@ object TransactionService { self =>
                 }
               case 2 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -7727,7 +7727,7 @@ object TransactionService { self =>
     
         new Args(
           name,
-          stream,
+          streamID,
           partition,
           transaction,
           if (_passthroughFields == null)
@@ -7739,18 +7739,18 @@ object TransactionService { self =>
     
       def apply(
         name: String,
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long
       ): Args =
         new Args(
           name,
-          stream,
+          streamID,
           partition,
           transaction
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple4[String, String, Int, Long]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple4[String, Int, Int, Long]] = _root_.scala.Some(_item.toTuple)
     
     
       @inline private def readNameValue(_iprot: TProtocol): String = {
@@ -7767,18 +7767,18 @@ object TransactionService { self =>
         _oprot.writeString(name_item)
       }
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
       @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -7814,38 +7814,38 @@ object TransactionService { self =>
     
     class Args(
         val name: String,
-        val stream: String,
+        val streamID: Int,
         val partition: Int,
         val transaction: Long,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product4[String, String, Int, Long]
+      with _root_.scala.Product4[String, Int, Int, Long]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
         name: String,
-        stream: String,
+        streamID: Int,
         partition: Int,
         transaction: Long
       ) = this(
         name,
-        stream,
+        streamID,
         partition,
         transaction,
         Map.empty
       )
     
       def _1 = name
-      def _2 = stream
+      def _2 = streamID
       def _3 = partition
       def _4 = transaction
     
-      def toTuple: _root_.scala.Tuple4[String, String, Int, Long] = {
+      def toTuple: _root_.scala.Tuple4[String, Int, Int, Long] = {
         (
           name,
-          stream,
+          streamID,
           partition,
           transaction
         )
@@ -7857,7 +7857,7 @@ object TransactionService { self =>
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
         if (name ne null) writeNameField(name, _oprot)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         writePartitionField(partition, _oprot)
         writeTransactionField(transaction, _oprot)
         if (_passthroughFields.nonEmpty) {
@@ -7869,14 +7869,14 @@ object TransactionService { self =>
     
       def copy(
         name: String = this.name,
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         partition: Int = this.partition,
         transaction: Long = this.transaction,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
           name,
-          stream,
+          streamID,
           partition,
           transaction,
           _passthroughFields
@@ -7902,7 +7902,7 @@ object TransactionService { self =>
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.name
-        case 1 => this.stream
+        case 1 => this.streamID
         case 2 => this.partition
         case 3 => this.transaction
         case _ => throw new IndexOutOfBoundsException(n.toString)
@@ -8200,8 +8200,8 @@ object TransactionService { self =>
       val Struct = new TStruct("getConsumerState_args")
       val NameField = new TField("name", TType.STRING, 1)
       val NameFieldManifest = implicitly[Manifest[String]]
-      val StreamField = new TField("stream", TType.STRING, 2)
-      val StreamFieldManifest = implicitly[Manifest[String]]
+      val StreamIDField = new TField("streamID", TType.I32, 2)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
       val PartitionField = new TField("partition", TType.I32, 3)
       val PartitionFieldManifest = implicitly[Manifest[Int]]
     
@@ -8221,10 +8221,10 @@ object TransactionService { self =>
           None
         ),
         new ThriftStructFieldInfo(
-          StreamField,
+          StreamIDField,
           false,
           false,
-          StreamFieldManifest,
+          StreamIDFieldManifest,
           _root_.scala.None,
           _root_.scala.None,
           immutable$Map.empty[String, String],
@@ -8260,9 +8260,9 @@ object TransactionService { self =>
               val field = original.name
               field
             },
-          stream =
+          streamID =
             {
-              val field = original.stream
+              val field = original.streamID
               field
             },
           partition =
@@ -8278,7 +8278,7 @@ object TransactionService { self =>
     
       override def decode(_iprot: TProtocol): Args = {
         var name: String = null
-        var stream: String = null
+        var streamID: Int = 0
         var partition: Int = 0
         var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
         var _done = false
@@ -8305,12 +8305,12 @@ object TransactionService { self =>
                 }
               case 2 =>
                 _field.`type` match {
-                  case TType.STRING =>
-                    stream = readStreamValue(_iprot)
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
                   case _actualType =>
-                    val _expectedType = TType.STRING
+                    val _expectedType = TType.I32
                     throw new TProtocolException(
-                      "Received wrong type for field 'stream' (expected=%s, actual=%s).".format(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
                         ttypeToString(_expectedType),
                         ttypeToString(_actualType)
                       )
@@ -8341,7 +8341,7 @@ object TransactionService { self =>
     
         new Args(
           name,
-          stream,
+          streamID,
           partition,
           if (_passthroughFields == null)
             NoPassthroughFields
@@ -8352,16 +8352,16 @@ object TransactionService { self =>
     
       def apply(
         name: String,
-        stream: String,
+        streamID: Int,
         partition: Int
       ): Args =
         new Args(
           name,
-          stream,
+          streamID,
           partition
         )
     
-      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple3[String, String, Int]] = _root_.scala.Some(_item.toTuple)
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple3[String, Int, Int]] = _root_.scala.Some(_item.toTuple)
     
     
       @inline private def readNameValue(_iprot: TProtocol): String = {
@@ -8378,18 +8378,18 @@ object TransactionService { self =>
         _oprot.writeString(name_item)
       }
     
-      @inline private def readStreamValue(_iprot: TProtocol): String = {
-        _iprot.readString()
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
       }
     
-      @inline private def writeStreamField(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeFieldBegin(StreamField)
-        writeStreamValue(stream_item, _oprot)
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
         _oprot.writeFieldEnd()
       }
     
-      @inline private def writeStreamValue(stream_item: String, _oprot: TProtocol): Unit = {
-        _oprot.writeString(stream_item)
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
       }
     
       @inline private def readPartitionValue(_iprot: TProtocol): Int = {
@@ -8411,34 +8411,34 @@ object TransactionService { self =>
     
     class Args(
         val name: String,
-        val stream: String,
+        val streamID: Int,
         val partition: Int,
         val _passthroughFields: immutable$Map[Short, TFieldBlob])
       extends ThriftStruct
-      with _root_.scala.Product3[String, String, Int]
+      with _root_.scala.Product3[String, Int, Int]
       with HasThriftStructCodec3[Args]
       with java.io.Serializable
     {
       import Args._
       def this(
         name: String,
-        stream: String,
+        streamID: Int,
         partition: Int
       ) = this(
         name,
-        stream,
+        streamID,
         partition,
         Map.empty
       )
     
       def _1 = name
-      def _2 = stream
+      def _2 = streamID
       def _3 = partition
     
-      def toTuple: _root_.scala.Tuple3[String, String, Int] = {
+      def toTuple: _root_.scala.Tuple3[String, Int, Int] = {
         (
           name,
-          stream,
+          streamID,
           partition
         )
       }
@@ -8449,7 +8449,7 @@ object TransactionService { self =>
         Args.validate(this)
         _oprot.writeStructBegin(Struct)
         if (name ne null) writeNameField(name, _oprot)
-        if (stream ne null) writeStreamField(stream, _oprot)
+        writeStreamIDField(streamID, _oprot)
         writePartitionField(partition, _oprot)
         if (_passthroughFields.nonEmpty) {
           _passthroughFields.values.foreach { _.write(_oprot) }
@@ -8460,13 +8460,13 @@ object TransactionService { self =>
     
       def copy(
         name: String = this.name,
-        stream: String = this.stream,
+        streamID: Int = this.streamID,
         partition: Int = this.partition,
         _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
       ): Args =
         new Args(
           name,
-          stream,
+          streamID,
           partition,
           _passthroughFields
         )
@@ -8491,7 +8491,7 @@ object TransactionService { self =>
     
       override def productElement(n: Int): Any = n match {
         case 0 => this.name
-        case 1 => this.stream
+        case 1 => this.streamID
         case 2 => this.partition
         case _ => throw new IndexOutOfBoundsException(n.toString)
       }

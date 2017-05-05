@@ -327,7 +327,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @param partitions  a number of stream partitions.
     * @param description a description of stream.
     * @return Future of putStream operation that can be completed or not. If it is completed it returns:
-    *         1) TRUE if stream is persisted by a server or FALSE if there is a stream with such name on the server;
+    *         1) ID if stream is persisted by a server or -1 if there is a stream with such name on the server;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path.
@@ -335,10 +335,10 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     *
     */
-  def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Boolean] = {
+  def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Int] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream $stream with $partitions partitions, ttl $ttl and description.")
     onShutdownThrowException()
-    method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Boolean](
+    method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Int](
       Descriptors.PutStream,
       TransactionService.PutStream.Args(stream, partitions, description, ttl),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -349,7 +349,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *
     * @param stream an object of Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] structure.
     * @return Future of putStream operation that can be completed or not. If it is completed it returns:
-    *         1) TRUE if stream is persisted by a server or FALSE if there is a stream with such name on the server;
+    *         1) ID if stream is persisted by a server or -1 if there is a stream with such name on the server;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
@@ -357,11 +357,11 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def putStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Boolean] = {
+  def putStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Int] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream ${stream.name} with ${stream.partitions} partitions, ttl ${stream.ttl} and description.")
     onShutdownThrowException()
 
-    method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Boolean](
+    method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Int](
       Descriptors.PutStream,
       TransactionService.PutStream.Args(stream.name, stream.partitions, stream.description, stream.ttl),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -370,7 +370,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Deleting a stream by name on a server.
     *
-    * @param stream a name of stream.
+    * @param id an id of stream.
     * @return Future of putStream operation that can be completed or not. If it is completed it returns:
     *         1) TRUE if stream is removed by a server or FALSE if a stream is already deleted or there in no such stream on the server;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -380,42 +380,21 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def delStream(stream: String): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Deleting stream $stream.")
+  def delStream(id: Int): ScalaFuture[Boolean] = {
+    if (logger.isDebugEnabled) logger.debug(s"Deleting stream $id.")
     onShutdownThrowException()
 
     method[TransactionService.DelStream.Args, TransactionService.DelStream.Result, Boolean](
       Descriptors.DelStream,
-      TransactionService.DelStream.Args(stream),
+      TransactionService.DelStream.Args(id),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
 
-  /** Deleting a stream by Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] structure on a server.
-    *
-    * @param stream a name of stream.
-    * @return Future of delStream operation that can be completed or not. If it is completed it returns:
-    *         1) TRUE if stream is removed by a server or FALSE if a stream is already deleted or there in no such stream on the server;
-    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
-    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server;
-    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
-    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
-    *         4) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
-    */
-  def delStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled()) logger.debug(s"Deleting stream ${stream.name}.")
-    onShutdownThrowException()
-
-    method[TransactionService.DelStream.Args, TransactionService.DelStream.Result, Boolean](
-      Descriptors.DelStream,
-      TransactionService.DelStream.Args(stream.name),
-      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
-  }
 
   /** Retrieving a stream from a server by it's name.
     *
-    * @param stream a name of stream.
+    * @param id an id of stream.
     * @return Future of getStream operation that can be completed or not. If it is completed it returns:
     *         1) Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] if stream  is retrieved from a server or throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]];
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -425,13 +404,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def getStream(stream: String): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] = {
-    if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $stream.")
+  def getStream(id: Int): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.Stream] = {
+    if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $id.")
     onShutdownThrowException()
 
     method[TransactionService.GetStream.Args, TransactionService.GetStream.Result, com.bwsw.tstreamstransactionserver.rpc.Stream](
       Descriptors.GetStream,
-      TransactionService.GetStream.Args(stream),
+      TransactionService.GetStream.Args(id),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
@@ -439,7 +418,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Checks by a stream's name that stream saved in database on server.
     *
-    * @param stream a name of stream.
+    * @param id an id of stream.
     * @return Future of checkStreamExists operation that can be completed or not. If it is completed it returns:
     *         1) TRUE if stream is exists in a server database or FALSE if a it's not;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -448,13 +427,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def checkStreamExists(stream: String): ScalaFuture[Boolean] = {
-    if (logger.isInfoEnabled) logger.info(s"Checking stream $stream on existence...")
+  def checkStreamExists(id: Int): ScalaFuture[Boolean] = {
+    if (logger.isInfoEnabled) logger.info(s"Checking stream $id on existence...")
     onShutdownThrowException()
 
     method[TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, Boolean](
       Descriptors.CheckStreamExists,
-      TransactionService.CheckStreamExists.Args(stream),
+      TransactionService.CheckStreamExists.Args(id),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
@@ -545,7 +524,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Puts 'simplified' producer transaction that already has Chekpointed state with it's data
     *
-    * @param stream      a name of stream.
+    * @param streamID    an id of stream.
     * @param partition   a partition of stream.
     * @param transaction a transaction id.
     * @param data        a producer transaction data.
@@ -559,13 +538,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def putSimpleTransactionAndData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]]): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $stream, partition $partition with data: $data")
+  def putSimpleTransactionAndData(streamID: Int, partition: Int, transaction: Long, data: Seq[Array[Byte]]): ScalaFuture[Boolean] = {
+    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $streamID, partition $partition with data: $data")
     onShutdownThrowException()
 
     method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Boolean](
       Descriptors.PutSimpleTransactionAndData,
-      TransactionService.PutSimpleTransactionAndData.Args(stream, partition, transaction, data),
+      TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, transaction, data),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
   }
@@ -573,24 +552,24 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Puts in fire and forget policy manner 'simplified' producer transaction that already has Chekpointed state with it's data.
     *
-    * @param stream      a name of stream.
+    * @param streamID    an id of stream.
     * @param partition   a partition of stream.
     * @param transaction a transaction id.
     * @param data        a producer transaction data.
     */
-  def putSimpleTransactionAndDataWithoutResponse(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]]): Unit = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $stream, partition $partition with data: $data")
+  def putSimpleTransactionAndDataWithoutResponse(streamID: Int, partition: Int, transaction: Long, data: Seq[Array[Byte]]): Unit = {
+    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $streamID, partition $partition with data: $data")
     onShutdownThrowException()
 
     methodFireAndForget[TransactionService.PutSimpleTransactionAndData.Args](
       Descriptors.PutSimpleTransactionAndData,
-      TransactionService.PutSimpleTransactionAndData.Args(stream, partition, transaction, data)
+      TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, transaction, data)
     )
   }
 
   /** Retrieves a producer transaction by id
     *
-    * @param stream      a name of stream.
+    * @param streamID    an id of stream.
     * @param partition   a partition of stream.
     * @param transaction a transaction id.
     * @return Future of getTransaction operation that can be completed or not. If it is completed it returns:
@@ -603,13 +582,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def getTransaction(stream: String, partition: Int, transaction: Long): ScalaFuture[TransactionInfo] = {
-    if (logger.isDebugEnabled()) logger.debug(s"Retrieving a producer transaction on partition '$partition' of stream '$stream' by id '$transaction'")
+  def getTransaction(streamID: Int, partition: Int, transaction: Long): ScalaFuture[TransactionInfo] = {
+    if (logger.isDebugEnabled()) logger.debug(s"Retrieving a producer transaction on partition '$partition' of stream '$streamID' by id '$transaction'")
     onShutdownThrowException()
 
     method[TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, TransactionInfo](
       Descriptors.GetTransaction,
-      TransactionService.GetTransaction.Args(stream, partition, transaction),
+      TransactionService.GetTransaction.Args(streamID, partition, transaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
@@ -617,7 +596,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Retrieves last checkpointed transaction in a specific stream on certain partition; If the result is -1 it will mean there is no checkpointed transaction at all.
     *
-    * @param stream    a name of stream.
+    * @param streamID  an id of stream.
     * @param partition a partition of stream.
     * @return Future of getLastCheckpointedTransaction operation that can be completed or not. If it is completed it returns:
     *         1) Last producer transaction ID which state is "Checkpointed" on certain stream on certain partition.
@@ -629,13 +608,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def getLastCheckpointedTransaction(stream: String, partition: Int): ScalaFuture[Long] = {
-    if (logger.isDebugEnabled()) logger.debug(s"Retrieving a last checkpointed transaction on partition '$partition' of stream '$stream")
+  def getLastCheckpointedTransaction(streamID: Int, partition: Int): ScalaFuture[Long] = {
+    if (logger.isDebugEnabled()) logger.debug(s"Retrieving a last checkpointed transaction on partition '$partition' of stream '$streamID")
     onShutdownThrowException()
 
     method[TransactionService.GetLastCheckpointedTransaction.Args, TransactionService.GetLastCheckpointedTransaction.Result, Long](
       Descriptors.GetLastCheckpointedTransaction,
-      TransactionService.GetLastCheckpointedTransaction.Args(stream, partition),
+      TransactionService.GetLastCheckpointedTransaction.Args(streamID, partition),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.getOrElse(-1L)
     )(context)
   }
@@ -643,7 +622,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Retrieves all producer transactions in a specific range [from, to]; it's assumed that "from" and "to" are both positive.
     *
-    * @param stream    a name of stream.
+    * @param streamID    an id of stream.
     * @param partition a partition of stream.
     * @param from      an inclusive bound to start with.
     * @param to        an inclusive bound to end with.
@@ -663,7 +642,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   @throws[Exception]
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: Set[TransactionStates]): ScalaFuture[ScanTransactionsInfo] = {
+  def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: Set[TransactionStates]): ScalaFuture[ScanTransactionsInfo] = {
     require(from >= 0 && to >= 0, s"Calling method scanTransactions requires that bounds: 'from' and 'to' are both positive(actually from and to are: [$from, $to])")
     if (to < from || count == 0) {
       onShutdownThrowException()
@@ -671,12 +650,12 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       ScalaFuture.successful(ScanTransactionsInfo(lastOpenedTransactionID, collection.immutable.Seq()))
     }
     else {
-      if (logger.isDebugEnabled()) logger.debug(s"Retrieving producer transactions on stream $stream in range [$from, $to]")
+      if (logger.isDebugEnabled()) logger.debug(s"Retrieving producer transactions on stream $streamID in range [$from, $to]")
       onShutdownThrowException()
 
       method[TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, ScanTransactionsInfo](
         Descriptors.ScanTransactions,
-        TransactionService.ScanTransactions.Args(stream, partition, from, to, count, states),
+        TransactionService.ScanTransactions.Args(streamID, partition, from, to, count, states),
         x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
       )(context)
     }
@@ -685,7 +664,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Putting any binary data on server to a specific stream, partition, transaction id of producer transaction.
     *
-    * @param stream      a stream.
+    * @param streamID    an id of stream.
     * @param partition   a partition of stream.
     * @param transaction a transaction ID.
     * @param data        a data to persist.
@@ -700,13 +679,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting transaction data to stream $stream, partition $partition, transaction $transaction.")
+  def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
+    if (logger.isDebugEnabled) logger.debug(s"Putting transaction data to stream $streamID, partition $partition, transaction $transaction.")
     onShutdownThrowException()
 
     method[TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result, Boolean](
       Descriptors.PutTransactionData,
-      TransactionService.PutTransactionData.Args(stream, partition, transaction, data, from),
+      TransactionService.PutTransactionData.Args(streamID, partition, transaction, data, from),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
@@ -734,7 +713,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Retrieves all producer transactions binary data in a specific range [from, to]; it's assumed that "from" and "to" are both positive.
     *
-    * @param stream      a stream
+    * @param streamID    an id of stream
     * @param partition   a partition of stream.
     * @param transaction a transaction id.
     * @param from        an inclusive bound to strat with.
@@ -750,19 +729,19 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
+  def getTransactionData(streamID: Int, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0, s"Calling method getTransactionData requires that bounds: 'from' and 'to' are both positive(actually from and to are: [$from, $to])")
     if (to < from) {
       onShutdownThrowException()
       ScalaFuture.successful(Seq[Array[Byte]]())
     }
     else {
-      if (logger.isDebugEnabled) logger.debug(s"Retrieving producer transaction data from stream $stream, partition $partition, transaction $transaction in range [$from, $to].")
+      if (logger.isDebugEnabled) logger.debug(s"Retrieving producer transaction data from stream $streamID, partition $partition, transaction $transaction in range [$from, $to].")
       onShutdownThrowException()
 
       method[TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, Seq[Array[Byte]]](
         Descriptors.GetTransactionData,
-        TransactionService.GetTransactionData.Args(stream, partition, transaction, from, to),
+        TransactionService.GetTransactionData.Args(streamID, partition, transaction, from, to),
         x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
       )(context)
     }
@@ -796,7 +775,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   /** Retrieves a consumer state on a specific consumer transaction name, stream, partition from a server; If the result is -1 it will mean there is no checkpoint at all.
     *
     * @param name      a consumer transaction name.
-    * @param stream    a stream.
+    * @param streamID  an id of stream.
     * @param partition a partition of the stream.
     * @return Future of getConsumerState operation that can be completed or not. If it is completed it returns:
     *         1) transaction ID on certain stream on certatin partition if it exists, otherwise -1L
@@ -808,13 +787,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def getConsumerState(name: String, stream: String, partition: Int): ScalaFuture[Long] = {
-    if (logger.isDebugEnabled) logger.debug(s"Retrieving a transaction by consumer $name on stream $stream, partition $partition.")
+  def getConsumerState(name: String, streamID: Int, partition: Int): ScalaFuture[Long] = {
+    if (logger.isDebugEnabled) logger.debug(s"Retrieving a transaction by consumer $name on stream $streamID, partition $partition.")
     onShutdownThrowException()
 
     method[TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, Long](
       Descriptors.GetConsumerState,
-      TransactionService.GetConsumerState.Args(name, stream, partition),
+      TransactionService.GetConsumerState.Args(name, streamID, partition),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }

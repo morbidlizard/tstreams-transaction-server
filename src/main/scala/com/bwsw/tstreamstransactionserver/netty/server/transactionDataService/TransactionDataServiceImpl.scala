@@ -6,19 +6,20 @@ import java.util.concurrent.TimeUnit
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCache, StreamRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.Authenticable
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
 
-trait TransactionDataServiceImpl extends Authenticable
-  with StreamCache {
+class TransactionDataServiceImpl(executionContext: ServerExecutionContext,
+                                 storageOpts: StorageOptions,
+                                 rocksStorageOpts: RocksStorageOptions,
+                                 streamCache: StreamCache
+                                )
+{
 
-  val executionContext: ServerExecutionContext
-  val storageOpts: StorageOptions
-  val rocksStorageOpts: RocksStorageOptions
 
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
@@ -48,7 +49,7 @@ trait TransactionDataServiceImpl extends Authenticable
   }
 
 
-  final def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
+  final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
     if (data.isEmpty) true
     else {
       val streamObj = getMostRecentStream(stream)

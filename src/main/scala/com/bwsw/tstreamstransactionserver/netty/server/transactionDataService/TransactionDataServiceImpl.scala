@@ -7,14 +7,15 @@ import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, StreamCache}
+import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
 
-trait TransactionDataServiceImpl extends Authenticable
-  with StreamCache {
+trait TransactionDataServiceImpl
+  extends StreamCache
+{
 
   val executionContext: ServerExecutionContext
   val storageOpts: StorageOptions
@@ -24,9 +25,8 @@ trait TransactionDataServiceImpl extends Authenticable
   private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
 
   private def calculateTTL(ttl: Long): Int = {
-    val convertedTTL = TimeUnit.SECONDS.toHours(ttl + ttlToAdd)
-    if (convertedTTL == 0L) scala.math.abs(TimeUnit.HOURS.toSeconds(1L).toInt)
-    else scala.math.abs(TimeUnit.HOURS.toSeconds(convertedTTL).toInt)
+    val convertedTTL = ttl + TimeUnit.SECONDS.toSeconds(ttlToAdd)
+    scala.math.abs(convertedTTL.toInt)
   }
 
   private val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()

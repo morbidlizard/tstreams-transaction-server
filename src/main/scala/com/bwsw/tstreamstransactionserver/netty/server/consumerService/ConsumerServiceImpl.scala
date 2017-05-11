@@ -1,14 +1,16 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment}
+import com.bwsw.tstreamstransactionserver.netty.server.HasEnvironment
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
 
 
-trait ConsumerServiceImpl extends Authenticable with ConsumerTransactionStateNotifier {
+trait ConsumerServiceImpl
+  extends ConsumerTransactionStateNotifier
+{
   val executionContext: ServerExecutionContext
   val rocksMetaServiceDB: RocksDBALL
 

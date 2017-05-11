@@ -5,13 +5,14 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL, RocksDBPartitionDatabase}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment, StreamCache, Time}
+import com.bwsw.tstreamstransactionserver.netty.server.{HasEnvironment, StreamCache, Time}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
 
-trait StreamServiceImpl extends Authenticable
-  with StreamCache {
+trait StreamServiceImpl
+  extends StreamCache
+{
 
   val executionContext: ServerExecutionContext
   val rocksMetaServiceDB: RocksDBALL

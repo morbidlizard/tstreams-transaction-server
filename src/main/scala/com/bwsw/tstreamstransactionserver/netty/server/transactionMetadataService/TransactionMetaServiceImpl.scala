@@ -7,15 +7,18 @@ import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerT
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.{Authenticable, HasEnvironment, StreamCache}
+import com.bwsw.tstreamstransactionserver.netty.server.{HasEnvironment, StreamCache}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
-trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCache with LastTransactionStreamPartition
-  with Authenticable
-  with ProducerTransactionStateNotifier {
+trait TransactionMetaServiceImpl
+  extends TransactionStateHandler
+    with StreamCache
+    with LastTransactionStreamPartition
+    with ProducerTransactionStateNotifier
+{
 
   def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): ListBuffer[Unit => Unit]
 
@@ -365,7 +368,7 @@ trait TransactionMetaServiceImpl extends TransactionStateHandler with StreamCach
 
   def transactionsToDeleteTask(timestampToDeleteTransactions: Long) {
     def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
-      scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
+      scala.math.abs(producerTransactionWithoutKey.timestamp + producerTransactionWithoutKey.ttl) <= timestampToDeleteTransactions
     }
 
     if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")

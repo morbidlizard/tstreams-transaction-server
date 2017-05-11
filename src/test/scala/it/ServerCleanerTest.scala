@@ -74,8 +74,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
         txn.isDefined
       }
     }
-
-    def ttlSec = rand.nextInt(maxTTLForProducerTransactionSec)
+    def ttlSec = TimeUnit.SECONDS.toMillis(rand.nextInt(maxTTLForProducerTransactionSec))
 
     val stream = getRandomStream
     transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)

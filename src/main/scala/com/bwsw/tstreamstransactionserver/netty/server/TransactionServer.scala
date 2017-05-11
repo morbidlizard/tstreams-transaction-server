@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.Batch
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl
@@ -17,7 +18,12 @@ class TransactionServer(override val executionContext: ServerExecutionContext,
                         override val rocksStorageOpts: RocksStorageOptions,
                         override val timer: Time = new Time{}
                        )
-  extends HasEnvironment with StreamServiceImpl with TransactionMetaServiceImpl with ConsumerServiceImpl with TransactionDataServiceImpl
+  extends HasEnvironment
+    with AuthServiceImpl
+    with StreamServiceImpl
+    with TransactionMetaServiceImpl
+    with ConsumerServiceImpl
+    with TransactionDataServiceImpl
 {
   override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): ListBuffer[Unit => Unit] = putConsumersCheckpoints(consumerTransactions, batch)
   override def closeRocksDBConnectionAndDeleteFolder(stream: Long): Unit = removeRocksDBDatabaseAndDeleteFolder(stream)

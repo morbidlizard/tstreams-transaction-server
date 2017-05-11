@@ -59,7 +59,7 @@ trait TransactionStateHandler {
   }
 
   private def isThisProducerTransactionExpired(currentTxn: ProducerTransactionRecord, nextTxn: ProducerTransactionRecord): Boolean = {
-    scala.math.abs(currentTxn.timestamp + TimeUnit.SECONDS.toMillis(currentTxn.ttl)) <= nextTxn.timestamp
+    scala.math.abs(currentTxn.timestamp + currentTxn.ttl) <= nextTxn.timestamp
   }
 
   @throws[IllegalArgumentException]

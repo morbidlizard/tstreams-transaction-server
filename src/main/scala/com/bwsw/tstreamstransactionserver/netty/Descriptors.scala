@@ -7,6 +7,8 @@ import org.apache.thrift.protocol._
 import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
+import scala.collection.mutable
+
 object Descriptors {
 
 
@@ -27,7 +29,9 @@ object Descriptors {
                                                                                       codecRep: ThriftStructCodec3[Response],
                                                                                       protocolReq : TProtocolFactory,
                                                                                       protocolRep : TProtocolFactory)
-  extends Product with Serializable {
+  extends Product
+    with Serializable
+  {
 
     /** A method for building request/response methods to serialize.
       *
@@ -84,21 +88,56 @@ object Descriptors {
       val iprot = protocolRep.getProtocol(new TMemoryInputTransport(message.body))
       codecRep.decode(iprot)
     }
+
+    @inline
+    final def responseToByteArray(entity: Response, protocol: TProtocolFactory): Array[Byte] = {
+      val buffer = new TMemoryBuffer(128)
+
+      val oprot = protocol.getProtocol(buffer)
+      entity.write(oprot)
+
+      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
+    }
+
+    @inline
+    final def requestToByteArray(entity: Response, protocol: TProtocolFactory): Array[Byte] = {
+      val buffer = new TMemoryBuffer(128)
+
+      val oprot = protocol.getProtocol(buffer)
+      entity.write(oprot)
+
+      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
+    }
+
+    @inline
+    final def responseFromByteArray(bytes: Array[Byte], protocol: TProtocolFactory): Response = {
+      val iprot = protocol.getProtocol(new TMemoryInputTransport(bytes))
+      codecRep.decode(iprot)
+    }
+
+    @inline
+    final def requestFromByteArray(bytes: Array[Byte], protocol: TProtocolFactory): Request = {
+      val iprot = protocol.getProtocol(new TMemoryInputTransport(bytes))
+      codecReq.decode(iprot)
+    }
   }
 
   private val protocolTCompactFactory = new TCompactProtocol.Factory
-  private val protocolTBinaryFactory = new TBinaryProtocol.Factory
+  private val protocolTBinaryFactory  = new TBinaryProtocol.Factory
+  private val protocolJsonFactory     = new TJSONProtocol.Factory
 
   /** get byte by protocol  */
   def getProtocolID(protocol: TProtocolFactory): Byte = protocol match {
     case `protocolTCompactFactory` => 0
     case `protocolTBinaryFactory`  => 1
+    case `protocolJsonFactory`     => 2
   }
 
   /** get protocol by byte  */
   def getIdProtocol(byte: Byte): TProtocolFactory = byte match {
     case 0 => protocolTCompactFactory
     case 1 => protocolTBinaryFactory
+    case 2 => protocolJsonFactory
   }
 
 

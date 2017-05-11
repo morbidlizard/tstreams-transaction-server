@@ -2,6 +2,10 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import java.nio.charset.StandardCharsets
 
+import com.sun.xml.internal.messaging.saaj.util.ByteInputStream
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
+
 case class StreamValue(name: String, partitions: Int, description: Option[String], ttl: Long)
   extends com.bwsw.tstreamstransactionserver.rpc.Stream
 {
@@ -32,11 +36,22 @@ case class StreamValue(name: String, partitions: Int, description: Option[String
       .putLong(ttl)
       .array()
   }
+
+  def toBinaryJson: Array[Byte] = {
+    implicit val formats = DefaultFormats
+    pretty(render(Extraction.decompose(this))).getBytes
+  }
 }
 
 object StreamValue
 {
   private val charset = StandardCharsets.UTF_8
+
+  def fromBinaryJson(bytes: Array[Byte]): StreamValue = {
+    implicit val formats = DefaultFormats
+    parse(new ByteInputStream(bytes, bytes.length))
+      .extract[StreamValue]
+  }
 
   def fromByteArray(bytes: Array[Byte]): StreamValue = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)

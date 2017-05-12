@@ -39,8 +39,6 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
     val client = new ClientBuilder()
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
 
-    Await.result(client.putStream("Message to authenticate and get the package transmission options from server", 1, Some("No description"), 1), Duration(5, TimeUnit.SECONDS))
-
     assertThrows[PackageTooBigException] {
       Await.result(client.putStream("Too big message", 1, Some(new String(new Array[Byte](packageTransmissionOptions.maxDataPackageSize))), 1), Duration(5, TimeUnit.SECONDS))
     }

@@ -126,7 +126,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   val secondsWait = 5
 
 
-  "One client" should "put stream, then another client should put transactions on a stream on a partition. " +
+  "One client" should "put a stream, then another client should put transactions on the stream on a partition. " +
     "After that the first client tries to put transactions on the stream on the partition and clients should get the same last checkpointed transaction." in {
     val stream = getRandomStream
 
@@ -135,8 +135,12 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
 
     val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
 
-    val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
+    Await.result(secondClient.delStream(stream.name), secondsWait.seconds) shouldBe true
+
+    val streamUpdated = stream.copy(description = Some("I replace a previous one."))
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
+
+
 
     TestTimer.updateTime(TestTimer.getCurrentTime + TimeUnit.SECONDS.toMillis(1))
 

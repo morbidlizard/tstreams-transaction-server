@@ -38,9 +38,15 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
       .toOption.map(data => StreamRecord.fromBinaryJson(data))
   }
 
-  def delete(streamName: String, streamIDPath: streamIDPath): Boolean = {
-    scala.util.Try(client.delete().forPath(s"$path/$streamName"))
+  def delete(streamName: String): Boolean = {
+    val isDeleted = scala.util.Try(client.delete().forPath(s"$path/$streamName"))
       .isSuccess
+
+    if (isDeleted && logger.isDebugEnabled) {
+      logger.debug(s"Stream name $streamName is ${if (isDeleted) "" else "not"} deleted")
+    }
+
+    isDeleted
   }
 
 }

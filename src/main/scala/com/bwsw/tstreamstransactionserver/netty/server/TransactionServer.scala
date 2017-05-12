@@ -90,6 +90,9 @@ class TransactionServer(val executionContext: ServerExecutionContext,
     lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)
       .flatMap(_.checkpointed.map(txn => txn.id)).orElse(Some(-1L))
 
+  final def getLastTransactionIDAndCheckpointedID(streamID: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] =
+    lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)
+
   final def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: Set[TransactionStates]): ScanTransactionsInfo =
     transactionMetaServiceImpl.scanTransactions(streamID, partition, from, to, count, states)
 

@@ -1,9 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import java.nio.charset.StandardCharsets
+import com.bwsw.tstreamstransactionserver.rpc.Stream
 
 case class StreamValue(name: String, partitions: Int, description: Option[String], ttl: Long)
-  extends com.bwsw.tstreamstransactionserver.rpc.Stream
+  extends Stream
 {
   def toByteArray: Array[Byte] = {
     val nameBodyFiledSize = java.lang.Integer.BYTES

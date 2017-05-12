@@ -5,7 +5,9 @@ import com.sun.xml.internal.messaging.saaj.util.ByteInputStream
 import org.json4s._
 import org.json4s.jackson.JsonMethods.{parse, pretty, render}
 
-case class StreamRecord(key: StreamKey, stream: StreamValue) extends Stream {
+case class StreamRecord(key: StreamKey, stream: StreamValue)
+  extends Stream
+{
   def id: Int = key.id
   override def name: String = stream.name
   override def partitions: Int = stream.partitions

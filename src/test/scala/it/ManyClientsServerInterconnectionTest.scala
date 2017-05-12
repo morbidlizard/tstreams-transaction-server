@@ -147,10 +147,11 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       .filter(_.state == TransactionStates.Opened)
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamID, stream))
 
-    val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
+    val streamUpdated = stream.copy(description = Some("I replace a previous one."))
 
-    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
     Await.result(secondClient.delStream(stream.name), secondsWait.seconds) shouldBe true
+    Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
+
 
     //transactions are processed in the async mode
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
@@ -179,17 +180,18 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     val producerTransactions = Array.fill(txnNumber)(getRandomProducerTransaction(streamID, stream, TransactionStates.Opened))
     val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamID, stream))
 
-    val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
+    val streamUpdated = stream.copy(description = Some("I replace a previous one."))
 
     Await.result(secondClient.delStream(stream.name), secondsWait.seconds) shouldBe true
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
 
     val currentStream = Await.result(firstClient.getStream(stream.name), secondsWait.seconds)
-    currentStream shouldBe None
+    currentStream shouldBe defined
 
     //transactions are processed in the async mode
     Await.result(firstClient.putTransactions(
-      producerTransactions flatMap (producerTransaction => Seq(producerTransaction, producerTransaction.copy(state = TransactionStates.Checkpointed))),
+      producerTransactions flatMap (producerTransaction =>
+        Seq(producerTransaction, producerTransaction.copy(state = TransactionStates.Checkpointed))),
       consumerTransactions
     ), secondsWait.seconds) shouldBe true
 
@@ -203,7 +205,8 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     val fromID = producerTransactions.head.transactionID
     val toID = producerTransactions.last.transactionID
 
-    Await.result(firstClient.scanTransactions(streamID, stream.partitions, fromID, toID, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds).producerTransactions should have size txnNumber
+    Await.result(firstClient.scanTransactions(streamID, stream.partitions, fromID, toID,
+      Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds).producerTransactions should have size txnNumber
   }
 
 

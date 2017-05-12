@@ -3,10 +3,10 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.zk
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamValue}
 import org.apache.curator.framework.CuratorFramework
 import org.apache.zookeeper.CreateMode
-import org.slf4j.LoggerFactory
+//import org.slf4j.LoggerFactory
 
 final class streamIDPath(client: CuratorFramework, path: String) {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+//  private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val seqPrefix = "id"
   private val streamsIdsPath = s"$path/$seqPrefix"
@@ -17,7 +17,7 @@ final class streamIDPath(client: CuratorFramework, path: String) {
     path.length + seqPrefix.length + 1
   )._2
 
-  private def getID(id: String): String = id.splitAt(seqPrefix.length + 1)._2
+//  private def getID(id: String): String = id.splitAt(seqPrefix.length + 1)._2
 
   def put(streamValue: StreamValue): StreamRecord = {
     val id = client.create()
@@ -38,13 +38,10 @@ final class streamIDPath(client: CuratorFramework, path: String) {
       .exists(_ => true)
   }
 
-  def get(streamKey: StreamKey, streamPath: StreamNamePath): Option[StreamRecord] = {
+  def get(streamKey: StreamKey): Option[StreamRecord] = {
     val streamValueOpt = scala.util.Try(client.getData.forPath(buildPath(streamKey.id)))
-    val streamRecord = streamValueOpt.toOption
-      .flatMap { data =>
-        val streamRecord = StreamRecord.fromBinaryJson(data)
-        streamPath.get(streamRecord.name)
-      }
+    val streamRecord   = streamValueOpt.toOption
+      .map(data => StreamRecord.fromBinaryJson(data))
 
     streamRecord
   }

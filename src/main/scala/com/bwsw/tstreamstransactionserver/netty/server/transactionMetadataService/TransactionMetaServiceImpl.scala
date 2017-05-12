@@ -76,7 +76,8 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
             // updating RAM table, and last opened transaction database.
             updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, isOpenedTransaction = true)
             putLastTransaction(key, txn.transactionID, isOpenedTransaction = true, batch)
-            if (logger.isDebugEnabled) logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
+            if (logger.isDebugEnabled)
+              logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
             producerTransactions += ((txn, timestamp))
           }
 
@@ -90,7 +91,11 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
   }
 
   private final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Timestamp)]): Map[StreamKey, ArrayBuffer[ProducerTransactionRecord]] = {
-    if (logger.isDebugEnabled) logger.debug("Mapping all producer transactions streams attrbute to long representation(ID), grouping them by stream and partition, checking that the stream isn't deleted in order to process producer transactions.")
+    if (logger.isDebugEnabled)
+      logger.debug("Mapping all producer transactions streams attrbute to long representation(ID), " +
+        "grouping them by stream and partition, " +
+        "checking that the stream isn't deleted in order to process producer transactions."
+      )
     txns.foldLeft[scala.collection.mutable.Map[StreamKey, ArrayBuffer[ProducerTransactionRecord]]](scala.collection.mutable.Map()) { case (acc, (producerTransaction, timestamp)) =>
       val keyStream = StreamKey(producerTransaction.stream)
       if (acc.contains(keyStream))
@@ -132,12 +137,14 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
         val producerTransactionWithNewState = scala.util.Try(openedTransactionOpt match {
           case Some(data) =>
             val persistedProducerTransactionRocks = ProducerTransactionRecord(key, data)
-            if (logger.isDebugEnabled) logger.debug(s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
+            if (logger.isDebugEnabled)
+              logger.debug(s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
               s"partition ${persistedProducerTransactionRocks.partition}, transaction ${persistedProducerTransactionRocks.transactionID} " +
               s"with state ${persistedProducerTransactionRocks.state} to new state")
             transitProducerTransactionToNewState(persistedProducerTransactionRocks, txns)
           case None =>
-            if (logger.isDebugEnabled) logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
+            if (logger.isDebugEnabled)
+              logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
             transitProducerTransactionToNewState(txns)
         })
 
@@ -329,10 +336,14 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
 
   def transactionsToDeleteTask(timestampToDeleteTransactions: Long) {
     def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
-      scala.math.abs(producerTransactionWithoutKey.timestamp + TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)) <= timestampToDeleteTransactions
+      scala.math.abs(
+        producerTransactionWithoutKey.timestamp +
+        TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)
+      ) <= timestampToDeleteTransactions
     }
 
-    if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
+    if (logger.isDebugEnabled)
+      logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
     val batch = rocksMetaServiceDB.newBatch
 
     val iterator = producerTransactionsWithOpenedStateDatabase.iterator
@@ -342,13 +353,15 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
     while (iterator.isValid) {
       val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
       if (doesProducerTransactionExpired(producerTransactionValue)) {
-        if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
+        if (logger.isDebugEnabled)
+          logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
 
         val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
         val key = iterator.key()
         val producerTransactionKey = ProducerTransactionKey.fromByteArray(key)
 
-        val canceledTransactionRecordDueExpiration = transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
+        val canceledTransactionRecordDueExpiration =
+          transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
         if (areThereAnyProducerNotifies)
           notifications += tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
 

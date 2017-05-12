@@ -113,7 +113,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     val isLocked = channelLock.tryLock()
     if (isLocked) {
       try {
-        if (channel != null) channel.closeFuture().sync()
+        channel.closeFuture().sync()
         channel = connect()
       } finally {
         channelLock.unlock()
@@ -169,11 +169,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       val messageId = nextSeqId.getAndIncrement()
       val promise = ScalaPromise[ThriftStruct]
 
-      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
-
-      reqIdToRep.put(messageId, promise)
       val message = descriptor.encodeRequest(request)(messageId, token, isFireAndForgetMethod = false)
       validateMessageSize(message)
+
+      //heapSize and outOfMemory error
+//      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
+
+      reqIdToRep.put(messageId, promise)
       channel.write(message.toByteArray)
 
       val responseFuture = TimeoutScheduler.withTimeout(promise.future.map { response =>
@@ -223,11 +225,17 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
   private def validateMessageSize(message: Message): Unit = {
-    if (maxMetadataPackageSize != -1 && maxDataPackageSize != -1) {
-      if (message.length > maxMetadataPackageSize || message.length > maxDataPackageSize) {
-        throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
-          s"than maxMetadataPackageSize ($maxMetadataPackageSize) or maxDataPackageSize ($maxDataPackageSize).")
-      }
+    message.method match {
+      case Descriptors.PutTransactionData.methodID if maxDataPackageSize != -1 =>
+        if (message.length > maxDataPackageSize)
+          throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
+            s"than maxDataPackageSize ($maxDataPackageSize).")
+      case _ if maxMetadataPackageSize != -1 =>
+        if (message.length > maxMetadataPackageSize)  {
+          throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
+            s"than maxMetadataPackageSize ($maxMetadataPackageSize).")
+        }
+      case _ =>
     }
   }
 

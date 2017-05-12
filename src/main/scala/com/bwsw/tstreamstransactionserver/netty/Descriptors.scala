@@ -166,23 +166,40 @@ object Descriptors {
       fields zip argumentsList mkString(s"request id $id - $methodName: ", " ", "")
     }
     struct match {
-      case struct: TransactionService.GetCommitLogOffsets.Args  => toString(GetCommitLogOffsets.name, struct.productIterator, TransactionService.GetCommitLogOffsets.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutStream.Args         => toString(PutStream.name, struct.productIterator, TransactionService.PutStream.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.CheckStreamExists.Args => toString(CheckStreamExists.name, struct.productIterator, TransactionService.CheckStreamExists.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetStream.Args         => toString(GetStream.name, struct.productIterator, TransactionService.GetStream.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.DelStream.Args         => toString(DelStream.name, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransaction.Args    => toString(PutTransaction.name, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutSimpleTransactionAndData.Args => toString(PutSimpleTransactionAndData.name, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransactions.Args   => toString(PutTransactions.name, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetTransaction.Args    => toString(GetTransaction.name, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetLastCheckpointedTransaction.Args => toString(GetLastCheckpointedTransaction.name, struct.productIterator, TransactionService.GetLastCheckpointedTransaction.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.ScanTransactions.Args   => toString(ScanTransactions.name, struct.productIterator, TransactionService.ScanTransactions.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransactionData.Args  => toString(PutTransactionData.name, struct.productIterator, TransactionService.PutTransactionData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetTransactionData.Args  => toString(GetTransactionData.name, struct.productIterator, TransactionService.GetTransactionData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutConsumerCheckpoint.Args => toString(PutConsumerCheckpoint.name, struct.productIterator, TransactionService.PutConsumerCheckpoint.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.GetConsumerState.Args => toString(GetConsumerState.name, struct.productIterator, TransactionService.GetConsumerState.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.Authenticate.Args   => toString(Authenticate.name, struct.productIterator, TransactionService.Authenticate.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.IsValid.Args   => toString(IsValid.name, struct.productIterator, TransactionService.IsValid.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetCommitLogOffsets.Args  =>
+        toString(GetCommitLogOffsets.name, struct.productIterator, TransactionService.GetCommitLogOffsets.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutStream.Args         =>
+        toString(PutStream.name, struct.productIterator, TransactionService.PutStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.CheckStreamExists.Args =>
+        toString(CheckStreamExists.name, struct.productIterator, TransactionService.CheckStreamExists.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetStream.Args         =>
+        toString(GetStream.name, struct.productIterator, TransactionService.GetStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.DelStream.Args         =>
+        toString(DelStream.name, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransaction.Args    =>
+        toString(PutTransaction.name, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutSimpleTransactionAndData.Args =>
+        toString(PutSimpleTransactionAndData.name, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransactions.Args   =>
+        toString(PutTransactions.name, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetTransaction.Args    =>
+        toString(GetTransaction.name, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetLastCheckpointedTransaction.Args =>
+        toString(GetLastCheckpointedTransaction.name, struct.productIterator, TransactionService.GetLastCheckpointedTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.ScanTransactions.Args   =>
+        toString(ScanTransactions.name, struct.productIterator, TransactionService.ScanTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutTransactionData.Args  =>
+        toString(PutTransactionData.name, struct.productIterator, TransactionService.PutTransactionData.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetTransactionData.Args  =>
+        toString(GetTransactionData.name, struct.productIterator, TransactionService.GetTransactionData.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutConsumerCheckpoint.Args =>
+        toString(PutConsumerCheckpoint.name, struct.productIterator, TransactionService.PutConsumerCheckpoint.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetConsumerState.Args =>
+        toString(GetConsumerState.name, struct.productIterator, TransactionService.GetConsumerState.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.Authenticate.Args   =>
+        toString(Authenticate.name, struct.productIterator, TransactionService.Authenticate.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.IsValid.Args   =>
+        toString(IsValid.name, struct.productIterator, TransactionService.IsValid.Args.fieldInfos.map(_.tfield.name))
       case struct => throw new NotImplementedError(s"$struct is not implemeted for debug information")
     }
   }

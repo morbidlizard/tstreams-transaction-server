@@ -1,12 +1,14 @@
 package it.packageTooBig
 
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, TransportOptions}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions, TransportOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -16,11 +18,19 @@ import scala.concurrent.duration.Duration
 
 
 class ServerPackageTooBigTest extends FlatSpec with Matchers {
-  private val zkTestServer = new TestingServer(true)
+  private val serverStorageOptions = StorageOptions(path = "/tmp")
   "Server" should "not allow client to send a message which has a size that is greater than maxMetadataPackageSize or maxDataPackageSize (throw PackageTooBigException)" in {
-    val packageTransmissionOptions = TransportOptions()
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    val zkTestServer = new TestingServer(true)
 
-    val server = new ServerBuilder().withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+    val packageTransmissionOptions = TransportOptions(maxMetadataPackageSize = 1000)
+
+    val server = new ServerBuilder()
+      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+      .withPackageTransmissionOptions(packageTransmissionOptions)
       .withBootstrapOptions(BootstrapOptions())
       .build()
 

@@ -142,7 +142,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   "Client" should "not send requests to server if it is shutdown" in {
     client.shutdown()
     intercept[IllegalStateException] {
-      client.delStream(124)
+      client.delStream("test_stream")
     }
   }
 
@@ -160,7 +160,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
 
   it should "delete stream, that doesn't exist in database on the server and get result" in {
-    Await.result(client.delStream(123), secondsWait.seconds) shouldBe false
+    Await.result(client.delStream("test_stream"), secondsWait.seconds) shouldBe false
   }
 
   it should "put stream, then delete that stream and check it doesn't exist" in {
@@ -168,9 +168,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
     streamID shouldBe 0
-    Await.result(client.checkStreamExists(streamID), secondsWait.seconds) shouldBe true
-    Await.result(client.delStream(streamID), secondsWait.seconds) shouldBe true
-    Await.result(client.checkStreamExists(streamID), secondsWait.seconds) shouldBe false
+    Await.result(client.checkStreamExists(stream.name), secondsWait.seconds) shouldBe true
+    Await.result(client.delStream(stream.name), secondsWait.seconds) shouldBe true
+    Await.result(client.checkStreamExists(stream.name), secondsWait.seconds) shouldBe false
   }
 
   it should "put stream, then delete that stream, then again delete this stream and get that operation isn't successful" in {
@@ -178,9 +178,9 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
     streamID shouldBe 0
-    Await.result(client.delStream(streamID), secondsWait.seconds) shouldBe true
-    Await.result(client.checkStreamExists(streamID), secondsWait.seconds) shouldBe false
-    Await.result(client.delStream(streamID), secondsWait.seconds)  shouldBe false
+    Await.result(client.delStream(stream.name), secondsWait.seconds) shouldBe true
+    Await.result(client.checkStreamExists(stream.name), secondsWait.seconds) shouldBe false
+    Await.result(client.delStream(stream.name), secondsWait.seconds)  shouldBe false
   }
 
   it should "put stream, then delete this stream, and server should save producer and consumer transactions on putting them by client" in {
@@ -206,7 +206,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultBeforeDeleting = Await.result(client.scanTransactions(streamID, stream.partitions, fromID, toID, Int.MaxValue, Set()), secondsWait.seconds).producerTransactions
     resultBeforeDeleting should not be empty
 
-    Await.result(client.delStream(streamID), secondsWait.seconds)
+    Await.result(client.delStream(stream.name), secondsWait.seconds)
     Await.result(client.scanTransactions(streamID, stream.partitions, fromID, toID, Int.MaxValue, Set()), secondsWait.seconds)
       .producerTransactions should contain theSameElementsInOrderAs resultBeforeDeleting
   }

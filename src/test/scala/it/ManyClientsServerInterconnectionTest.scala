@@ -150,7 +150,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
 
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
-    Await.result(secondClient.delStream(streamID), secondsWait.seconds) shouldBe true
+    Await.result(secondClient.delStream(stream.name), secondsWait.seconds) shouldBe true
 
     //transactions are processed in the async mode
     Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
@@ -181,10 +181,10 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
     val streamUpdated = stream.copy(description = Some("I overwrite a previous one."))
 
-    Await.result(secondClient.delStream(streamID), secondsWait.seconds) shouldBe true
+    Await.result(secondClient.delStream(stream.name), secondsWait.seconds) shouldBe true
     Await.result(secondClient.putStream(streamUpdated), secondsWait.seconds) shouldBe (streamID + 1)
 
-    val currentStream = Await.result(firstClient.getStream(streamID), secondsWait.seconds)
+    val currentStream = Await.result(firstClient.getStream(stream.name), secondsWait.seconds)
     currentStream shouldBe None
 
     //transactions are processed in the async mode

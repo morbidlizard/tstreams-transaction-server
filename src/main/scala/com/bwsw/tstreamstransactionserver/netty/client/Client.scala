@@ -370,7 +370,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Deleting a stream by name on a server.
     *
-    * @param id an id of stream.
+    * @param name a name of stream.
     * @return Future of putStream operation that can be completed or not. If it is completed it returns:
     *         1) TRUE if stream is removed by a server or FALSE if a stream is already deleted or there in no such stream on the server;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -380,13 +380,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def delStream(id: Int): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Deleting stream $id.")
+  def delStream(name: String): ScalaFuture[Boolean] = {
+    if (logger.isDebugEnabled) logger.debug(s"Deleting stream $name.")
     onShutdownThrowException()
 
     method[TransactionService.DelStream.Args, TransactionService.DelStream.Result, Boolean](
       Descriptors.DelStream,
-      TransactionService.DelStream.Args(id),
+      TransactionService.DelStream.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
@@ -394,7 +394,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Retrieving a stream from a server by it's name.
     *
-    * @param id an id of stream.
+    * @param name a name of stream.
     * @return Future of getStream operation that can be completed or not. If it is completed it returns:
     *         1) Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] if stream  is retrieved from a server or throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]];
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -404,13 +404,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def getStream(id: Int): ScalaFuture[Option[com.bwsw.tstreamstransactionserver.rpc.Stream]] = {
-    if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $id.")
+  def getStream(name: String): ScalaFuture[Option[com.bwsw.tstreamstransactionserver.rpc.Stream]] = {
+    if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $name.")
     onShutdownThrowException()
 
     method[TransactionService.GetStream.Args, TransactionService.GetStream.Result, Option[com.bwsw.tstreamstransactionserver.rpc.Stream]](
       Descriptors.GetStream,
-      TransactionService.GetStream.Args(id),
+      TransactionService.GetStream.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success
     )(context)
   }
@@ -418,7 +418,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Checks by a stream's name that stream saved in database on server.
     *
-    * @param id an id of stream.
+    * @param name a name of stream.
     * @return Future of checkStreamExists operation that can be completed or not. If it is completed it returns:
     *         1) TRUE if stream is exists in a server database or FALSE if a it's not;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -427,13 +427,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def checkStreamExists(id: Int): ScalaFuture[Boolean] = {
-    if (logger.isInfoEnabled) logger.info(s"Checking stream $id on existence...")
+  def checkStreamExists(name: String): ScalaFuture[Boolean] = {
+    if (logger.isInfoEnabled) logger.info(s"Checking stream $name on existence...")
     onShutdownThrowException()
 
     method[TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, Boolean](
       Descriptors.CheckStreamExists,
-      TransactionService.CheckStreamExists.Args(id),
+      TransactionService.CheckStreamExists.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }

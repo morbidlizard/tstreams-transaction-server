@@ -40,29 +40,31 @@ class StreamDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEac
 
     val streamValue  = getStreamValue
 
-    val streamKey    = zkDatabase.putStream(streamValue.name, streamValue.partitions, streamValue.description, streamValue.ttl)
-    val streamRecord = zkDatabase.getStream(streamKey)
+    val streamKey    = zkDatabase.putStream(streamValue)
+    val streamRecordByName = zkDatabase.getStream(streamValue.name)
+    val streamRecordByID = zkDatabase.getStream(streamKey)
 
-    streamRecord shouldBe defined
-    val streamObj = streamRecord.get
+    streamRecordByID shouldBe defined
+    val streamObj = streamRecordByID.get
 
     streamObj.key shouldBe streamKey
     streamObj.stream shouldBe streamValue
+    streamObj.stream shouldBe streamRecordByName.get
 
     zkClient.close()
     zkServer.close()
   }
 
-  it should "put stream, delete it, then on calling getStream return None" in {
+  it should "put stream, delete it, then the one calls getStream and it returns None" in {
     val (zkServer, zkClient) = startZkServerAndGetIt
 
     val zkDatabase = new StreamDatabaseZK(zkClient, path)
 
     val streamValue  = getStreamValue
 
-    val streamKey    = zkDatabase.putStream(streamValue.name, streamValue.partitions, streamValue.description, streamValue.ttl)
-    zkDatabase.delStream(streamKey) shouldBe true
-    val streamRecord = zkDatabase.getStream(streamKey)
+    zkDatabase.putStream(streamValue)
+    zkDatabase.delStream(streamValue.name) shouldBe true
+    val streamRecord = zkDatabase.getStream(streamValue.name)
 
     streamRecord should not be defined
 
@@ -70,5 +72,43 @@ class StreamDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEac
     zkServer.close()
   }
 
+  it should "put stream, delete it, then on checking stream the one see stream doesn't exist" in {
+    val (zkServer, zkClient) = startZkServerAndGetIt
+
+    val zkDatabase = new StreamDatabaseZK(zkClient, path)
+
+    val streamValue  = getStreamValue
+
+    zkDatabase.putStream(streamValue)
+    zkDatabase.delStream(streamValue.name) shouldBe true
+    val streamRecord = zkDatabase.checkStreamExists(streamValue.name)
+
+    streamRecord shouldBe false
+
+    zkClient.close()
+    zkServer.close()
+  }
+
+  it should "put stream, delete it, then put a new stream with same name a get it back" in {
+    val (zkServer, zkClient) = startZkServerAndGetIt
+
+    val zkDatabase = new StreamDatabaseZK(zkClient, path)
+
+    val streamValue = getStreamValue
+    zkDatabase.putStream(streamValue)
+    zkDatabase.delStream(streamValue.name) shouldBe true
+
+    val newStream = StreamValue("test_stream", 100, Some("overwrite"), 10)
+    zkDatabase.putStream(newStream)
+
+
+    val streamRecord = zkDatabase.getStream(streamValue.name)
+
+    streamRecord shouldBe defined
+    streamRecord.get shouldBe newStream
+
+    zkClient.close()
+    zkServer.close()
+  }
 
 }

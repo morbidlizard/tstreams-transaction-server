@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamCache
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamCRUD
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer

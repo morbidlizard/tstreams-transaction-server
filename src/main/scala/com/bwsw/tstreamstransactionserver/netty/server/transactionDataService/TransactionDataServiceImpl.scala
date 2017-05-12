@@ -6,7 +6,7 @@ import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCache, StreamRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey, StreamRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class TransactionDataServiceImpl(storageOpts: StorageOptions,
                                  rocksStorageOpts: RocksStorageOptions,
-                                 streamCache: StreamCache
+                                 streamCache: StreamCRUD
                                 )
 {
 
@@ -46,7 +46,7 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
     if (data.isEmpty) true
     else {
       val streamRecord = streamCache
-        .getStream(streamID)
+        .getStream(StreamKey(streamID))
         .getOrElse(throw new StreamDoesNotExist(streamID.toString))
 
       val rocksDB = getStorage(streamRecord)
@@ -77,7 +77,7 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
 
   def getTransactionData(streamID: Int, partition: Int, transaction: Long, from: Int, to: Int): Seq[ByteBuffer] = {
     val streamRecord = streamCache
-      .getStream(streamID)
+      .getStream(StreamKey(streamID))
       .getOrElse(throw new StreamDoesNotExist(streamID.toString))
     val rocksDB = getStorage(streamRecord)
 

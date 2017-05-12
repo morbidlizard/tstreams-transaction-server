@@ -37,9 +37,9 @@ trait Installer {
     streamID
   }
 
-  def deleteStream(id: Int) = {
+  def deleteStream(name: String) = {
     val client = clientBuilder.build()
-    Await.result(client.delStream(id), 10.seconds)
+    Await.result(client.delStream(name), 10.seconds)
 
     client.shutdown()
   }

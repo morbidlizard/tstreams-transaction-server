@@ -72,13 +72,13 @@ exception ServerException {
 
 service StreamService {
 
-  bool putStream(1: string stream, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
+  bool putStream(1: string name, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
 
-  bool checkStreamExists(1: StreamIDType streamID) throws (1:ServerException error),
+  bool checkStreamExists(1: string name) throws (1:ServerException error),
 
-  Stream getStream(1: StreamIDType streamID) throws (1:ServerException error),
+  Stream getStream(1: string name) throws (1:ServerException error),
 
-  bool delStream(1: StreamIDType streamID) throws (1:ServerException error)
+  bool delStream(1: string name) throws (1:ServerException error)
 }
 
 
@@ -128,13 +128,13 @@ service TransactionService {
 
   CommitLogInfo getCommitLogOffsets() throws (1:ServerException error)
 
-  StreamIDType putStream(1: string stream, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
+  StreamIDType putStream(1: string name, 2: i32 partitions, 3: optional string description, 4: tllType ttl) throws (1:ServerException error),
 
-  bool checkStreamExists(1: StreamIDType streamID) throws (1:ServerException error),
+  bool checkStreamExists(1: string name) throws (1:ServerException error),
 
-  Stream getStream(1: StreamIDType streamID) throws (1:ServerException error),
+  Stream getStream(1: string name) throws (1:ServerException error),
 
-  bool delStream(1: StreamIDType streamID) throws (1:ServerException error),
+  bool delStream(1: string name) throws (1:ServerException error),
 
   bool putTransaction(1: Transaction transaction) throws (1:ServerException error),
 

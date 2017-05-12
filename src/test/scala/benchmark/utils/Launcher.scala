@@ -11,7 +11,7 @@ trait Launcher extends Installer {
     Thread.sleep(2000L)
     createStream(streamName, clients)
     launchClients()
-    deleteStream(streamID)
+    deleteStream(streamName)
   }
 
   protected def launchClients(): Unit

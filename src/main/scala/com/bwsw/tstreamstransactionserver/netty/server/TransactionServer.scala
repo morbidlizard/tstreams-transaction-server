@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCache, StreamServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue, TransactionMetaServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
@@ -21,7 +21,7 @@ class TransactionServer(val executionContext: ServerExecutionContext,
                         authOpts: AuthOptions,
                         storageOpts: StorageOptions,
                         rocksStorageOpts: RocksStorageOptions,
-                        streamCache: StreamCache,
+                        streamCache: StreamCRUD,
                         timer: Time = new Time{}
                        )
 {
@@ -68,14 +68,14 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   final def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Int =
     streamServiceImpl.putStream(stream, partitions, description, ttl)
 
-  final def checkStreamExists(streamID: Int): Boolean =
-    streamServiceImpl.checkStreamExists(streamID)
+  final def checkStreamExists(name: String): Boolean =
+    streamServiceImpl.checkStreamExists(name)
 
-  final def getStream(streamID: Int): Option[rpc.Stream] =
-    streamServiceImpl.getStream(streamID)
+  final def getStream(name: String): Option[rpc.Stream] =
+    streamServiceImpl.getStream(name)
 
-  final def delStream(streamID: Int): Boolean =
-    streamServiceImpl.delStream(streamID)
+  final def delStream(name: String): Boolean =
+    streamServiceImpl.delStream(name)
 
   final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean =
     transactionDataServiceImpl.putTransactionData(streamID, partition, transaction, data, from)

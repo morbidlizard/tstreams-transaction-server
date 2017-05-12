@@ -106,7 +106,6 @@ class ZKClientServer(serverAddress: String,
     scala.util.Try{
       val permissions = new util.ArrayList[ACL]()
       permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
-
       client.create().creatingParentsIfNeeded()
         .withMode(CreateMode.EPHEMERAL)
         .withACL(permissions)

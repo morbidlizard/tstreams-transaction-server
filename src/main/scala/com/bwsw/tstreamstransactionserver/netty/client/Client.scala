@@ -35,8 +35,6 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   private def onShutdownThrowException(): Unit =
     if (isShutdown) throw ClientIllegalOperationAfterShutdown
 
-  private val authenticateLock = new java.util.concurrent.locks.ReentrantLock
-  private val channelLock = new java.util.concurrent.locks.ReentrantLock
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -68,6 +66,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   )
   zKLeaderClient.start()
 
+
+
   private final def onZKConnectionStateChangedDefaultBehaviour(newState: ConnectionState): Unit = {
     newState match {
       case ConnectionState.LOST => zKLeaderClient.master = None
@@ -86,7 +86,8 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     .option[java.lang.Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, int2Integer(clientOpts.connectionTimeoutMs))
     .handler(new ClientInitializer(reqIdToRep, this, context))
 
-
+  private val authenticateLock = new java.util.concurrent.locks.ReentrantLock
+  private val channelLock = new java.util.concurrent.locks.ReentrantLock
   @volatile private var channel: Channel = connect()
 
   @tailrec
@@ -112,11 +113,13 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     val isLocked = channelLock.tryLock()
     if (isLocked) {
       try {
-        channel.closeFuture().sync()
+        if (channel != null) channel.closeFuture().sync()
         channel = connect()
       } finally {
         channelLock.unlock()
       }
+    } else {
+      TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     }
   }
 
@@ -831,7 +834,10 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
       finally {
         authenticateLock.unlock()
       }
-    } else ScalaFuture.successful[Unit](Unit)
+    } else {
+      TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+      ScalaFuture.successful[Unit](Unit)
+    }
   }
 
   /** It Disconnects client from server slightly */

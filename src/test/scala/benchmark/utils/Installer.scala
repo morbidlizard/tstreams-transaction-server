@@ -32,7 +32,12 @@ trait Installer {
 
   def createStream(name: String, partitions: Int): Int = {
     val client = clientBuilder.build()
-    val streamID = Await.result(client.putStream(name, partitions, None, 5), 10.seconds)
+    val streamID = if (!Await.result(client.checkStreamExists(name), 10.seconds)) {
+      Await.result(client.putStream(name, partitions, None, 5), 10.seconds)
+    } else {
+      Await.result(client.delStream(name), 10.seconds)
+      Await.result(client.putStream(name, partitions, None, 5), 10.seconds)
+    }
     client.shutdown()
     streamID
   }

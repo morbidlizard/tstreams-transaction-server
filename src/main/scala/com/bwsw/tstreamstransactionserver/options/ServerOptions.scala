@@ -30,7 +30,7 @@ object ServerOptions {
     * @param commitLogRocksDirectory the path where rocksdb with persisted commit log files is placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     *
     */
-  case class StorageOptions(path: String = "/tmp",
+  case class StorageOptions(path: String = "/tmp", streamZookeperDirectory: String = "/tts/streams",
                             dataDirectory: String = "transaction_data", metadataDirectory: String = "transaction_metadata",
                             commitLogDirectory: String = "commit_log", commitLogRocksDirectory: String = "commit_log_rocks"//,
                             /** streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",

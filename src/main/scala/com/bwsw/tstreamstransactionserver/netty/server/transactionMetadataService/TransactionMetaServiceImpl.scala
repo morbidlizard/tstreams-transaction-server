@@ -2,15 +2,16 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import java.util.concurrent.TimeUnit
 
+import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamKey
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+
 
 class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
                                  lastTransactionStreamPartition: LastTransactionStreamPartition,
@@ -19,6 +20,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
     with ProducerTransactionStateNotifier
 {
   import lastTransactionStreamPartition._
+
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val producerTransactionsDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
   private val producerTransactionsWithOpenedStateDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
@@ -338,9 +340,10 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
     def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(
         producerTransactionWithoutKey.timestamp +
-        TimeUnit.SECONDS.toMillis(producerTransactionWithoutKey.ttl)
+          producerTransactionWithoutKey.ttl
       ) <= timestampToDeleteTransactions
     }
+
 
     if (logger.isDebugEnabled)
       logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")

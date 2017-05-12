@@ -2,6 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import com.bwsw.tstreamstransactionserver.rpc.Stream
 
+
 class StreamServiceImpl(streamCache: StreamCRUD)
 {
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Int =

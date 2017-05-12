@@ -3,7 +3,6 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionDataService
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey, StreamRecord}
@@ -17,11 +16,11 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
                                  streamCache: StreamCRUD
                                 )
 {
-
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
 
   private def calculateTTL(ttl: Long): Int = scala.math.abs((ttl + ttlToAdd).toInt)
+
 
   private val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
 

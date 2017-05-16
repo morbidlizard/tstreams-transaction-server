@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.3.7.1-SNAPSHOT"
+version := "1.3.7.2-SNAPSHOT"
 
 scalaVersion := "2.12.2"
 
@@ -38,6 +38,8 @@ publishTo := {
   else
     Some("releases" at nexus + "service/local/staging/deploy/maven2")
 }
+
+test in assembly := {}
 
 publishArtifact in Test := false
 assemblyJarName in assembly := s"${name.value}-${version.value}.jar"

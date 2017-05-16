@@ -34,7 +34,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
-  def startTransactionServer(): Unit = new Thread(() => {
+  def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     transactionServer = new Server(
       authOpts = serverAuthOptions,
@@ -47,8 +47,14 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions
     )
-    transactionServer.start()
-  }).start()
+    val l = new CountDownLatch(1)
+    new Thread(() => {
+      l.countDown()
+      transactionServer.start()
+    }).start()
+    l.await()
+    transactionServer
+  }
 
 
   override def beforeEach(): Unit = {

@@ -1,7 +1,7 @@
 package it
 
 import java.io.File
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
@@ -43,7 +43,8 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
-  def startTransactionServer(): Unit = new Thread(() => {
+
+  def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     transactionServer = new Server(
       authOpts = serverAuthOptions,
@@ -57,9 +58,14 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       timer = TestTimer
     )
-    transactionServer.start()
-  }).start()
-
+    val l = new CountDownLatch(1)
+    new Thread(() => {
+      l.countDown()
+      transactionServer.start()
+    }).start()
+    l.await()
+    transactionServer
+  }
 
   override def beforeEach(): Unit = {
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))

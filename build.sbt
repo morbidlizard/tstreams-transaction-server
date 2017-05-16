@@ -1,8 +1,8 @@
 name := "tstreams-transaction-server"
 
-version := "1.3.6-SNAPSHOT"
+version := "1.3.7-SNAPSHOT"
 
-scalaVersion := "2.12.1"
+scalaVersion := "2.12.2"
 
 pomExtra :=
   <scm>
@@ -69,8 +69,6 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "io.netty" % "netty-all" % "4.1.9.Final",
   "org.json4s" %% "json4s-jackson" % "3.5.1",
-
-//  "com.bwsw" % "journaled-commit-log_2.12" % "1.0.0-SNAPSHOT",
 
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",
   "org.slf4j" % "slf4j-log4j12" % "1.7.24" % "provided",

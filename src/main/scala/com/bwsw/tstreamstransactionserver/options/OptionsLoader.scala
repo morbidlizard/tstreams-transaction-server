@@ -42,7 +42,7 @@ class OptionsLoader() {
   private def loadServerStorageOptions() = {
     val fields = getPropertiesOf(classOf[StorageOptions])
 
-    castCheck(StorageOptions(fields(0), fields(1), fields(2), fields(3), fields(4)))
+    castCheck(StorageOptions(fields(0), fields(1), fields(2), fields(3), fields(4), fields(5)))
   }
 
   private def loadServerReplicationOptions() = {

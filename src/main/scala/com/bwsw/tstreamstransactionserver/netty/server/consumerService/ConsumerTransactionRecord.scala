@@ -1,18 +1,19 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
-case class ConsumerTransactionRecord(key: ConsumerTransactionKey, consumerTransaction: ConsumerTransactionValue)
+import com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction
+
+case class ConsumerTransactionRecord(key: ConsumerTransactionKey, consumerTransaction: ConsumerTransactionValue) extends ConsumerTransaction
 {
-  def transactionID: Long = consumerTransaction.transactionId
-  def name: String = key.name
-  def stream: Long = Long2long(key.stream)
-  def partition: Int = key.partition
+  override def transactionID: Long = consumerTransaction.transactionId
+  override def name: String = key.name
+  override def stream: Int = key.streamID
+  override def partition: Int = key.partition
   def timestamp: Long = Long2long(consumerTransaction.timestamp)
-  override def toString: String = s"Consumer transaction: stream:$stream, partition:$partition, transaction:$transactionID, name:$name"
 }
 
 object ConsumerTransactionRecord {
-  def apply(txn: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction, streamNameToLong: java.lang.Long, timestamp: Long): ConsumerTransactionRecord = {
-    val key = ConsumerTransactionKey(txn.name, streamNameToLong, txn.partition)
+  def apply(txn: ConsumerTransaction, timestamp: Long): ConsumerTransactionRecord = {
+    val key = ConsumerTransactionKey(txn.name, txn.stream, txn.partition)
     val producerTransaction = ConsumerTransactionValue(txn.transactionID, timestamp)
     ConsumerTransactionRecord(key, producerTransaction)
   }

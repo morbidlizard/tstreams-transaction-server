@@ -1,33 +1,26 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionDataService
 
 import java.nio.ByteBuffer
-import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
-import com.bwsw.tstreamstransactionserver.netty.server.StreamCache
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey, StreamRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
 
-trait TransactionDataServiceImpl
-  extends StreamCache
+class TransactionDataServiceImpl(storageOpts: StorageOptions,
+                                 rocksStorageOpts: RocksStorageOptions,
+                                 streamCache: StreamCRUD
+                                )
 {
-
-  val executionContext: ServerExecutionContext
-  val storageOpts: StorageOptions
-  val rocksStorageOpts: RocksStorageOptions
-
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
 
-  private def calculateTTL(ttl: Long): Int = {
-    val convertedTTL = ttl + TimeUnit.SECONDS.toSeconds(ttlToAdd)
-    scala.math.abs(convertedTTL.toInt)
-  }
+  private def calculateTTL(ttl: Long): Int = scala.math.abs((ttl + ttlToAdd).toInt)
+
 
   private val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
 
@@ -38,21 +31,24 @@ trait TransactionDataServiceImpl
 
   private val pathForData = s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.dataDirectory}${java.io.File.separatorChar}"
 
-  private def getStorage(keyStream: StreamRecord, ttl: Long) = {
-    val key = StorageName(keyStream.key.id.toString)
+  private def getStorage(streamRecord: StreamRecord) = {
+    val key = StorageName(streamRecord.key.id.toString)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
-      val calculatedTTL = calculateTTL(ttl)
-      if (logger.isDebugEnabled()) logger.debug(s"Creating new database[stream: ${keyStream.name}, ttl(in hrs): $calculatedTTL] for persisting and reading transactions data.")
+      val calculatedTTL = calculateTTL(streamRecord.ttl)
+      if (logger.isDebugEnabled()) logger.debug(s"Creating new database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] for persisting and reading transactions data.")
       new RocksDbConnection(rocksStorageOpts, s"$pathForData${key.toString}", calculatedTTL)
     })
   }
 
 
-  final def putTransactionData(stream: String, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
+  final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
     if (data.isEmpty) true
     else {
-      val streamObj = getMostRecentStream(stream)
-      val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
+      val streamRecord = streamCache
+        .getStream(StreamKey(streamID))
+        .getOrElse(throw new StreamDoesNotExist(streamID.toString))
+
+      val rocksDB = getStorage(streamRecord)
 
       val batch = rocksDB.newBatch
 
@@ -69,18 +65,20 @@ trait TransactionDataServiceImpl
 
       if (logger.isDebugEnabled) {
         if (isOkay)
-          logger.debug(s"On stream $stream, partition: $partition, transaction $transaction saved transaction data successfully.")
+          logger.debug(s"On stream ${streamRecord.id}, partition: $partition, transaction $transaction saved transaction data successfully.")
         else
-          logger.debug(s"On stream $stream, partition: $partition, transaction $transaction transaction data wasn't saved.")
+          logger.debug(s"On stream ${streamRecord.id}, partition: $partition, transaction $transaction transaction data wasn't saved.")
       }
 
       isOkay
     }
   }
 
-  def getTransactionData(stream: String, partition: Int, transaction: Long, from: Int, to: Int): Seq[ByteBuffer] = {
-    val streamObj = getMostRecentStream(stream)
-    val rocksDB = getStorage(streamObj, streamObj.stream.ttl)
+  def getTransactionData(streamID: Int, partition: Int, transaction: Long, from: Int, to: Int): Seq[ByteBuffer] = {
+    val streamRecord = streamCache
+      .getStream(StreamKey(streamID))
+      .getOrElse(throw new StreamDoesNotExist(streamID.toString))
+    val rocksDB = getStorage(streamRecord)
 
     val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary
     val toSeqId = KeyDataSeq(Key(partition, transaction), to).toBinary

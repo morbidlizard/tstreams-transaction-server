@@ -1,9 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 import java.nio.charset.StandardCharsets
+import com.bwsw.tstreamstransactionserver.rpc.Stream
 
-case class StreamValue(name: String, partitions: Int, description: Option[String], ttl: Long, timestamp: Long, @volatile var deleted: Boolean)
-  extends com.bwsw.tstreamstransactionserver.rpc.Stream
+case class StreamValue(name: String, partitions: Int, description: Option[String], ttl: Long)
+  extends Stream
 {
   def toByteArray: Array[Byte] = {
     val nameBodyFiledSize = java.lang.Integer.BYTES
@@ -11,8 +12,6 @@ case class StreamValue(name: String, partitions: Int, description: Option[String
     val descriptionFlagFieldSize = java.lang.Byte.BYTES
     val descriptionFieldSize = java.lang.Integer.BYTES
     val ttlFieldSize = java.lang.Long.BYTES
-    val timestampFieldSize = java.lang.Long.BYTES
-    val deletedFieldSize = java.lang.Byte.BYTES
 
     val nameBodyBytes = name.getBytes(StreamValue.charset)
     val descriptionOptionFlag: Byte = description.map(_ => 1:Byte).getOrElse(0:Byte)
@@ -21,8 +20,7 @@ case class StreamValue(name: String, partitions: Int, description: Option[String
     val buffer = java.nio.ByteBuffer.allocate(
       nameBodyFiledSize + nameBodyBytes.length + partitionsFieldSize +
         descriptionFlagFieldSize + descriptionFieldSize +
-        ttlFieldSize + timestampFieldSize + descriptionBodyBytes.length +
-        deletedFieldSize
+        ttlFieldSize + descriptionBodyBytes.length
     )
 
     buffer
@@ -33,8 +31,6 @@ case class StreamValue(name: String, partitions: Int, description: Option[String
       .putInt(descriptionBodyBytes.length)
       .put(descriptionBodyBytes)
       .putLong(ttl)
-      .putLong(timestamp)
-      .put(if (deleted) 1:Byte else 0:Byte)
       .array()
   }
 }
@@ -68,11 +64,6 @@ object StreamValue
       else
         None
     val ttl = buffer.getLong
-    val timestamp = buffer.getLong
-    val deleted = {
-      val flag = buffer.get()
-      if (flag == (1:Byte)) true else false
-    }
-    StreamValue(name, partitions, description, ttl, timestamp, deleted)
+    StreamValue(name, partitions, description, ttl)
   }
 }

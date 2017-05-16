@@ -16,8 +16,8 @@ object DumpProcessedCommitLogUtility {
   RocksDB.loadLibrary()
 
   sealed trait Transaction
-  case class ProducerTransaction(stream: String, partition: Int, transactionID: Long, state: String, ttl: Long) extends Transaction
-  case class ConsumerTransaction(stream: String, partition: Int, transactionID: Long, name: String) extends Transaction
+  case class ProducerTransaction(stream: Int, partition: Int, transactionID: Long, state: String, ttl: Long) extends Transaction
+  case class ConsumerTransaction(stream: Int, partition: Int, transactionID: Long, name: String) extends Transaction
   case class CommitLogRecord(id: Long, timestamp: Long, transactions: Seq[Transaction])
   case class CommitLogFile(id: Long, md5: Option[Seq[Byte]], transactions: Seq[CommitLogRecord])
 

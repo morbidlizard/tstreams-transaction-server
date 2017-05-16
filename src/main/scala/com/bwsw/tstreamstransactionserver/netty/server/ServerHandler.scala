@@ -13,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 import scala.util.Try
 
 class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLog, packageTransmissionOpts: TransportOptions, logger: Logger) extends SimpleChannelInboundHandler[ByteBuf] {
-  private val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
+  private lazy val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
 
   private val serverWriteContext: ExecutionContext = transactionServer.executionContext.serverWriteContext
@@ -60,8 +60,6 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
 
     implicit val (messageId: Long, token) = (message.id, message.token)
 
-    def isTooBigPackage = isTooBigMetadataMessage(message)
-
     def logSuccessfulProcession(method: String): Unit = if (logger.isDebugEnabled) logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id}: $method is successfully processed!")
 
     def logUnsuccessfulProcessing(method: String, error: Throwable): Unit = if (logger.isDebugEnabled) logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id}:  $method is failed while processing!", error)
@@ -79,7 +77,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           val result: Try[Message] = scala.util.Try(Descriptors.GetCommitLogOffsets.encodeResponse(
             TransactionService.GetCommitLogOffsets.Result(
               Some(CommitLogInfo(
-                transactionServer.getLastProcessedCommitLogFileID.getOrElse(-1L),
+                transactionServer.getLastProcessedCommitLogFileID,
                 scheduledCommitLog.currentCommitLogFile)
               )
             )
@@ -102,14 +100,14 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.PutStream.name, packageTooBigException)
           lazy val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.PutStream.decodeRequest(message)
-          val result = transactionServer.putStream(args.stream, args.partitions, args.description, args.ttl)
+          val result = transactionServer.putStream(args.name, args.partitions, args.description, args.ttl)
           logSuccessfulProcession(Descriptors.PutStream.name)
           lazy val response = Descriptors.PutStream.encodeResponse(TransactionService.PutStream.Result(Some(result)))(messageId, message.token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -127,13 +125,13 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.CheckStreamExists.name, packageTooBigException)
           lazy val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         } else {
           val args = Descriptors.CheckStreamExists.decodeRequest(message)
-          val result = transactionServer.checkStreamExists(args.stream)
+          val result = transactionServer.checkStreamExists(args.name)
           logSuccessfulProcession(Descriptors.CheckStreamExists.name)
           lazy val response = Descriptors.CheckStreamExists.encodeResponse(TransactionService.CheckStreamExists.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -150,16 +148,16 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.GetStream.name, packageTooBigException)
           lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetStream.decodeRequest(message)
-          val result = transactionServer.getStream(args.stream)
+          val result = transactionServer.getStream(args.name)
           logSuccessfulProcession(Descriptors.GetStream.name)
-          lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          lazy val response = Descriptors.GetStream.encodeResponse(TransactionService.GetStream.Result(result))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(serverReadContext)
@@ -174,14 +172,14 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.DelStream.name, packageTooBigException)
           lazy val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.DelStream.decodeRequest(message)
-          val result = transactionServer.delStream(args.stream)
+          val result = transactionServer.delStream(args.name)
           logSuccessfulProcession(Descriptors.DelStream.name)
           lazy val response = Descriptors.DelStream.encodeResponse(TransactionService.DelStream.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -198,7 +196,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.PutTransaction.name, packageTooBigException)
           lazy val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -222,7 +220,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.PutTransactions.name, packageTooBigException)
           lazy val response = Descriptors.PutTransactions.encodeResponse(TransactionService.PutTransactions.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -246,17 +244,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.PutSimpleTransactionAndData.name, packageTooBigException)
           lazy val response = Descriptors.PutSimpleTransactionAndData.encodeResponse(TransactionService.PutSimpleTransactionAndData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val txn = Descriptors.PutSimpleTransactionAndData.decodeRequest(message)
-          transactionServer.putTransactionData(txn.stream, txn.partition, txn.transaction, txn.data, 0)
+          transactionServer.putTransactionData(txn.streamID, txn.partition, txn.transaction, txn.data, 0)
           val transactions = collection.immutable.Seq(
-            Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Opened, txn.data.size, 3L)), None),
-            Transaction(Some(ProducerTransaction(txn.stream, txn.partition, txn.transaction, TransactionStates.Checkpointed, txn.data.size, 120L)), None)
+            Transaction(Some(ProducerTransaction(txn.streamID, txn.partition, txn.transaction, TransactionStates.Opened, txn.data.size, 3L)), None),
+            Transaction(Some(ProducerTransaction(txn.streamID, txn.partition, txn.transaction, TransactionStates.Checkpointed, txn.data.size, 120L)), None)
           )
           val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(TransactionService.PutTransactions.Args(transactions))(messageId, token, isFireAndForgetMethod)
           val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, messageForPutTransactions)
@@ -276,14 +274,14 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.GetTransaction.name, packageTooBigException)
           lazy val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetTransaction.decodeRequest(message)
-          val result = transactionServer.getTransaction(args.stream, args.partition, args.transaction)
+          val result = transactionServer.getTransaction(args.streamID, args.partition, args.transaction)
           logSuccessfulProcession(Descriptors.GetTransaction.name)
           lazy val response = Descriptors.GetTransaction.encodeResponse(TransactionService.GetTransaction.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -301,14 +299,14 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.GetLastCheckpointedTransaction.name, packageTooBigException)
           lazy val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetLastCheckpointedTransaction.decodeRequest(message)
-          val result = transactionServer.getLastCheckpointedTransaction(args.stream, args.partition)
+          val result = transactionServer.getLastCheckpointedTransaction(args.streamID, args.partition)
           logSuccessfulProcession(Descriptors.GetLastCheckpointedTransaction.name)
           lazy val response = Descriptors.GetLastCheckpointedTransaction.encodeResponse(TransactionService.GetLastCheckpointedTransaction.Result(result))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -325,14 +323,14 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.ScanTransactions.name, packageTooBigException)
           lazy val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.ScanTransactions.decodeRequest(message)
-          val result = transactionServer.scanTransactions(args.stream, args.partition, args.from, args.to, args.count, args.states)
+          val result = transactionServer.scanTransactions(args.streamID, args.partition, args.from, args.to, args.count, args.states)
           logSuccessfulProcession(Descriptors.ScanTransactions.name)
           lazy val response = Descriptors.ScanTransactions.encodeResponse(TransactionService.ScanTransactions.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -355,7 +353,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         }
         else {
           val args = Descriptors.PutTransactionData.decodeRequest(message)
-          val result = transactionServer.putTransactionData(args.stream, args.partition, args.transaction, args.data, args.from)
+          val result = transactionServer.putTransactionData(args.streamID, args.partition, args.transaction, args.data, args.from)
           logSuccessfulProcession(Descriptors.PutTransactionData.name)
           lazy val response = Descriptors.PutTransactionData.encodeResponse(TransactionService.PutTransactionData.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -372,14 +370,14 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.GetTransactionData.name, packageTooBigException)
           lazy val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetTransactionData.decodeRequest(message)
-          val result = transactionServer.getTransactionData(args.stream, args.partition, args.transaction, args.from, args.to)
+          val result = transactionServer.getTransactionData(args.streamID, args.partition, args.transaction, args.from, args.to)
           logSuccessfulProcession(Descriptors.GetTransactionData.name)
           lazy val response = Descriptors.GetTransactionData.encodeResponse(TransactionService.GetTransactionData.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -397,7 +395,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.PutConsumerCheckpoint.name, packageTooBigException)
           lazy val response = Descriptors.PutConsumerCheckpoint.encodeResponse(TransactionService.PutConsumerCheckpoint.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -421,14 +419,14 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           lazy val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
-        else if (isTooBigPackage) {
+        else if (isTooBigMetadataMessage(message)) {
           logUnsuccessfulProcessing(Descriptors.GetConsumerState.name, packageTooBigException)
           lazy val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
           val args = Descriptors.GetConsumerState.decodeRequest(message)
-          val result = transactionServer.getConsumerState(args.name, args.stream, args.partition)
+          val result = transactionServer.getConsumerState(args.name, args.streamID, args.partition)
           logSuccessfulProcession(Descriptors.GetConsumerState.name)
           lazy val response = Descriptors.GetConsumerState.encodeResponse(TransactionService.GetConsumerState.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -443,7 +441,10 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
       case Descriptors.Authenticate.methodID =>
         val args = Descriptors.Authenticate.decodeRequest(message)
         val result = transactionServer.authenticate(args.authKey)
-        val authInfo = AuthInfo(result, packageTransmissionOpts.maxMetadataPackageSize, packageTransmissionOpts.maxDataPackageSize)
+        val authInfo = AuthInfo(result,
+          packageTransmissionOpts.maxMetadataPackageSize,
+          packageTransmissionOpts.maxDataPackageSize
+        )
         logSuccessfulProcession(Descriptors.Authenticate.name)
         val response = Descriptors.Authenticate.encodeResponse(TransactionService.Authenticate.Result(Some(authInfo)))(messageId, token, isFireAndForgetMethod)
         sendResponseToClient(response, ctx, isFireAndForgetMethod)

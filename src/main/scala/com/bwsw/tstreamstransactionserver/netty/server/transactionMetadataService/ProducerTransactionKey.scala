@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 
 
-case class ProducerTransactionKey(stream: Long, partition: Int, transactionID: Long) extends Ordered[ProducerTransactionKey]{
+case class ProducerTransactionKey(stream: Int, partition: Int, transactionID: Long) extends Ordered[ProducerTransactionKey]{
 
 
   override def compare(that: ProducerTransactionKey): Int = {
@@ -17,12 +17,12 @@ case class ProducerTransactionKey(stream: Long, partition: Int, transactionID: L
 
   def toByteArray: Array[Byte] = {
     val buffer = java.nio.ByteBuffer.allocate(
-      java.lang.Long.BYTES +
+      java.lang.Integer.BYTES +
       java.lang.Integer.BYTES +
       java.lang.Long.BYTES
     )
     buffer
-      .putLong(stream)
+      .putInt(stream)
       .putInt(partition)
       .putLong(transactionID)
       .array()
@@ -32,7 +32,7 @@ case class ProducerTransactionKey(stream: Long, partition: Int, transactionID: L
 object ProducerTransactionKey {
   def fromByteArray(bytes: Array[Byte]): ProducerTransactionKey = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
-    val stream = buffer.getLong
+    val stream = buffer.getInt
     val partition = buffer.getInt
     val transactionID = buffer.getLong
     ProducerTransactionKey(stream, partition, transactionID)

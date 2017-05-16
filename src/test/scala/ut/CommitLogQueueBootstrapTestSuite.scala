@@ -1,12 +1,14 @@
 package ut
 
 import java.io.File
-import java.util.concurrent.{ArrayBlockingQueue, PriorityBlockingQueue}
+import java.util.concurrent.PriorityBlockingQueue
 
-import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
+import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.{CommitLogQueueBootstrap, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions, StorageOptions}
+import it.Utils.startZkServerAndGetIt
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
@@ -18,9 +20,23 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   val rocksStorageOptions = RocksStorageOptions()
   val executionContext = new ServerExecutionContext(2, 2)
   val storageOptions = StorageOptions(new StringBuffer().append("target").append(File.separatorChar).append("clqb").toString)
-  val transactionService = new TransactionServer(executionContext, authOptions, storageOptions, rocksStorageOptions)
+
+
+  private val path = "/tts/test_path"
+  private lazy val (zkServer, zkClient) = startZkServerAndGetIt
+  private lazy val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+  private lazy val transactionServer = new TransactionServer(
+    executionContext = executionContext,
+    authOpts = authOptions,
+    storageOpts = storageOptions,
+    rocksStorageOpts = rocksStorageOptions,
+    streamDatabaseZK
+  )
+
   val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
-  val commitLogQueueBootstrap = new CommitLogQueueBootstrap(10, commitLogCatalogue, transactionService)
+  val commitLogQueueBootstrap = new CommitLogQueueBootstrap(10, commitLogCatalogue, transactionServer)
+
+
 
   "fillQueue" should "return an empty queue if there are no commit log files in a storage directory" in {
     //act
@@ -58,7 +74,10 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   }
 
   override def afterAll = {
+    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
     FileUtils.deleteDirectory(new File(storageOptions.path))
+    zkClient.close()
+    zkServer.close()
   }
 
   private def createCommitLogFiles(number: Int) = {

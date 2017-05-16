@@ -89,7 +89,7 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
 
   "Client" should "put consumerCheckpoint and get a transaction id back" in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait.seconds)
+    val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
     val transactionId = 10L
     val checkpointName = "test-name"
@@ -100,7 +100,7 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
       consumerTransaction.transactionID == transactionId && consumerTransaction.name == checkpointName, latch.countDown()
     )
 
-    val consumerTransactionOuter = ConsumerTransaction(stream.name, 1, transactionId, checkpointName)
+    val consumerTransactionOuter = ConsumerTransaction(streamID, 1, transactionId, checkpointName)
     client.putConsumerCheckpoint(consumerTransactionOuter)
 
     latch.await(1, TimeUnit.SECONDS) shouldBe true
@@ -124,7 +124,7 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
 
   it should "get notification about consumer checkpoint after using putTransactions method." in {
     val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait.seconds)
+    val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
     val transactionId = 10L
     val checkpointName = "test-name"
@@ -135,7 +135,7 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
       consumerTransaction.transactionID == transactionId, latch.countDown()
     )
 
-    val consumerTransactionOuter = ConsumerTransaction(stream.name, 1, transactionId, checkpointName)
+    val consumerTransactionOuter = ConsumerTransaction(streamID, 1, transactionId, checkpointName)
     client.putTransactions(Seq(), Seq(consumerTransactionOuter))
 
     latch.await(1, TimeUnit.SECONDS) shouldBe true

@@ -12,6 +12,9 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
+import Utils._
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamValue}
 
 import scala.language.reflectiveCalls
 
@@ -28,8 +31,8 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val txnCounter = new AtomicLong(0)
 
-  private def getRandomProducerTransaction(streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream, ttlTxn: Long) = ProducerTransaction(
-    stream = streamObj.name,
+  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream, ttlTxn: Long) = ProducerTransaction(
+    stream = streamID,
     partition = streamObj.partitions,
     transactionID = txnCounter.getAndIncrement(),
     state = TransactionStates.Opened,
@@ -62,26 +65,32 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
     val producerTxnNumber = 100
 
+    val path = "/tts/streams"
+    val (zkServer, zkClient) = startZkServerAndGetIt
+    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+
+
     val transactionService = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
-      rocksStorageOpts = rocksStorageOptions
+      rocksStorageOpts = rocksStorageOptions,
+      streamDatabaseZK
     ) {
-      def checkTransactionExistInOpenedTable(stream: String, partition: Int, transactionId: Long) = {
-        val streamObj = getMostRecentStream(stream)
-        val txn = getOpenedTransaction(ProducerTransactionKey(streamObj.id, partition, transactionId))
+      def checkTransactionExistInOpenedTable(stream: Int, partition: Int, transactionId: Long): Boolean = {
+        val txn = getOpenedTransaction(ProducerTransactionKey(stream, partition, transactionId))
         txn.isDefined
       }
     }
     def ttlSec = TimeUnit.SECONDS.toMillis(rand.nextInt(maxTTLForProducerTransactionSec))
 
     val stream = getRandomStream
-    transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+
+    val streamID = transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val currentTime = System.currentTimeMillis()
     val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] = Array.fill(producerTxnNumber) {
-      val producerTransaction = getRandomProducerTransaction(stream, ttlSec)
+      val producerTransaction = getRandomProducerTransaction(streamID, stream, ttlSec)
       (producerTransaction, System.currentTimeMillis())
     }
     val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
@@ -98,13 +107,15 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
       ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
     }
 
-    transactionService.scanTransactions(stream.name, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)).producerTransactions should contain theSameElementsAs expiredTransactions
+    transactionService.scanTransactions(streamID, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)).producerTransactions should contain theSameElementsAs expiredTransactions
 
     (minTransactionID to maxTransactionID) foreach { transactionID =>
-      transactionService.checkTransactionExistInOpenedTable(stream.name, stream.partitions, transactionID) shouldBe false
+      transactionService.checkTransactionExistInOpenedTable(streamID, stream.partitions, transactionID) shouldBe false
     }
 
     transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    zkClient.close()
+    zkServer.close()
   }
 
 }

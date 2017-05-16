@@ -5,8 +5,7 @@ import com.google.common.cache.CacheBuilder
 import org.slf4j.{Logger, LoggerFactory}
 
 
-trait AuthServiceImpl {
-  val authOpts: AuthOptions
+class AuthServiceImpl(authOpts: AuthOptions) {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private val random = scala.util.Random

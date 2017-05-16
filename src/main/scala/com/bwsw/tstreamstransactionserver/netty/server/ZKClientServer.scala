@@ -7,10 +7,11 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
 import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.google.common.net.InetAddresses
 import io.netty.resolver.dns.DnsNameResolver
 import org.apache.curator.RetryPolicy
-import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
+import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
 import org.apache.curator.framework.recipes.leader.Participant
 import org.apache.zookeeper.CreateMode
@@ -26,8 +27,8 @@ class ZKClientServer(serverAddress: String,
                      sessionTimeoutMillis: Int,
                      connectionTimeoutMillis: Int,
                      policy: RetryPolicy
-                               )
-  extends Closeable {
+                    ) extends Closeable
+{
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -68,33 +69,36 @@ class ZKClientServer(serverAddress: String,
     }
   }
 
-  final def replicationGroup(path: String) = new ReplicationGroup(path)
-  final class ReplicationGroup(path: String) {
-    import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheListener}
-    import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
-    import scala.collection.JavaConverters._
+  def streamDatabase(path: String) = new StreamDatabaseZK(client, path)
 
-    final class Listener(listener: PathChildrenCacheListener) {
-      private val cache = new PathChildrenCache(client, path, true)
-      cache.getListenable.addListener(listener)
-      cache.start()
 
-      def close(): Unit = cache.close()
-    }
-
-    final class Election(listener: LeaderLatchListener) {
-      private val leaderLatch = new LeaderLatch(client, path, socketAddress, LeaderLatch.CloseMode.NOTIFY_LEADER)
-      leaderLatch.addListener(listener)
-
-      def participants: Iterable[Participant] = leaderLatch.getParticipants.asScala
-
-      def join(): Unit = leaderLatch.start()
-      def leave(): Unit = leaderLatch.close(LeaderLatch.CloseMode.NOTIFY_LEADER)
-    }
-
-    def election(listener: LeaderLatchListener) = new Election(listener)
-    def listener(listener: PathChildrenCacheListener) = new Listener(listener)
-  }
+//  final def replicationGroup(path: String) = new ReplicationGroup(path)
+//  final class ReplicationGroup(path: String) {
+//    import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheListener}
+//    import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
+//    import scala.collection.JavaConverters._
+//
+//    final class Listener(listener: PathChildrenCacheListener) {
+//      private val cache = new PathChildrenCache(client, path, true)
+//      cache.getListenable.addListener(listener)
+//      cache.start()
+//
+//      def close(): Unit = cache.close()
+//    }
+//
+//    final class Election(listener: LeaderLatchListener) {
+//      private val leaderLatch = new LeaderLatch(client, path, socketAddress, LeaderLatch.CloseMode.NOTIFY_LEADER)
+//      leaderLatch.addListener(listener)
+//
+//      def participants: Iterable[Participant] = leaderLatch.getParticipants.asScala
+//
+//      def join(): Unit = leaderLatch.start()
+//      def leave(): Unit = leaderLatch.close(LeaderLatch.CloseMode.NOTIFY_LEADER)
+//    }
+//
+//    def election(listener: LeaderLatchListener) = new Election(listener)
+//    def listener(listener: PathChildrenCacheListener) = new Listener(listener)
+//  }
 
 
   final def putSocketAddress(path: String): Try[String] = {
@@ -102,7 +106,6 @@ class ZKClientServer(serverAddress: String,
     scala.util.Try{
       val permissions = new util.ArrayList[ACL]()
       permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
-
       client.create().creatingParentsIfNeeded()
         .withMode(CreateMode.EPHEMERAL)
         .withACL(permissions)

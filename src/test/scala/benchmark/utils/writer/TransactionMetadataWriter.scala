@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TransactionMetadataWriter(streamName: String, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
+class TransactionMetadataWriter(streamID: Int, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, filename: String) {
     val client = new ClientBuilder()
         .withConnectionOptions(ConnectionOptions(requestTimeoutMs = 100))
@@ -22,7 +22,7 @@ class TransactionMetadataWriter(streamName: String, partition: Int = 1) extends 
         globalProgress += 1
       }
 
-      val openedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Opened)
+      val openedProducerTransaction = createTransaction(streamID, partition, TransactionStates.Opened)
       (x, {
         time(Await.result(client.putProducerState(openedProducerTransaction), 5.seconds))
       })

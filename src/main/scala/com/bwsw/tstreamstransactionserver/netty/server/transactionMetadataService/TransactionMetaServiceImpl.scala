@@ -1,33 +1,29 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import java.util.concurrent.{Callable, TimeUnit}
+import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
+import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamKey
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.{HasEnvironment, StreamCache}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
-trait TransactionMetaServiceImpl
+
+class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
+                                 lastTransactionStreamPartition: LastTransactionStreamPartition,
+                                 consumerService: ConsumerServiceImpl)
   extends TransactionStateHandler
-    with StreamCache
-    with LastTransactionStreamPartition
     with ProducerTransactionStateNotifier
 {
-
-  def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): ListBuffer[Unit => Unit]
-
-  val executionContext: ServerExecutionContext
-  val rocksMetaServiceDB: RocksDBALL
+  import lastTransactionStreamPartition._
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-  private val producerTransactionsDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.TRANSACTION_ALL_STORE)
-  private val producerTransactionsWithOpenedStateDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.TRANSACTION_OPEN_STORE)
+  private val producerTransactionsDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
+  private val producerTransactionsWithOpenedStateDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
 
   private def fillOpenedTransactionsRAMTable: com.google.common.cache.Cache[ProducerTransactionKey, ProducerTransactionValue] = {
     if (logger.isDebugEnabled) logger.debug("Filling cache with Opened Transactions table.")
@@ -51,7 +47,7 @@ trait TransactionMetaServiceImpl
 
   private val transactionsRamTable: com.google.common.cache.Cache[ProducerTransactionKey, ProducerTransactionValue] = fillOpenedTransactionsRAMTable
 
-  protected def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] = {
+  def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] = {
     val transaction = Option(transactionsRamTable.getIfPresent(key))
     if (transaction.isDefined) transaction
     else {
@@ -75,63 +71,48 @@ trait TransactionMetaServiceImpl
     transactions foreach { case (transaction, timestamp) =>
       (transaction.producerTransaction, transaction.consumerTransaction) match {
         case (Some(txn), _) =>
-          //even if producer transaction is belonged to deleted stream we can omit such transaction, as client shouldn't see it.
-          scala.util.Try(getMostRecentStream(txn.stream)) match {
-            case scala.util.Success(recentStream) if !recentStream.stream.deleted =>
-              val key = KeyStreamPartition(recentStream.id, txn.partition)
-              if (txn.state != TransactionStates.Opened) {
-                producerTransactions += ((txn, timestamp))
-              } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
-                // updating RAM table, and last opened transaction database.
-                updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, isOpenedTransaction = true)
-                putLastTransaction(key, txn.transactionID, isOpenedTransaction = true, batch)
-                if (logger.isDebugEnabled) logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
-                producerTransactions += ((txn, timestamp))
-              }
-            case _ => //It doesn't matter
+          val key = KeyStreamPartition(txn.stream, txn.partition)
+          if (txn.state != TransactionStates.Opened) {
+            producerTransactions += ((txn, timestamp))
+          } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
+            // updating RAM table, and last opened transaction database.
+            updateLastTransactionStreamPartitionRamTable(key, txn.transactionID, isOpenedTransaction = true)
+            putLastTransaction(key, txn.transactionID, isOpenedTransaction = true, batch)
+            if (logger.isDebugEnabled)
+              logger.debug(s"On stream:${key.stream} partition:${key.partition} last opened transaction is ${txn.transactionID} now.")
+            producerTransactions += ((txn, timestamp))
           }
 
         case (_, Some(txn)) =>
-          scala.util.Try(getMostRecentStream(txn.stream)) match {
-            //even if consumer transaction is belonged to deleted stream we can omit such transaction, as client shouldn't see it.
-            case scala.util.Success(recentStream) if !recentStream.stream.deleted =>
-              val key = KeyStreamPartition(recentStream.id, txn.partition)
-              consumerTransactions += ((txn, timestamp))
-            case _ => //It doesn't matter
-          }
+          consumerTransactions += ((txn, timestamp))
+
         case _ =>
       }
     }
     (producerTransactions, consumerTransactions)
   }
 
-  private final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Timestamp)]): Map[StreamRecord, ArrayBuffer[ProducerTransactionRecord]] = {
-    if (logger.isDebugEnabled) logger.debug("Mapping all producer transactions streams attrbute to long representation(ID), grouping them by stream and partition, checking that the stream isn't deleted in order to process producer transactions.")
-    txns.foldLeft[scala.collection.mutable.Map[StreamRecord, ArrayBuffer[ProducerTransactionRecord]]](scala.collection.mutable.Map()) { case (acc, (producerTransaction, timestamp)) =>
-      val keyRecords = getStreamFromOldestToNewest(producerTransaction.stream)
-      //it's okay that one looking for a stream that correspond to the transaction, as client can create/delete new streams.
-      val streamForThisTransaction = keyRecords.filter(_.stream.timestamp <= timestamp).lastOption
-      streamForThisTransaction match {
-        case Some(keyStream) if !keyStream.stream.deleted =>
-          if (acc.contains(keyStream))
-            acc(keyStream) += ProducerTransactionRecord(producerTransaction, keyStream.id, timestamp)
-          else
-            acc += ((keyStream, ArrayBuffer(ProducerTransactionRecord(producerTransaction, keyStream.id, timestamp))))
-
-          acc
-        case _ => acc
-      }
+  private final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Timestamp)]): Map[StreamKey, ArrayBuffer[ProducerTransactionRecord]] = {
+    if (logger.isDebugEnabled)
+      logger.debug("Mapping all producer transactions streams attrbute to long representation(ID), " +
+        "grouping them by stream and partition, " +
+        "checking that the stream isn't deleted in order to process producer transactions."
+      )
+    txns.foldLeft[scala.collection.mutable.Map[StreamKey, ArrayBuffer[ProducerTransactionRecord]]](scala.collection.mutable.Map()) { case (acc, (producerTransaction, timestamp)) =>
+      val keyStream = StreamKey(producerTransaction.stream)
+      if (acc.contains(keyStream))
+        acc(keyStream) += ProducerTransactionRecord(producerTransaction, timestamp)
+      else
+        acc += ((keyStream, ArrayBuffer(ProducerTransactionRecord(producerTransaction, timestamp))))
+      acc
     }.toMap
   }
 
 
   private final def decomposeConsumerTransactionsToDatabaseRepresentation(transactions: Seq[(ConsumerTransaction, Timestamp)]) = {
     val consumerTransactionsKey = ArrayBuffer[ConsumerTransactionRecord]()
-    transactions foreach { case (txn, timestamp) => scala.util.Try {
-      //it's okay that one looking for a stream that correspond to the transaction, as client can create/delete new streams.
-      val streamForThisTransactionOpt = getStreamFromOldestToNewest(txn.stream).filter(_.stream.timestamp <= timestamp).lastOption
-      streamForThisTransactionOpt foreach (streamForThisTransaction => consumerTransactionsKey += ConsumerTransactionRecord(txn, streamForThisTransaction.id, timestamp))
-    }
+    transactions.foreach { case (txn, timestamp) =>
+      consumerTransactionsKey += ConsumerTransactionRecord(txn, timestamp)
     }
     consumerTransactionsKey
   }
@@ -158,12 +139,14 @@ trait TransactionMetaServiceImpl
         val producerTransactionWithNewState = scala.util.Try(openedTransactionOpt match {
           case Some(data) =>
             val persistedProducerTransactionRocks = ProducerTransactionRecord(key, data)
-            if (logger.isDebugEnabled) logger.debug(s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
+            if (logger.isDebugEnabled)
+              logger.debug(s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
               s"partition ${persistedProducerTransactionRocks.partition}, transaction ${persistedProducerTransactionRocks.transactionID} " +
               s"with state ${persistedProducerTransactionRocks.state} to new state")
             transitProducerTransactionToNewState(persistedProducerTransactionRocks, txns)
           case None =>
-            if (logger.isDebugEnabled) logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
+            if (logger.isDebugEnabled)
+              logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
             transitProducerTransactionToNewState(txns)
         })
 
@@ -178,15 +161,15 @@ trait TransactionMetaServiceImpl
 
             transactionsRamTable.put(producerTransactionRecord.key, producerTransactionRecord.producerTransaction)
             if (producerTransactionRecord.state == TransactionStates.Opened) {
-              batch.put(HasEnvironment.TRANSACTION_OPEN_STORE, binaryKey, binaryTxn)
+              batch.put(RocksStorage.TRANSACTION_OPEN_STORE, binaryKey, binaryTxn)
             }
             else {
-              batch.remove(HasEnvironment.TRANSACTION_OPEN_STORE, binaryKey)
+              batch.remove(RocksStorage.TRANSACTION_OPEN_STORE, binaryKey)
             }
 
             if (areThereAnyProducerNotifies) notifications += tryCompleteProducerNotify(producerTransactionRecord)
 
-            batch.put(HasEnvironment.TRANSACTION_ALL_STORE, binaryKey, binaryTxn)
+            batch.put(RocksStorage.TRANSACTION_ALL_STORE, binaryKey, binaryTxn)
             if (logger.isDebugEnabled) logger.debug(s"Producer transaction on stream: ${producerTransactionRecord.stream}" +
               s"partition ${producerTransactionRecord.partition}, transactionId ${producerTransactionRecord.transactionID} " +
               s"with state ${producerTransactionRecord.state} is ready for commit[commit id: ${batch.id}]"
@@ -197,14 +180,14 @@ trait TransactionMetaServiceImpl
     }
     val consumerTransactionsToProcess = decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions)
     val notificationAboutProducerAndConsumerTransactiomns = if (consumerTransactionsToProcess.nonEmpty)
-      notifications ++ putConsumerTransactions(consumerTransactionsToProcess, batch)
+      notifications ++ consumerService.putConsumersCheckpoints(consumerTransactionsToProcess, batch)
     else
       notifications
     notificationAboutProducerAndConsumerTransactiomns
   }
 
 
-  private val commitLogDatabase = rocksMetaServiceDB.getDatabase(HasEnvironment.COMMIT_LOG_STORE)
+  private val commitLogDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.COMMIT_LOG_STORE)
 
   private[server] final def getLastProcessedCommitLogFileID: Option[Long] = {
     val iterator = commitLogDatabase.iterator
@@ -247,7 +230,7 @@ trait TransactionMetaServiceImpl
       val key = CommitLogKey(fileID).toByteArray
       val value = Array[Byte]()
 
-      batch.put(HasEnvironment.COMMIT_LOG_STORE, key, value)
+      batch.put(RocksStorage.COMMIT_LOG_STORE, key, value)
       if (batch.write()) {
         if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
         notifications foreach (notification => notification(()))
@@ -261,13 +244,12 @@ trait TransactionMetaServiceImpl
   def getBigCommit(fileID: Long) = new BigCommit(fileID)
 
 
-  final def getTransaction(stream: String, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
-    val keyStream = getMostRecentStream(stream)
-    val lastTransaction = getLastTransactionIDAndCheckpointedID(keyStream.id, partition)
+  final def getTransaction(streamID: Int, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
+    val lastTransaction = getLastTransactionIDAndCheckpointedID(streamID, partition)
     if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
       TransactionInfo(exists = false, None)
     } else {
-      val searchKey = new ProducerTransactionKey(keyStream.id, partition, transaction).toByteArray
+      val searchKey = new ProducerTransactionKey(streamID, partition, transaction).toByteArray
 
       Option(producerTransactionsDatabase.get(searchKey)).map(searchData =>
         new ProducerTransactionRecord(ProducerTransactionKey.fromByteArray(searchKey), ProducerTransactionValue.fromByteArray(searchData))
@@ -275,14 +257,13 @@ trait TransactionMetaServiceImpl
         case None =>
           TransactionInfo(exists = true, None)
         case Some(producerTransactionRecord) =>
-          TransactionInfo(exists = true, Some(recordToProducerTransaction(producerTransactionRecord, keyStream.name)))
+          TransactionInfo(exists = true, Some(producerTransactionRecord))
       }
     }
   }
 
-  final def getLastCheckpointedTransaction(stream: String, partition: Int): Option[Long] = {
-    val streamRecord = getMostRecentStream(stream)
-    val result = getLastTransactionIDAndCheckpointedID(streamRecord.id, partition) match {
+  final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] = {
+    val result = getLastTransactionIDAndCheckpointedID(streamID, partition) match {
       case Some(last) => last.checkpointed match {
         case Some(checkpointed) => Some(checkpointed.id)
         case None => None
@@ -293,12 +274,9 @@ trait TransactionMetaServiceImpl
   }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
-
-  def scanTransactions(stream: String, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =
+  def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =
     {
-      val keyStream = getMostRecentStream(stream)
-
-      val (lastOpenedTransactionID, toTransactionID) = getLastTransactionIDAndCheckpointedID(keyStream.id, partition) match {
+      val (lastOpenedTransactionID, toTransactionID) = getLastTransactionIDAndCheckpointedID(streamID, partition) match {
         case Some(lastTransaction) => lastTransaction.opened.id match {
           case lt if lt < from => (lt, from - 1L)
           case lt if from <= lt && lt < to => (lt, lt)
@@ -307,16 +285,16 @@ trait TransactionMetaServiceImpl
         case None => (-1L, from - 1L)
       }
 
-      if (logger.isDebugEnabled) logger.debug(s"Trying to retrieve transactions on stream $stream, partition: $partition in range [$from, $to]." +
+      if (logger.isDebugEnabled) logger.debug(s"Trying to retrieve transactions on stream $streamID, partition: $partition in range [$from, $to]." +
         s"Actually as lt ${if (lastOpenedTransactionID == -1) "doesn't exist" else s"is $lastOpenedTransactionID"} the range is [$from, $toTransactionID].")
 
       if (toTransactionID < from || count == 0) ScanTransactionsInfo(lastOpenedTransactionID, Seq())
       else {
         val iterator = producerTransactionsDatabase.iterator
 
-        val lastTransactionID = new ProducerTransactionKey(keyStream.id, partition, toTransactionID).toByteArray
+        val lastTransactionID = new ProducerTransactionKey(streamID, partition, toTransactionID).toByteArray
         def moveCursorToKey: Option[ProducerTransactionRecord] = {
-          val keyFrom = new ProducerTransactionKey(keyStream.id, partition, from)
+          val keyFrom = new ProducerTransactionKey(streamID, partition, from)
 
           iterator.seek(keyFrom.toByteArray)
           val startKey = if (iterator.isValid && comparator.compare(iterator.key(), lastTransactionID) <= 0) {
@@ -338,9 +316,9 @@ trait TransactionMetaServiceImpl
 
             var txnState: TransactionStates = producerTransactionKey.state
             while (
-              !states.contains(txnState) &&
+              iterator.isValid &&
                 producerTransactions.length < count &&
-                iterator.isValid &&
+                !states.contains(txnState) &&
                 (comparator.compare(iterator.key(), lastTransactionID) <= 0)
             ) {
               val producerTransaction = ProducerTransactionRecord(ProducerTransactionKey.fromByteArray(iterator.key()), ProducerTransactionValue.fromByteArray(iterator.value()))
@@ -351,27 +329,24 @@ trait TransactionMetaServiceImpl
 
             iterator.close()
 
-            def producerTransactionKeyToProducerTransaction(txn: ProducerTransactionRecord) = {
-              com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(keyStream.name, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
-            }
-
             val result = if (states.contains(txnState)) producerTransactions.init else producerTransactions
-            ScanTransactionsInfo(lastOpenedTransactionID, result map producerTransactionKeyToProducerTransaction)
+            ScanTransactionsInfo(lastOpenedTransactionID, result)
         }
       }
     }
 
-  private def recordToProducerTransaction(txn: ProducerTransactionRecord, stream: String) = {
-    com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(stream, txn.partition, txn.transactionID, txn.state, txn.quantity, txn.ttl)
-  }
-
 
   def transactionsToDeleteTask(timestampToDeleteTransactions: Long) {
     def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
-      scala.math.abs(producerTransactionWithoutKey.timestamp + producerTransactionWithoutKey.ttl) <= timestampToDeleteTransactions
+      scala.math.abs(
+        producerTransactionWithoutKey.timestamp +
+          producerTransactionWithoutKey.ttl
+      ) <= timestampToDeleteTransactions
     }
 
-    if (logger.isDebugEnabled) logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
+
+    if (logger.isDebugEnabled)
+      logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
     val batch = rocksMetaServiceDB.newBatch
 
     val iterator = producerTransactionsWithOpenedStateDatabase.iterator
@@ -381,20 +356,22 @@ trait TransactionMetaServiceImpl
     while (iterator.isValid) {
       val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
       if (doesProducerTransactionExpired(producerTransactionValue)) {
-        if (logger.isDebugEnabled) logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
+        if (logger.isDebugEnabled)
+          logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
 
         val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
         val key = iterator.key()
         val producerTransactionKey = ProducerTransactionKey.fromByteArray(key)
 
-        val canceledTransactionRecordDueExpiration = transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
+        val canceledTransactionRecordDueExpiration =
+          transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
         if (areThereAnyProducerNotifies)
           notifications += tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
 
         transactionsRamTable.invalidate(producerTransactionKey)
-        batch.put(HasEnvironment.TRANSACTION_ALL_STORE, key, canceledTransactionRecordDueExpiration.producerTransaction.toByteArray)
+        batch.put(RocksStorage.TRANSACTION_ALL_STORE, key, canceledTransactionRecordDueExpiration.producerTransaction.toByteArray)
 
-        batch.remove(HasEnvironment.TRANSACTION_OPEN_STORE, key)
+        batch.remove(RocksStorage.TRANSACTION_OPEN_STORE, key)
       }
       iterator.next()
     }

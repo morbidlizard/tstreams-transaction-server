@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
+class TransactionLifeCycleWriter(streamID: Int, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, dataSize: Int, filename: String) {
     val client = new ClientBuilder()
       .withConnectionOptions(ConnectionOptions(requestTimeoutMs = 200))
@@ -27,8 +27,8 @@ class TransactionLifeCycleWriter(streamName: String, partition: Int = 1) extends
       }
 
 
-      val openedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Opened)
-      val closedProducerTransaction = createTransaction(streamName, partition, TransactionStates.Checkpointed, openedProducerTransaction.transactionID)
+      val openedProducerTransaction = createTransaction(streamID, partition, TransactionStates.Opened)
+      val closedProducerTransaction = createTransaction(streamID, partition, TransactionStates.Checkpointed, openedProducerTransaction.transactionID)
       val t =
         time(Await.result(
           Future.sequence(Seq(

@@ -1,6 +1,7 @@
 package benchmark.utils
 
 trait Launcher extends Installer {
+  protected val streamID: Int
   protected val streamName: String
   protected val clients: Int
 

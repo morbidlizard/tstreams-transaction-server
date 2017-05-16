@@ -27,7 +27,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
 
   private val rand = scala.util.Random
 
-  private def getRandomStream = new com.bwsw.tstreamstransactionserver.rpc.Stream {
+  private def getRandomStream = new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None

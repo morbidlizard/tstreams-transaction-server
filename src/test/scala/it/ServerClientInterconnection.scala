@@ -105,17 +105,17 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val rand = scala.util.Random
 
   private def getRandomStream =
-    new com.bwsw.tstreamstransactionserver.rpc.Stream {
+    new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
       override val name: String = rand.nextInt(10000).toString
       override val partitions: Int = rand.nextInt(10000)
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
       override val ttl: Long = Long.MaxValue
     }
 
-  private def chooseStreamRandomly(streams: IndexedSeq[com.bwsw.tstreamstransactionserver.rpc.Stream]) = streams(rand.nextInt(streams.length))
+  private def chooseStreamRandomly(streams: IndexedSeq[com.bwsw.tstreamstransactionserver.rpc.StreamValue]) = streams(rand.nextInt(streams.length))
 
   private def getRandomProducerTransaction(streamID: Int,
-                                           streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream,
+                                           streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue,
                                            transactionState: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1),
                                            id: Long = System.nanoTime()) =
     new ProducerTransaction {
@@ -127,7 +127,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       override val partition: Int = streamObj.partitions
     }
 
-  private def getRandomConsumerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream) =
+  private def getRandomConsumerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue) =
     new ConsumerTransaction {
       override val transactionID: Long = scala.util.Random.nextLong()
       override val name: String = rand.nextInt(10000).toString

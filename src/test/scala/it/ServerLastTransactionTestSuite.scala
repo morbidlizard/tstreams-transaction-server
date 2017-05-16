@@ -21,14 +21,14 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
   private val rand = scala.util.Random
 
   private val nameGen = new AtomicLong(1L)
-  private def getRandomStream = com.bwsw.tstreamstransactionserver.rpc.Stream(
+  private def getRandomStream = com.bwsw.tstreamstransactionserver.rpc.StreamValue(
     name = nameGen.getAndIncrement().toString,
     partitions = rand.nextInt(10000),
     description = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None,
     ttl = Long.MaxValue
   )
 
-  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream, txnID: Long, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue, txnID: Long, ttlTxn: Long) = ProducerTransaction(
     stream = streamID,
     partition = streamObj.partitions,
     transactionID = txnID,

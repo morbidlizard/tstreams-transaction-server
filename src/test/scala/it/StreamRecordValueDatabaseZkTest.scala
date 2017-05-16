@@ -1,8 +1,7 @@
 package it
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamOverwriteProhibited
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRecord, StreamValue}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamValue}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import Utils._
 
@@ -43,9 +42,8 @@ class StreamRecordValueDatabaseZkTest extends FlatSpec with Matchers with Before
 
     val newStream = StreamValue("test_stream", 100, Some("overwrite"), 10)
 
-    assertThrows[StreamOverwriteProhibited] {
-      zkDatabase.putStream(newStream)
-    }
+
+    zkDatabase.putStream(newStream) shouldBe StreamKey(-1)
 
     zkDatabase.checkStreamExists(newStream.name) shouldBe true
 

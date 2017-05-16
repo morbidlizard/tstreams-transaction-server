@@ -450,8 +450,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
 
-  /** Puts producer and consumer transactions on a server; it's implied there were persisted streams on a server transactions belong to, otherwise
-    * the exception would be thrown.
+  /** Puts producer and consumer transactions on a server.
     *
     * @param producerTransactions some collections of producer transactions [[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]].
     * @param consumerTransactions some collections of consumer transactions [[com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction]].
@@ -484,8 +483,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )(contextForProducerTransactions)
   }
 
-  /** Puts producer transaction on a server; it's implied there was persisted stream on a server transaction belong to, otherwise
-    * the exception would be thrown.
+  /** Puts producer transaction on a server.
     *
     * @param transaction a producer transaction [[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction]].
     * @return Future of putProducerState operation that can be completed or not. If it is completed it returns:
@@ -509,8 +507,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     )(contextForProducerTransactions)
   }
 
-  /** Puts consumer transaction on a server; it's implied there was persisted stream on a server transaction belong to, otherwise
-    * the exception would be thrown.
+  /** Puts consumer transaction on a server.
     *
     * @param transaction a consumer transactions.
     * @return Future of putTransaction operation that can be completed or not. If it is completed it returns:
@@ -731,7 +728,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @param to          an inclusive bound to end with.
     * @return Future of getTransactionData operation that can be completed or not. If it is completed it returns:
     *         1) Collection of binary data in range [from, to] on certain stream on certain partition if data presents.
-    *         otherwise FALSE(operation isn't atomic, it's splitted to 2 operations: first putting producer state, then its data);
+    *         otherwise FALSE(operation isn't atomic, it's split into 2 operations: first putting producer state, then its data);
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]], if there is no such stream;
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package has size in bytes more than defined by a server;
@@ -791,12 +788,11 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     * @return Future of getConsumerState operation that can be completed or not. If it is completed it returns:
     *         1) transaction ID on certain stream on certatin partition if it exists, otherwise -1L
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
-    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]], if there is no such stream;
-    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package has size in bytes more than defined by a server;
-    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package has size in bytes more than defined by a server;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
-    *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def getConsumerState(name: String, streamID: Int, partition: Int): ScalaFuture[Long] = {
     if (logger.isDebugEnabled) logger.debug(s"Retrieving a transaction by consumer $name on stream $streamID, partition $partition.")

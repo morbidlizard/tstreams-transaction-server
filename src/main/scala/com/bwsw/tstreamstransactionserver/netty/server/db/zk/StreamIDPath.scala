@@ -5,7 +5,7 @@ import org.apache.curator.framework.CuratorFramework
 import org.apache.zookeeper.CreateMode
 //import org.slf4j.LoggerFactory
 
-final class streamIDPath(client: CuratorFramework, path: String) {
+final class StreamIDPath(client: CuratorFramework, path: String) {
 //  private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val seqPrefix = "id"

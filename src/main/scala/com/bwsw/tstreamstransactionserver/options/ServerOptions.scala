@@ -57,14 +57,14 @@ object ServerOptions {
     * For performance optimization intuition: https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
     *
     *
-    * @param writeThreadPool the number of threads of pool are used to do write operations from Rocksdb databases.
-    *                        Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
-    * @param readThreadPool the number of threads of pool are used to do read operations from Rocksdb databases.
-    *                       Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
-    * @param ttlAddMs the time to add to [[com.bwsw.tstreamstransactionserver.rpc.Stream.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
-    * @param createIfMissing if true, the database will be created if it is missing.
+    * @param writeThreadPool          the number of threads of pool are used to do write operations from Rocksdb databases.
+    *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
+    * @param readThreadPool           the number of threads of pool are used to do read operations from Rocksdb databases.
+    *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
+    * @param ttlAddMs                 the time to add to [[com.bwsw.tstreamstransactionserver.rpc.StreamValue.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
+    * @param createIfMissing          if true, the database will be created if it is missing.
     * @param maxBackgroundCompactions is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.
-    * @param allowOsBuffer if false, we will not buffer files in OS cache. Look at: https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
+    * @param allowOsBuffer            if false, we will not buffer files in OS cache. Look at: https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
     * @param compression Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION].
     *                    If it's unimportant use a LZ4_COMPRESSION as default value.
     * @param useFsync if true, then every store to stable storage will issue a fsync.

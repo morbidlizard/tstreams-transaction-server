@@ -358,7 +358,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   /** Putting a stream on a server by Thrift Stream structure.
     *
-    * @param stream an object of Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] structure.
+    * @param stream an object of Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.StreamValue]] structure.
     * @return Future of putStream operation that can be completed or not. If it is completed it returns:
     *         1) ID if stream is persisted by a server or -1 if there is a stream with such name on the server;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -368,7 +368,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def putStream(stream: com.bwsw.tstreamstransactionserver.rpc.Stream): ScalaFuture[Int] = {
+  def putStream(stream: com.bwsw.tstreamstransactionserver.rpc.StreamValue): ScalaFuture[Int] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream ${stream.name} with ${stream.partitions} partitions, ttl ${stream.ttl} and description.")
     onShutdownThrowException()
 
@@ -407,7 +407,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *
     * @param name a name of stream.
     * @return Future of getStream operation that can be completed or not. If it is completed it returns:
-    *         1) Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.Stream]] if stream  is retrieved from a server or throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]];
+    *         1) Thrift Stream [[com.bwsw.tstreamstransactionserver.rpc.StreamValue]] if stream  is retrieved from a server or throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]];
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]], if there is no such stream;
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server;

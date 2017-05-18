@@ -1,7 +1,7 @@
 package it
 
 import java.io.File
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
@@ -50,7 +50,8 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
-  def startTransactionServer() = new Thread(() => {
+
+  def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     transactionServer = new Server(
       authOpts = serverAuthOptions,
@@ -64,9 +65,15 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       timer = TestTimer
     )
-    transactionServer.start()
-  }).start()
 
+    val latch = new CountDownLatch(1)
+    new Thread(() => {
+      transactionServer.start(latch.countDown())
+    }).start()
+
+    latch.await()
+    transactionServer
+  }
 
   override def beforeEach(): Unit = {
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))

@@ -130,7 +130,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
-  def start(): Unit = {
+  def start(function: => Unit = ()): Unit = {
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
@@ -140,13 +140,15 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
-      zk.putSocketAddress(zookeeperOpts.prefix)
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
       berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
 
+      zk.putSocketAddress(zookeeperOpts.prefix)
 
-      f.channel().closeFuture().sync()
+      val channel = f.channel().closeFuture()
+      function
+      channel.sync()
     } finally {
       shutdown()
     }

@@ -27,12 +27,12 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
        .withBootstrapOptions(BootstrapOptions())
        .build()
 
-     val l = new CountDownLatch(1)
+     val latch = new CountDownLatch(1)
      new Thread(() => {
-       l.countDown()
-       server.start()
+       server.start(latch.countDown())
      }).start()
-     l.await()
+
+     latch.await()
      server
    }
 
@@ -46,12 +46,16 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
 
     val server = startTransactionServer(zkTestServer.getConnectString)
 
-
     val client = new ClientBuilder()
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
+      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
+      .build()
 
     assertThrows[PackageTooBigException] {
-      Await.result(client.putStream("Too big message", 1, Some(new String(new Array[Byte](packageTransmissionOptions.maxMetadataPackageSize))), 1), Duration(5, TimeUnit.SECONDS))
+      Await.result(client.putStream(
+        "Too big message",
+        1,
+        Some(new String(new Array[Byte](packageTransmissionOptions.maxMetadataPackageSize))), 1
+      ), Duration(5, TimeUnit.SECONDS))
     }
 
     client.shutdown()

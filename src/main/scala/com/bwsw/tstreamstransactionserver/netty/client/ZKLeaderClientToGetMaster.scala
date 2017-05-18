@@ -60,7 +60,7 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
     if (!isExist)
       throw new MasterPathIsAbsent(pathToMaster)
   }
-//  checkOnPathToMasterDoesExist()
+  checkOnPathToMasterDoesExist()
 
   override def close(): Unit = {
     nodeToWatch.close()

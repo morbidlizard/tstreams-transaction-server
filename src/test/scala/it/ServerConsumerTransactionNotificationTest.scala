@@ -36,7 +36,8 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
-  def startTransactionServer(): Unit = new Thread(() => {
+
+  def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     transactionServer = new Server(
       authOpts = serverAuthOptions,
@@ -49,9 +50,15 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions
     )
-    transactionServer.start()
-  }).start()
 
+    val latch = new CountDownLatch(1)
+    new Thread(() => {
+      transactionServer.start(latch.countDown())
+    }).start()
+
+    latch.await()
+    transactionServer
+  }
 
   override def beforeEach(): Unit = {
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))

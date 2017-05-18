@@ -31,29 +31,29 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     }
   }
 
-//  it should "not connect to server if coordination path to it persistent" in {
-//    val zkPrefix = "/tts/master"
-//    val zkTestServer = new TestingServer(true)
-//
-//    val zkClient = CuratorFrameworkFactory.builder()
-//      .sessionTimeoutMs(1000)
-//      .connectionTimeoutMs(1000)
-//      .retryPolicy(new RetryForever(100))
-//      .connectString(zkTestServer.getConnectString)
-//      .build()
-//    zkClient.start()
-//    zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
-//
-//    val clientBuilder = new ClientBuilder()
-//      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString, prefix = zkPrefix))
-//
-//    assertThrows[MasterPathIsAbsent] {
-//      clientBuilder.build()
-//    }
-//
-//    zkClient.close()
-//    zkTestServer.close()
-//  }
+  it should "not connect to server if coordination path doesn't exist" in {
+    val zkPrefix = "/tts/master"
+    val zkTestServer = new TestingServer(true)
+
+    val zkClient = CuratorFrameworkFactory.builder()
+      .sessionTimeoutMs(1000)
+      .connectionTimeoutMs(1000)
+      .retryPolicy(new RetryForever(100))
+      .connectString(zkTestServer.getConnectString)
+      .build()
+    zkClient.start()
+    zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
+
+    val clientBuilder = new ClientBuilder()
+      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString, prefix = zkPrefix))
+
+    assertThrows[MasterPathIsAbsent] {
+      clientBuilder.build()
+    }
+
+    zkClient.close()
+    zkTestServer.close()
+  }
 
 
   it should "not connect to server which socket address(retrieved from zooKeeper server) is wrong" in {
@@ -204,9 +204,9 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
         .build()
       val latch = new CountDownLatch(1)
       new Thread(() => {
-        latch.countDown()
-        server.start()
+        server.start(latch.countDown())
       }).start()
+
       latch.await()
       server
     }

@@ -33,6 +33,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
              (server, journaledCommitLogImpl, packageTransmissionOpts, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, logger),
              timer: Time = new Time{}
             ) {
+
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   @volatile private var isShutdown = false
   private val transactionServerSocketAddress = createTransactionServerAddress()
@@ -139,11 +140,11 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
+      zk.putSocketAddress(zookeeperOpts.prefix)
       val f = b.bind(serverOpts.host, serverOpts.port).sync()
       berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
 
-      zk.putSocketAddress(zookeeperOpts.prefix)
 
       f.channel().closeFuture().sync()
     } finally {

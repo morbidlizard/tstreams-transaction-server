@@ -29,7 +29,12 @@ import scala.concurrent.duration._
   *
   *
   */
-class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts: ZookeeperOptions) {
+class Client(clientOpts: ConnectionOptions,
+             authOpts: AuthOptions,
+             zookeeperOptions: ZookeeperOptions,
+             curatorConnection: Option[CuratorFramework] = None
+            )
+{
   @volatile private[client] var isShutdown = false
 
   private def onShutdownThrowException(): Unit =
@@ -37,6 +42,9 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
 
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+  private val isAuthenticated  = new java.util.concurrent.atomic.AtomicBoolean(false)
+  private val isReconnected    = new java.util.concurrent.atomic.AtomicBoolean(false)
 
   /** A special context for making requests asynchronously, although they are processed sequentially;
     * If's for: putTransaction, putTransactions, setConsumerState.
@@ -54,24 +62,42 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     }
   }
 
+  val (zookeeperOpts, zKLeaderClient) = curatorConnection match {
+    case Some(connection) =>
+      val zkClient = connection.getZookeeperClient
+      val options = zookeeperOptions.copy(
+        endpoints = zkClient.getCurrentConnectionString,
+        connectionTimeoutMs = zkClient.getConnectionTimeoutMs
+      )
+      val zKLeaderClient = new ZKLeaderClientToGetMaster(
+        connection,
+        options.prefix,
+        zkListener
+      )
+      (options, zKLeaderClient)
 
-  private final val zKLeaderClient = new ZKLeaderClientToGetMaster(
-    zookeeperOpts.endpoints,
-    zookeeperOpts.sessionTimeoutMs,
-    zookeeperOpts.connectionTimeoutMs,
-    new RetryForever(zookeeperOpts.retryDelayMs),
-    zookeeperOpts.prefix,
-    zkListener,
-    reconnect()
-  )
+    case None =>
+      val zKLeaderClient = new ZKLeaderClientToGetMaster(
+        zookeeperOptions.endpoints,
+        zookeeperOptions.sessionTimeoutMs,
+        zookeeperOptions.connectionTimeoutMs,
+        new RetryForever(zookeeperOptions.retryDelayMs),
+        zookeeperOptions.prefix,
+        zkListener
+      )
+      (zookeeperOptions, zKLeaderClient)
+  }
+
   zKLeaderClient.start()
 
 
 
   private final def onZKConnectionStateChangedDefaultBehaviour(newState: ConnectionState): Unit = {
     newState match {
-      case ConnectionState.LOST => zKLeaderClient.master = None
-      case _ => ()
+      case ConnectionState.LOST =>
+        zKLeaderClient.master = Right(None)
+      case _ =>
+        ()
     }
     onZKConnectionStateChanged(newState)
   }
@@ -86,13 +112,11 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     .option[java.lang.Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, int2Integer(clientOpts.connectionTimeoutMs))
     .handler(new ClientInitializer(reqIdToRep, this, context))
 
-  private val authenticateLock = new java.util.concurrent.locks.ReentrantLock
-  private val channelLock = new java.util.concurrent.locks.ReentrantLock
   @volatile private var channel: Channel = connect()
 
   @tailrec
   final private def connect(): Channel = {
-    val (listen, port) = getInetAddressFromZookeeper(10)
+    val (listen, port) = getInetAddressFromZookeeper
     val newConnection = bootstrap.connect(listen, port)
     scala.util.Try(newConnection.sync().channel()) match {
       case scala.util.Success(channelToUse) =>
@@ -108,41 +132,38 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
   }
 
 
-  final def currentConnectionSocketAddress: Option[InetSocketAddressClass] = zKLeaderClient.master
+  final def currentConnectionSocketAddress: Either[Throwable, Option[InetSocketAddressClass]] = zKLeaderClient.master
   private[client] def reconnect(): Unit = {
-    val isLocked = channelLock.tryLock()
-    if (isLocked) {
-      try {
-        channel.closeFuture().sync()
-        channel = connect()
-      } finally {
-        channelLock.unlock()
-      }
+    val isConnected = isReconnected.getAndSet(true)
+    if (!isConnected) {
+      channel.closeFuture().sync()
+      channel = connect()
+      isReconnected.set(false)
     } else {
       TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     }
   }
 
-  /** Retries to get ipAddres:port from zooKeeper server.
-    *
-    * @param times how many times try to get ipAddres:port from zooKeeper server.
-    */
+  /** Retries to get ipAddres:port from zooKeeper server. */
   @tailrec
   @throws[ZkGetMasterException]
-  private def getInetAddressFromZookeeper(times: Int): (String, Int) = {
-    if (times > 0 && zKLeaderClient.master.isEmpty) {
-      TimeUnit.MILLISECONDS.sleep(zookeeperOpts.retryDelayMs)
-      if (logger.isInfoEnabled) logger.info(s"Retrying to get master server from zookeeper servers: ${zookeeperOpts.endpoints}.")
-      getInetAddressFromZookeeper(times - 1)
-    } else {
-      zKLeaderClient.master match {
-        case Some(master) => (master.address, master.port)
-        case None =>
-          val throwable = new ZkGetMasterException(zookeeperOpts.endpoints)
-          if (logger.isWarnEnabled()) logger.warn(throwable.getMessage)
-          shutdown()
-          throw throwable
-      }
+  private def getInetAddressFromZookeeper: (String, Int) = {
+    zKLeaderClient.master match {
+      case Left(zkThrowable) =>
+        if (logger.isWarnEnabled())
+          logger.warn(zkThrowable.getMessage)
+        shutdown()
+        throw zkThrowable
+      case Right(masterOpt) =>
+        masterOpt match {
+          case Some(master) =>
+            (master.address, master.port)
+          case None =>
+            TimeUnit.MILLISECONDS.sleep(zookeeperOpts.retryDelayMs)
+            if (logger.isInfoEnabled)
+              logger.info(s"Retrying to get master server from zookeeper servers: ${zookeeperOpts.endpoints}.")
+            getInetAddressFromZookeeper
+        }
     }
   }
 
@@ -241,17 +262,27 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
 
   private final def checkError(currentException: Throwable, previousException: Option[Throwable], retryCount: Int): (Throwable, Throwable, Int) = {
     currentException match {
-      case concreteThrowable: TokenInvalidException =>
-        Await.ready(authenticate(), clientOpts.requestTimeoutMs.seconds)
+      case tokenException: TokenInvalidException =>
+        authenticate()
         previousException match {
           case Some(exception: TokenInvalidException) =>
-            (concreteThrowable, concreteThrowable, clientOpts.requestTimeoutRetryCount - 1)
+            (tokenException, tokenException, clientOpts.requestTimeoutRetryCount - 1)
           case _ =>
-            (concreteThrowable, concreteThrowable, clientOpts.requestTimeoutRetryCount)
+            (tokenException, tokenException, clientOpts.requestTimeoutRetryCount)
         }
 
       case concreteThrowable: ServerUnreachableException =>
-        scala.util.Try(onServerConnectionLostDefaultBehaviour(currentConnectionSocketAddress.toString)) match {
+        val addressOptOrZkException = currentConnectionSocketAddress
+          .map(addressOpt => addressOpt.map(_.toString))
+
+        scala.util.Try(onServerConnectionLostDefaultBehaviour(addressOptOrZkException
+        match {
+          case Right(connectionString) =>
+            connectionString.getOrElse("")
+          case Left(throwable) =>
+            throw throwable
+        }))
+        match {
           case scala.util.Success(_) =>
             (concreteThrowable, concreteThrowable, Int.MaxValue)
           case scala.util.Failure(throwable) =>
@@ -818,26 +849,22 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     *         4) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   private def authenticate(): ScalaFuture[Unit] = {
-    val isLocked = authenticateLock.tryLock()
-    if (isLocked) {
-      try {
-        if (logger.isInfoEnabled) logger.info("authenticate method is invoked.")
-        onShutdownThrowException()
-        val authKey = authOpts.key
-        method[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, Unit](
-          Descriptors.Authenticate,
-          TransactionService.Authenticate.Args(authKey),
-          x => {
-            val authInfo = x.success.get
-            token = authInfo.token
-            maxDataPackageSize = authInfo.maxDataPackageSize
-            maxMetadataPackageSize = authInfo.maxMetadataPackageSize
-          }
-        )(context)
-      }
-      finally {
-        authenticateLock.unlock()
-      }
+    val isAuth = isAuthenticated.getAndSet(true)
+    if (!isAuth) {
+      if (logger.isInfoEnabled) logger.info("authenticate method is invoked.")
+      onShutdownThrowException()
+      val authKey = authOpts.key
+      method[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, Unit](
+        Descriptors.Authenticate,
+        TransactionService.Authenticate.Args(authKey),
+        x => {
+          val authInfo = x.success.get
+          token = authInfo.token
+          maxDataPackageSize = authInfo.maxDataPackageSize
+          maxMetadataPackageSize = authInfo.maxMetadataPackageSize
+          isAuthenticated.set(false)
+        }
+      )(context)
     } else {
       TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
       ScalaFuture.successful[Unit](Unit)
@@ -849,7 +876,7 @@ class Client(clientOpts: ConnectionOptions, authOpts: AuthOptions, zookeeperOpts
     if (!isShutdown) {
       isShutdown = true
       if (workerGroup != null) {
-        workerGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS).sync()
+        workerGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS)
       }
       if (channel != null) channel.closeFuture().sync()
       zKLeaderClient.close()

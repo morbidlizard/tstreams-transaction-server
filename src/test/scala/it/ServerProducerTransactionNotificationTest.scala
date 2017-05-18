@@ -65,7 +65,9 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     zkTestServer = new TestingServer(true)
     startTransactionServer()
-    client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
+    client = clientBuilder.withZookeeperOptions(ZookeeperOptions(
+      endpoints = zkTestServer.getConnectString)
+    ).build()
   }
 
   override def afterEach() {

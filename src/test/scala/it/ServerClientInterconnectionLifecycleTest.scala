@@ -34,8 +34,8 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
   private val path = "/tts/test_path"
 
   it should "put stream, then delete this stream, and put it again and return correct result" in {
-    val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
-    val streamAfterDelete = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, Some("Previous one was deleted"), 538L)
+    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
+    val streamAfterDelete = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, Some("Previous one was deleted"), 538L)
 
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContext(2, 2)
@@ -50,11 +50,18 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     )
     transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
     transactionServer.delStream(stream.name)
-    transactionServer.putStream(streamAfterDelete.name, streamAfterDelete.partitions, streamAfterDelete.description, streamAfterDelete.ttl)
+    val streamAfterDeleteWithID = transactionServer.putStream(streamAfterDelete.name, streamAfterDelete.partitions, streamAfterDelete.description, streamAfterDelete.ttl)
 
     val retrievedStream = transactionServer.getStream(streamAfterDelete.name).get
 
-    streamAfterDelete shouldBe retrievedStream
+    com.bwsw.tstreamstransactionserver.rpc.Stream(
+      streamAfterDeleteWithID,
+      streamAfterDelete.name,
+      streamAfterDelete.partitions,
+      streamAfterDelete.description,
+      streamAfterDelete.ttl
+    ) shouldBe retrievedStream
+
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
     zkClient.close()
     zkServer.close()
@@ -95,7 +102,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions,
       streamDatabaseZK
     )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
+    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 
@@ -137,7 +144,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions,
       streamDatabaseZK
     )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
+    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 
@@ -175,7 +182,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions,
       streamDatabaseZK
     )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
+    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val openedTTL = TimeUnit.SECONDS.toMillis(7L)
@@ -216,7 +223,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions,
       streamDatabaseZK
     )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
+    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 
@@ -259,7 +266,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       rocksStorageOpts = rocksStorageOptions,
       streamDatabaseZK
     )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("stream_test", 10, None, 100L)
+    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID =transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 

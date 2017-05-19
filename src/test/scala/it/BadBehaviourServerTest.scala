@@ -1,7 +1,7 @@
 package it
 
 import java.io.File
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.bwsw.tstreamstransactionserver.netty.Message
@@ -20,14 +20,14 @@ import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import org.slf4j.Logger
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
+import scala.concurrent.Await
 
 class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
 
   private val rand = scala.util.Random
 
-  private def getRandomStream = new com.bwsw.tstreamstransactionserver.rpc.Stream {
+  private def getRandomStream = new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
@@ -58,7 +58,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   private val packageTransmissionOptions = TransportOptions()
   private val commitLogOptions = CommitLogOptions()
   private val zookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
-  def startTransactionServer() = new Thread(() => {
+  def startTransactionServer(): Server = {
     val address = zkTestServer.getConnectString
     val zookeeperOptions = ZookeeperOptions(endpoints = address)
     server = new Server(
@@ -69,9 +69,14 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
       zookeeperSpecificOptions,
       serverHandler
     )
-
-    server.start()
-  }).start()
+    val l = new CountDownLatch(1)
+    new Thread(() => {
+      l.countDown()
+      server.start()
+    }).start()
+    l.await()
+    server
+  }
 
 
   private val secondsWait = 5

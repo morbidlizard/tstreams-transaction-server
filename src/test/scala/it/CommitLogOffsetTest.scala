@@ -1,7 +1,7 @@
 package it
 
 import java.io.File
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
@@ -43,7 +43,8 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
-  def startTransactionServer(): Unit = new Thread(() => {
+
+  def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     transactionServer = new Server(
       authOpts = serverAuthOptions,
@@ -57,9 +58,14 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       timer = TestTimer
     )
-    transactionServer.start()
-  }).start()
-
+    val l = new CountDownLatch(1)
+    new Thread(() => {
+      l.countDown()
+      transactionServer.start()
+    }).start()
+    l.await()
+    transactionServer
+  }
 
   override def beforeEach(): Unit = {
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
@@ -101,17 +107,17 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
   private val rand = scala.util.Random
 
   private def getRandomStream =
-    new com.bwsw.tstreamstransactionserver.rpc.Stream {
+    new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
       override val name: String = rand.nextInt(10000).toString
       override val partitions: Int = rand.nextInt(10000)
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
       override val ttl: Long = Long.MaxValue
     }
 
-  private def chooseStreamRandomly(streams: IndexedSeq[com.bwsw.tstreamstransactionserver.rpc.Stream]) = streams(rand.nextInt(streams.length))
+  private def chooseStreamRandomly(streams: IndexedSeq[com.bwsw.tstreamstransactionserver.rpc.StreamValue]) = streams(rand.nextInt(streams.length))
 
   private def getRandomProducerTransaction(streamID: Int,
-                                           streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream,
+                                           streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue,
                                            transactionState: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1),
                                            id: Long = System.nanoTime()) =
     new ProducerTransaction {
@@ -123,7 +129,7 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       override val partition: Int = streamObj.partitions
     }
 
-  private def getRandomConsumerTransaction(streamID:Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream) =
+  private def getRandomConsumerTransaction(streamID:Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue) =
     new ConsumerTransaction {
       override val transactionID: Long = scala.util.Random.nextLong()
       override val name: String = rand.nextString(1000).toString

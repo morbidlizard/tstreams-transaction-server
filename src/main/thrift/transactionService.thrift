@@ -40,11 +40,19 @@ struct Transaction {
     2: optional ConsumerTransaction    consumerTransaction
 }
 
-struct Stream {
+struct StreamValue {
     1: required string        name
     2: required i32           partitions
     3: optional string        description
     4: required tllType       ttl
+}
+
+struct Stream {
+    1: required StreamIDType  id
+    2: required string        name
+    3: required i32           partitions
+    4: optional string        description
+    5: required tllType       ttl
 }
 
 struct AuthInfo {

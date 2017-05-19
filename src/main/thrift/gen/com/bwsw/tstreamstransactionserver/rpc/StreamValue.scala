@@ -29,35 +29,22 @@ import scala.collection.mutable.{
 import scala.collection.{Map, Set}
 
 
-object Stream extends ThriftStructCodec3[Stream] {
+object StreamValue extends ThriftStructCodec3[StreamValue] {
   private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
-  val Struct = new TStruct("Stream")
-  val IdField = new TField("id", TType.I32, 1)
-  val IdFieldManifest = implicitly[Manifest[Int]]
-  val NameField = new TField("name", TType.STRING, 2)
+  val Struct = new TStruct("StreamValue")
+  val NameField = new TField("name", TType.STRING, 1)
   val NameFieldManifest = implicitly[Manifest[String]]
-  val PartitionsField = new TField("partitions", TType.I32, 3)
+  val PartitionsField = new TField("partitions", TType.I32, 2)
   val PartitionsFieldManifest = implicitly[Manifest[Int]]
-  val DescriptionField = new TField("description", TType.STRING, 4)
+  val DescriptionField = new TField("description", TType.STRING, 3)
   val DescriptionFieldManifest = implicitly[Manifest[String]]
-  val TtlField = new TField("ttl", TType.I64, 5)
+  val TtlField = new TField("ttl", TType.I64, 4)
   val TtlFieldManifest = implicitly[Manifest[Long]]
 
   /**
    * Field information in declaration order.
    */
   lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
-    new ThriftStructFieldInfo(
-      IdField,
-      false,
-      true,
-      IdFieldManifest,
-      _root_.scala.None,
-      _root_.scala.None,
-      immutable$Map.empty[String, String],
-      immutable$Map.empty[String, String],
-      None
-    ),
     new ThriftStructFieldInfo(
       NameField,
       false,
@@ -110,17 +97,12 @@ object Stream extends ThriftStructCodec3[Stream] {
   /**
    * Checks that all required fields are non-null.
    */
-  def validate(_item: Stream): Unit = {
+  def validate(_item: StreamValue): Unit = {
     if (_item.name == null) throw new TProtocolException("Required field name cannot be null")
   }
 
-  def withoutPassthroughFields(original: Stream): Stream =
+  def withoutPassthroughFields(original: StreamValue): StreamValue =
     new Immutable(
-      id =
-        {
-          val field = original.id
-          field
-        },
       name =
         {
           val field = original.name
@@ -145,14 +127,12 @@ object Stream extends ThriftStructCodec3[Stream] {
         }
     )
 
-  override def encode(_item: Stream, _oproto: TProtocol): Unit = {
+  override def encode(_item: StreamValue, _oproto: TProtocol): Unit = {
     _item.write(_oproto)
   }
 
-  private[this] def lazyDecode(_iprot: LazyTProtocol): Stream = {
+  private[this] def lazyDecode(_iprot: LazyTProtocol): StreamValue = {
 
-    var id: Int = 0
-    var _got_id = false
     var nameOffset: Int = -1
     var _got_name = false
     var partitions: Int = 0
@@ -174,21 +154,6 @@ object Stream extends ThriftStructCodec3[Stream] {
         _field.id match {
           case 1 =>
             _field.`type` match {
-              case TType.I32 =>
-    
-                id = readIdValue(_iprot)
-                _got_id = true
-              case _actualType =>
-                val _expectedType = TType.I32
-                throw new TProtocolException(
-                  "Received wrong type for field 'id' (expected=%s, actual=%s).".format(
-                    ttypeToString(_expectedType),
-                    ttypeToString(_actualType)
-                  )
-                )
-            }
-          case 2 =>
-            _field.`type` match {
               case TType.STRING =>
                 nameOffset = _iprot.offsetSkipString
     
@@ -202,7 +167,7 @@ object Stream extends ThriftStructCodec3[Stream] {
                   )
                 )
             }
-          case 3 =>
+          case 2 =>
             _field.`type` match {
               case TType.I32 =>
     
@@ -217,7 +182,7 @@ object Stream extends ThriftStructCodec3[Stream] {
                   )
                 )
             }
-          case 4 =>
+          case 3 =>
             _field.`type` match {
               case TType.STRING =>
                 descriptionOffset = _iprot.offsetSkipString
@@ -231,7 +196,7 @@ object Stream extends ThriftStructCodec3[Stream] {
                   )
                 )
             }
-          case 5 =>
+          case 4 =>
             _field.`type` match {
               case TType.I64 =>
     
@@ -256,16 +221,14 @@ object Stream extends ThriftStructCodec3[Stream] {
     }
     _iprot.readStructEnd()
 
-    if (!_got_id) throw new TProtocolException("Required field 'id' was not found in serialized data for struct Stream")
-    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct Stream")
-    if (!_got_partitions) throw new TProtocolException("Required field 'partitions' was not found in serialized data for struct Stream")
-    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct Stream")
+    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct StreamValue")
+    if (!_got_partitions) throw new TProtocolException("Required field 'partitions' was not found in serialized data for struct StreamValue")
+    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct StreamValue")
     new LazyImmutable(
       _iprot,
       _iprot.buffer,
       _start_offset,
       _iprot.offset,
-      id,
       nameOffset,
       partitions,
       descriptionOffset,
@@ -277,15 +240,13 @@ object Stream extends ThriftStructCodec3[Stream] {
     )
   }
 
-  override def decode(_iprot: TProtocol): Stream =
+  override def decode(_iprot: TProtocol): StreamValue =
     _iprot match {
       case i: LazyTProtocol => lazyDecode(i)
       case i => eagerDecode(i)
     }
 
-  private[this] def eagerDecode(_iprot: TProtocol): Stream = {
-    var id: Int = 0
-    var _got_id = false
+  private[this] def eagerDecode(_iprot: TProtocol): StreamValue = {
     var name: String = null
     var _got_name = false
     var partitions: Int = 0
@@ -305,20 +266,6 @@ object Stream extends ThriftStructCodec3[Stream] {
         _field.id match {
           case 1 =>
             _field.`type` match {
-              case TType.I32 =>
-                id = readIdValue(_iprot)
-                _got_id = true
-              case _actualType =>
-                val _expectedType = TType.I32
-                throw new TProtocolException(
-                  "Received wrong type for field 'id' (expected=%s, actual=%s).".format(
-                    ttypeToString(_expectedType),
-                    ttypeToString(_actualType)
-                  )
-                )
-            }
-          case 2 =>
-            _field.`type` match {
               case TType.STRING =>
                 name = readNameValue(_iprot)
                 _got_name = true
@@ -331,7 +278,7 @@ object Stream extends ThriftStructCodec3[Stream] {
                   )
                 )
             }
-          case 3 =>
+          case 2 =>
             _field.`type` match {
               case TType.I32 =>
                 partitions = readPartitionsValue(_iprot)
@@ -345,7 +292,7 @@ object Stream extends ThriftStructCodec3[Stream] {
                   )
                 )
             }
-          case 4 =>
+          case 3 =>
             _field.`type` match {
               case TType.STRING =>
                 description = _root_.scala.Some(readDescriptionValue(_iprot))
@@ -358,7 +305,7 @@ object Stream extends ThriftStructCodec3[Stream] {
                   )
                 )
             }
-          case 5 =>
+          case 4 =>
             _field.`type` match {
               case TType.I64 =>
                 ttl = readTtlValue(_iprot)
@@ -382,12 +329,10 @@ object Stream extends ThriftStructCodec3[Stream] {
     }
     _iprot.readStructEnd()
 
-    if (!_got_id) throw new TProtocolException("Required field 'id' was not found in serialized data for struct Stream")
-    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct Stream")
-    if (!_got_partitions) throw new TProtocolException("Required field 'partitions' was not found in serialized data for struct Stream")
-    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct Stream")
+    if (!_got_name) throw new TProtocolException("Required field 'name' was not found in serialized data for struct StreamValue")
+    if (!_got_partitions) throw new TProtocolException("Required field 'partitions' was not found in serialized data for struct StreamValue")
+    if (!_got_ttl) throw new TProtocolException("Required field 'ttl' was not found in serialized data for struct StreamValue")
     new Immutable(
-      id,
       name,
       partitions,
       description,
@@ -400,36 +345,20 @@ object Stream extends ThriftStructCodec3[Stream] {
   }
 
   def apply(
-    id: Int,
     name: String,
     partitions: Int,
     description: _root_.scala.Option[String] = _root_.scala.None,
     ttl: Long
-  ): Stream =
+  ): StreamValue =
     new Immutable(
-      id,
       name,
       partitions,
       description,
       ttl
     )
 
-  def unapply(_item: Stream): _root_.scala.Option[_root_.scala.Tuple5[Int, String, Int, Option[String], Long]] = _root_.scala.Some(_item.toTuple)
+  def unapply(_item: StreamValue): _root_.scala.Option[_root_.scala.Tuple4[String, Int, Option[String], Long]] = _root_.scala.Some(_item.toTuple)
 
-
-  @inline private def readIdValue(_iprot: TProtocol): Int = {
-    _iprot.readI32()
-  }
-
-  @inline private def writeIdField(id_item: Int, _oprot: TProtocol): Unit = {
-    _oprot.writeFieldBegin(IdField)
-    writeIdValue(id_item, _oprot)
-    _oprot.writeFieldEnd()
-  }
-
-  @inline private def writeIdValue(id_item: Int, _oprot: TProtocol): Unit = {
-    _oprot.writeI32(id_item)
-  }
 
   @inline private def readNameValue(_iprot: TProtocol): String = {
     _iprot.readString()
@@ -488,33 +417,30 @@ object Stream extends ThriftStructCodec3[Stream] {
   }
 
 
-  object Immutable extends ThriftStructCodec3[Stream] {
-    override def encode(_item: Stream, _oproto: TProtocol): Unit = { _item.write(_oproto) }
-    override def decode(_iprot: TProtocol): Stream = Stream.decode(_iprot)
-    override lazy val metaData: ThriftStructMetaData[Stream] = Stream.metaData
+  object Immutable extends ThriftStructCodec3[StreamValue] {
+    override def encode(_item: StreamValue, _oproto: TProtocol): Unit = { _item.write(_oproto) }
+    override def decode(_iprot: TProtocol): StreamValue = StreamValue.decode(_iprot)
+    override lazy val metaData: ThriftStructMetaData[StreamValue] = StreamValue.metaData
   }
 
   /**
-   * The default read-only implementation of Stream.  You typically should not need to
-   * directly reference this class; instead, use the Stream.apply method to construct
+   * The default read-only implementation of StreamValue.  You typically should not need to
+   * directly reference this class; instead, use the StreamValue.apply method to construct
    * new instances.
    */
   class Immutable(
-      val id: Int,
       val name: String,
       val partitions: Int,
       val description: _root_.scala.Option[String],
       val ttl: Long,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
-    extends Stream {
+    extends StreamValue {
     def this(
-      id: Int,
       name: String,
       partitions: Int,
       description: _root_.scala.Option[String] = _root_.scala.None,
       ttl: Long
     ) = this(
-      id,
       name,
       partitions,
       description,
@@ -532,13 +458,12 @@ object Stream extends ThriftStructCodec3[Stream] {
       _buf: Array[Byte],
       _start_offset: Int,
       _end_offset: Int,
-      val id: Int,
       nameOffset: Int,
       val partitions: Int,
       descriptionOffset: Int,
       val ttl: Long,
       override val _passthroughFields: immutable$Map[Short, TFieldBlob])
-    extends Stream {
+    extends StreamValue {
 
     override def write(_oprot: TProtocol): Unit = {
       _oprot match {
@@ -575,30 +500,28 @@ object Stream extends ThriftStructCodec3[Stream] {
   }
 
   /**
-   * This Proxy trait allows you to extend the Stream trait with additional state or
-   * behavior and implement the read-only methods from Stream using an underlying
+   * This Proxy trait allows you to extend the StreamValue trait with additional state or
+   * behavior and implement the read-only methods from StreamValue using an underlying
    * instance.
    */
-  trait Proxy extends Stream {
-    protected def _underlying_Stream: Stream
-    override def id: Int = _underlying_Stream.id
-    override def name: String = _underlying_Stream.name
-    override def partitions: Int = _underlying_Stream.partitions
-    override def description: _root_.scala.Option[String] = _underlying_Stream.description
-    override def ttl: Long = _underlying_Stream.ttl
-    override def _passthroughFields = _underlying_Stream._passthroughFields
+  trait Proxy extends StreamValue {
+    protected def _underlying_StreamValue: StreamValue
+    override def name: String = _underlying_StreamValue.name
+    override def partitions: Int = _underlying_StreamValue.partitions
+    override def description: _root_.scala.Option[String] = _underlying_StreamValue.description
+    override def ttl: Long = _underlying_StreamValue.ttl
+    override def _passthroughFields = _underlying_StreamValue._passthroughFields
   }
 }
 
-trait Stream
+trait StreamValue
   extends ThriftStruct
-  with _root_.scala.Product5[Int, String, Int, Option[String], Long]
-  with HasThriftStructCodec3[Stream]
+  with _root_.scala.Product4[String, Int, Option[String], Long]
+  with HasThriftStructCodec3[StreamValue]
   with java.io.Serializable
 {
-  import Stream._
+  import StreamValue._
 
-  def id: Int
   def name: String
   def partitions: Int
   def description: _root_.scala.Option[String]
@@ -606,15 +529,13 @@ trait Stream
 
   def _passthroughFields: immutable$Map[Short, TFieldBlob] = immutable$Map.empty
 
-  def _1 = id
-  def _2 = name
-  def _3 = partitions
-  def _4 = description
-  def _5 = ttl
+  def _1 = name
+  def _2 = partitions
+  def _3 = description
+  def _4 = ttl
 
-  def toTuple: _root_.scala.Tuple5[Int, String, Int, Option[String], Long] = {
+  def toTuple: _root_.scala.Tuple4[String, Int, Option[String], Long] = {
     (
-      id,
       name,
       partitions,
       description,
@@ -637,37 +558,30 @@ trait Stream
         val _fieldOpt: _root_.scala.Option[TField] =
           _fieldId match {
             case 1 =>
-              if (true) {
-                writeIdValue(id, _oprot)
-                _root_.scala.Some(Stream.IdField)
+              if (name ne null) {
+                writeNameValue(name, _oprot)
+                _root_.scala.Some(StreamValue.NameField)
               } else {
                 _root_.scala.None
               }
             case 2 =>
-              if (name ne null) {
-                writeNameValue(name, _oprot)
-                _root_.scala.Some(Stream.NameField)
+              if (true) {
+                writePartitionsValue(partitions, _oprot)
+                _root_.scala.Some(StreamValue.PartitionsField)
               } else {
                 _root_.scala.None
               }
             case 3 =>
-              if (true) {
-                writePartitionsValue(partitions, _oprot)
-                _root_.scala.Some(Stream.PartitionsField)
+              if (description.isDefined) {
+                writeDescriptionValue(description.get, _oprot)
+                _root_.scala.Some(StreamValue.DescriptionField)
               } else {
                 _root_.scala.None
               }
             case 4 =>
-              if (description.isDefined) {
-                writeDescriptionValue(description.get, _oprot)
-                _root_.scala.Some(Stream.DescriptionField)
-              } else {
-                _root_.scala.None
-              }
-            case 5 =>
               if (true) {
                 writeTtlValue(ttl, _oprot)
-                _root_.scala.Some(Stream.TtlField)
+                _root_.scala.Some(StreamValue.TtlField)
               } else {
                 _root_.scala.None
               }
@@ -696,8 +610,7 @@ trait Stream
    * is unknown and passthrough fields are enabled, then the blob will be stored in
    * _passthroughFields.
    */
-  def setField(_blob: TFieldBlob): Stream = {
-    var id: Int = this.id
+  def setField(_blob: TFieldBlob): StreamValue = {
     var name: String = this.name
     var partitions: Int = this.partitions
     var description: _root_.scala.Option[String] = this.description
@@ -705,19 +618,16 @@ trait Stream
     var _passthroughFields = this._passthroughFields
     _blob.id match {
       case 1 =>
-        id = readIdValue(_blob.read)
-      case 2 =>
         name = readNameValue(_blob.read)
-      case 3 =>
+      case 2 =>
         partitions = readPartitionsValue(_blob.read)
-      case 4 =>
+      case 3 =>
         description = _root_.scala.Some(readDescriptionValue(_blob.read))
-      case 5 =>
+      case 4 =>
         ttl = readTtlValue(_blob.read)
       case _ => _passthroughFields += (_blob.id -> _blob)
     }
     new Immutable(
-      id,
       name,
       partitions,
       description,
@@ -731,8 +641,7 @@ trait Stream
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetField(_fieldId: Short): Stream = {
-    var id: Int = this.id
+  def unsetField(_fieldId: Short): StreamValue = {
     var name: String = this.name
     var partitions: Int = this.partitions
     var description: _root_.scala.Option[String] = this.description
@@ -740,19 +649,16 @@ trait Stream
 
     _fieldId match {
       case 1 =>
-        id = 0
-      case 2 =>
         name = null
-      case 3 =>
+      case 2 =>
         partitions = 0
-      case 4 =>
+      case 3 =>
         description = _root_.scala.None
-      case 5 =>
+      case 4 =>
         ttl = 0L
       case _ =>
     }
     new Immutable(
-      id,
       name,
       partitions,
       description,
@@ -766,21 +672,18 @@ trait Stream
    * known, it is reverted to its default value; if the field is unknown, it is removed
    * from the passthroughFields map, if present.
    */
-  def unsetId: Stream = unsetField(1)
+  def unsetName: StreamValue = unsetField(1)
 
-  def unsetName: Stream = unsetField(2)
+  def unsetPartitions: StreamValue = unsetField(2)
 
-  def unsetPartitions: Stream = unsetField(3)
+  def unsetDescription: StreamValue = unsetField(3)
 
-  def unsetDescription: Stream = unsetField(4)
-
-  def unsetTtl: Stream = unsetField(5)
+  def unsetTtl: StreamValue = unsetField(4)
 
 
   override def write(_oprot: TProtocol): Unit = {
-    Stream.validate(this)
+    StreamValue.validate(this)
     _oprot.writeStructBegin(Struct)
-    writeIdField(id, _oprot)
     if (name ne null) writeNameField(name, _oprot)
     writePartitionsField(partitions, _oprot)
     if (description.isDefined) writeDescriptionField(description.get, _oprot)
@@ -793,15 +696,13 @@ trait Stream
   }
 
   def copy(
-    id: Int = this.id,
     name: String = this.name,
     partitions: Int = this.partitions,
     description: _root_.scala.Option[String] = this.description,
     ttl: Long = this.ttl,
     _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
-  ): Stream =
+  ): StreamValue =
     new Immutable(
-      id,
       name,
       partitions,
       description,
@@ -809,34 +710,33 @@ trait Stream
       _passthroughFields
     )
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[Stream]
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[StreamValue]
 
-  private def _equals(x: Stream, y: Stream): Boolean =
+  private def _equals(x: StreamValue, y: StreamValue): Boolean =
       x.productArity == y.productArity &&
       x.productIterator.sameElements(y.productIterator)
 
   override def equals(other: Any): Boolean =
     canEqual(other) &&
-      _equals(this, other.asInstanceOf[Stream]) &&
-      _passthroughFields == other.asInstanceOf[Stream]._passthroughFields
+      _equals(this, other.asInstanceOf[StreamValue]) &&
+      _passthroughFields == other.asInstanceOf[StreamValue]._passthroughFields
 
   override def hashCode: Int = _root_.scala.runtime.ScalaRunTime._hashCode(this)
 
   override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
 
 
-  override def productArity: Int = 5
+  override def productArity: Int = 4
 
   override def productElement(n: Int): Any = n match {
-    case 0 => this.id
-    case 1 => this.name
-    case 2 => this.partitions
-    case 3 => this.description
-    case 4 => this.ttl
+    case 0 => this.name
+    case 1 => this.partitions
+    case 2 => this.description
+    case 3 => this.ttl
     case _ => throw new IndexOutOfBoundsException(n.toString)
   }
 
-  override def productPrefix: String = "Stream"
+  override def productPrefix: String = "StreamValue"
 
-  def _codec: ThriftStructCodec3[Stream] = Stream
+  def _codec: ThriftStructCodec3[StreamValue] = StreamValue
 }

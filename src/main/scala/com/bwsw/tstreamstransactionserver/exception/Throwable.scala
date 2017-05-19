@@ -31,18 +31,12 @@ object Throwable {
     private val message: String = if (isPartialMessage) s"Stream $stream doesn't exist in database!" else stream
   } with NoSuchElementException(message)
 
-  class StreamOverwriteProhibited(message: String, isPartialMessage: Boolean = true) extends {
-    private val messageComplete: String = if (isPartialMessage) s"Stream $message exist in database! First delete it, then persist it." else message
-  } with IllegalAccessError(messageComplete)
-
-
   val PackageTooBigExceptionMessagePart: String = "A size of client request is greater"
   class PackageTooBigException(msg: String = "") extends Exception(msg)
 
   def byText(text: String): Throwable = text match {
     case TokenInvalidExceptionMessage => new TokenInvalidException
     case message if message.matches(s"Stream (.*) doesn't exist in database!") => new StreamDoesNotExist(message, isPartialMessage = false)
-    case message if message.matches(s"Stream (.*) exist in database! First delete it, then persist it.") => new StreamOverwriteProhibited(message, isPartialMessage = false)
     case message if message.contains(PackageTooBigExceptionMessagePart) => new PackageTooBigException(text)
     case _ => new Exception(text)
   }

@@ -1,12 +1,11 @@
 package it
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamOverwriteProhibited
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRecord, StreamValue}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamValue}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import Utils._
 
-class StreamDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class StreamRecordValueDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   private def getStreamValue = StreamValue("test_stream", 20, None, 5)
 
   private val path = "/tts/test_path"
@@ -27,7 +26,7 @@ class StreamDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEac
 
     streamObj.key shouldBe streamKey
     streamObj.stream shouldBe streamValue
-    streamObj.stream shouldBe streamRecordByName.get
+    streamObj.stream shouldBe streamRecordByName.get.stream
 
     zkClient.close()
     zkServer.close()
@@ -43,9 +42,8 @@ class StreamDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEac
 
     val newStream = StreamValue("test_stream", 100, Some("overwrite"), 10)
 
-    assertThrows[StreamOverwriteProhibited] {
-      zkDatabase.putStream(newStream)
-    }
+
+    zkDatabase.putStream(newStream) shouldBe StreamKey(-1)
 
     zkDatabase.checkStreamExists(newStream.name) shouldBe true
 
@@ -103,7 +101,7 @@ class StreamDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEac
 
     val streamRecord = zkDatabase.getStream(newStream.name)
     streamRecord shouldBe defined
-    streamRecord.get shouldBe newStream
+    streamRecord.get.stream shouldBe newStream
 
     zkClient.close()
     zkServer.close()

@@ -22,7 +22,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 
-  private def getRandomStream = com.bwsw.tstreamstransactionserver.rpc.Stream(
+  private def getRandomStream = com.bwsw.tstreamstransactionserver.rpc.StreamValue(
     name = rand.nextInt(10000).toString,
     partitions = rand.nextInt(10000),
     description = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None,
@@ -31,7 +31,7 @@ class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val txnCounter = new AtomicLong(0)
 
-  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue, ttlTxn: Long) = ProducerTransaction(
     stream = streamID,
     partition = streamObj.partitions,
     transactionID = txnCounter.getAndIncrement(),

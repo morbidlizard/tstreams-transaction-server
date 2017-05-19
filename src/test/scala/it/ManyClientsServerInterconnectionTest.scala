@@ -105,7 +105,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   private val rand = scala.util.Random
 
   private def getRandomStream =
-    new com.bwsw.tstreamstransactionserver.rpc.Stream {
+    new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
       override val name: String = rand.nextInt(10000).toString
       override val partitions: Int = rand.nextInt(10000)
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
@@ -113,7 +113,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     }
 
   private def getRandomProducerTransaction(streamID: Int,
-                                           streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream,
+                                           streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue,
                                            transactionState: TransactionStates = TransactionStates(rand.nextInt(TransactionStates.list.length) + 1),
                                            id: Long = System.nanoTime()) =
     ProducerTransaction(
@@ -125,7 +125,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       Long.MaxValue
     )
 
-  private def getRandomConsumerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream) =
+  private def getRandomConsumerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue) =
     ConsumerTransaction(
       streamID,
       streamObj.partitions,

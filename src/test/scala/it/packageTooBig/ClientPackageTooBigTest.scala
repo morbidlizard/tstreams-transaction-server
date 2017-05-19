@@ -40,7 +40,7 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
 
     assertThrows[PackageTooBigException] {
-      Await.result(client.putStream("Too big message", 1, Some(new String(new Array[Byte](packageTransmissionOptions.maxDataPackageSize))), 1), Duration(5, TimeUnit.SECONDS))
+      Await.result(client.putStream("Too big message", 1, Some(new String(new Array[Byte](packageTransmissionOptions.maxMetadataPackageSize))), 1), Duration(5, TimeUnit.SECONDS))
     }
 
     client.shutdown()

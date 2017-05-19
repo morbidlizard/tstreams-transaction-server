@@ -34,7 +34,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
 
-  def startTransactionServer(): Unit = new Thread(() => {
+  def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     transactionServer = new Server(
       authOpts = serverAuthOptions,
@@ -47,8 +47,14 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions
     )
-    transactionServer.start()
-  }).start()
+    val l = new CountDownLatch(1)
+    new Thread(() => {
+      l.countDown()
+      transactionServer.start()
+    }).start()
+    l.await()
+    transactionServer
+  }
 
 
   override def beforeEach(): Unit = {
@@ -87,7 +93,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
   private val rand = scala.util.Random
   private def getRandomStream =
-    new com.bwsw.tstreamstransactionserver.rpc.Stream {
+    new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
       override val name: String = rand.nextInt(10000).toString
       override val partitions: Int = rand.nextInt(10000)
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None

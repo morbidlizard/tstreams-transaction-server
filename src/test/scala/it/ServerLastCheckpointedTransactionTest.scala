@@ -107,14 +107,14 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   private val rand = scala.util.Random
 
   private def getRandomStream =
-    new com.bwsw.tstreamstransactionserver.rpc.Stream {
+    new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
       override val name: String = rand.nextInt(10000).toString
       override val partitions: Int = rand.nextInt(10000)
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
       override val ttl: Long = Long.MaxValue
     }
 
-  private def getRandomConsumerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.Stream) =
+  private def getRandomConsumerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue) =
     new ConsumerTransaction {
       override val transactionID: Long = scala.util.Random.nextLong()
       override val name: String = rand.nextInt(10000).toString
@@ -192,7 +192,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
 
     val client = clients(0)
 
-    val stream = com.bwsw.tstreamstransactionserver.rpc.Stream("test_stream", 32, None, 360)
+    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("test_stream", 32, None, 360)
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
     val partition = 1

@@ -94,7 +94,7 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
     })
 
     if (!client.isShutdown) {
-      ctx.channel().eventLoop().execute(() => client.reconnect())
+      ScalaFuture(ctx.channel().eventLoop().execute(() => client.reconnect()))
     }
   }
 

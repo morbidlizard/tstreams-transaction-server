@@ -33,6 +33,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
              (server, journaledCommitLogImpl, packageTransmissionOpts, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, logger),
              timer: Time = new Time{}
             ) {
+
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   @volatile private var isShutdown = false
   private val transactionServerSocketAddress = createTransactionServerAddress()
@@ -129,7 +130,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
-  def start(): Unit = {
+  def start(function: => Unit = ()): Unit = {
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
@@ -145,7 +146,9 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 
       zk.putSocketAddress(zookeeperOpts.prefix)
 
-      f.channel().closeFuture().sync()
+      val channel = f.channel().closeFuture()
+      function
+      channel.sync()
     } finally {
       shutdown()
     }

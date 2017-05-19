@@ -1,6 +1,6 @@
 package it
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{TimeUnit}
 
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes

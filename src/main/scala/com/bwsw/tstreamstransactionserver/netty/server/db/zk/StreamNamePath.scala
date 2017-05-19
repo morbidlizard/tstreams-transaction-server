@@ -12,9 +12,14 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
 
   private val semaphore = new InterProcessSemaphoreMutex(client, path)
   private def lock[T](body: => T) = {
-    semaphore.acquire()
-    val result = body
-    scala.util.Try(semaphore.release())
+    val result =
+      try {
+        semaphore.acquire()
+        body
+      }
+      finally {
+        scala.util.Try(semaphore.release())
+      }
     result
   }
 

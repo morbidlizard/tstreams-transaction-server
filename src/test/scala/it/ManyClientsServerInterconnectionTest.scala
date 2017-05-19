@@ -201,7 +201,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     ), secondsWait.seconds) shouldBe true
 
     //it's required to close a current commit log file
-    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
+    TestTimer.updateTime(System.currentTimeMillis() + maxIdleTimeBetweenRecordsMs)
     Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
     //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
     transactionServer.scheduledCommitLogImpl.run()

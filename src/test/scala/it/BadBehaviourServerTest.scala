@@ -50,6 +50,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     }
   }
 
+
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
   private val bootstrapOptions = BootstrapOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
@@ -69,12 +70,12 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
       zookeeperSpecificOptions,
       serverHandler
     )
-    val l = new CountDownLatch(1)
+    val latch = new CountDownLatch(1)
     new Thread(() => {
-      l.countDown()
-      server.start()
+      server.start(latch.countDown())
     }).start()
-    l.await()
+
+    latch.await()
     server
   }
 

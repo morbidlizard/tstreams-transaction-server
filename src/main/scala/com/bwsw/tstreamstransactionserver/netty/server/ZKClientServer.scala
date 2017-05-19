@@ -102,7 +102,7 @@ class ZKClientServer(serverAddress: String,
 
 
   final def putSocketAddress(path: String): Try[String] = {
-    scala.util.Try(client.delete().deletingChildrenIfNeeded().forPath(path))
+    scala.util.Try(client.delete().forPath(path))
     scala.util.Try{
       val permissions = new util.ArrayList[ACL]()
       permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))

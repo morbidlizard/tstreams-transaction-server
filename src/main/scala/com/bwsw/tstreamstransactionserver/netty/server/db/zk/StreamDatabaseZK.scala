@@ -14,30 +14,26 @@ final class StreamDatabaseZK(client: CuratorFramework, path: String)
   private val streamNamePath = new StreamNamePath(client, s"$path/names")
   private val streamIDPath   = new StreamIDPath(client, s"$path/ids")
 
-  override def putStream(streamValue: StreamValue): StreamKey =
-    this.synchronized {
-      if (!streamNamePath.checkExists(streamValue.name)) {
-        val streamRecord = streamIDPath.put(streamValue)
-        streamNamePath.put(streamRecord)
-        streamCache.put(streamRecord.key, streamRecord.stream)
-        streamRecord.key
-      } else StreamKey(-1)
-    }
+  override def putStream(streamValue: StreamValue): StreamKey = {
+    if (!streamNamePath.checkExists(streamValue.name)) {
+      val streamRecord = streamIDPath.put(streamValue)
+      streamNamePath.put(streamRecord)
+      streamCache.put(streamRecord.key, streamRecord.stream)
+      streamRecord.key
+    } else StreamKey(-1)
+  }
 
   override def checkStreamExists(name: String): Boolean =
-    this.synchronized(
-      streamNamePath.checkExists(name)
-    )
+    streamNamePath.checkExists(name)
+
 
   override def delStream(name: String): Boolean =
-    this.synchronized(
-      streamNamePath.delete(name)
-    )
+    streamNamePath.delete(name)
+
 
   override def getStream(name: String): Option[StreamRecord] =
-    this.synchronized(
-      streamNamePath.get(name)
-    )
+    streamNamePath.get(name)
+
 
   override def getStream(streamKey: StreamKey): Option[StreamRecord] = {
     Option(streamCache.get(streamKey))

@@ -24,6 +24,7 @@ You should pass a file with properties in both cases. The file should contain th
 | active.tokens.number             | The number of active tokens a server can handle over time.  |int    |100| [1,...]|
 | token.ttl                        | The time a token live before expiration.  |int    | 120| [1,...]|
 | path                             | The path where folders of Commit log, berkeley environment and rocksdb databases would be placed.  |string |/tmp| |
+| stream.directory                 | The zooKeeper path for stream entities. | string | /tts/streams | all path starts with '/' and separated with the same character |
 | data.directory                   | The path where rocksdb databases are placed relatively to property "path".  |string |transaction_data| |
 | metadata.directory               | The path where a berkeley environment and it's databases are placed relatively to "path".  |string |transaction_metadata| |
 | commit.log.directory             | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
@@ -41,7 +42,7 @@ You should pass a file with properties in both cases. The file should contain th
 | compression                      | Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION]. If it's unimportant use a *LZ4_COMPRESSION* as default value.  |string |LZ4_COMPRESSION| | 
 | use.fsync                        | If true, then every store to stable storage will issue a fsync. If false, then every store to stable storage will issue a fdatasync. This parameter should be set to true while storing data to filesystem like ext3 that can lose files after a reboot.   |boolean| true| |  
 | zk.endpoints                     | The socket address(es) of ZooKeeper servers.  |string |127.0.0.1:2181| |  
-| zk.prefix                        | The coordination path to get/put socket address of t-streams transaction server.  |string |/tts | |
+| zk.prefix                        | The coordination path to get/put socket address of t-streams transaction server.  |string |/tts/master | |
 | zk.session.timeout.ms            | The time to wait while trying to re-establish a connection to a ZooKeepers server(s).  |int    | 10000| [1,...]|     
 | zk.retry.delay.ms                | Delays between retry attempts to establish connection to ZooKeepers server on case of lost connection.  |int    | 500| [1,...]|    
 | zk.connection.timeout.ms         | The time to wait while trying to establish a connection to a ZooKeepers server(s) on first connection.  |int    | 10000| [1,...]|

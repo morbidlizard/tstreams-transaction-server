@@ -24,6 +24,7 @@ object ServerOptions {
   /** The options are used to define folders for databases.
     *
     * @param path              the path where folders of Commit log, berkeley environment and rocksdb databases would be placed.
+    * @param streamZookeperDirectory the zooKeeper path for stream entities.
     * @param dataDirectory     the path where rocksdb databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     * @param metadataDirectory the path where a berkeley environment and it's databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     * @param commitLogDirectory the path where commit log files are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]

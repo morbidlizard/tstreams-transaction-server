@@ -15,6 +15,7 @@ import ZKLeaderClientToGetMaster._
 
 class ZKLeaderClientToGetMaster(connection: CuratorFramework,
                                 prefix: String,
+                                isConnectionCloseable: Boolean,
                                 connectionStateListener: ConnectionStateListener
                                )
   extends NodeCacheListener with Closeable {
@@ -27,6 +28,7 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
            connectionTimeoutMillis: Int,
            policy: RetryPolicy,
            prefix: String,
+           isConnectionCloseable: Boolean,
            connectionStateListener: ConnectionStateListener) = {
     this({
       val connection = CuratorFrameworkFactory.builder()
@@ -41,6 +43,7 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
       if (isConnected) connection else throw new ZkNoConnectionException(endpoints)
     },
       prefix,
+      isConnectionCloseable,
       connectionStateListener
     )
   }
@@ -64,7 +67,8 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
 
   override def close(): Unit = {
     nodeToWatch.close()
-    connection.close()
+    if (isConnectionCloseable)
+      connection.close()
   }
 
   private def setMasterThrowableIllegalData(path: String, data: String) ={

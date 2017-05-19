@@ -72,7 +72,8 @@ class Client(clientOpts: ConnectionOptions,
       val zKLeaderClient = new ZKLeaderClientToGetMaster(
         connection,
         options.prefix,
-        zkListener
+        isConnectionCloseable = false,
+        connectionStateListener = zkListener
       )
       (options, zKLeaderClient)
 
@@ -83,6 +84,7 @@ class Client(clientOpts: ConnectionOptions,
         zookeeperOptions.connectionTimeoutMs,
         new RetryForever(zookeeperOptions.retryDelayMs),
         zookeeperOptions.prefix,
+        isConnectionCloseable = true,
         zkListener
       )
       (zookeeperOptions, zKLeaderClient)

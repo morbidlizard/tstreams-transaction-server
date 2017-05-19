@@ -14,7 +14,6 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{TransportOptions, _}
 import io.netty.channel.ChannelHandlerContext
 import org.apache.commons.io.FileUtils
-import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}

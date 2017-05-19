@@ -67,6 +67,15 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
     connection.close()
   }
 
+  private def setMasterThrowableIllegalData(path: String, data: String) ={
+    master = Left(new MasterDataIsIllegal(path, data))
+    if (logger.isDebugEnabled)
+      logger.debug(s"" +
+        s"On Zookeeper server(s) ${connection.getZookeeperClient.getCurrentConnectionString} " +
+        s"data(now it is $data) in coordination path $prefix is corrupted!"
+      )
+  }
+
   override def nodeChanged(): Unit = {
     Option(nodeToWatch.getCurrentData) match {
       case Some(node) =>
@@ -83,20 +92,10 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
               master = Right(Some(InetSocketAddressClass(address, portToInt.get)))
             }
             else {
-              master = Left(new MasterDataIsIllegal(node.getPath, addressPort))
-              if (logger.isDebugEnabled)
-                logger.debug(s"" +
-                  s"On Zookeeper server(s) ${connection.getZookeeperClient.getCurrentConnectionString} " +
-                  s"data(now it is $addressPort) in coordination path $prefix is corrupted!"
-                )
+              setMasterThrowableIllegalData(node.getPath, addressPort)
             }
           } else {
-            master = Right(None)
-            if (logger.isDebugEnabled)
-              logger.debug(s"" +
-                s"On Zookeeper server(s) ${connection.getZookeeperClient.getCurrentConnectionString} " +
-                s"data(now it is $addressPort) in coordination path $prefix is corrupted!"
-              )
+            setMasterThrowableIllegalData(node.getPath, addressPort)
           }
         }
       case None =>

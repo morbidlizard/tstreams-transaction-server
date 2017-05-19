@@ -18,14 +18,18 @@ import org.apache.zookeeper.ZooDefs.{Ids, Perms}
 import org.apache.zookeeper.data.ACL
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 
 class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
   "Client" should "not connect to zookeeper server that isn't running" in {
-    val clientBuilder = new ClientBuilder().withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888", connectionTimeoutMs = 2000))
+    val clientBuilder = new ClientBuilder()
+      .withZookeeperOptions(
+        ZookeeperOptions(
+          endpoints = "127.0.0.1:8888",
+          connectionTimeoutMs = 2000
+        )
+      )
+
     assertThrows[ZkNoConnectionException] {
       clientBuilder.build()
     }
@@ -45,7 +49,12 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
 
     val clientBuilder = new ClientBuilder()
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString, prefix = zkPrefix))
+      .withZookeeperOptions(
+        ZookeeperOptions(
+          endpoints = zkTestServer.getConnectString,
+          prefix = zkPrefix
+        )
+      )
 
     assertThrows[MasterPathIsAbsent] {
       clientBuilder.build()
@@ -77,10 +86,51 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       .forPath(zkPrefix, "Test".getBytes())
 
     val clientBuilder = new ClientBuilder()
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString, prefix = zkPrefix))
+      .withZookeeperOptions(
+        ZookeeperOptions(
+          endpoints = zkTestServer.getConnectString,
+          prefix = zkPrefix
+        )
+      )
 
-    assertThrows[java.util.concurrent.TimeoutException] {
-      Await.result(Future(clientBuilder.build()), 3.seconds)
+    assertThrows[MasterDataIsIllegal] {
+      clientBuilder.build()
+    }
+
+    zkClient.close()
+    zkTestServer.close()
+  }
+
+  it should "not connect to server which socket address(retrieved from zooKeeper server) is putted on persistent znode" in {
+    val zkPrefix = "/tts"
+    val zkTestServer = new TestingServer(true)
+
+    val zkClient = CuratorFrameworkFactory.builder()
+      .sessionTimeoutMs(1000)
+      .connectionTimeoutMs(1000)
+      .retryPolicy(new RetryForever(100))
+      .connectString(zkTestServer.getConnectString)
+      .build()
+    zkClient.start()
+    zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
+
+    val permissions = new util.ArrayList[ACL]()
+    permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
+    zkClient.create().creatingParentsIfNeeded()
+      .withMode(CreateMode.PERSISTENT)
+      .withACL(permissions)
+      .forPath(zkPrefix, "Test".getBytes())
+
+    val clientBuilder = new ClientBuilder()
+      .withZookeeperOptions(
+        ZookeeperOptions(
+          endpoints = zkTestServer.getConnectString,
+          prefix = zkPrefix
+        )
+      )
+
+    assertThrows[MasterIsPersistentZnode] {
+      clientBuilder.build()
     }
 
     zkClient.close()
@@ -109,7 +159,12 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       .forPath(zkPrefix, "1270.0.0.1:8080".getBytes())
 
     val clientBuilder = new ClientBuilder()
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString, prefix = zkPrefix))
+      .withZookeeperOptions(
+        ZookeeperOptions(
+          endpoints = zkTestServer.getConnectString,
+          prefix = zkPrefix
+        )
+      )
 
     assertThrows[MasterDataIsIllegal] {
       clientBuilder.build()
@@ -140,7 +195,12 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       .forPath(zkPrefix, "1270.0.0.1:-8080".getBytes())
 
     val clientBuilder = new ClientBuilder()
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString, prefix = zkPrefix))
+      .withZookeeperOptions(
+        ZookeeperOptions(
+          endpoints = zkTestServer.getConnectString,
+          prefix = zkPrefix
+        )
+      )
 
     assertThrows[MasterDataIsIllegal] {
       clientBuilder.build()
@@ -171,7 +231,12 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       .forPath(zkPrefix, "1270.0.0.1:65536".getBytes())
 
     val clientBuilder = new ClientBuilder()
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString, prefix = zkPrefix))
+      .withZookeeperOptions(
+        ZookeeperOptions(
+          endpoints = zkTestServer.getConnectString,
+          prefix = zkPrefix
+        )
+      )
 
     assertThrows[MasterDataIsIllegal] {
       clientBuilder.build()

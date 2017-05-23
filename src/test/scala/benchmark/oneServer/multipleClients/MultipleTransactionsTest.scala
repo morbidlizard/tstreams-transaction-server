@@ -7,7 +7,6 @@ import scala.collection.mutable.ArrayBuffer
 
 object MultipleTransactionsTest extends Launcher {
   override val streamName = "stream"
-  override val streamID = 1
   override val clients = 1
   private val txnCount = 1000000
   private val rand = new scala.util.Random()
@@ -18,7 +17,7 @@ object MultipleTransactionsTest extends Launcher {
     System.exit(0)
   }
 
-  override def launchClients(): Unit = {
+  override def launchClients(streamID: Int): Unit = {
     (1 to clients).foreach(x => {
       val thread = new Thread(new Runnable {
         override def run(): Unit = {

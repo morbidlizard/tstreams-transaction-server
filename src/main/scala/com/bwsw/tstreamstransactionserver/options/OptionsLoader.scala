@@ -11,7 +11,7 @@ class OptionsLoader() {
   require(System.getProperty(CommonOptions.propertyFileName) != null,
     s"There is no file with properties. You should define a path to a property file through '-D${CommonOptions.propertyFileName}=<path_to_file>' " +
       s"(e.g. 'java -D${CommonOptions.propertyFileName}=/home/user/config.properties " +
-      "-cp target/scala-2.12/tstreams-transaction-server-1.1.3-SNAPSHOT.jar:/home/user/slf4j-api-1.7.21.jar:/home/user/slf4j-simple-1.7.21.jar " +
+      "-cp target/scala-2.12/tstreams-transaction-server-1.3.7.4-SNAPSHOT.jar:/home/user/slf4j-api-1.7.24.jar:/home/user/slf4j-simple-1.7.24.jar " +
       "com.bwsw.tstreamstransactionserver.ServerLauncher').")
 
   private val props = new Properties()
@@ -26,6 +26,7 @@ class OptionsLoader() {
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
   private val commitLogOptions = loadCommitLogOptions()
   private val zookeeperSpecificOptions = loadZookeeperSpecificOptions()
+
 
   private def loadBootstrapOptions() = {
     val fields = getPropertiesOf(classOf[BootstrapOptions])

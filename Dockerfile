@@ -1,8 +1,11 @@
 FROM ubuntu:xenial
 
-MAINTAINER BITWORKS
+LABEL maintainer BITWORKS
 
 ENV version 1.3.7.4-SNAPSHOT
+ENV slf4j_version 1.7.24
+
+ENV DEBIAN_FRONTEND noninteractive
 
 # Install Oracle JDK 8
 RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | tee /etc/apt/sources.list.d/webupd8team-java.list && \
@@ -26,7 +29,7 @@ RUN echo "deb http://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list
 COPY ./project /opt/bin/tts/project
 COPY ./build.sbt /opt/bin/tts/
 COPY ./src/main /opt/bin/tts/src/main
-COPY ./runDocker.sh /opt/
+COPY ./rundocker.sh /opt/
 
 WORKDIR /opt/bin/tts
 
@@ -35,12 +38,11 @@ RUN mkdir -p /root/.sbt/0.13
 RUN sbt 'set test in assembly := {}' clean assembly
 
 RUN mv target/scala-2.12/tstreams-transaction-server-${version}.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-1.7.24.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-log4j12/jars/slf4j-log4j12-1.7.24.jar . && \
+    mv /root/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-${slf4j_version}.jar . && \
+    mv /root/.ivy2/cache/org.slf4j/slf4j-log4j12/jars/slf4j-log4j12-${slf4j_version}.jar . && \
     sbt clean clean-files && \
     rm -rf /root/.ivy2/cache
 
+WORKDIR /var/log/tts
+ENTRYPOINT /opt/rundocker.sh /etc/conf/config.properties ${version} ${slf4j_version}
 
-ENTRYPOINT ["/opt/runDocker.sh" "/etc/conf/config.properties"]
-
-CMD java -Dconfig=/etc/conf/config.properties -classpath tstreams-transaction-server-${version}.jar:slf4j-api-1.7.24.jar:slf4j-log4j12-1.7.24.jar com.bwsw.tstreamstransactionserver.ServerLauncher

@@ -19,6 +19,7 @@ import org.apache.zookeeper.ZooDefs.{Ids, Perms}
 import org.apache.zookeeper.data.ACL
 import org.slf4j.LoggerFactory
 
+import scala.annotation.tailrec
 import scala.util.Try
 
 class ZKClientServer(serverAddress: String,
@@ -49,20 +50,25 @@ class ZKClientServer(serverAddress: String,
     if (isConnected) connection else throw new ZkNoConnectionException(endpoints)
   }
 
-  final def fileIDGenerator(path: String, initValue: Long) = new FileIDGenerator(path, initValue)
-  final class FileIDGenerator(path: String, initValue: Long) {
+  final def fileIDGenerator(path: String) = new FileIDGenerator(path)
+  final class FileIDGenerator(path: String) {
     private val distributedAtomicLong = new DistributedAtomicLong(client, path, policy)
-    private val atomicLong = new AtomicLong(initValue)
-    distributedAtomicLong.forceSet(initValue)
-   // if (!distributedAtomicLong.initialize(initValue)) throw new Exception(s"Can't initialize counter by value $initValue.")
+    distributedAtomicLong.initialize(-1L)
 
-    def current: Long = atomicLong.get()
+    @tailrec
+    def current: Long = {
+      val operation = distributedAtomicLong.get()
+      if (operation.succeeded()) {
+        operation.postValue()
+      } else {
+        current
+      }
+    }
 
     def increment: Long = {
       val operation = distributedAtomicLong.increment()
       if (operation.succeeded()) {
         val newID = operation.postValue()
-        atomicLong.set(newID)
         newID
       }
       else throw new Exception(s"Can't increment counter by 1: previous was ${operation.preValue()} but now it's ${operation.postValue()} ")

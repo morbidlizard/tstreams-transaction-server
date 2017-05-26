@@ -15,16 +15,24 @@ import io.netty.buffer.Unpooled._
 case class Message(id: Long, length: Int, protocol: Byte, body: Array[Byte], token: Int, method: Byte, isFireAndForgetMethod: Byte)
 {
   /** Serializes a message. */
-  def toByteArray: Array[Byte] = java.nio.ByteBuffer
-    .allocate(Message.headerFieldSize + Message.lengthFieldSize + body.length)
-    .putLong(id)
-    .put(protocol)
-    .putInt(token)
-    .put(method)
-    .put(isFireAndForgetMethod)
-    .putInt(length)
-    .put(body)
-    .array()
+  def toByteArray: Array[Byte] = {
+    val size = Message.headerFieldSize + Message.lengthFieldSize + body.length
+    val buffer = java.nio.ByteBuffer
+      .allocate(size)
+      .putLong(id)
+      .put(protocol)
+      .putInt(token)
+      .put(method)
+      .put(isFireAndForgetMethod)
+      .putInt(length)
+      .put(body)
+    buffer.flip()
+
+    val binaryMessage = new Array[Byte](size)
+    buffer.get(binaryMessage)
+    binaryMessage
+  }
+
 }
 object Message {
   val headerFieldSize: Byte = (

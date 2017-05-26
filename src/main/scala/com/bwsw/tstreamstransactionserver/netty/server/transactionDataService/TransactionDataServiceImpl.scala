@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 class TransactionDataServiceImpl(storageOpts: StorageOptions,
                                  rocksStorageOpts: RocksStorageOptions,
                                  streamCache: StreamCRUD,
-                                 cache: Cacheable[KeyDataSeq, Array[Byte]]
+                                 cache: Cacheable[CacheKey, Array[Byte]]
                                 )
 {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -75,7 +75,13 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
         datum.get(bytes)
 
         val binaryKey = keyWithDataID.toByteArray
-        cache.put(keyWithDataID, bytes)
+        cache.put(CacheKey(
+          streamID,
+          keyWithDataID.key.partition,
+          keyWithDataID.key.transaction,
+          keyWithDataID.dataID
+        ), bytes)
+
         batch.put(binaryKey, bytes)
       }
       val isOkay = batch.write()
@@ -105,7 +111,7 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
       (from to to).toStream
         .map { dataID =>
           val currentDataSeq = KeyDataSeq(key, dataID)
-          val data = cache.get(currentDataSeq)
+          val data = cache.get(CacheKey(streamID, partition, transaction, dataID))
             .map(data => java.nio.ByteBuffer.wrap(data))
             .orElse {
               iterator.seek(currentDataSeq.toByteArray)

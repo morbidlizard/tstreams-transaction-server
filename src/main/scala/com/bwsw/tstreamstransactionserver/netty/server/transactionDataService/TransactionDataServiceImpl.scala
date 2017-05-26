@@ -4,16 +4,16 @@ import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
+import com.bwsw.tstreamstransactionserver.netty.server.cache.Cacheable
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey, StreamRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
-import scala.collection.mutable.ArrayBuffer
-
 class TransactionDataServiceImpl(storageOpts: StorageOptions,
                                  rocksStorageOpts: RocksStorageOptions,
-                                 streamCache: StreamCRUD
+                                 streamCache: StreamCRUD,
+                                 cache: Cacheable[KeyDataSeq, Array[Byte]]
                                 )
 {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -31,13 +31,26 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
 
   private val pathForData = s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.dataDirectory}${java.io.File.separatorChar}"
 
-  private def getStorage(streamRecord: StreamRecord) = {
+  private def getStorageOrCreateIt(streamRecord: StreamRecord) = {
     val key = StorageName(streamRecord.key.id.toString)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
       val calculatedTTL = calculateTTL(streamRecord.ttl)
       if (logger.isDebugEnabled()) logger.debug(s"Creating new database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] for persisting and reading transactions data.")
       new RocksDbConnection(rocksStorageOpts, s"$pathForData${key.toString}", calculatedTTL)
     })
+  }
+
+  @throws[StreamDoesNotExist]
+  private def getStorageOrThrowError(streamRecord: StreamRecord) = {
+    val key = StorageName(streamRecord.key.id.toString)
+    Option(rocksDBStorageToStream.get(key))
+      .getOrElse {
+        if (logger.isDebugEnabled()) {
+          val calculatedTTL = calculateTTL(streamRecord.ttl)
+          logger.debug(s"Database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] doesn't exits!")
+        }
+        throw new StreamDoesNotExist(streamRecord.name)
+      }
   }
 
 
@@ -48,18 +61,22 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
         .getStream(StreamKey(streamID))
         .getOrElse(throw new StreamDoesNotExist(streamID.toString))
 
-      val rocksDB = getStorage(streamRecord)
+      val rocksDB = getStorageOrCreateIt(streamRecord)
 
       val batch = rocksDB.newBatch
 
       val rangeDataToSave = from until (from + data.length)
-      val keys = rangeDataToSave map (seqId => KeyDataSeq(Key(partition, transaction), seqId).toBinary)
+      val key = Key(partition, transaction)
+      val keysWithDataIDs = rangeDataToSave map (dataID => KeyDataSeq(key, dataID))
 
-      (keys zip data) foreach { case (key, datum) =>
+      (keysWithDataIDs zip data) foreach { case (keyWithDataID, datum) =>
         val sizeOfSlicedData = datum.limit() - datum.position()
         val bytes = new Array[Byte](sizeOfSlicedData)
         datum.get(bytes)
-        batch.put(key, bytes)
+
+        val binaryKey = keyWithDataID.toByteArray
+        cache.put(keyWithDataID, bytes)
+        batch.put(binaryKey, bytes)
       }
       val isOkay = batch.write()
 
@@ -78,19 +95,32 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
     val streamRecord = streamCache
       .getStream(StreamKey(streamID))
       .getOrElse(throw new StreamDoesNotExist(streamID.toString))
-    val rocksDB = getStorage(streamRecord)
+    val rocksDB = getStorageOrThrowError(streamRecord)
 
-    val fromSeqId = KeyDataSeq(Key(partition, transaction), from).toBinary
-    val toSeqId = KeyDataSeq(Key(partition, transaction), to).toBinary
+    val key = Key(partition, transaction)
+    val toSeqId = key.toByteArray(to)
 
     val iterator = rocksDB.iterator
-    iterator.seek(fromSeqId)
+    val data = {
+      (from to to).toStream
+        .map { dataID =>
+          val currentDataSeq = KeyDataSeq(key, dataID)
+          val data = cache.get(currentDataSeq)
+            .map(data => java.nio.ByteBuffer.wrap(data))
+            .orElse {
+              iterator.seek(currentDataSeq.toByteArray)
+              if (iterator.isValid && ByteArray.compare(iterator.key(), toSeqId) <= 0) {
+                Some(java.nio.ByteBuffer.wrap(iterator.value()))
+              } else {
+                None
+              }
+            }
+          data
+        }
+        .takeWhile(remainData => remainData.isDefined)
+        .map(dataOpt => dataOpt.get)
+    }.toArray
 
-    val data = new ArrayBuffer[ByteBuffer](to - from)
-    while (iterator.isValid && ByteArray.compare(iterator.key(), toSeqId) <= 0) {
-      data += java.nio.ByteBuffer.wrap(iterator.value())
-      iterator.next()
-    }
     iterator.close()
     data
   }

@@ -70,7 +70,7 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
     authOpts,
     storageOpts,
     rocksStorageOpts,
-    zk.streamDatabase(s"${storageOpts.streamZookeperDirectory}"),
+    zk.streamDatabase(s"${storageOpts.streamZookeeperDirectory}"),
     timer
   )
 

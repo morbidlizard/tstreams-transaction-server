@@ -54,8 +54,8 @@ class OptionsLoader() {
   private def loadServerRocksStorageOptions() = {
     val fields = getPropertiesOf(classOf[RocksStorageOptions])
 
-    castCheck(RocksStorageOptions(fields(0).toInt, fields(1).toInt, fields(2).toInt, fields(3).toBoolean, fields(4).toInt,
-      fields(5).toBoolean, CompressionType.getCompressionType(fields(6)), fields(7).toBoolean))
+    castCheck(RocksStorageOptions(fields(0).toInt, fields(1).toInt, fields(2).toInt,
+      fields(3).toInt, fields(4).toInt, CompressionType.getCompressionType(fields(5)), fields(6).toBoolean))
   }
 
   private def loadZookeeperOptions() = {

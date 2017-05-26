@@ -52,7 +52,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
 
 
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
-  private val bootstrapOptions = BootstrapOptions()
+  private val bootstrapOptions = BootstrapOptions(port = 8080)
   private val serverReplicationOptions = ServerReplicationOptions()
   private val storageOptions = StorageOptions()
   private val rocksStorageOptions = RocksStorageOptions()
@@ -143,7 +143,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
 
     //Client hook works only on a request, so, if request fails - the hook would stop to work.
     //Taking in account all of the above, counter of clientTimeoutRequestCounter may show that it send one request less.
-    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 1
+    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 1 // Sometimes it fails with "3"
   }
 
   it should "throw an user defined exception on overriding onRequestTimeout method" in {

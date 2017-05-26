@@ -114,7 +114,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       override val name: String = rand.nextInt(10000).toString
       override val partitions: Int = rand.nextInt(10000)
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
-      override val ttl: Long = Long.MaxValue
+      override val ttl: Long = 5
     }
 
   private def getRandomProducerTransaction(streamID: Int,
@@ -127,7 +127,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       id,
       transactionState,
       -1,
-      Long.MaxValue
+      25000L
     )
 
   private def getRandomConsumerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue) =

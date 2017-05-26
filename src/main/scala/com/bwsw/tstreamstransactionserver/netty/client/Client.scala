@@ -539,7 +539,8 @@ class Client(clientOpts: ConnectionOptions,
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putProducerState(transaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
+    if (logger.isDebugEnabled)
+      logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
     val producerTransactionToTransaction = Transaction(Some(transaction), None)
     onShutdownThrowException()
 

@@ -24,7 +24,7 @@ You should pass a file with properties in both cases. The file should contain th
 | active.tokens.number             | The number of active tokens a server can handle over time.  |int    |100| [1,...]|
 | token.ttl                        | The time a token live before expiration.  |int    | 120| [1,...]|
 | path                             | The path where folders of Commit log, berkeley environment and rocksdb databases would be placed.  |string |/tmp| |
-| stream.directory                 | The zooKeeper path for stream entities. | string | /tts/streams | all path starts with '/' and separated with the same character |
+| stream.zookeeper.directory       | The zooKeeper path for stream entities. | string | /tts/streams | all path starts with '/' and separated with the same character |
 | data.directory                   | The path where rocksdb databases are placed relatively to property "path".  |string |transaction_data| |
 | metadata.directory               | The path where a berkeley environment and it's databases are placed relatively to "path".  |string |transaction_metadata| |
 | commit.log.directory             | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
@@ -82,7 +82,7 @@ docker pull bwsw/tstreams-transaction-server
 To run docker image you should provide a path to config directory where a file named 'config.properties' is, specify the external host and port to be able to connect:
 
 ```bash
-docker run -v <path_to_conf_directory>:/etc/conf -p <external_port>:<port> -e HOST=<external_host> -e PORT0=<external_port> bwsw/tstreams-transaction-server
+docker run -v <path_to_conf>:/etc/conf/config.properties -v <path_to_databases_dir>:/storage -v <path_to_logs_dir>:/var/log/tts -p <external_port>:8080 -e HOST=<external_host> -e PORT0=<external_port> bwsw/tstreams-transaction-server
 ```
 
 ## License

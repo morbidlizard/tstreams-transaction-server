@@ -85,24 +85,20 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   final def removeConsumerNotification(id: Long): Boolean = transactionServer.removeConsumerTransactionNotification(id)
 
 
-  private val rocksDBCommitLog = new RocksDbConnection(rocksStorageOpts, s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}", commitLogOptions.commitLogFileTtlSec)
-  private val (commitLogQueue, commitLogLastId) = {
-    val queue = new CommitLogQueueBootstrap(30, new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory), transactionServer)
-    val lastFileIDBerkeley = transactionServer.getLastProcessedCommitLogFileID
+  private val rocksDBCommitLog = new RocksDbConnection(
+    rocksStorageOpts,
+    s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}",
+    commitLogOptions.commitLogFileTtlSec
+  )
 
-    val (priorityQueue, maxCommitLogFileID) = queue.fillQueue()
-
-    val initGenFileID = scala.math.max(lastFileIDBerkeley, maxCommitLogFileID)
-
-    val record = rocksDBCommitLog.getLastRecord
-    record match {
-      case Some((lastFileIDRocksBinary, _)) =>
-        val lastFileIDRocks = FileKey.fromByteArray(lastFileIDRocksBinary).id
-        (priorityQueue, scala.math.max(initGenFileID, lastFileIDRocks))
-
-      case None =>
-        (priorityQueue, initGenFileID)
-    }
+  private val commitLogQueue = {
+    val queue = new CommitLogQueueBootstrap(
+      30,
+      new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory),
+      transactionServer
+    )
+    val priorityQueue = queue.fillQueue()
+    priorityQueue
   }
 
   /**
@@ -119,8 +115,15 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 
 
 
-  private val fileIDGenerator = new zk.FileIDGenerator(zookeeperSpecificOpts.counterPathFileIdGen, commitLogLastId)
-  val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue, storageOpts, commitLogOptions, fileIDGenerator.increment) {
+  private val fileIDGenerator = new zk.FileIDGenerator(
+    zookeeperSpecificOpts.counterPathFileIdGen
+  )
+
+  val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue,
+    storageOpts,
+    commitLogOptions,
+    fileIDGenerator.increment
+  ) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }
 
@@ -199,8 +202,9 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
 }
 
 class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatalogue, transactionServer: TransactionServer) {
-  def fillQueue(): (PriorityBlockingQueue[CommitLogStorage], Long) = {
+  def fillQueue(): PriorityBlockingQueue[CommitLogStorage] = {
     val allFiles = commitLogCatalogue.listAllFilesAndTheirIDs().toMap
+
 
     val berkeleyProcessedFileIDMax = transactionServer.getLastProcessedCommitLogFileID
     val (allFilesIDsToProcess, allFilesToDelete: Map[Long, CommitLogFile]) =
@@ -220,13 +224,11 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
       val maxSize = scala.math.max(filesToProcess.size, queueSize)
       val commitLogQueue = new PriorityBlockingQueue[CommitLogStorage](maxSize)
 
-      val maxCommitLogID = allFilesIDsToProcess.keys.max
-
-      if (filesToProcess.isEmpty) (commitLogQueue, maxCommitLogID)
-      else if (commitLogQueue.addAll(filesToProcess)) (commitLogQueue, maxCommitLogID)
+      if (filesToProcess.isEmpty) commitLogQueue
+      else if (commitLogQueue.addAll(filesToProcess)) commitLogQueue
       else throw new Exception("Something goes wrong here")
     } else {
-      (new PriorityBlockingQueue[CommitLogStorage](queueSize), -1L)
+      new PriorityBlockingQueue[CommitLogStorage](queueSize)
     }
   }
 }

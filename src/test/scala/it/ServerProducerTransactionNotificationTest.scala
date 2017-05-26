@@ -205,8 +205,8 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     client.putProducerState(ProducerTransaction(streamID, partition, transactionID1, TransactionStates.Opened, 0, 5L))
     client.putProducerState(ProducerTransaction(streamID, partition, transactionID1, TransactionStates.Checkpointed, 0, 5L))
 
-    val transactionID2 = System.currentTimeMillis() + 10L
-    client.putProducerState(ProducerTransaction(streamID, partition, transactionID2, TransactionStates.Opened, 0, 5L))
+    val transactionID2 = System.currentTimeMillis() + 100L
+    Await.result(client.putProducerState(ProducerTransaction(streamID, partition, transactionID2, TransactionStates.Opened, 0, 5L)), 5.seconds)
 
     val latch2 = new CountDownLatch(1)
     transactionServer.notifyProducerTransactionCompleted(producerTransaction =>

@@ -190,17 +190,18 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     res.transaction.get shouldBe producerTransactionOuter
   }
 
+  //TODO work on test, it failes sometimes
   it should "put 2 producer transactions with opened states and then checkpoint them and should get the second checkpointed transaction" in {
     val stream = getRandomStream
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
     val partition = 1
 
     val transactionID1 = System.currentTimeMillis()
-    client.putProducerState(ProducerTransaction(streamID, partition, transactionID1, TransactionStates.Opened, 0, 5L))
-    client.putProducerState(ProducerTransaction(streamID, partition, transactionID1, TransactionStates.Checkpointed, 0, 5L))
+    client.putProducerState(ProducerTransaction(streamID, partition, transactionID1, TransactionStates.Opened, 0, 5000L))
+    client.putProducerState(ProducerTransaction(streamID, partition, transactionID1, TransactionStates.Checkpointed, 0, 5000L))
 
-    val transactionID2 = System.currentTimeMillis() + 100L
-    Await.result(client.putProducerState(ProducerTransaction(streamID, partition, transactionID2, TransactionStates.Opened, 0, 5L)), 5.seconds)
+    val transactionID2 = System.currentTimeMillis() + 10L
+    client.putProducerState(ProducerTransaction(streamID, partition, transactionID2, TransactionStates.Opened, 0, 5000L))
 
     val latch2 = new CountDownLatch(1)
     transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
@@ -208,7 +209,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       latch2.countDown()
     )
 
-    val producerTransaction2 = ProducerTransaction(streamID, partition, transactionID2, TransactionStates.Checkpointed, 0, 5L)
+    val producerTransaction2 = ProducerTransaction(streamID, partition, transactionID2, TransactionStates.Checkpointed, 0, 5000L)
     client.putProducerState(producerTransaction2)
 
     latch2.await(3, TimeUnit.SECONDS) shouldBe true

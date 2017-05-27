@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.options
 
 import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy._
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy._
-import org.rocksdb.{CompressionType, Options}
+import org.rocksdb.{ColumnFamilyOptions, CompressionType, DBOptions, Options}
 
 object ServerOptions {
 
@@ -63,32 +63,49 @@ object ServerOptions {
     * @param readThreadPool           the number of threads of pool are used to do read operations from Rocksdb databases.
     *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
     * @param ttlAddMs                 the time to add to [[com.bwsw.tstreamstransactionserver.rpc.StreamValue.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
-    * @param createIfMissing          if true, the database will be created if it is missing.
+    * @param transactionCacheSize     the max number of producer data units at one point of time LRU cache can contain.
     * @param maxBackgroundCompactions is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.
-    * @param allowOsBuffer            if false, we will not buffer files in OS cache. Look at: https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
     * @param compression Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION].
     *                    If it's unimportant use a LZ4_COMPRESSION as default value.
     * @param useFsync if true, then every store to stable storage will issue a fsync.
     *                 If false, then every store to stable storage will issue a fdatasync.
     *                 This parameter should be set to true while storing data to filesystem like ext3 that can lose files after a reboot.
     */
-  case class RocksStorageOptions(writeThreadPool: Int = 2, readThreadPool: Int = 2, ttlAddMs: Int = 50,
-                                 createIfMissing: Boolean = true, maxBackgroundCompactions: Int = 1,
-                                 allowOsBuffer: Boolean = true, compression: CompressionType = CompressionType.LZ4_COMPRESSION,
-                                 useFsync: Boolean = true) {
+  case class RocksStorageOptions(writeThreadPool: Int = 2,
+                                 readThreadPool: Int = 2,
+                                 ttlAddMs: Int = 50,
+                                 transactionCacheSize: Int = 300,
+                                 maxBackgroundCompactions: Int = 1,
+                                 compression: CompressionType = CompressionType.LZ4_COMPRESSION,
+                                 useFsync: Boolean = true
+                                ) {
 
-    def createDBOptions(createIfMissing: Boolean = this.createIfMissing,
-                        maxBackgroundCompactions: Int = this.maxBackgroundCompactions,
-                        allowOsBuffer: Boolean = this.allowOsBuffer,
-                        compression: CompressionType = this.compression,
-                        useFsync: Boolean = this.useFsync): Options = {
 
-      new Options()
-        .setCreateIfMissing(createIfMissing)
+
+    def createDBOptions(maxBackgroundCompactions: Int = this.maxBackgroundCompactions,
+                        useFsync: Boolean = this.useFsync): DBOptions = {
+
+      new DBOptions()
+        .setCreateIfMissing(true)
+        .setCreateMissingColumnFamilies(true)
         .setMaxBackgroundCompactions(maxBackgroundCompactions)
-        //.setAllowOsBuffer(allowOsBuffer)
-        .setCompressionType(compression)
         .setUseFsync(useFsync)
+    }
+
+    def createOptions(maxBackgroundCompactions: Int = this.maxBackgroundCompactions,
+                     compression: CompressionType = this.compression,
+                     useFsync: Boolean = this.useFsync): Options = {
+      new Options()
+        .setCreateIfMissing(true)
+        .setCompressionType(compression)
+        .setMaxBackgroundCompactions(maxBackgroundCompactions)
+        .setUseFsync(useFsync)
+    }
+
+
+    def createChilderCollumnOptions(compression: CompressionType = this.compression): ColumnFamilyOptions ={
+      new ColumnFamilyOptions()
+        .setCompressionType(compression)
     }
   }
 

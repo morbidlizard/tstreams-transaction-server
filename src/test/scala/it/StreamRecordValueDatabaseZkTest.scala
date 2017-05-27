@@ -5,7 +5,11 @@ import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey,
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import util.Utils._
 
-class StreamRecordValueDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class StreamRecordValueDatabaseZkTest
+  extends FlatSpec
+    with Matchers
+    with BeforeAndAfterEach
+{
   private val path = "/tts/test_path"
   private def getStreamValue = StreamValue(
     "test_stream",

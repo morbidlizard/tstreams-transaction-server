@@ -6,7 +6,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.{CacheLRU, TransactionDataServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue, TransactionMetaServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
@@ -28,7 +28,8 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   private val authService = new AuthServiceImpl(authOpts)
 
   private val rocksStorage = new RocksStorage(
-    storageOpts
+    storageOpts,
+    rocksStorageOpts
   )
   private val streamServiceImpl = new StreamServiceImpl(
     streamCache
@@ -47,7 +48,8 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   private val transactionDataServiceImpl = new TransactionDataServiceImpl(
     storageOpts,
     rocksStorageOpts,
-    streamCache
+    streamCache,
+    new CacheLRU(rocksStorageOpts.transactionCacheSize)
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =

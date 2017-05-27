@@ -49,7 +49,7 @@ class TransactionServer(val executionContext: ServerExecutionContext,
     storageOpts,
     rocksStorageOpts,
     streamCache,
-    new CacheLRU(rocksStorageOpts.lruCacheMaxDataNumber)
+    new CacheLRU(rocksStorageOpts.transactionCacheSize)
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =

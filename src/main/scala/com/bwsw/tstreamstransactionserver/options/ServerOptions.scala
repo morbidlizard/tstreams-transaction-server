@@ -63,7 +63,7 @@ object ServerOptions {
     * @param readThreadPool           the number of threads of pool are used to do read operations from Rocksdb databases.
     *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
     * @param ttlAddMs                 the time to add to [[com.bwsw.tstreamstransactionserver.rpc.StreamValue.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
-    * @param lruCacheMaxDataNumber    the max number of producer data units at one point of time LRU cache can contain.
+    * @param transactionCacheSize     the max number of producer data units at one point of time LRU cache can contain.
     * @param maxBackgroundCompactions is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.
     * @param compression Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION].
     *                    If it's unimportant use a LZ4_COMPRESSION as default value.
@@ -74,7 +74,7 @@ object ServerOptions {
   case class RocksStorageOptions(writeThreadPool: Int = 2,
                                  readThreadPool: Int = 2,
                                  ttlAddMs: Int = 50,
-                                 lruCacheMaxDataNumber: Int = 300,
+                                 transactionCacheSize: Int = 300,
                                  maxBackgroundCompactions: Int = 1,
                                  compression: CompressionType = CompressionType.LZ4_COMPRESSION,
                                  useFsync: Boolean = true

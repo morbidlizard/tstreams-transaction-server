@@ -3,18 +3,20 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDatabaseDescriptor}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
-import org.rocksdb.ColumnFamilyOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
 
-class RocksStorage(storageOpts: StorageOptions) {
+class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions) {
+  private val columnFamilyOptions = rocksOpts.createChilderCollumnOptions()
   val rocksMetaServiceDB: RocksDBALL = new RocksDBALL(
     storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
+    rocksOpts,
     Seq(
-      RocksDatabaseDescriptor("LastOpenedTransactionStorage".getBytes(),       new ColumnFamilyOptions()),
-      RocksDatabaseDescriptor("LastCheckpointedTransactionStorage".getBytes(), new ColumnFamilyOptions()),
-      RocksDatabaseDescriptor("ConsumerStore".getBytes(),                      new ColumnFamilyOptions()),
-      RocksDatabaseDescriptor("CommitLogStore".getBytes(),                     new ColumnFamilyOptions()),
-      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                new ColumnFamilyOptions()),
-      RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               new ColumnFamilyOptions())
+      RocksDatabaseDescriptor("LastOpenedTransactionStorage".getBytes(),       columnFamilyOptions),
+      RocksDatabaseDescriptor("LastCheckpointedTransactionStorage".getBytes(), columnFamilyOptions),
+      RocksDatabaseDescriptor("ConsumerStore".getBytes(),                      columnFamilyOptions),
+      RocksDatabaseDescriptor("CommitLogStore".getBytes(),                     columnFamilyOptions),
+      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                columnFamilyOptions),
+      RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions)
     )
   )
 }

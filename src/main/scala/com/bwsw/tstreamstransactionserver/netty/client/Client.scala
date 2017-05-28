@@ -180,42 +180,52 @@ class Client(clientOpts: ConnectionOptions,
     */
   private final def method[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Descriptors.Descriptor[Req, Rep],
                                                                         request: Req,
-                                                                        f: Rep => A,
-                                                                        previousException: Option[Throwable] = None,
-                                                                        retryCount: Int = Int.MaxValue)
-                                                                       (implicit methodContext: concurrent.ExecutionContext): ScalaFuture[A] = {
-    if (!channel.isActive) {
-      val error = new ServerUnreachableException(currentConnectionSocketAddress.toString)
-      val (currentException, _, counter) = checkError(error, previousException, retryCount)
-      method(descriptor, request, f, Some(currentException), counter)
-    } else {
-      val messageId = nextSeqId.getAndIncrement()
-      val promise = ScalaPromise[ThriftStruct]
+                                                                        f: Rep => A
+                                                                       )(implicit methodContext: concurrent.ExecutionContext): ScalaFuture[A] = {
 
-      val message = descriptor.encodeRequest(request)(messageId, token, isFireAndForgetMethod = false)
-      validateMessageSize(message)
+    val messageId = nextSeqId.getAndIncrement()
+    val message = descriptor.encodeRequest(request)(messageId, token, isFireAndForgetMethod = false)
+    validateMessageSize(message)
 
-      //heapSize and outOfMemory error
-//      if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
+    def go(message: Message,
+           previousException: Option[Throwable] = None, retryCount: Int = Int.MaxValue): ScalaFuture[A] = {
+      if (!channel.isActive) {
+        val error = new ServerUnreachableException(currentConnectionSocketAddress.toString)
+        val (currentException, _, counter) = checkError(error, previousException, retryCount)
+        go(message, Some(currentException), counter)
+      }
+      else {
+        val promise = ScalaPromise[ThriftStruct]
+        reqIdToRep.put(message.id, promise)
+        channel.write(message.toByteArray)
 
-      reqIdToRep.put(messageId, promise)
-      channel.write(message.toByteArray)
+        val responseFuture = TimeoutScheduler.withTimeout(promise.future.map { response =>
+          reqIdToRep.remove(message.id)
+          f(response.asInstanceOf[Rep])
+        })(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
+          .recoverWith { case error =>
+            reqIdToRep.remove(message.id)
+            val (currentException, _, counter) = checkError(error, previousException, retryCount)
+            if (counter == 0) {
+              ScalaFuture.failed(error)
+            }
+            else {
+              val messageId = nextSeqId.getAndIncrement()
+              val newMessage = message.copy(
+                id = messageId,
+                token = token)
+              go(newMessage, Some(currentException), counter)
+            }
+          }(methodContext)
 
-      val responseFuture = TimeoutScheduler.withTimeout(promise.future.map { response =>
-        reqIdToRep.remove(messageId)
-        f(response.asInstanceOf[Rep])
-      })(methodContext, after = clientOpts.requestTimeoutMs.millis, messageId)
-        .recoverWith { case error =>
-          reqIdToRep.remove(messageId)
-          val (currentException, _, counter) = checkError(error, previousException, retryCount)
-          if (counter == 0) {ScalaFuture.failed(error)}
-          else method(descriptor, request, f, Some(currentException), counter)
-        }(methodContext)
-
-      channel.flush()
-      responseFuture
+        channel.flush()
+        responseFuture
+      }
     }
+
+    go(message)
   }
+
 
   @throws[TokenInvalidException]
   @throws[PackageTooBigException]
@@ -268,7 +278,7 @@ class Client(clientOpts: ConnectionOptions,
         authenticate()
         previousException match {
           case Some(exception: TokenInvalidException) =>
-            (tokenException, tokenException, clientOpts.requestTimeoutRetryCount - 1)
+            (tokenException, tokenException, retryCount - 1)
           case _ =>
             (tokenException, tokenException, clientOpts.requestTimeoutRetryCount)
         }
@@ -529,7 +539,8 @@ class Client(clientOpts: ConnectionOptions,
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putProducerState(transaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
+    if (logger.isDebugEnabled)
+      logger.debug(s"Putting producer transaction ${transaction.transactionID} with state ${transaction.state} to stream ${transaction.stream}, partition ${transaction.partition}")
     val producerTransactionToTransaction = Transaction(Some(transaction), None)
     onShutdownThrowException()
 
@@ -856,6 +867,7 @@ class Client(clientOpts: ConnectionOptions,
       if (logger.isInfoEnabled) logger.info("authenticate method is invoked.")
       onShutdownThrowException()
       val authKey = authOpts.key
+
       method[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, Unit](
         Descriptors.Authenticate,
         TransactionService.Authenticate.Args(authKey),

@@ -3,12 +3,22 @@ package it
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamValue}
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import Utils._
+import util.Utils._
 
-class StreamRecordValueDatabaseZkTest extends FlatSpec with Matchers with BeforeAndAfterEach {
-  private def getStreamValue = StreamValue("test_stream", 20, None, 5)
-
+class StreamRecordValueDatabaseZkTest
+  extends FlatSpec
+    with Matchers
+    with BeforeAndAfterEach
+{
   private val path = "/tts/test_path"
+  private def getStreamValue = StreamValue(
+    "test_stream",
+    20,
+    None,
+    5,
+    Some(s"$path/ids/id0000000000")
+  )
+
 
   "One" should "put stream and get it back" in {
     val (zkServer, zkClient) = startZkServerAndGetIt
@@ -40,7 +50,7 @@ class StreamRecordValueDatabaseZkTest extends FlatSpec with Matchers with Before
     val streamValue = getStreamValue
     zkDatabase.putStream(streamValue)
 
-    val newStream = StreamValue("test_stream", 100, Some("overwrite"), 10)
+    val newStream = StreamValue("test_stream", 100, Some("overwrite"), 10, None)
 
 
     zkDatabase.putStream(newStream) shouldBe StreamKey(-1)
@@ -94,7 +104,13 @@ class StreamRecordValueDatabaseZkTest extends FlatSpec with Matchers with Before
     zkDatabase.putStream(streamValue)
     zkDatabase.delStream(streamValue.name) shouldBe true
 
-    val newStream = StreamValue("test_stream", 100, Some("overwrite"), 10)
+    val newStream = StreamValue(
+      "test_stream",
+      100,
+      Some("overwrite"),
+      10,
+      Some(s"$path/ids/id0000000001")
+    )
     zkDatabase.putStream(newStream)
 
     zkDatabase.checkStreamExists(newStream.name) shouldBe true
@@ -139,7 +155,7 @@ class StreamRecordValueDatabaseZkTest extends FlatSpec with Matchers with Before
     zkDatabase.delStream(streamValue.name) shouldBe true
     zkDatabase.checkStreamExists(streamValue.name) shouldBe false
 
-    val newStream = StreamValue("test_stream", 100, Some("overwrite"), 10)
+    val newStream = StreamValue("test_stream", 100, Some("overwrite"), 10, None)
     zkDatabase.putStream(newStream)
 
     val retrievedStream = zkDatabase.getStream(streamKey)

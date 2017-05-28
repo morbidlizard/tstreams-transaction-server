@@ -1,7 +1,6 @@
 package benchmark.utils
 
 trait Launcher extends Installer {
-  protected val streamID: Int
   protected val streamName: String
   protected val clients: Int
 
@@ -9,10 +8,10 @@ trait Launcher extends Installer {
     clearDB()
     startTransactionServer()
     Thread.sleep(2000L)
-    createStream(streamName, clients)
-    launchClients()
+    val streamID = createStream(streamName, clients)
+    launchClients(streamID)
     deleteStream(streamName)
   }
 
-  protected def launchClients(): Unit
+  protected def launchClients(streamID: Int): Unit
 }

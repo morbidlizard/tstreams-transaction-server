@@ -32,6 +32,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
     override val ttl: Long = Long.MaxValue
+    override def zkPath: Option[String] = None
   }
 
 

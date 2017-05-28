@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.{CommitLogQueueBootstrap, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions, StorageOptions}
-import it.Utils.startZkServerAndGetIt
+import util.Utils.startZkServerAndGetIt
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
@@ -40,7 +40,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
 
   "fillQueue" should "return an empty queue if there are no commit log files in a storage directory" in {
     //act
-    val (emptyQueue, _) = commitLogQueueBootstrap.fillQueue()
+    val emptyQueue = commitLogQueueBootstrap.fillQueue()
 
     //assert
     emptyQueue shouldBe empty
@@ -52,7 +52,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
     createCommitLogFiles(numberOfFiles)
 
     //act
-    val (nonemptyQueue, _) = commitLogQueueBootstrap.fillQueue()
+    val nonemptyQueue = commitLogQueueBootstrap.fillQueue()
 
     //assert
     nonemptyQueue should have size numberOfFiles
@@ -66,7 +66,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
     createCommitLogFiles(numberOfFiles)
 
     //act
-    val (orderedQueue, _) = commitLogQueueBootstrap.fillQueue()
+    val orderedQueue = commitLogQueueBootstrap.fillQueue()
     val orderedFiles = getOrderedFiles(orderedQueue)
 
     //assert

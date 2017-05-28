@@ -4,7 +4,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 class StreamServiceImpl(streamCache: StreamCRUD)
 {
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Int =
-    streamCache.putStream(StreamValue(stream, partitions, description, ttl)).id
+    streamCache.putStream(StreamValue(stream, partitions, description, ttl, None)).id
 
   def getStream(name: String): Option[StreamRecord] =
     streamCache.getStream(name)

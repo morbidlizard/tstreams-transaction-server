@@ -1,6 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.db.zk
 
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamValue}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord}
+import com.bwsw.tstreamstransactionserver.rpc.StreamValue
 import org.apache.curator.framework.CuratorFramework
 import org.apache.zookeeper.CreateMode
 //import org.slf4j.LoggerFactory
@@ -17,28 +19,36 @@ final class StreamIDPath(client: CuratorFramework, path: String) {
     path.length + seqPrefix.length + 1
   )._2
 
-//  private def getID(id: String): String = id.splitAt(seqPrefix.length + 1)._2
 
-  def put(streamValue: StreamValue): StreamRecord = {
+  def put(streamValue: streamService.StreamValue): streamService.StreamRecord = {
     val id = client.create()
       .creatingParentsIfNeeded()
       .withMode(CreateMode.PERSISTENT_SEQUENTIAL)
       .forPath(streamsIdsPath, Array.emptyByteArray)
 
     val streamKey = StreamKey(getIDFromPath(id).toInt)
-    val streamRecord = StreamRecord(streamKey, streamValue)
+
+    val streamValueWithPath: streamService.StreamValue =
+      streamService.StreamValue(streamValue.name,
+        streamValue.partitions,
+        streamValue.description,
+        streamValue.ttl,
+        Some(id)
+      )
+
+    val streamRecord = StreamRecord(streamKey, streamValueWithPath)
 
     client.setData().forPath(id, streamRecord.toBinaryJson)
 
     streamRecord
   }
 
-  def checkExists(streamKey: StreamKey): Boolean = {
+  def checkExists(streamKey: streamService.StreamKey): Boolean = {
     Option(client.checkExists().forPath(buildPath(streamKey.id)))
       .exists(_ => true)
   }
 
-  def get(streamKey: StreamKey): Option[StreamRecord] = {
+  def get(streamKey: streamService.StreamKey): Option[streamService.StreamRecord] = {
     val streamValueOpt = scala.util.Try(client.getData.forPath(buildPath(streamKey.id)))
     val streamRecord   = streamValueOpt.toOption
       .map(data => StreamRecord.fromBinaryJson(data))

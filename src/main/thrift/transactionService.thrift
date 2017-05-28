@@ -45,6 +45,7 @@ struct StreamValue {
     2: required i32           partitions
     3: optional string        description
     4: required tllType       ttl
+    5: optional string        zkPath
 }
 
 struct Stream {
@@ -53,6 +54,7 @@ struct Stream {
     3: required i32           partitions
     4: optional string        description
     5: required tllType       ttl
+    6: required string        zkPath
 }
 
 struct AuthInfo {

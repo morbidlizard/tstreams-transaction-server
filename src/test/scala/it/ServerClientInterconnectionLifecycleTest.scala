@@ -10,7 +10,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.options.ServerBuilder
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
-import it.Utils.startZkServerAndGetIt
+import util.Utils.startZkServerAndGetIt
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
@@ -59,7 +59,8 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
       streamAfterDelete.name,
       streamAfterDelete.partitions,
       streamAfterDelete.description,
-      streamAfterDelete.ttl
+      streamAfterDelete.ttl,
+      s"$path/ids/id0000000001"
     ) shouldBe retrievedStream
 
     transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()

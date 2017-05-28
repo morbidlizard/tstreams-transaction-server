@@ -207,7 +207,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         else {
           val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message)
           logSuccessfulProcession(Descriptors.PutTransaction.name)
-          lazy val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(true)))(messageId, token, isFireAndForgetMethod)
+          lazy val response = Descriptors.PutTransaction.encodeResponse(TransactionService.PutTransaction.Result(Some(isPutted)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
       }(commitLogContext)

@@ -11,7 +11,7 @@ class OptionsLoader() {
   require(System.getProperty(CommonOptions.propertyFileName) != null,
     s"There is no file with properties. You should define a path to a property file through '-D${CommonOptions.propertyFileName}=<path_to_file>' " +
       s"(e.g. 'java -D${CommonOptions.propertyFileName}=/home/user/config.properties " +
-      "-cp target/scala-2.12/tstreams-transaction-server-1.1.3-SNAPSHOT.jar:/home/user/slf4j-api-1.7.21.jar:/home/user/slf4j-simple-1.7.21.jar " +
+      "-cp target/scala-2.12/tstreams-transaction-server-1.3.7.4-SNAPSHOT.jar:/home/user/slf4j-api-1.7.24.jar:/home/user/slf4j-simple-1.7.24.jar " +
       "com.bwsw.tstreamstransactionserver.ServerLauncher').")
 
   private val props = new Properties()
@@ -26,6 +26,7 @@ class OptionsLoader() {
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
   private val commitLogOptions = loadCommitLogOptions()
   private val zookeeperSpecificOptions = loadZookeeperSpecificOptions()
+
 
   private def loadBootstrapOptions() = {
     val fields = getPropertiesOf(classOf[BootstrapOptions])
@@ -54,8 +55,8 @@ class OptionsLoader() {
   private def loadServerRocksStorageOptions() = {
     val fields = getPropertiesOf(classOf[RocksStorageOptions])
 
-    castCheck(RocksStorageOptions(fields(0).toInt, fields(1).toInt, fields(2).toInt, fields(3).toBoolean, fields(4).toInt,
-      fields(5).toBoolean, CompressionType.getCompressionType(fields(6)), fields(7).toBoolean))
+    castCheck(RocksStorageOptions(fields(0).toInt, fields(1).toInt, fields(2).toInt,
+      fields(3).toInt, fields(4).toInt, CompressionType.getCompressionType(fields(5)), fields(6).toBoolean))
   }
 
   private def loadZookeeperOptions() = {

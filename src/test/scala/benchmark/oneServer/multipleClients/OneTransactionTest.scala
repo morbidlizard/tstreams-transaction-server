@@ -7,7 +7,6 @@ import scala.collection.mutable._
 
 object OneTransactionTest extends Launcher {
   override val streamName = "stream"
-  override val streamID = 1
   override val clients = 2
   private val txnCount = 100000
   private val dataSize = 1000
@@ -19,7 +18,7 @@ object OneTransactionTest extends Launcher {
     System.exit(0)
   }
 
-  override def launchClients(): Unit = {
+  override def launchClients(streamID: Int): Unit = {
     (1 to clients).foreach(x => {
       val thread = new Thread(new Runnable {
         override def run(): Unit = {

@@ -24,7 +24,7 @@ You should pass a file with properties in both cases. The file should contain th
 | active.tokens.number             | The number of active tokens a server can handle over time.  |int    |100| [1,...]|
 | token.ttl                        | The time a token live before expiration.  |int    | 120| [1,...]|
 | path                             | The path where folders of Commit log, berkeley environment and rocksdb databases would be placed.  |string |/tmp| |
-| stream.directory                 | The zooKeeper path for stream entities. | string | /tts/streams | all path starts with '/' and separated with the same character |
+| stream.zookeeper.directory       | The zooKeeper path for stream entities. | string | /tts/streams | all path starts with '/' and separated with the same character |
 | data.directory                   | The path where rocksdb databases are placed relatively to property "path".  |string |transaction_data| |
 | metadata.directory               | The path where a berkeley environment and it's databases are placed relatively to "path".  |string |transaction_metadata| |
 | commit.log.directory             | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
@@ -35,10 +35,9 @@ You should pass a file with properties in both cases. The file should contain th
 | group                            | ???  |string |group| |  
 | write.thread.pool                | The number of threads of pool are used to do write operations from Rocksdb databases. Used for: putTransactionData. |int    | 4| [1,...]|    
 | read.thread.pool                 | The number of threads of pool are used to do read operations from Rocksdb databases. Used for: getTransactionData.  |int    | 2| [1,...]|
-| ttl.add.ms                       | The time to add to a stream that is used to, with stream ttl, to determine how long all producer transactions data belonging to the stream live. |int    | 50| [1,...]|    
-| create.if.missing                | If true, the rocksDB databases will be created if it is missing.  |boolean| true| |    
+| ttl.add.ms                       | The time to add to a stream that is used to, with stream ttl, to determine how long all producer transactions data belonging to the stream live. |int    | 50| [1,...]|     
+| transaction.cache.size           | The max number of producer data units at one point of time LRU cache can contain. | int | 300| positive integer|
 | max.background.compactions       | Is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.  |int    | 1| [1,...]|    
-| allow.os.buffer                  | If false, we will not buffer files in OS cache. Look at: https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide  |boolean| true| | 
 | compression                      | Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION]. If it's unimportant use a *LZ4_COMPRESSION* as default value.  |string |LZ4_COMPRESSION| | 
 | use.fsync                        | If true, then every store to stable storage will issue a fsync. If false, then every store to stable storage will issue a fdatasync. This parameter should be set to true while storing data to filesystem like ext3 that can lose files after a reboot.   |boolean| true| |  
 | zk.endpoints                     | The socket address(es) of ZooKeeper servers.  |string |127.0.0.1:2181| |  
@@ -83,7 +82,7 @@ docker pull bwsw/tstreams-transaction-server
 To run docker image you should provide a path to config directory where a file named 'config.properties' is, specify the external host and port to be able to connect:
 
 ```bash
-docker run -v <path_to_conf_directory>:/etc/conf -p <external_port>:<port> -e HOST=<external_host> -e PORT0=<external_port> bwsw/tstreams-transaction-server
+docker run -v <path_to_conf>:/etc/conf/config.properties -v <path_to_databases_dir>:/storage -v <path_to_logs_dir>:/var/log/tts -p <external_port>:8080 -e HOST=<external_host> -e PORT0=<external_port> bwsw/tstreams-transaction-server
 ```
 
 ## License

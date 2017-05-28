@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.db.zk
 
+import com.bwsw.tstreamstransactionserver.netty.server.streamService
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex
@@ -30,7 +31,7 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
       case _ =>
     })
 
-  def put(streamRecord: StreamRecord): Unit =
+  def put(streamRecord: streamService.StreamRecord): Unit =
     lock {
       client.create()
         .creatingParentsIfNeeded()
@@ -57,7 +58,7 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
         .exists(_ => true)
     }
 
-  def get(streamName: String): Option[StreamRecord] =
+  def get(streamName: String): Option[streamService.StreamRecord] =
     lock {
       scala.util.Try(client.getData.forPath(s"$path/$streamName"))
         .toOption.map(data => StreamRecord.fromBinaryJson(data))

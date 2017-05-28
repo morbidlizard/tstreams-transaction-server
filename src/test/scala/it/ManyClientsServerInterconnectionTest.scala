@@ -115,6 +115,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       override val partitions: Int = rand.nextInt(10000)
       override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
       override val ttl: Long = 5
+      override val zkPath: Option[String] = None
     }
 
   private def getRandomProducerTransaction(streamID: Int,

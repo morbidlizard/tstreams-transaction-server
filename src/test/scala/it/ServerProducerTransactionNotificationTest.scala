@@ -12,6 +12,7 @@ import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTran
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
+import util.Utils
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -95,14 +96,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   }
 
   private val rand = scala.util.Random
-  private def getRandomStream =
-    new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
-      override val name: String = rand.nextInt(10000).toString
-      override val partitions: Int = rand.nextInt(10000)
-      override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
-      override val ttl: Long = Long.MaxValue
-    }
-
+  private def getRandomStream = Utils.getRandomStream
   val secondsWait = 5
 
   "Client" should "put producer transaction and get notification of it." in {

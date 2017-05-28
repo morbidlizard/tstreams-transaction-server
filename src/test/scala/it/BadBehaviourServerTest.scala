@@ -32,6 +32,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
     override val ttl: Long = Long.MaxValue
+    override def zkPath: Option[String] = None
   }
 
 
@@ -52,7 +53,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
 
 
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
-  private val bootstrapOptions = BootstrapOptions(port = 8071)
+  private val bootstrapOptions = BootstrapOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
   private val storageOptions = StorageOptions()
   private val rocksStorageOptions = RocksStorageOptions()

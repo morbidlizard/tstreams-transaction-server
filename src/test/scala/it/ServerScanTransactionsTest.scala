@@ -10,7 +10,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOpt
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import Utils._
+import util.Utils._
 
 
 class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAfterEach {

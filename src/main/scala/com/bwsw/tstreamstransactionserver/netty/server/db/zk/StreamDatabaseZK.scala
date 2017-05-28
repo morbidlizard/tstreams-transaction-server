@@ -3,24 +3,26 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.zk
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey, StreamRecord, StreamValue}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService
 import org.apache.curator.framework.CuratorFramework
 
 final class StreamDatabaseZK(client: CuratorFramework, path: String)
   extends StreamCRUD
 {
-  private val streamCache = new ConcurrentHashMap[StreamKey, StreamValue]()
+  private val streamCache =
+    new ConcurrentHashMap[streamService.StreamKey, streamService.StreamValue]()
 
   private val streamNamePath = new StreamNamePath(client, s"$path/names")
   private val streamIDPath   = new StreamIDPath(client, s"$path/ids")
 
-  override def putStream(streamValue: StreamValue): StreamKey = {
+  override def putStream(streamValue: streamService.StreamValue): streamService.StreamKey = {
     if (!streamNamePath.checkExists(streamValue.name)) {
       val streamRecord = streamIDPath.put(streamValue)
       streamNamePath.put(streamRecord)
       streamCache.put(streamRecord.key, streamRecord.stream)
       streamRecord.key
-    } else StreamKey(-1)
+    } else streamService.StreamKey(-1)
   }
 
   override def checkStreamExists(name: String): Boolean =
@@ -31,13 +33,13 @@ final class StreamDatabaseZK(client: CuratorFramework, path: String)
     streamNamePath.delete(name)
 
 
-  override def getStream(name: String): Option[StreamRecord] =
+  override def getStream(name: String): Option[streamService.StreamRecord] =
     streamNamePath.get(name)
 
 
-  override def getStream(streamKey: StreamKey): Option[StreamRecord] = {
+  override def getStream(streamKey: streamService.StreamKey): Option[streamService.StreamRecord] = {
     Option(streamCache.get(streamKey))
-      .map(steamValue => StreamRecord(streamKey, steamValue))
+      .map(steamValue => streamService.StreamRecord(streamKey, steamValue))
       .orElse{
         val streamRecordOpt = streamIDPath.get(streamKey)
         streamRecordOpt.foreach(streamRecord => streamCache.put(streamRecord.key, streamRecord.stream))

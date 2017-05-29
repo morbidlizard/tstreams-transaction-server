@@ -157,22 +157,22 @@ object CommitLogToBerkeleyWriter {
   val putTransactionsType: Byte = 2
   val setConsumerStateType: Byte = 3
 
-  private def deserializePutTransaction(message: Message) = Descriptors.PutTransaction.decodeRequest(message)
+  private def deserializePutTransaction(message: Array[Byte]) = Descriptors.PutTransaction.decodeRequest(message)
 
-  private def deserializePutTransactions(message: Message) = Descriptors.PutTransactions.decodeRequest(message)
+  private def deserializePutTransactions(message: Array[Byte]) = Descriptors.PutTransactions.decodeRequest(message)
 
-  private def deserializeSetConsumerState(message: Message) = Descriptors.PutConsumerCheckpoint.decodeRequest(message)
+  private def deserializeSetConsumerState(message: Array[Byte]) = Descriptors.PutConsumerCheckpoint.decodeRequest(message)
 
 
   def retrieveTransactions(record: CommitLogRecord): Seq[(Transaction, Long)] = record.messageType match {
     case `putTransactionType` =>
-      val txn = deserializePutTransaction(Message.fromByteArray(record.message))
+      val txn = deserializePutTransaction(record.message)
       Seq((txn.transaction, record.timestamp))
     case `putTransactionsType` =>
-      val txns = deserializePutTransactions(Message.fromByteArray(record.message))
+      val txns = deserializePutTransactions(record.message)
       txns.transactions.map(txn => (txn, record.timestamp))
     case `setConsumerStateType` =>
-      val args = deserializeSetConsumerState(Message.fromByteArray(record.message))
+      val args = deserializeSetConsumerState(record.message)
       val consumerTransaction = com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction(args.streamID, args.partition, args.transaction, args.name)
       Seq((Transaction(None, Some(consumerTransaction)), record.timestamp))
     case _ => throw new IllegalArgumentException("Undefined method type for retrieving message from commit log record")

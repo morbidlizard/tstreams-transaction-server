@@ -72,7 +72,7 @@ object Descriptors {
     }
 
     @inline
-    final def encodeResponse(entity: Request): Array[Byte] = {
+    final def encodeResponse(entity: Response): Array[Byte] = {
       val buffer = new TMemoryBuffer(128)
       val oprot =  protocolRep.getProtocol(buffer)
 

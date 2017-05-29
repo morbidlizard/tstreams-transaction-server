@@ -205,7 +205,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
-          val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message)
+          val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionType, message.body)
           logSuccessfulProcession(Descriptors.PutTransaction.name)
           lazy val response = Descriptors.PutTransaction.encodeResponseToMessage(TransactionService.PutTransaction.Result(Some(isPutted)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -229,7 +229,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
-          val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message)
+          val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, message.body)
           logSuccessfulProcession(Descriptors.PutTransactions.name)
           lazy val response = Descriptors.PutTransactions.encodeResponseToMessage(TransactionService.PutTransactions.Result(Some(isPutted)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
@@ -259,7 +259,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
             Transaction(Some(ProducerTransaction(txn.streamID, txn.partition, txn.transaction, TransactionStates.Opened, txn.data.size, 3L)), None),
             Transaction(Some(ProducerTransaction(txn.streamID, txn.partition, txn.transaction, TransactionStates.Checkpointed, txn.data.size, 120L)), None)
           )
-          val messageForPutTransactions = Descriptors.PutTransactions.encodeRequestToMessage(TransactionService.PutTransactions.Args(transactions))(messageId, token, isFireAndForgetMethod)
+          val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(TransactionService.PutTransactions.Args(transactions))
           val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, messageForPutTransactions)
           logSuccessfulProcession(Descriptors.PutSimpleTransactionAndData.name)
           lazy val response = Descriptors.PutSimpleTransactionAndData.encodeResponseToMessage(TransactionService.PutSimpleTransactionAndData.Result(Some(isPutted)))(messageId, token, isFireAndForgetMethod)
@@ -404,7 +404,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }
         else {
-          val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message)
+          val isPutted = scheduledCommitLog.putData(CommitLogToBerkeleyWriter.setConsumerStateType, message.body)
           logSuccessfulProcession(Descriptors.PutConsumerCheckpoint.name)
           lazy val response = Descriptors.PutConsumerCheckpoint.encodeResponseToMessage(TransactionService.PutConsumerCheckpoint.Result(Some(isPutted)))(messageId, token, isFireAndForgetMethod)
           sendResponseToClient(response, ctx, isFireAndForgetMethod)

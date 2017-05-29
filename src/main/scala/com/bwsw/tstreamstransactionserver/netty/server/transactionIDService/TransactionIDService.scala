@@ -8,7 +8,7 @@ private object TransactionIDService {
 }
 
 final class TransactionIDService
-  extends TransactionIDGeneratable
+  extends ITransactionIDGenerator
 {
   private val transactionIDAndCurrentTime = {
     val transactionGeneratorUnit =

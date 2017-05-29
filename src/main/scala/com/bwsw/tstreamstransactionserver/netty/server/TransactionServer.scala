@@ -34,6 +34,10 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   private val streamServiceImpl = new StreamServiceImpl(
     streamCache
   )
+
+  private val transactionIDService =
+    new com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
+
   private val consumerServiceImpl = new ConsumerServiceImpl(
     rocksStorage.rocksMetaServiceDB
   )
@@ -78,6 +82,12 @@ class TransactionServer(val executionContext: ServerExecutionContext,
 
   final def delStream(name: String): Boolean =
     streamServiceImpl.delStream(name)
+
+  final def getTransactionID: Long =
+    transactionIDService.getTransaction()
+
+  final def getTransactionIDByTimestamp(timestamp: Long): Long =
+    transactionIDService.getTransaction(timestamp)
 
   final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean =
     transactionDataServiceImpl.putTransactionData(streamID, partition, transaction, data, from)

@@ -492,6 +492,30 @@ class Client(clientOpts: ConnectionOptions,
     )(context)
   }
 
+  def getTransaction(): ScalaFuture[Long] = {
+    if (logger.isDebugEnabled())
+      logger.debug(s"Retrieving transaction id ...")
+    onShutdownThrowException()
+
+    method[TransactionService.GetTransactionID.Args, TransactionService.GetTransactionID.Result, Long](
+      Descriptors.GetTransactionID,
+      TransactionService.GetTransactionID.Args(),
+      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+    )(context)
+  }
+
+  def getTransaction(timestamp: Long): ScalaFuture[Long] = {
+    if (logger.isDebugEnabled)
+      logger.debug(s"Retrieving transaction id by timestamp ...")
+    onShutdownThrowException()
+
+    method[TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, Long](
+      Descriptors.GetTransactionIDByTimestamp,
+      TransactionService.GetTransactionIDByTimestamp.Args(timestamp),
+      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+    )(context)
+  }
+
 
   /** Puts producer and consumer transactions on a server.
     *

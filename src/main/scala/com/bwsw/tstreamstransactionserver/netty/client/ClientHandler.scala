@@ -37,7 +37,13 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
           ScalaFuture(retryCompletePromise(message.id, Descriptors.GetStream.decodeResponse(message)))(context)
 
         case Descriptors.DelStream.methodID =>
-          retryCompletePromise(message.id, Descriptors.DelStream.decodeResponse(message)) 
+          retryCompletePromise(message.id, Descriptors.DelStream.decodeResponse(message))
+
+        case Descriptors.GetTransactionID.methodID =>
+          retryCompletePromise(message.id, Descriptors.GetTransactionID.decodeResponse(message))
+
+        case Descriptors.GetTransactionIDByTimestamp.methodID =>
+          retryCompletePromise(message.id, Descriptors.GetTransactionIDByTimestamp.decodeResponse(message))
 
         case Descriptors.PutTransaction.methodID =>
           retryCompletePromise(message.id, Descriptors.PutTransaction.decodeResponse(message)) 

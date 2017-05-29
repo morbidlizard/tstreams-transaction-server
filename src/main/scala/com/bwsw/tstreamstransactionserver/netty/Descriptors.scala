@@ -159,6 +159,8 @@ object Descriptors {
   val getConsumerStateMethod = "getConsumerState"
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
+  val getTransactionID = "getTransactionID"
+  val getTransactionIDByTimestamp = "getTransactionIDByTimestamp"
 
   final def methodWithArgsToString(id: Long, struct: ThriftStruct): String = {
     def toString(methodName: String, arguments: Iterator[Any], fields: List[String]) = {
@@ -200,7 +202,12 @@ object Descriptors {
         toString(Authenticate.name, struct.productIterator, TransactionService.Authenticate.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.IsValid.Args   =>
         toString(IsValid.name, struct.productIterator, TransactionService.IsValid.Args.fieldInfos.map(_.tfield.name))
-      case struct => throw new NotImplementedError(s"$struct is not implemeted for debug information")
+      case struct: TransactionService.GetTransactionID.Args   =>
+        toString(GetTransactionID.name, struct.productIterator, TransactionService.GetTransactionID.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetTransactionIDByTimestamp.Args   =>
+        toString(GetTransactionIDByTimestamp.name, struct.productIterator, TransactionService.GetTransactionIDByTimestamp.Args.fieldInfos.map(_.tfield.name))
+      case _ =>
+        throw new NotImplementedError(s"$struct is not implemeted for debug information")
     }
   }
 
@@ -255,23 +262,9 @@ object Descriptors {
   case object IsValid extends
     Descriptor(isValidMethod, 16:Byte, TransactionService.IsValid.Args, TransactionService.IsValid.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
-  lazy val methods = Array(
-    GetCommitLogOffsets,
-    PutStream,
-    CheckStreamExists,
-    GetStream,
-    DelStream,
-    PutTransaction,
-    PutTransactions,
-    PutSimpleTransactionAndData,
-    GetTransaction,
-    GetLastCheckpointedTransaction,
-    ScanTransactions,
-    PutTransactionData,
-    GetTransactionData,
-    PutConsumerCheckpoint,
-    GetConsumerState,
-    Authenticate,
-    IsValid
-  )
+  case object GetTransactionID extends
+    Descriptor(getTransactionID, 17:Byte, TransactionService.GetTransactionID.Args, TransactionService.GetTransactionID.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  case object GetTransactionIDByTimestamp extends
+    Descriptor(getTransactionIDByTimestamp, 18:Byte, TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 }

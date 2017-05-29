@@ -57,13 +57,33 @@ object Descriptors {
 
     /** A method for serializing request and adding an id to id. */
     @inline
-    final def encodeRequest(entity: Request)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
+    final def encodeRequestToMessage(entity: Request)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
       encode(entity, protocolReq, messageId, token, isFireAndForgetMethod)
 
 
+    @inline
+    final def encodeRequest(entity: Request): Array[Byte] = {
+      val buffer = new TMemoryBuffer(128)
+      val oprot =  protocolReq.getProtocol(buffer)
+
+      entity.write(oprot)
+
+      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
+    }
+
+    @inline
+    final def encodeResponse(entity: Request): Array[Byte] = {
+      val buffer = new TMemoryBuffer(128)
+      val oprot =  protocolRep.getProtocol(buffer)
+
+      entity.write(oprot)
+
+      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
+    }
+
     /** A method for serializing response and adding an id to id. */
     @inline
-    final def encodeResponse(entity: Response)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
+    final def encodeResponseToMessage(entity: Response)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
     encode(entity, protocolRep, messageId, token, isFireAndForgetMethod)
 
 
@@ -78,6 +98,20 @@ object Descriptors {
       codecReq.decode(iprot)
     }
 
+
+    @inline
+    final def decodeRequest(body: Array[Byte]): Request = {
+      val iprot = protocolReq.getProtocol(new TMemoryInputTransport(body))
+      codecReq.decode(iprot)
+    }
+
+    @inline
+    final def decodeResponse(body: Array[Byte]): Response = {
+      val iprot = protocolRep.getProtocol(new TMemoryInputTransport(body))
+      codecRep.decode(iprot)
+    }
+
+
     /** A method for deserialization response.
       *
       * @param message a structure that contains a binary body of response.
@@ -87,26 +121,6 @@ object Descriptors {
     final def decodeResponse(message: Message): Response = {
       val iprot = protocolRep.getProtocol(new TMemoryInputTransport(message.body))
       codecRep.decode(iprot)
-    }
-
-    @inline
-    final def responseToByteArray(entity: Response, protocol: TProtocolFactory): Array[Byte] = {
-      val buffer = new TMemoryBuffer(128)
-
-      val oprot = protocol.getProtocol(buffer)
-      entity.write(oprot)
-
-      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-    }
-
-    @inline
-    final def requestToByteArray(entity: Response, protocol: TProtocolFactory): Array[Byte] = {
-      val buffer = new TMemoryBuffer(128)
-
-      val oprot = protocol.getProtocol(buffer)
-      entity.write(oprot)
-
-      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
     }
 
     @inline

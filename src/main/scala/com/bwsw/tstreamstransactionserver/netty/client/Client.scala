@@ -184,7 +184,7 @@ class Client(clientOpts: ConnectionOptions,
                                                                        )(implicit methodContext: concurrent.ExecutionContext): ScalaFuture[A] = {
 
     val messageId = nextSeqId.getAndIncrement()
-    val message = descriptor.encodeRequest(request)(messageId, token, isFireAndForgetMethod = false)
+    val message = descriptor.encodeRequestToMessage(request)(messageId, token, isFireAndForgetMethod = false)
     validateMessageSize(message)
 
     def go(message: Message,
@@ -240,7 +240,7 @@ class Client(clientOpts: ConnectionOptions,
       }
 
     val messageId = nextSeqId.getAndIncrement()
-    val message = descriptor.encodeRequest(request)(messageId, token, isFireAndForgetMethod = true)
+    val message = descriptor.encodeRequestToMessage(request)(messageId, token, isFireAndForgetMethod = true)
 
     if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
     validateMessageSize(message)

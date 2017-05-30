@@ -2,12 +2,9 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
-class GetLastCheckpointedTransactionHandler (server: TransactionServer,
-                                             scheduledCommitLog: ScheduledCommitLog
-                                            )
+class GetLastCheckpointedTransactionHandler (server: TransactionServer)
   extends RequestHandler {
 
   override def handle(requestBody: Array[Byte]): Array[Byte] = {

@@ -2,18 +2,38 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.rpc.TransactionService
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
 class CheckStreamExistsHandler(server: TransactionServer)
   extends RequestHandler {
 
-  override def handle(requestBody: Array[Byte]): Array[Byte] = {
-    val descriptor = Descriptors.CheckStreamExists
+  private val descriptor = Descriptors.CheckStreamExists
+
+  private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.checkStreamExists(args.name)
+    server.checkStreamExists(args.name)
+  }
+
+  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+    val result = process(requestBody)
     //    logSuccessfulProcession(Descriptors.CheckStreamExists.name)
     descriptor.encodeResponse(
       TransactionService.CheckStreamExists.Result(Some(result))
+    )
+  }
+
+  override def handle(requestBody: Array[Byte]): Unit = {
+//    throw new UnsupportedOperationException(
+//      "It doesn't make any sense to check if stream exists according to fire and forget policy"
+//    )
+  }
+
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.CheckStreamExists.Result(
+        None,
+        Some(ServerException(message))
+      )
     )
   }
 }

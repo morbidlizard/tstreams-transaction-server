@@ -50,45 +50,45 @@ final class RequestHandlerChooser(server: TransactionServer,
     new IsValidHandler(server)
 
 
-  def chooseHandler(id: Byte, request: Array[Byte]): Array[Byte] = id match {
+  def handler(id: Byte): RequestHandler = id match {
     case GetCommitLogOffsets.methodID =>
-      commitLogOffsetsHandler.handle(request)
+      commitLogOffsetsHandler
 
     case PutStream.methodID =>
-      putStreamHandler.handle(request)
+      putStreamHandler
     case CheckStreamExists.methodID =>
-      checkStreamExistsHandler.handle(request)
+      checkStreamExistsHandler
     case GetStream.methodID =>
-      getStreamHandler.handle(request)
+      getStreamHandler
     case DelStream.methodID =>
-      delStreamHandler.handle(request)
+      delStreamHandler
 
     case PutTransaction.methodID =>
-      putTransactionHandler.handle(request)
+      putTransactionHandler
     case PutTransactions.methodID =>
-      putTransactionsHandler.handle(request)
+      putTransactionsHandler
     case PutSimpleTransactionAndData.methodID =>
-      putSimpleTransactionAndDataHandler.handle(request)
+      putSimpleTransactionAndDataHandler
     case GetTransaction.methodID =>
-      getTransactionHandler.handle(request)
+      getTransactionHandler
     case GetLastCheckpointedTransaction.methodID =>
-      getLastCheckpointedTransaction.handle(request)
+      getLastCheckpointedTransaction
     case ScanTransactions.methodID =>
-      scanTransactionsHandler.handle(request)
+      scanTransactionsHandler
     case PutTransactionData.methodID =>
-      putTransactionDataHandler.handle(request)
+      putTransactionDataHandler
     case GetTransactionData.methodID =>
-      getTransactionDataHandler.handle(request)
+      getTransactionDataHandler
 
     case PutConsumerCheckpoint.methodID =>
-      putConsumerCheckpointHandler.handle(request)
+      putConsumerCheckpointHandler
     case GetConsumerState.methodID =>
-      getConsumerStateHandler.handle(request)
+      getConsumerStateHandler
 
     case Authenticate.methodID =>
-      authenticateHandler.handle(request)
+      authenticateHandler
     case IsValid.methodID =>
-      isValidHandler.handle(request)
+      isValidHandler
 
     case methodID =>
       throw new IllegalArgumentException(s"Not implemented method that has id: $methodID")

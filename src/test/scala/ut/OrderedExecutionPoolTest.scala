@@ -33,18 +33,18 @@ class OrderedExecutionPoolTest
     val poolSize = 6
     val orderedExecutionPool = new OrderedExecutionPool(poolSize)
 
-    val idnexToContext = collection.mutable.Map[Int, String]()
+    val indexToContext = collection.mutable.Map[Int, String]()
 
     val rand = new RandomStreamIDAndItsPartition(10000, 10000)
     (0 to 1000).foreach { _ =>
       val (streamID, partition) = rand.generate
       val index = calculatePoolIndex(streamID, partition, poolSize)
-      idnexToContext.get(index)
+      indexToContext.get(index)
         .map(contextName =>
           contextName shouldBe orderedExecutionPool.pool(streamID, partition).toString
         )
         .orElse(
-          idnexToContext.put(index, orderedExecutionPool.pool(streamID, partition).toString)
+          indexToContext.put(index, orderedExecutionPool.pool(streamID, partition).toString)
         )
     }
 
@@ -55,18 +55,18 @@ class OrderedExecutionPoolTest
     val poolSize = 13
     val orderedExecutionPool = new OrderedExecutionPool(poolSize)
 
-    val idnexToContext = collection.mutable.Map[Int, String]()
+    val indexToContext = collection.mutable.Map[Int, String]()
 
     val rand = new RandomStreamIDAndItsPartition(10000, 10000)
     (0 to 1000).foreach { _ =>
       val (streamID, partition) = rand.generate
       val index = calculatePoolIndex(streamID, partition, poolSize)
-      idnexToContext.get(index)
+      indexToContext.get(index)
         .map(contextName =>
           contextName shouldBe orderedExecutionPool.pool(streamID, partition).toString
         )
         .orElse(
-          idnexToContext.put(index, orderedExecutionPool.pool(streamID, partition).toString)
+          indexToContext.put(index, orderedExecutionPool.pool(streamID, partition).toString)
         )
     }
 

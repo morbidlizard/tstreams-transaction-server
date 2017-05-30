@@ -91,6 +91,12 @@ service StreamService {
   bool delStream(1: string name) throws (1:ServerException error)
 }
 
+service TransactionIDService {
+  transactionIDType getTransactionID() throws (1:ServerException error),
+
+  transactionIDType getTransactionIDByTimestamp(1: transactionIDType timestamp) throws (1:ServerException error),
+}
+
 
 
 service TransactionMetaService {
@@ -145,6 +151,10 @@ service TransactionService {
   Stream getStream(1: string name) throws (1:ServerException error),
 
   bool delStream(1: string name) throws (1:ServerException error),
+
+  transactionIDType getTransactionID() throws (1:ServerException error),
+
+  transactionIDType getTransactionIDByTimestamp(1: transactionIDType timestamp) throws (1:ServerException error),
 
   bool putTransaction(1: Transaction transaction) throws (1:ServerException error),
 

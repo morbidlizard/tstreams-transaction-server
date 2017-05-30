@@ -194,6 +194,39 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
           sendResponseToClient(response, ctx, isFireAndForgetMethod)
         }(serverWriteContext)
 
+
+      case Descriptors.GetTransactionID.methodID =>
+        if (!transactionServer.isValid(message.token)) {
+          lazy val response = Descriptors.GetTransactionID.encodeResponse(TransactionService.GetTransactionID.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
+        } else if (isTooBigMetadataMessage(message)) {
+          logUnsuccessfulProcessing(Descriptors.GetTransactionID.name, packageTooBigException)
+          lazy val response = Descriptors.GetTransactionID.encodeResponse(TransactionService.GetTransactionID.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
+        } else {
+          val result = transactionServer.getTransactionID
+          logSuccessfulProcession(Descriptors.GetTransactionID.name)
+          lazy val response = Descriptors.GetTransactionID.encodeResponse(TransactionService.GetTransactionID.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
+        }
+
+      case Descriptors.GetTransactionIDByTimestamp.methodID =>
+        if (!transactionServer.isValid(message.token)) {
+          lazy val response = Descriptors.GetTransactionIDByTimestamp.encodeResponse(TransactionService.GetTransactionIDByTimestamp.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
+        } else if (isTooBigMetadataMessage(message)) {
+          logUnsuccessfulProcessing(Descriptors.GetTransactionIDByTimestamp.name, packageTooBigException)
+          lazy val response = Descriptors.GetTransactionIDByTimestamp.encodeResponse(TransactionService.GetTransactionIDByTimestamp.Result(None, error = Some(ServerException(packageTooBigException.getMessage))))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
+        } else {
+          val args = Descriptors.GetTransactionIDByTimestamp.decodeRequest(message)
+          val result = transactionServer.getTransactionIDByTimestamp(args.timestamp)
+          logSuccessfulProcession(Descriptors.GetTransactionIDByTimestamp.name)
+          lazy val response = Descriptors.GetTransactionIDByTimestamp.encodeResponse(TransactionService.GetTransactionIDByTimestamp.Result(Some(result)))(messageId, token, isFireAndForgetMethod)
+          sendResponseToClient(response, ctx, isFireAndForgetMethod)
+        }
+
+
       case Descriptors.PutTransaction.methodID => ScalaFuture {
         if (!transactionServer.isValid(message.token)) {
           lazy val response = Descriptors.PutTransaction.encodeResponseToMessage(TransactionService.PutTransaction.Result(None, error = Some(ServerException(com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage))))(messageId, token, isFireAndForgetMethod)

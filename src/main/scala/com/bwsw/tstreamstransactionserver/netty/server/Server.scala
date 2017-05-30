@@ -77,12 +77,14 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
     transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
 
-  final def removeNotification(id: Long): Boolean = transactionServer.removeProducerTransactionNotification(id)
+  final def removeNotification(id: Long): Boolean =
+    transactionServer.removeProducerTransactionNotification(id)
 
   final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
     transactionServer.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
 
-  final def removeConsumerNotification(id: Long): Boolean = transactionServer.removeConsumerTransactionNotification(id)
+  final def removeConsumerNotification(id: Long): Boolean =
+    transactionServer.removeConsumerTransactionNotification(id)
 
 
   private val rocksDBCommitLog = new RocksDbConnection(

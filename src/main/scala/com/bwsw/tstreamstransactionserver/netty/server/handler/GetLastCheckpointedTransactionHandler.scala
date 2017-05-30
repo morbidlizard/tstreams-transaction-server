@@ -4,7 +4,7 @@ import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
-class GetLastCheckpointedTransactionHandler (server: TransactionServer)
+class GetLastCheckpointedTransactionHandler(server: TransactionServer)
   extends RequestHandler {
 
   private val descriptor = Descriptors.GetLastCheckpointedTransaction
@@ -34,4 +34,5 @@ class GetLastCheckpointedTransactionHandler (server: TransactionServer)
     )
   }
 
+  override def getName: String = descriptor.name
 }

@@ -38,4 +38,5 @@ class GetConsumerStateHandler (server: TransactionServer)
     )
   }
 
+  override def getName: String = descriptor.name
 }

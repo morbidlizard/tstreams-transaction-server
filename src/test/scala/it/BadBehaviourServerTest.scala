@@ -44,7 +44,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
                             scheduledCommitLogImpl: ScheduledCommitLog,
                             packageTransmissionOptions: TransportOptions,
                             logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, packageTransmissionOptions, logger) {
-    override protected def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
+    override def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
       serverGotRequest.getAndIncrement()
       Thread.sleep(requestTimeoutMs + 10)
       super.invokeMethod(message, ctx)

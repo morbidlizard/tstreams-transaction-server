@@ -36,4 +36,5 @@ class PutStreamHandler(server: TransactionServer)
     )
   }
 
+  override def getName: String = descriptor.name
 }

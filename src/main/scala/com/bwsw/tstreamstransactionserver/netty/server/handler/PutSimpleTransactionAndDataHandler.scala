@@ -69,4 +69,5 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
     )
   }
 
+  override def getName: String = descriptor.name
 }

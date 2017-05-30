@@ -40,4 +40,5 @@ class AuthenticateHandler(server: TransactionServer,
     )
   }
 
+  override def getName: String = descriptor.name
 }

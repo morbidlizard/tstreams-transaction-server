@@ -39,4 +39,6 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
       )
     )
   }
+
+  override def getName: String = descriptor.name
 }

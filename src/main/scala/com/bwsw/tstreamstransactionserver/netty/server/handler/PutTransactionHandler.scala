@@ -40,4 +40,5 @@ class PutTransactionHandler(server: TransactionServer,
     )
   }
 
+  override def getName: String = descriptor.name
 }

@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
 class IsValidHandler(server: TransactionServer)
   extends RequestHandler{
@@ -28,4 +28,5 @@ class IsValidHandler(server: TransactionServer)
     throw new UnsupportedOperationException("isValid method can't throw error at all!")
   }
 
+  override def getName: String = descriptor.name
 }

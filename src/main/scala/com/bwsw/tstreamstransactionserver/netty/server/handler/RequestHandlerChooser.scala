@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 
 final class RequestHandlerChooser(server: TransactionServer,
                                   scheduledCommitLog: ScheduledCommitLog,
-                                  packageTransmissionOpts: TransportOptions
+                                  val packageTransmissionOpts: TransportOptions
                                  ) {
 
   private val commitLogOffsetsHandler =
@@ -21,6 +21,11 @@ final class RequestHandlerChooser(server: TransactionServer,
     new GetStreamHandler(server)
   private val delStreamHandler =
     new DelStreamHandler(server)
+
+  private val getTransactionIDHandler =
+    new GetTransactionIDHandler(server)
+  private val getTransactionIDByTimestampHandler =
+    new GetTransactionIDByTimestampHandler(server)
 
   private val putTransactionHandler =
     new PutTransactionHandler(server, scheduledCommitLog)
@@ -62,6 +67,11 @@ final class RequestHandlerChooser(server: TransactionServer,
       getStreamHandler
     case DelStream.methodID =>
       delStreamHandler
+
+    case GetTransactionID.methodID =>
+      getTransactionIDHandler
+    case GetTransactionIDByTimestamp.methodID =>
+      getTransactionIDByTimestampHandler
 
     case PutTransaction.methodID =>
       putTransactionHandler

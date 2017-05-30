@@ -10,8 +10,12 @@ object ServerOptions {
     *
     * @param host ipv4 or ipv6 listen address in string representation.
     * @param port a port.
+    * @param orderedExecutionPoolSize a number of pool that contains single thread executor to work with transactions.
     */
-  case class BootstrapOptions(host: String = "127.0.0.1", port: Int = 8071)
+  case class BootstrapOptions(host: String = "127.0.0.1",
+                              port: Int = 8071,
+                              orderedExecutionPoolSize: Int = Runtime.getRuntime.availableProcessors()
+                             )
 
   /** The options are used to validate client requests by a server.
     *

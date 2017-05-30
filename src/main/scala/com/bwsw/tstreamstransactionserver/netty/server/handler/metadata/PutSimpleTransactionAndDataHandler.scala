@@ -1,8 +1,9 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler
+package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
 
 class PutSimpleTransactionAndDataHandler(server: TransactionServer,
@@ -41,8 +42,13 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
           120L)), None
       )
     )
-    val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(TransactionService.PutTransactions.Args(transactions))
-    scheduledCommitLog.putData(CommitLogToBerkeleyWriter.putTransactionsType, messageForPutTransactions)
+    val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(
+      TransactionService.PutTransactions.Args(transactions)
+    )
+    scheduledCommitLog.putData(
+      CommitLogToBerkeleyWriter.putTransactionsType,
+      messageForPutTransactions
+    )
   }
 
   override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {

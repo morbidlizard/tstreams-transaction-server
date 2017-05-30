@@ -1,19 +1,20 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler
+package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
-class PutTransactionHandler(server: TransactionServer,
-                            scheduledCommitLog: ScheduledCommitLog)
+class PutTransactionsHandler(server: TransactionServer,
+                             scheduledCommitLog: ScheduledCommitLog)
   extends RequestHandler {
 
-  private val descriptor = Descriptors.PutTransaction
+  private val descriptor = Descriptors.PutTransactions
 
   private def process(requestBody: Array[Byte]) = {
     scheduledCommitLog.putData(
-      CommitLogToBerkeleyWriter.putTransactionType,
+      CommitLogToBerkeleyWriter.putTransactionsType,
       requestBody
     )
   }
@@ -22,7 +23,7 @@ class PutTransactionHandler(server: TransactionServer,
     val result = process(requestBody)
     //    logSuccessfulProcession(Descriptors.PutStream.name)
     descriptor.encodeResponse(
-      TransactionService.PutTransaction.Result(Some(result))
+      TransactionService.PutTransactions.Result(Some(result))
     )
   }
 
@@ -32,7 +33,7 @@ class PutTransactionHandler(server: TransactionServer,
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutTransaction.Result(
+      TransactionService.PutTransactions.Result(
         None,
         Some(ServerException(message)
         )

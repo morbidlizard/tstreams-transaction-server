@@ -10,7 +10,7 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder
 
 
 
-class ServerInitializer(serverHandler: => SimpleChannelInboundHandler[ByteBuf], packageTransmissionOpts: TransportOptions) extends ChannelInitializer[SocketChannel] {
+class ServerInitializer(serverHandler: => SimpleChannelInboundHandler[ByteBuf]) extends ChannelInitializer[SocketChannel] {
   override def initChannel(ch: SocketChannel): Unit = {
     ch.pipeline()
       .addLast(new ByteArrayEncoder())

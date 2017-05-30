@@ -359,7 +359,7 @@ class Client(clientOpts: ConnectionOptions,
     *         currentConstructedCommitLog - the one which is currently under write routine
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server.
-    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path.
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
@@ -383,7 +383,7 @@ class Client(clientOpts: ConnectionOptions,
     * @return Future of putStream operation that can be completed or not. If it is completed it returns:
     *         1) ID if stream is persisted by a server or -1 if there is a stream with such name on the server;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
-    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path.
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
@@ -477,7 +477,7 @@ class Client(clientOpts: ConnectionOptions,
     *         1) TRUE if stream is exists in a server database or FALSE if a it's not;
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream name has size in bytes more than defined by a server;
-    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
@@ -492,6 +492,18 @@ class Client(clientOpts: ConnectionOptions,
     )(context)
   }
 
+  /** retrieving transaction id.
+    *
+    * @return Future of getTransaction operation that can be completed or not. If it is completed it returns:
+    *         1) Transaction ID
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package has size in bytes more than defined by a server;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *
+    */
   def getTransaction(): ScalaFuture[Long] = {
     if (logger.isDebugEnabled())
       logger.debug(s"Retrieving transaction id ...")
@@ -504,9 +516,23 @@ class Client(clientOpts: ConnectionOptions,
     )(context)
   }
 
+
+  /** retrieving transaction id that is multiplied by timestamp
+    *
+    * @param timestamp multiplier(100000) to current transaction id.
+    * @return Future of getTransaction operation that can be completed or not. If it is completed it returns:
+    *         1) Transaction ID
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package has size in bytes more than defined by a server;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *
+    */
   def getTransaction(timestamp: Long): ScalaFuture[Long] = {
     if (logger.isDebugEnabled)
-      logger.debug(s"Retrieving transaction id by timestamp ...")
+      logger.debug(s"Retrieving transaction id by timestamp $timestamp ...")
     onShutdownThrowException()
 
     method[TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, Long](
@@ -528,8 +554,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     *
     */
   def putTransactions(producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction],

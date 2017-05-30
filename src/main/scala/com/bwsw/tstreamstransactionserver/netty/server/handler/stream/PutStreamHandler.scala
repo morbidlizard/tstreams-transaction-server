@@ -1,31 +1,35 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler
+package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
-class GetTransactionIDHandler(server: TransactionServer)
+class PutStreamHandler(server: TransactionServer)
   extends RequestHandler {
 
-  private val descriptor = Descriptors.GetTransactionID
+  private val descriptor = Descriptors.PutStream
+
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.putStream(args.name, args.partitions, args.description, args.ttl)
+  }
 
   override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = server.getTransactionID
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
+    val result = process(requestBody)
+    //    logSuccessfulProcession(Descriptors.PutStream.name)
     descriptor.encodeResponse(
-      TransactionService.GetTransactionID.Result(Some(result))
+      TransactionService.PutStream.Result(Some(result))
     )
   }
 
   override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to get transaction ID according to fire and forget policy"
-    //    )
+    process(requestBody)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.GetTransactionID.Result(
+      TransactionService.PutStream.Result(
         None,
         Some(ServerException(message)
         )

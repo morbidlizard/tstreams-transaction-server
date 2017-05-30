@@ -1,8 +1,9 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler
+package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
 class PutConsumerCheckpointHandler(server: TransactionServer,

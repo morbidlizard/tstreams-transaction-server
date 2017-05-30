@@ -1,30 +1,25 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler
+package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
-class PutTransactionDataHandler(server: TransactionServer)
-  extends RequestHandler {
+class DelStreamHandler(server: TransactionServer)
+  extends RequestHandler{
 
-  private val descriptor = Descriptors.PutTransactionData
+  private val descriptor = Descriptors.DelStream
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    server.putTransactionData(
-      args.streamID,
-      args.partition,
-      args.transaction,
-      args.data,
-      args.from
-    )
+    server.delStream(args.name)
   }
 
   override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
     val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.PutStream.name)
+    //    logSuccessfulProcession(Descriptors.GetStream.name)
     descriptor.encodeResponse(
-      TransactionService.PutTransactionData.Result(Some(result))
+      TransactionService.DelStream.Result(Some(result))
     )
   }
 
@@ -34,12 +29,12 @@ class PutTransactionDataHandler(server: TransactionServer)
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutTransactionData.Result(
+      TransactionService.DelStream.Result(
         None,
-        Some(ServerException(message)
-        )
+        Some(ServerException(message))
       )
     )
+
   }
 
   override def getName: String = descriptor.name

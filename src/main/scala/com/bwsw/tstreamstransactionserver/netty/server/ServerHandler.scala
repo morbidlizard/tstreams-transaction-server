@@ -1,29 +1,30 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestHandlerChooser}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.Logger
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
-class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: ScheduledCommitLog, packageTransmissionOpts: TransportOptions, logger: Logger) extends SimpleChannelInboundHandler[ByteBuf] {
+class ServerHandler(requestHandlerChooser: RequestHandlerChooser, logger: Logger)
+  extends SimpleChannelInboundHandler[ByteBuf]
+{
   private lazy val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
-    s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
+    s"than maxMetadataPackageSize (${requestHandlerChooser.packageTransmissionOpts.maxMetadataPackageSize}) " +
+    s"or maxDataPackageSize (${requestHandlerChooser.packageTransmissionOpts.maxDataPackageSize}).")
 
-  private val serverWriteContext: ExecutionContext = transactionServer.executionContext.serverWriteContext
-  private val serverReadContext: ExecutionContext = transactionServer.executionContext.serverReadContext
+  private val serverWriteContext: ExecutionContext = requestHandlerChooser.server.executionContext.serverWriteContext
+  private val serverReadContext: ExecutionContext = requestHandlerChooser.server.executionContext.serverReadContext
 
   private def isTooBigMetadataMessage(message: Message) = {
-    message.length > packageTransmissionOpts.maxMetadataPackageSize
+    message.length > requestHandlerChooser.packageTransmissionOpts.maxMetadataPackageSize
   }
 
   private def isTooBigDataMessage(message: Message) = {
-    message.length > packageTransmissionOpts.maxDataPackageSize
+    message.length > requestHandlerChooser.packageTransmissionOpts.maxDataPackageSize
   }
 
   @volatile var isChannelActive = true
@@ -40,9 +41,8 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
       ctx.writeAndFlush(binaryResponse)
   }
 
-  private val commitLogContext = transactionServer.executionContext.commitLogContext
-  private val requestHandlerChooser: RequestHandlerChooser =
-    new RequestHandlerChooser(transactionServer, scheduledCommitLog, packageTransmissionOpts)
+  private val commitLogContext = requestHandlerChooser.server.executionContext.commitLogContext
+
 
   private def logSuccessfulProcession(method: String, message: Message, ctx: ChannelHandlerContext): Unit =
     if (logger.isDebugEnabled)
@@ -59,28 +59,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
                                   ctx: ChannelHandlerContext
                                  )(message: Message) =
     ScalaFuture {
-      if (!transactionServer.isValid(message.token)) {
-        val response = handler.createErrorResponse(
-          com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage
-        )
-        val responseMessage = message.copy(length = response.length, body = response)
-        sendResponseToClient(responseMessage, ctx)
-      }
-      else if (isTooBigMessage(message)) {
-        logUnsuccessfulProcessing(handler.getName, packageTooBigException, message, ctx)
-        val response = handler.createErrorResponse(
-          packageTooBigException.getMessage
-        )
-        val responseMessage = message.copy(length = response.length, body = response)
-        sendResponseToClient(responseMessage, ctx)
-      }
-      else {
-        val response = handler.handleAndSendResponse(message.body)
-        val responseMessage = message.copy(length = response.length, body = response)
-
-        logSuccessfulProcession(handler.getName, message, ctx)
-        sendResponseToClient(responseMessage, ctx)
-      }
+      processRequest(handler, isTooBigMessage, ctx)(message)
     }(context)
     .recover { case error =>
       logUnsuccessfulProcessing(handler.getName, error, message, ctx)
@@ -91,16 +70,17 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
 
 
   private def processRequest(handler: RequestHandler,
+                             isTooBigMessage: Message => Boolean,
                              ctx: ChannelHandlerContext
                             )(message: Message) = {
-    if (!transactionServer.isValid(message.token)) {
+    if (!requestHandlerChooser.server.isValid(message.token)) {
       val response = handler.createErrorResponse(
         com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage
       )
       val responseMessage  = message.copy(length = response.length, body = response)
       sendResponseToClient(responseMessage, ctx)
     }
-    else if (isTooBigMetadataMessage(message)) {
+    else if (isTooBigMessage(message)) {
       logUnsuccessfulProcessing(handler.getName, packageTooBigException, message, ctx)
       val response = handler.createErrorResponse(
         packageTooBigException.getMessage
@@ -123,7 +103,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
                                                ctx: ChannelHandlerContext
                                               )(message: Message) =
     ScalaFuture {
-      if (!transactionServer.isValid(message.token)) {
+      if (!requestHandlerChooser.server.isValid(message.token)) {
         logUnsuccessfulProcessing(handler.getName, new TokenInvalidException(), message, ctx)
       }
       else if (isTooBigMessage(message)) {
@@ -132,7 +112,7 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
       else
         handler.handle(message.body)
     }(context)
-  
+
 
   private def processRequestAndReplyClient(handler: RequestHandler,
                                            message: Message,
@@ -155,10 +135,10 @@ class ServerHandler(transactionServer: TransactionServer, scheduledCommitLog: Sc
         processRequestAsync(serverWriteContext, handler, isTooBigMetadataMessage, ctx)(message)
 
       case Descriptors.GetTransactionID.methodID =>
-        processRequest(handler, ctx)(message)
+        processRequest(handler, isTooBigMetadataMessage, ctx)(message)
 
       case Descriptors.GetTransactionIDByTimestamp.methodID =>
-        processRequest(handler, ctx)(message)
+        processRequest(handler, isTooBigMetadataMessage, ctx)(message)
 
       case Descriptors.PutTransaction.methodID =>
         processRequestAsync(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)

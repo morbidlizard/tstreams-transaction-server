@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerChooser
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer, ZKClientServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -40,16 +41,16 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   @volatile private var server: Server = _
   private val serverGotRequest = new AtomicInteger(0)
 
-  private def serverHandler(server: TransactionServer,
-                            scheduledCommitLogImpl: ScheduledCommitLog,
-                            packageTransmissionOptions: TransportOptions,
-                            logger: Logger) = new ServerHandler(server, scheduledCommitLogImpl, packageTransmissionOptions, logger) {
-    override protected def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
-      serverGotRequest.getAndIncrement()
-      Thread.sleep(requestTimeoutMs + 10)
-      super.invokeMethod(message, ctx)
+  private def serverHandler(requestHandlerChooser: RequestHandlerChooser,
+                            logger: Logger) =
+    new ServerHandler(requestHandlerChooser, logger)
+    {
+      override def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
+        serverGotRequest.getAndIncrement()
+        Thread.sleep(requestTimeoutMs + 10)
+        super.invokeMethod(message, ctx)
+      }
     }
-  }
 
 
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()

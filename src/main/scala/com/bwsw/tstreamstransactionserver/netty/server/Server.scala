@@ -9,6 +9,7 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddre
 import com.bwsw.tstreamstransactionserver.netty.{InetSocketAddressClass, Message}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerChooser
 import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
@@ -21,16 +22,13 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-
 
 class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOptions,
              serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
              storageOpts: StorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: TransportOptions, zookeeperSpecificOpts: ServerOptions.ZooKeeperOptions,
-             serverHandler: (TransactionServer, ScheduledCommitLog, TransportOptions, Logger) => SimpleChannelInboundHandler[ByteBuf] =
-             (server, journaledCommitLogImpl, packageTransmissionOpts, logger) => new ServerHandler(server, journaledCommitLogImpl, packageTransmissionOpts, logger),
+             serverHandler: (RequestHandlerChooser, Logger) => SimpleChannelInboundHandler[ByteBuf] =
+             (handler, logger) => new ServerHandler(handler, logger),
              timer: Time = new Time{}
             ) {
 
@@ -77,12 +75,14 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
     transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
 
-  final def removeNotification(id: Long): Boolean = transactionServer.removeProducerTransactionNotification(id)
+  final def removeNotification(id: Long): Boolean =
+    transactionServer.removeProducerTransactionNotification(id)
 
   final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
     transactionServer.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
 
-  final def removeConsumerNotification(id: Long): Boolean = transactionServer.removeConsumerTransactionNotification(id)
+  final def removeConsumerNotification(id: Long): Boolean =
+    transactionServer.removeConsumerTransactionNotification(id)
 
 
   private val rocksDBCommitLog = new RocksDbConnection(
@@ -133,13 +133,16 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   private val bossGroup = new EpollEventLoopGroup(1)
   private val workerGroup = new EpollEventLoopGroup()
 
+  private val requestHandlerChooser: RequestHandlerChooser =
+    new RequestHandlerChooser(transactionServer, scheduledCommitLogImpl, packageTransmissionOpts)
+
   def start(function: => Unit = ()): Unit = {
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new ServerInitializer(serverHandler(transactionServer, scheduledCommitLogImpl, packageTransmissionOpts, logger), packageTransmissionOpts))
+        .childHandler(new ServerInitializer(serverHandler(requestHandlerChooser, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 

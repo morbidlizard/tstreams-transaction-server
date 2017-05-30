@@ -25,7 +25,6 @@ class ExecutionContext(nContexts: Int, f: => java.util.concurrent.ExecutorServic
 
   def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
 
-  Executors.newFixedThreadPool(4)
   def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContext.TasksCompletedTLL, TimeUnit.MILLISECONDS))
 }
 
@@ -39,7 +38,7 @@ object ExecutionContext {
     1,
     new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
   )
-  /** Creates witFixedThreadPool with defined threadNumber*/
+  /** Creates FixedThreadPool with defined threadNumber*/
   def apply(threadNumber: Int, nameFormat: String) = new ExecutionContext(
     1,
     new ThreadPoolExecutor(threadNumber, threadNumber, 0L, TimeUnit.MILLISECONDS,

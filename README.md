@@ -20,6 +20,7 @@ You should pass a file with properties in both cases. The file should contain th
 | -------------                    | ------------- | ------------- | ------------- | ------------- |
 | host                             | ipv4 or ipv6 listen address. |string | 127.0.0.1| |
 | port                             | A port.  |int    |8071| |
+| ordered.execution.pool.size      | A number of pool that contains single thread executor to work with transactions. |int |4 |positive integer |
 | key                              | The key to authorize.  |string |key| |
 | active.tokens.number             | The number of active tokens a server can handle over time.  |int    |100| [1,...]|
 | token.ttl                        | The time a token live before expiration.  |int    | 120| [1,...]|

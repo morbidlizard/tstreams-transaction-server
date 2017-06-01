@@ -76,7 +76,7 @@ final class StreamPartitionClientsObserver(curatorClient: CuratorFramework,
   /**
     * Stop this Subscriber client
     */
-  def stop(): Unit = {
+  def shutdown(): Unit = {
     if (isStopped) {
       throw new IllegalStateException(
         "Producer->Subscriber notifier was stopped second time."

@@ -43,8 +43,30 @@ class StreamPartitionClientsObserverTest
       )
   }
 
+  "StreamPartitionClientsObserver" should "throws exception if it is shutdown more than once" in {
+    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
+    val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
+    val timeToUpdateMs = 200
 
-  "StreamPartitionClientsObserver" should "return none subscribers" in {
+    val observer = new StreamPartitionClientsObserver(
+      zkClient,
+      streamDatabaseZK,
+      timeToUpdateMs
+    )
+
+    observer.shutdown()
+    zkClient.close()
+    zkServer.close()
+
+    assertThrows[IllegalStateException](
+      observer.shutdown()
+    )
+  }
+
+
+
+
+  it should "return none subscribers" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
     val timeToUpdateMs = 200
@@ -70,6 +92,7 @@ class StreamPartitionClientsObserverTest
       observer.getStreamPartitionSubscribers(StreamPartitionUnit(key.id, 1)) shouldBe None
     }
 
+    observer.shutdown()
     zkClient.close()
     zkServer.close()
   }
@@ -129,6 +152,7 @@ class StreamPartitionClientsObserverTest
       }
     }
 
+    observer.shutdown()
     zkClient.close()
     zkServer.close()
   }
@@ -171,6 +195,7 @@ class StreamPartitionClientsObserverTest
       .getStreamPartitionSubscribers(StreamPartitionUnit(streamKey.id, partition)) shouldBe None
 
 
+    observer.shutdown()
     zkClient.close()
     zkServer.close()
   }

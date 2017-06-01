@@ -42,13 +42,17 @@ publishTo := {
 publishArtifact in Test := false
 assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
 
-val sroogeGenOutput = "src/main/thrift/gen"
+val sroogeGenOutput = "src/main/protocol/gen"
 ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile := new File(sroogeGenOutput)
 
 ScroogeSBT.autoImport.scroogeBuildOptions in Compile := Seq()
 unmanagedSourceDirectories in Compile += baseDirectory.value / "src/main/resources"
 managedSourceDirectories in Compile += baseDirectory.value / sroogeGenOutput
 parallelExecution in Test := false
+
+PB.targets in Compile := Seq(
+  scalapb.gen(singleLineToString = true) -> (sourceManaged in Compile).value
+)
 
 resolvers ++= Seq(
   "twitter-repo" at "https://maven.twttr.com",

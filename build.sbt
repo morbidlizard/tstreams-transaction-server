@@ -42,7 +42,7 @@ publishTo := {
 publishArtifact in Test := false
 assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
 
-val sroogeGenOutput = "src/main/protocol/gen"
+val sroogeGenOutput = "src/main/thrift/gen"
 ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile := new File(sroogeGenOutput)
 
 ScroogeSBT.autoImport.scroogeBuildOptions in Compile := Seq()

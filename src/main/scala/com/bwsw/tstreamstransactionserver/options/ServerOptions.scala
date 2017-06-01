@@ -17,6 +17,12 @@ object ServerOptions {
                               orderedExecutionPoolSize: Int = Runtime.getRuntime.availableProcessors()
                              )
 
+  /** The options are used to provide notification service for subscribers.
+    *
+    * @param updatePeriodMs delays between notifications for subscribers.
+    */
+  case class SubscriberOptions(updatePeriodMs: Int = 1000)
+
   /** The options are used to validate client requests by a server.
     *
     * @param key                the key to authorize.

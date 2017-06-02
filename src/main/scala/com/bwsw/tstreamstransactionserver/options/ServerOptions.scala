@@ -90,7 +90,7 @@ object ServerOptions {
     *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
     * @param ttlAddMs                 the time to add to [[com.bwsw.tstreamstransactionserver.rpc.StreamValue.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
     * @param transactionCacheSize     the max number of producer data units at one point of time LRU cache can contain.
-    * @param transactionDatabaseTransactionKeeptimeMin the lifetime of a producer transaction after persistence to database.(default: 6 months). If negative integer - transaction lives forever.
+    * @param transactionDatabaseTransactionKeeptimeMin the lifetime of a producer transaction after persistence to database.(default: 6 months). If negative integer - transactions aren't deleted at all.
     * @param maxBackgroundCompactions is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.
     * @param compression Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION].
     *                    If it's unimportant use a LZ4_COMPRESSION as default value.

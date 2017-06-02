@@ -12,6 +12,7 @@ import org.apache.curator.test.TestingServer
 object Utils {
   private val sessionTimeoutMillis = 1000
   private val connectionTimeoutMillis = 1000
+
   def startZkServerAndGetIt: (TestingServer, CuratorFramework) = {
     val zkServer = new TestingServer(true)
 
@@ -29,6 +30,7 @@ object Utils {
   }
 
   private val rand = scala.util.Random
+
   def getRandomStream =
     new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
       override val name: String = rand.nextInt(10000).toString
@@ -37,34 +39,6 @@ object Utils {
       override val ttl: Long = Long.MaxValue
       override val zkPath: Option[String] = None
     }
-
-//  public static int getRandomPort()
-//  {
-//    ServerSocket server = null;
-//    try
-//    {
-//      server = new ServerSocket(0);
-//      return server.getLocalPort();
-//    }
-//    catch ( IOException e )
-//    {
-//      throw new Error(e);
-//    }
-//    finally
-//    {
-//      if ( server != null )
-//      {
-//        try
-//        {
-//          server.close();
-//        }
-//        catch ( IOException ignore )
-//        {
-//          // ignore
-//        }
-//      }
-//    }
-//  }
 
   private def getRandomPort: Int = {
     scala.util.Try {

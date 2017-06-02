@@ -7,11 +7,13 @@ import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import org.rocksdb.CompressionType
 
-class OptionsLoader() {
+
+class OptionsLoader {
   require(System.getProperty(CommonOptions.propertyFileName) != null,
-    s"There is no file with properties. You should define a path to a property file through '-D${CommonOptions.propertyFileName}=<path_to_file>' " +
+    s"There is no file with properties. " +
+      s"You should define a path to a property file through '-D${CommonOptions.propertyFileName}=<path_to_file>' " +
       s"(e.g. 'java -D${CommonOptions.propertyFileName}=/home/user/config.properties " +
-      "-cp target/scala-2.12/tstreams-transaction-server-1.3.7.4-SNAPSHOT.jar:/home/user/slf4j-api-1.7.24.jar:/home/user/slf4j-simple-1.7.24.jar " +
+      s"-cp target/scala-2.12/tstreams-transaction-server-1.3.7.4-SNAPSHOT.jar:/home/user/slf4j-api-1.7.24.jar:/home/user/slf4j-simple-1.7.24.jar " +
       "com.bwsw.tstreamstransactionserver.ServerLauncher').")
 
   private val props = new Properties()
@@ -26,61 +28,210 @@ class OptionsLoader() {
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
   private val commitLogOptions = loadCommitLogOptions()
   private val zookeeperSpecificOptions = loadZookeeperSpecificOptions()
+  private val subscribersUpdateOptions = loadSubscribersUpdateOptions()
 
+  private lazy val helper = new OptionHelper(props)
 
   private def loadBootstrapOptions() = {
-    val fields = getPropertiesOf(classOf[BootstrapOptions])
+    implicit val typeTag = classOf[BootstrapOptions]
 
-    castCheck(BootstrapOptions(fields(0), fields(1).toInt, fields(2).toInt))
+    val host =
+      helper.castCheck("host", identity)
+    val port =
+      helper.castCheck("port", prop => prop.toInt)
+    val orderedExecutionPoolSize =
+      helper.castCheck("ordered.execution.pool.size", prop => prop.toInt)
+
+    BootstrapOptions(
+      host,
+      port,
+      orderedExecutionPoolSize
+    )
+  }
+
+  private def loadSubscribersUpdateOptions() = {
+    implicit val typeTag = classOf[SubscriberUpdateOptions]
+
+    val updatePeriodMs =
+      helper.castCheck("subscribers.update.period-ms", prop => prop.toInt)
+
+    val subscriberMonitoringZkEndpoints =
+      helper.castCheck("subscribers.monitoring.zk.endpoints", identity)
+
+    SubscriberUpdateOptions(
+      updatePeriodMs,
+      subscriberMonitoringZkEndpoints
+    )
   }
 
   private def loadServerAuthOptions() = {
-    val fields = getPropertiesOf(classOf[ServerOptions.AuthOptions])
+    implicit val typeTag = classOf[ServerOptions.AuthOptions]
 
-    castCheck(ServerOptions.AuthOptions(fields(0), fields(1).toInt, fields(2).toInt))
+    val key =
+      helper.castCheck("key", identity)
+
+    val activeTokensNumber =
+      helper.castCheck("active.tokens.number", prop => prop.toInt)
+
+    val tokenTTL =
+      helper.castCheck("token.ttl", prop => prop.toInt)
+
+    ServerOptions.AuthOptions(
+      key,
+      activeTokensNumber,
+      tokenTTL
+    )
   }
 
   private def loadServerStorageOptions() = {
-    val fields = getPropertiesOf(classOf[StorageOptions])
+    implicit val typeTag = classOf[StorageOptions]
 
-    castCheck(StorageOptions(fields(0), fields(1), fields(2), fields(3), fields(4), fields(5)))
+    val path =
+      helper.castCheck("path", identity)
+
+    val streamZookeeperDirectory =
+      helper.castCheck("stream.zookeeper.directory", identity)
+
+    val dataDirectory =
+      helper.castCheck("data.directory", identity)
+
+    val metadataDirectory =
+      helper.castCheck("metadata.directory", identity)
+
+    val commitLogDirectory =
+      helper.castCheck("commit.log.directory", identity)
+
+    val commitLogRocksDirectory =
+      helper.castCheck("commit.log.rocks.directory", identity)
+
+    StorageOptions(
+      path,
+      streamZookeeperDirectory,
+      dataDirectory,
+      metadataDirectory,
+      commitLogDirectory,
+      commitLogRocksDirectory
+    )
   }
 
   private def loadServerReplicationOptions() = {
-    val fields = getPropertiesOf(classOf[ServerReplicationOptions])
-
-    castCheck(ServerReplicationOptions(fields(0), fields(1), fields(2), fields(3)))
+    ServerReplicationOptions()
   }
 
   private def loadServerRocksStorageOptions() = {
-    val fields = getPropertiesOf(classOf[RocksStorageOptions])
+    implicit val typeTag = classOf[RocksStorageOptions]
 
-    castCheck(RocksStorageOptions(fields(0).toInt, fields(1).toInt, fields(2).toInt,
-      fields(3).toInt, fields(4).toInt, CompressionType.getCompressionType(fields(5)), fields(6).toBoolean))
+    val writeThreadPool =
+      helper.castCheck("write.thread.pool", prop => prop.toInt)
+
+    val readThreadPool =
+      helper.castCheck("read.thread.pool",  prop => prop.toInt)
+
+    val ttlAddMs =
+      helper.castCheck("ttl.add-ms",  prop => prop.toInt)
+
+    val transactionCacheSize =
+      helper.castCheck("transaction.cache.size",  prop => prop.toInt)
+
+    val maxBackgroundCompactions =
+      helper.castCheck("max.background.compactions",  prop => prop.toInt)
+
+    val compression =
+      helper.castCheck("compression", prop => CompressionType.getCompressionType(prop))
+
+    val useFsync =
+      helper.castCheck("use.fsync", prop => prop.toBoolean)
+
+    RocksStorageOptions(
+      writeThreadPool,
+      readThreadPool,
+      ttlAddMs,
+      transactionCacheSize,
+      maxBackgroundCompactions,
+      compression,
+      useFsync
+    )
   }
 
   private def loadZookeeperOptions() = {
-    val fields = getPropertiesOf(classOf[ZookeeperOptions], "zk.")
+    implicit val typeTag = classOf[ZookeeperOptions]
 
-    castCheck(ZookeeperOptions(fields(0), fields(1), fields(2).toInt, fields(3).toInt, fields(4).toInt))
+    val endpoints =
+      helper.castCheck("zk.endpoints", identity)
+
+    val prefix =
+      helper.castCheck("zk.prefix", identity)
+
+    val sessionTimeoutMs =
+      helper.castCheck("zk.session.timeout-ms", prop => prop.toInt)
+
+    val retryDelayMs =
+      helper.castCheck("zk.retry.delay-ms", prop => prop.toInt)
+
+    val connectionTimeoutMs =
+      helper.castCheck("zk.connection.timeout-ms", prop => prop.toInt)
+
+    ZookeeperOptions(
+      endpoints,
+      prefix,
+      sessionTimeoutMs,
+      retryDelayMs,
+      connectionTimeoutMs
+    )
   }
 
   private def loadPackageTransmissionOptions() = {
-    val fields = getPropertiesOf(classOf[TransportOptions])
+    implicit val typeTag = classOf[TransportOptions]
 
-    castCheck(TransportOptions(fields(0).toInt, fields(1).toInt))
+    val maxMetadataPackageSize =
+      helper.castCheck("max.metadata.package.size", prop => prop.toInt)
+
+    val maxDataPackageSize =
+      helper.castCheck("max.data.package.size", prop => prop.toInt)
+
+    TransportOptions(
+      maxMetadataPackageSize,
+      maxDataPackageSize
+    )
   }
 
   private def loadCommitLogOptions() = {
-    val fields = getPropertiesOf(classOf[CommitLogOptions])
+    implicit val typeTag = classOf[CommitLogOptions]
 
-    castCheck(CommitLogOptions(CommitLogWriteSyncPolicy.withName(fields(0)), fields(1).toInt, IncompleteCommitLogReadPolicy.withName(fields(2)), fields(3).toInt, fields(4).toInt))
+    val commitLogWriteSyncPolicy =
+      helper.castCheck("commit.log.write.sync.policy", prop => CommitLogWriteSyncPolicy.withName(prop))
+
+    val commitLogWriteSyncValue =
+      helper.castCheck("commit.log.write.sync.value", prop => prop.toInt)
+
+    val incompleteCommitLogReadPolicy =
+      helper.castCheck("incomplete.commit.log.read.policy", prop => IncompleteCommitLogReadPolicy.withName(prop))
+
+    val commitLogCloseDelayMs =
+      helper.castCheck("commit.log.close.delay-ms", prop => prop.toInt)
+
+    val commitLogFileTtlSec =
+      helper.castCheck("commit.log.file.ttl-sec", prop => prop.toInt)
+
+
+    CommitLogOptions(
+      commitLogWriteSyncPolicy,
+      commitLogWriteSyncValue,
+      incompleteCommitLogReadPolicy,
+      commitLogCloseDelayMs,
+      commitLogFileTtlSec
+    )
   }
 
   private def loadZookeeperSpecificOptions() = {
-    val fields = getPropertiesOf(classOf[ServerOptions.ZooKeeperOptions])
+    implicit val typeTag = classOf[ServerOptions.ZooKeeperOptions]
 
-    castCheck(ServerOptions.ZooKeeperOptions(fields(0)))
+    val counterPathFileIdGen =
+      helper.castCheck("counter.path.file.id.gen", identity)
+
+    ServerOptions.ZooKeeperOptions(
+      counterPathFileIdGen
+    )
   }
 
   private def getPropertiesOf(_class: Class[_], prefix: String = "") = {
@@ -144,5 +295,9 @@ class OptionsLoader() {
 
   def getZookeeperSpecificOptions = {
     zookeeperSpecificOptions
+  }
+
+  def getSubscribersUpdateOptions = {
+    subscribersUpdateOptions
   }
 }

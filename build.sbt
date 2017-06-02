@@ -50,6 +50,10 @@ unmanagedSourceDirectories in Compile += baseDirectory.value / "src/main/resourc
 managedSourceDirectories in Compile += baseDirectory.value / sroogeGenOutput
 parallelExecution in Test := false
 
+PB.targets in Compile := Seq(
+  scalapb.gen(singleLineToString = true) -> (sourceManaged in Compile).value
+)
+
 resolvers ++= Seq(
   "twitter-repo" at "https://maven.twttr.com",
   "Oracle Maven2 Repo" at "http://download.oracle.com/maven",

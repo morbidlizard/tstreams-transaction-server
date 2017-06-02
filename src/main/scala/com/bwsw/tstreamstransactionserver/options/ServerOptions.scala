@@ -17,13 +17,25 @@ object ServerOptions {
                               orderedExecutionPoolSize: Int = Runtime.getRuntime.availableProcessors()
                              )
 
+  /** The options are used to provide notification service for subscribers.
+    *
+    * @param updatePeriodMs delay in milliseconds between updates of current subscribers online.
+    * @param subscriberMonitoringZkEndpoints the socket address(es) of ZooKeeper servers.
+    */
+  case class SubscriberUpdateOptions(updatePeriodMs: Int = 1000,
+                                     subscriberMonitoringZkEndpoints: String = ""
+                                    )
+
   /** The options are used to validate client requests by a server.
     *
     * @param key                the key to authorize.
     * @param activeTokensNumber the number of active tokens a server can handle over time.
-    * @param tokenTtl           the time a token live before expiration.
+    * @param tokenTTL           the time a token live before expiration.
     */
-  case class AuthOptions(key: String = "", activeTokensNumber: Int = 100, tokenTtl: Int = 300)
+  case class AuthOptions(key: String = "",
+                         activeTokensNumber: Int = 100,
+                         tokenTTL: Int = 300
+                        )
 
   /** The options are used to define folders for databases.
     *
@@ -35,12 +47,16 @@ object ServerOptions {
     * @param commitLogRocksDirectory the path where rocksdb with persisted commit log files is placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     *
     */
-  case class StorageOptions(path: String = "/tmp", streamZookeeperDirectory: String = "/tts/streams",
-                            dataDirectory: String = "transaction_data", metadataDirectory: String = "transaction_metadata",
-                            commitLogDirectory: String = "commit_log", commitLogRocksDirectory: String = "commit_log_rocks" //,
+  case class StorageOptions(path: String = "/tmp",
+                            streamZookeeperDirectory: String = "/tts/streams",
+                            dataDirectory: String = "transaction_data",
+                            metadataDirectory: String = "transaction_metadata",
+                            commitLogDirectory: String = "commit_log",
+                            commitLogRocksDirectory: String = "commit_log_rocks" //,
                             /** streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
                               * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
-                              * berkeleyReadThreadPool: Int = 2 */)
+                              * berkeleyReadThreadPool: Int = 2 */
+                           )
 
   /** The options for generating id for a new commit log file.
     *
@@ -55,7 +71,11 @@ object ServerOptions {
     * @param name ???
     * @param group ???
     */
-  case class ServerReplicationOptions(authKey: String = "server_group", endpoints: String = "127.0.0.1:8071", name: String = "server", group: String = "group")
+  case class ServerReplicationOptions(authKey: String = "server_group",
+                                      endpoints: String = "127.0.0.1:8071",
+                                      name: String = "server",
+                                      group: String = "group"
+                                     )
 
   /** The options are applied on creation Rocksdb database.
     * For all rocksDB options look: https: //github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h
@@ -125,7 +145,9 @@ object ServerOptions {
     *                           If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client.
     *                           If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset.
     */
-  case class TransportOptions(maxMetadataPackageSize: Int = 100000000, maxDataPackageSize: Int = 100000000)
+  case class TransportOptions(maxMetadataPackageSize: Int = 100000000,
+                              maxDataPackageSize: Int = 100000000
+                             )
 
   /** The options are applied when processing commit log files.
     *

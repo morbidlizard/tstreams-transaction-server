@@ -8,7 +8,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: CommonOptions.
                             bootstrapOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
                             storageOpts: StorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOpts: CommitLogOptions,
                             packageTransmissionOpts: TransportOptions, zookeeperSpecificOpt: ServerOptions.ZooKeeperOptions,
-                            subscriberOpts: SubscriberUpdateOptions) {
+                            subscriberUpdateOpts: SubscriberUpdateOptions) {
   private val authOptions = authOpts
   private val zookeeperOptions = zookeeperOpts
   private val bootstrapOptions = bootstrapOpts
@@ -18,7 +18,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: CommonOptions.
   private val commitLogOptions = commitLogOpts
   private val packageTransmissionOptions = packageTransmissionOpts
   private val zookeeperSpecificOptions = zookeeperSpecificOpt
-  private val subscribersUpdateOptions = subscriberOpts
+  private val subscribersUpdateOptions = subscriberUpdateOpts
 
   def this() = this(
     AuthOptions(), CommonOptions.ZookeeperOptions(),

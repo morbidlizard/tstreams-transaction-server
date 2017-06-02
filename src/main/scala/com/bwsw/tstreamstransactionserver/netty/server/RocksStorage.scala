@@ -1,6 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 
+import java.util.concurrent.TimeUnit
+
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDatabaseDescriptor}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
@@ -15,7 +17,10 @@ class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions) 
       RocksDatabaseDescriptor("LastCheckpointedTransactionStorage".getBytes(), columnFamilyOptions),
       RocksDatabaseDescriptor("ConsumerStore".getBytes(),                      columnFamilyOptions),
       RocksDatabaseDescriptor("CommitLogStore".getBytes(),                     columnFamilyOptions),
-      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                columnFamilyOptions),
+      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),
+        columnFamilyOptions,
+        TimeUnit.MINUTES.toMillis(rocksOpts.transactionDatabaseTransactionKeeptimeMin).toInt
+      ),
       RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions)
     )
   )

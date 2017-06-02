@@ -15,7 +15,7 @@ class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions) 
       RocksDatabaseDescriptor("LastCheckpointedTransactionStorage".getBytes(), columnFamilyOptions),
       RocksDatabaseDescriptor("ConsumerStore".getBytes(),                      columnFamilyOptions),
       RocksDatabaseDescriptor("CommitLogStore".getBytes(),                     columnFamilyOptions),
-      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                columnFamilyOptions),
+      RocksDatabaseDescriptor("TransactionAllStore".getBytes(),                columnFamilyOptions, rocksOpts.transactionDatabaseTransactionKeeptimeMin),
       RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions)
     )
   )

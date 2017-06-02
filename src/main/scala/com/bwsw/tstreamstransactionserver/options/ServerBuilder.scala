@@ -8,7 +8,7 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: CommonOptions.
                             bootstrapOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
                             storageOpts: StorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOpts: CommitLogOptions,
                             packageTransmissionOpts: TransportOptions, zookeeperSpecificOpt: ServerOptions.ZooKeeperOptions,
-                            subscriberOpts: SubscriberOptions) {
+                            subscriberOpts: SubscriberUpdateOptions) {
   private val authOptions = authOpts
   private val zookeeperOptions = zookeeperOpts
   private val bootstrapOptions = bootstrapOpts
@@ -18,45 +18,45 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: CommonOptions.
   private val commitLogOptions = commitLogOpts
   private val packageTransmissionOptions = packageTransmissionOpts
   private val zookeeperSpecificOptions = zookeeperSpecificOpt
-  private val subscriberOptions = subscriberOpts
+  private val subscribersUpdateOptions = subscriberOpts
 
   def this() = this(
     AuthOptions(), CommonOptions.ZookeeperOptions(),
     BootstrapOptions(), ServerReplicationOptions(),
     StorageOptions(), RocksStorageOptions(), CommitLogOptions(),
     TransportOptions(), ServerOptions.ZooKeeperOptions(),
-    SubscriberOptions()
+    SubscriberUpdateOptions()
   )
 
   def withAuthOptions(authOptions: AuthOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withZookeeperOptions(zookeeperOptions: ZookeeperOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withBootstrapOptions(bootstrapOptions: BootstrapOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withServerReplicationOptions(serverReplicationOptions: ServerReplicationOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withServerStorageOptions(serverStorageOptions: StorageOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, serverStorageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, serverStorageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withServerRocksStorageOptions(serverStorageRocksOptions: RocksStorageOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, serverStorageRocksOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, serverStorageRocksOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withCommitLogOptions(commitLogOptions: CommitLogOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withPackageTransmissionOptions(packageTransmissionOptions: TransportOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withZooKeeperSpecificOption(zookeeperSpecificOptions: ServerOptions.ZooKeeperOptions) =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
-  def withSubscriberOptions(subscriberOptions: SubscriberOptions): ServerBuilder =
-    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberOptions)
+  def withSubscribersUpdateOptions(subscriberUpdateOptions: SubscriberUpdateOptions): ServerBuilder =
+    new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscriberUpdateOptions)
 
 
   def build() = new Server(
@@ -83,5 +83,5 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: CommonOptions.
 
   def getZookeeperSpecificOptions = zookeeperSpecificOptions.copy()
 
-  def getSubscriberOptions = subscriberOptions.copy()
+  def getSubscribersUpdateOptions = subscribersUpdateOptions.copy()
 }

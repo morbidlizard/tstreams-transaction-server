@@ -8,14 +8,14 @@ import org.apache.curator.framework.CuratorFramework
 import org.slf4j.{Logger, LoggerFactory}
 
 
-private object StreamPartitionClientsObserver {
+private object SubscribersObserver {
   val logger: Logger = LoggerFactory.getLogger(this.getClass)
 }
 
 
-final class StreamPartitionClientsObserver(curatorClient: CuratorFramework,
-                                           streamCRUD: StreamCRUD,
-                                           updatePeriodMs: Int)
+final class SubscribersObserver(curatorClient: CuratorFramework,
+                                streamInteractor: StreamCRUD,
+                                updatePeriodMs: Int)
 {
   @volatile private var isStopped = false
 
@@ -29,7 +29,11 @@ final class StreamPartitionClientsObserver(curatorClient: CuratorFramework,
     override def run(): Unit = {
       val keys = partitionSubscribers.keys()
       while (keys.hasMoreElements) {
-        updateSubscribers(keys.nextElement())
+        val streamPartition = keys.nextElement()
+        updateSubscribers(
+          streamPartition.streamID,
+          streamPartition.partition
+        )
       }
     }
   }
@@ -47,10 +51,12 @@ final class StreamPartitionClientsObserver(curatorClient: CuratorFramework,
   runSubscriberUpdateTask()
 
 
-  def addSteamPartition(streamPartition: StreamPartitionUnit): Unit =
-    updateSubscribers(streamPartition)
+  def addSteamPartition(stream: Int, partition: Int): Unit = {
+    updateSubscribers(stream, partition)
+  }
 
-  def getStreamPartitionSubscribers(streamPartition: StreamPartitionUnit): Option[util.List[String]] = {
+  def getStreamPartitionSubscribers(stream: Int, partition: Int): Option[util.List[String]] = {
+    val streamPartition = StreamPartitionUnit(stream, partition)
     Option(partitionSubscribers.get(streamPartition))
   }
 
@@ -58,8 +64,9 @@ final class StreamPartitionClientsObserver(curatorClient: CuratorFramework,
   /**
     * Update subscribers on specific partition
     */
-  private def updateSubscribers(streamPartition: StreamPartitionUnit): Unit = {
-    streamCRUD.getStream(StreamKey(streamPartition.streamID)).foreach {
+  private def updateSubscribers(stream: Int, partition: Int): Unit = {
+    val streamPartition = StreamPartitionUnit(stream, partition)
+    streamInteractor.getStream(StreamKey(streamPartition.streamID)).foreach {
       stream =>
         scala.util.Try(
           curatorClient.getChildren

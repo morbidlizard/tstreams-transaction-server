@@ -26,7 +26,7 @@ class OptionsLoader() {
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
   private val commitLogOptions = loadCommitLogOptions()
   private val zookeeperSpecificOptions = loadZookeeperSpecificOptions()
-  private val subscriberOptions = loadSubscriberOptions()
+  private val subscribersUpdateOptions = loadSubscribersUpdateOptions()
 
 
   private def loadBootstrapOptions() = {
@@ -35,10 +35,10 @@ class OptionsLoader() {
     castCheck(BootstrapOptions(fields(0), fields(1).toInt, fields(2).toInt))
   }
 
-  private def loadSubscriberOptions() = {
-    val fields = getPropertiesOf(classOf[SubscriberOptions])
+  private def loadSubscribersUpdateOptions() = {
+    val fields = getPropertiesOf(classOf[SubscriberUpdateOptions])
 
-    castCheck(SubscriberOptions(fields(0).toInt))
+    castCheck(SubscriberUpdateOptions(fields(0).toInt))
   }
 
   private def loadServerAuthOptions() = {
@@ -153,7 +153,7 @@ class OptionsLoader() {
     zookeeperSpecificOptions
   }
 
-  def getSubscriberOptions = {
-    subscriberOptions
+  def getSubscribersUpdateOptions = {
+    subscribersUpdateOptions
   }
 }

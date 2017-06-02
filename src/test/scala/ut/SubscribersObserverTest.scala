@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamValue}
-import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{StreamPartitionClientsObserver, StreamPartitionUnit}
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{SubscribersObserver, StreamPartitionUnit}
 import org.apache.curator.framework.CuratorFramework
 import org.apache.zookeeper.CreateMode
 import org.scalatest.{FlatSpec, Matchers}
@@ -13,12 +13,12 @@ import util.Utils
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class StreamPartitionClientsObserverTest
+class SubscribersObserverTest
   extends FlatSpec
     with Matchers
 {
 
-  private def putSubscriberOnStream(client: CuratorFramework,
+  private def putSubscriberInStream(client: CuratorFramework,
                                     path: String,
                                     partition: Int,
                                     subscriber: String
@@ -32,7 +32,7 @@ class StreamPartitionClientsObserverTest
       )
   }
 
-  private def deleteSubscriberOnStream(client: CuratorFramework,
+  private def deleteSubscriberInStream(client: CuratorFramework,
                                        path: String,
                                        partition: Int,
                                        subscriber: String
@@ -43,12 +43,12 @@ class StreamPartitionClientsObserverTest
       )
   }
 
-  "StreamPartitionClientsObserver" should "throws exception if it is shutdown more than once" in {
+  "Subscribers observer" should "throws exception if it is shutdown more than once" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
     val timeToUpdateMs = 200
 
-    val observer = new StreamPartitionClientsObserver(
+    val observer = new SubscribersObserver(
       zkClient,
       streamDatabaseZK,
       timeToUpdateMs
@@ -71,7 +71,7 @@ class StreamPartitionClientsObserverTest
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
     val timeToUpdateMs = 200
 
-    val observer = new StreamPartitionClientsObserver(
+    val observer = new SubscribersObserver(
       zkClient,
       streamDatabaseZK,
       timeToUpdateMs
@@ -83,13 +83,13 @@ class StreamPartitionClientsObserverTest
       val streamBody = StreamValue(index.toString, 100, None, 1000L, None)
       streamKeys += streamDatabaseZK.putStream(streamBody)
 
-      observer.addSteamPartition(StreamPartitionUnit(index, rand.nextInt(100)))
+      observer.addSteamPartition(index, rand.nextInt(100))
     }
 
     TimeUnit.MILLISECONDS.sleep(timeToUpdateMs)
 
     streamKeys foreach {key =>
-      observer.getStreamPartitionSubscribers(StreamPartitionUnit(key.id, 1)) shouldBe None
+      observer.getStreamPartitionSubscribers(key.id, 1) shouldBe None
     }
 
     observer.shutdown()
@@ -106,7 +106,7 @@ class StreamPartitionClientsObserverTest
     val partitionMax = 7
     val subscriberMax = 5
 
-    val observer = new StreamPartitionClientsObserver(
+    val observer = new SubscribersObserver(
       zkClient,
       streamDatabaseZK,
       timeToUpdateMs
@@ -129,7 +129,7 @@ class StreamPartitionClientsObserverTest
         val subscriberNumber = rand.nextInt(subscriberMax)
         streamPartitionSubscribersNumber.put((streamID, partition), subscriberNumber + 1)
         (0 to subscriberNumber) foreach { subscriber =>
-          putSubscriberOnStream(zkClient, pathToStream, partition, subscriber.toString)
+          putSubscriberInStream(zkClient, pathToStream, partition, subscriber.toString)
         }
         streamPartitions.get(streamID) match {
           case None =>
@@ -137,7 +137,7 @@ class StreamPartitionClientsObserverTest
           case Some(acc) =>
             acc += partition
         }
-        observer.addSteamPartition(StreamPartitionUnit(streamID, partition))
+        observer.addSteamPartition(streamID, partition)
       }
     }
 
@@ -146,7 +146,7 @@ class StreamPartitionClientsObserverTest
     streamKeys foreach {key =>
       streamPartitions(key.id).foreach{partition =>
         val subscriberNumber = observer
-          .getStreamPartitionSubscribers(StreamPartitionUnit(key.id, partition))
+          .getStreamPartitionSubscribers(key.id, partition)
           .get.size
         subscriberNumber shouldBe streamPartitionSubscribersNumber(key.id, partition)
       }
@@ -163,7 +163,7 @@ class StreamPartitionClientsObserverTest
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
     val timeToUpdateMs = 200
 
-    val observer = new StreamPartitionClientsObserver(
+    val observer = new SubscribersObserver(
       zkClient,
       streamDatabaseZK,
       timeToUpdateMs
@@ -174,25 +174,25 @@ class StreamPartitionClientsObserverTest
     val streamRecord = streamDatabaseZK.getStream(streamKey).get
     val partition  = 1
 
-    observer.addSteamPartition(StreamPartitionUnit(streamKey.id, partition))
+    observer.addSteamPartition(streamKey.id, partition)
     TimeUnit.MILLISECONDS.sleep(timeToUpdateMs)
 
     observer
-      .getStreamPartitionSubscribers(StreamPartitionUnit(streamKey.id, partition)) shouldBe None
+      .getStreamPartitionSubscribers(streamKey.id, partition) shouldBe None
 
-    putSubscriberOnStream(zkClient, streamRecord.zkPath, partition, "test")
-    observer.addSteamPartition(StreamPartitionUnit(streamKey.id, partition))
+    putSubscriberInStream(zkClient, streamRecord.zkPath, partition, "test")
+    observer.addSteamPartition(streamKey.id, partition)
     TimeUnit.MILLISECONDS.sleep(timeToUpdateMs)
 
     observer
-      .getStreamPartitionSubscribers(StreamPartitionUnit(streamKey.id, partition))
+      .getStreamPartitionSubscribers(streamKey.id, partition)
       .get.get(0) shouldBe "test"
 
-    deleteSubscriberOnStream(zkClient, streamRecord.zkPath, partition, "test")
+    deleteSubscriberInStream(zkClient, streamRecord.zkPath, partition, "test")
     TimeUnit.MILLISECONDS.sleep(timeToUpdateMs)
 
     observer
-      .getStreamPartitionSubscribers(StreamPartitionUnit(streamKey.id, partition)) shouldBe None
+      .getStreamPartitionSubscribers(streamKey.id, partition) shouldBe None
 
 
     observer.shutdown()

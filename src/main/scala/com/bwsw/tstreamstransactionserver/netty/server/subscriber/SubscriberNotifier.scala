@@ -5,12 +5,12 @@ import java.net.{DatagramSocket, InetAddress}
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import org.slf4j.{Logger, LoggerFactory}
 
-private object Broadcast {
+private object SubscriberNotifier {
   val logger: Logger = LoggerFactory.getLogger(this.getClass)
 }
 
 
-class Broadcast {
+class SubscriberNotifier {
   @volatile private var isStopped = false
 
   private val clientSocket =
@@ -21,8 +21,8 @@ class Broadcast {
     if (!subscribers.isEmpty && !isStopped) {
       val binaryMessage = message.toByteArray
 
-      if (Broadcast.logger.isDebugEnabled())
-        Broadcast.logger.debug(
+      if (SubscriberNotifier.logger.isDebugEnabled())
+        SubscriberNotifier.logger.debug(
           s"Subscribers to broadcast: $subscribers"
         )
 
@@ -46,7 +46,7 @@ class Broadcast {
             isSent = true
           } catch {
             case e: Exception =>
-              Broadcast.logger
+              SubscriberNotifier.logger
                 .warn(s"Send $message to $host:$port failed. Exception is: $e")
           }
         }

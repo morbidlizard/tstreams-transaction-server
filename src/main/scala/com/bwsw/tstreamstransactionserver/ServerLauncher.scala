@@ -10,7 +10,7 @@ object ServerLauncher {
     val builder = new ServerBuilder()
     val server = builder
       .withBootstrapOptions(optionsLoader.getBootstrapOptions)
-      .withSubscriberOptions(optionsLoader.getSubscriberOptions)
+      .withSubscribersUpdateOptions(optionsLoader.getSubscribersUpdateOptions)
       .withAuthOptions(optionsLoader.getServerAuthOptions)
       .withServerReplicationOptions(optionsLoader.getServerReplicationOptions)
       .withServerStorageOptions(optionsLoader.getServerStorageOptions)

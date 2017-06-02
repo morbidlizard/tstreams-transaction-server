@@ -19,11 +19,11 @@ object ServerOptions {
 
   /** The options are used to provide notification service for subscribers.
     *
-    * @param updatePeriodMs delay in milliseconds between updates of current subscribers online.
-    * @param subscriberMonitoringZkEndpoints the socket address(es) of ZooKeeper servers.
+    * @param subscribersUpdatePeriodMs delay in milliseconds between updates of current subscribers online.
+    * @param subscriberMonitoringZkEndpoints The zookeeper server(s) connect to.
     */
-  case class SubscriberUpdateOptions(updatePeriodMs: Int = 1000,
-                                     subscriberMonitoringZkEndpoints: String = ""
+  case class SubscriberUpdateOptions(subscribersUpdatePeriodMs: Int = 1000,
+                                     subscriberMonitoringZkEndpoints: String = "127.0.0.1:37001"
                                     )
 
   /** The options are used to validate client requests by a server.

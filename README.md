@@ -22,7 +22,7 @@ You should pass a file with properties in both cases. The file should contain th
 | port                             | A port.  |int    |8071| |
 | ordered.execution.pool.size      | A number of pool that contains single thread executor to work with transactions. |int |4 |positive integer |
 | subscribers.update.period-ms     | Delay in milliseconds between updates of current subscribers online. | int | 1000| positive integer| 
-| subscribers.monitoring.zk.endpoints | The zookeeper server connect to |string| 127.0.0.1:2181,127.0.0.1:2182 |[ipv4 or ivp6]:[port],[ipv4 or ivp6]:[port]* |
+| subscribers.monitoring.zk.endpoints | The zookeeper server(s) connect to |string| 127.0.0.1:2181,127.0.0.1:2182 |[ipv4 or ivp6]:[port],[ipv4 or ivp6]:[port]* |
 | key                              | The key to authorize.  |string |key| |
 | active.tokens.number             | The number of active tokens a server can handle over time.  |int    |100| [1,...]|
 | token.ttl                        | The time a token live before expiration.  |int    | 120| [1,...]|

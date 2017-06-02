@@ -234,33 +234,6 @@ class OptionsLoader {
     )
   }
 
-  private def getPropertiesOf(_class: Class[_], prefix: String = "") = {
-    def getProperty(name: String) = {
-      val propertyName = createPropertyName(name, prefix)
-
-      Option(props.getProperty(propertyName)) match {
-        case Some(property) => property
-        case None => throw new NoSuchElementException(s"No property by key: '$propertyName' has been found for '${_class.getSimpleName}'. " +
-          s"You should define it and restart the program.")
-      }
-    }
-
-    def createPropertyName(name: String, prefix: String) = {
-      prefix + (if (name.toLowerCase != name) name.replaceAll("([A-Z])", ".$1").toLowerCase() else name)
-    }
-
-    _class.getDeclaredFields.map(_.getName).map(getProperty)
-  }
-
-  private def castCheck[T](constructor: => T): T = {
-    try {
-      constructor
-    } catch {
-      case _: IllegalArgumentException =>
-        throw new IllegalArgumentException(s"Some property(ies) has got an invalid format (inconsistency between types).")
-    }
-  }
-
   def getServerAuthOptions = {
     serverAuthOptions
   }

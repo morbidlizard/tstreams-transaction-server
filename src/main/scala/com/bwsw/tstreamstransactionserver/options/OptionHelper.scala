@@ -1,7 +1,6 @@
 package com.bwsw.tstreamstransactionserver.options
 
 import java.util.Properties
-import scala.reflect.runtime.universe._
 
 class OptionHelper(properties: Properties) {
   def checkPropertyOnExistence(property: String)(classType: Class[_]): String = {

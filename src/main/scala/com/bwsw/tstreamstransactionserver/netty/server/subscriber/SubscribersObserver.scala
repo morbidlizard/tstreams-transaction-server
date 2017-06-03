@@ -2,6 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.subscriber
 
 import java.util
 import java.util.concurrent.{Executors, TimeUnit}
+import java.util.function
 
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey}
 import org.apache.curator.framework.CuratorFramework
@@ -52,7 +53,10 @@ private[subscriber] final class SubscribersObserver(curatorClient: CuratorFramew
 
 
   def addSteamPartition(stream: Int, partition: Int): Unit = {
-    updateSubscribers(stream, partition)
+    val streamPartition = StreamPartitionUnit(stream, partition)
+    if (!partitionSubscribers.containsKey(streamPartition)) {
+      updateSubscribers(stream, partition)
+    }
   }
 
   def getStreamPartitionSubscribers(stream: Int, partition: Int): Option[util.List[String]] = {

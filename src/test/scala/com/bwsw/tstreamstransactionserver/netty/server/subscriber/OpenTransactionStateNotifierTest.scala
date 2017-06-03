@@ -41,6 +41,8 @@ class OpenTransactionStateNotifierTest
       .addSteamPartition(streamKey.id, partition)
 
     val transactionID = 1L
+    val count = -1
+    val status = TransactionState.Status.Opened
     val ttlMs = 120L
     val authKey = ""
     val isNotReliable = false
@@ -48,6 +50,8 @@ class OpenTransactionStateNotifierTest
       streamRecord.id,
       partition,
       transactionID,
+      count,
+      status,
       ttlMs,
       authKey,
       isNotReliable
@@ -99,6 +103,8 @@ class OpenTransactionStateNotifierTest
 
     val fakeStreamID = -200
     val transactionID = 1L
+    val count = -1
+    val status = TransactionState.Status.Opened
     val ttlMs = 120L
     val authKey = ""
     val isNotReliable = false
@@ -106,6 +112,8 @@ class OpenTransactionStateNotifierTest
       fakeStreamID,
       partition,
       transactionID,
+      count,
+      status,
       ttlMs,
       authKey,
       isNotReliable
@@ -156,6 +164,8 @@ class OpenTransactionStateNotifierTest
       .addSteamPartition(streamKey.id, partition)
 
     val transactionID = 1L
+    val count = -1
+    val status = TransactionState.Status.Opened
     val ttlMs = 120L
     val authKey = ""
     val isNotReliable = false
@@ -163,6 +173,8 @@ class OpenTransactionStateNotifierTest
       streamRecord.id,
       partition,
       transactionID,
+      count,
+      status,
       ttlMs,
       authKey,
       isNotReliable

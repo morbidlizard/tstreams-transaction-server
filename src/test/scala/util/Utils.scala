@@ -8,6 +8,7 @@ import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions,
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.test.TestingServer
+import org.apache.zookeeper.CreateMode
 
 object Utils {
   private val sessionTimeoutMillis = 1000
@@ -40,7 +41,7 @@ object Utils {
       override val zkPath: Option[String] = None
     }
 
-  private def getRandomPort: Int = {
+  def getRandomPort: Int = {
     scala.util.Try {
       new ServerSocket(0)
     }.map { server =>

@@ -10,7 +10,7 @@ private object SubscriberNotifier {
 }
 
 
-class SubscriberNotifier {
+private[subscriber] class SubscriberNotifier {
   @volatile private var isStopped = false
 
   private val clientSocket =
@@ -18,7 +18,9 @@ class SubscriberNotifier {
 
   def broadcast(subscribers: java.util.Collection[String],
                 message: TransactionState): Unit = {
-    if (!subscribers.isEmpty && !isStopped) {
+    if (subscribers.isEmpty || isStopped) {
+      //do nothing
+    } else {
       val binaryMessage = message.toByteArray
 
       if (SubscriberNotifier.logger.isDebugEnabled())

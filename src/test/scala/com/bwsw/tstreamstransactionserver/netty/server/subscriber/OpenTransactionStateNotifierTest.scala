@@ -1,8 +1,7 @@
-package ut
+package com.bwsw.tstreamstransactionserver.netty.server.subscriber
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamValue
-import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import org.scalatest.{FlatSpec, Matchers}
 import util.{SubscriberUtils, UdpServer, Utils}

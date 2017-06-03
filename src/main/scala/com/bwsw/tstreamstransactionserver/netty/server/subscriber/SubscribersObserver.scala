@@ -13,7 +13,7 @@ private object SubscribersObserver {
 }
 
 
-final class SubscribersObserver(curatorClient: CuratorFramework,
+private[subscriber] final class SubscribersObserver(curatorClient: CuratorFramework,
                                 streamInteractor: StreamCRUD,
                                 updatePeriodMs: Int)
 {

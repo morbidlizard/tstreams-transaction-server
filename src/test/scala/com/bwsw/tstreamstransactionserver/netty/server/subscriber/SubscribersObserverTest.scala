@@ -1,10 +1,9 @@
-package ut
+package com.bwsw.tstreamstransactionserver.netty.server.subscriber
 
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamValue}
-import com.bwsw.tstreamstransactionserver.netty.server.subscriber.SubscribersObserver
 import org.scalatest.{FlatSpec, Matchers}
 import util.{SubscriberUtils, Utils}
 

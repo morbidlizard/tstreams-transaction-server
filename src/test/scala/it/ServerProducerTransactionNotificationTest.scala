@@ -34,6 +34,7 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
+  private val serverSubscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
   def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -46,7 +47,8 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
-      packageTransmissionOpts = serverPackageTransmissionOptions
+      packageTransmissionOpts = serverPackageTransmissionOptions,
+      subscribersUpdateOptions = serverSubscriberUpdateOptions
     )
 
     val latch = new CountDownLatch(1)
@@ -224,14 +226,17 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
     val partition = 1
 
-    val transactionID = System.currentTimeMillis()
     val latch1 = new CountDownLatch(1)
     transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
-      producerTransaction.transactionID == transactionID && producerTransaction.state == TransactionStates.Checkpointed,
+      producerTransaction.state == TransactionStates.Checkpointed,
       latch1.countDown()
     )
 
-    client.putSimpleTransactionAndData(streamID, partition, transactionID, Seq(Array[Byte]()))
+    val transactionID = Await.result(
+      client.putSimpleTransactionAndData(streamID, partition, Seq(Array[Byte]())),
+      secondsWait.seconds
+    )
+
     latch1.await(3, TimeUnit.SECONDS) shouldBe true
 
     val res = Await.result(client.getTransaction(streamID, partition, transactionID), secondsWait.seconds)
@@ -244,50 +249,44 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
     val partition = 1
 
-    val transactionID = System.currentTimeMillis()
     val latch1 = new CountDownLatch(1)
     transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
-      producerTransaction.transactionID == transactionID && producerTransaction.state == TransactionStates.Checkpointed,
+      producerTransaction.state == TransactionStates.Checkpointed,
       latch1.countDown()
     )
 
-    client.putSimpleTransactionAndDataWithoutResponse(streamID, partition, transactionID, Seq(Array[Byte]()))
-    latch1.await(3, TimeUnit.SECONDS) shouldBe true
+    client.putSimpleTransactionAndDataWithoutResponse(streamID, partition, Seq(Array[Byte]()))
 
-    val res = Await.result(client.getTransaction(streamID, partition, transactionID), secondsWait.seconds)
-    res._2.get shouldBe ProducerTransaction(streamID, partition, transactionID, TransactionStates.Checkpointed, 1, 120L)
-    res.exists shouldBe true
+    latch1.await(3, TimeUnit.SECONDS) shouldBe true
   }
 
   it should "put 'simple' producer transactions and should get them all" in {
     val stream = getRandomStream
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val putCounter = new CountDownLatch(1)
-
     val ALL = 80
-    var currentTime = System.currentTimeMillis()
-    val transactions = for (i <- 0 until ALL) yield {
-      currentTime = currentTime + 1L
-      currentTime
-    }
-    val firstTransaction = transactions.head
-    val lastTransaction = transactions.last
 
-
-    transactionServer.notifyProducerTransactionCompleted(t => t.transactionID == lastTransaction && t.state == TransactionStates.Checkpointed, putCounter.countDown())
 
     val partition = 1
     val data = Array.fill(10)(rand.nextInt(100000).toString.getBytes)
-    transactions.foreach { t =>
-      client.putSimpleTransactionAndData(streamID, partition, t, data)
+
+    val transactions = (0 until ALL).map { _ =>
+      Await.result(client.putSimpleTransactionAndData(streamID, partition, data), secondsWait.seconds)
     }
+    val firstTransaction = transactions.head
+    val lastTransaction  = transactions.last
 
-    putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
 
-    Thread.sleep(3000)
-    val res = Await.result(client.scanTransactions(streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds)
-    val resData = Await.result(client.getTransactionData(streamID, partition, lastTransaction, 0, 10), secondsWait.seconds)
+    Thread.sleep(2000)
+
+    val res = Await.result(client.scanTransactions(
+      streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)
+    ), secondsWait.seconds)
+
+    val resData = Await.result(
+      client.getTransactionData(streamID, partition, lastTransaction, 0, 10),
+      secondsWait.seconds
+    )
 
 
     res.producerTransactions.size shouldBe transactions.size
@@ -298,34 +297,30 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     val stream = getRandomStream
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
-    val putCounter = new CountDownLatch(1)
 
     val ALL = 80
-    var currentTime = System.currentTimeMillis()
-    val transactions = for (i <- 0 until ALL) yield {
-      currentTime = currentTime + 1L
-      currentTime
-    }
-    val firstTransaction = transactions.head
-    val lastTransaction = transactions.last
-
-
-    transactionServer.notifyProducerTransactionCompleted(t => t.transactionID == lastTransaction && t.state == TransactionStates.Checkpointed, putCounter.countDown())
 
     val partition = 1
     val data = Array.fill(10)(rand.nextInt(100000).toString.getBytes)
-    transactions.foreach { t =>
-      client.putSimpleTransactionAndDataWithoutResponse(streamID, partition, t, data)
+    (0 until ALL).foreach { _ =>
+      client.putSimpleTransactionAndDataWithoutResponse(streamID, partition, data)
     }
 
-    putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
+    Thread.sleep(5000)
+    val lastTransaction = System.currentTimeMillis()
 
-    Thread.sleep(3000)
-    val res = Await.result(client.scanTransactions(streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds)
-    val resData = Await.result(client.getTransactionData(streamID, partition, lastTransaction, 0, 10), secondsWait.seconds)
+    val res = Await.result(
+      client.scanTransactions(
+        streamID, partition, 0L, Long.MaxValue, Int.MaxValue, Set(TransactionStates.Opened)
+    ), secondsWait.seconds)
+
+    val resData = Await.result(
+      client.getTransactionData(streamID, partition, lastTransaction, 0, 10),
+      secondsWait.seconds
+    )
 
 
-    res.producerTransactions.size shouldBe transactions.size
+    res.producerTransactions.size shouldBe ALL
     resData should contain theSameElementsInOrderAs data
   }
 
@@ -345,7 +340,10 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
     val lastTransaction = transactions.last
 
 
-    transactionServer.notifyProducerTransactionCompleted(t => t.transactionID == lastTransaction && t.state == TransactionStates.Checkpointed, putCounter.countDown())
+    transactionServer.notifyProducerTransactionCompleted(
+      t => t.transactionID == lastTransaction && t.state == TransactionStates.Checkpointed,
+      putCounter.countDown()
+    )
 
     val partition = 1
     transactions.foreach { t =>
@@ -356,7 +354,10 @@ class ServerProducerTransactionNotificationTest extends FlatSpec with Matchers w
 
     putCounter.await(3000, TimeUnit.MILLISECONDS) shouldBe true
 
-    val res = Await.result(client.scanTransactions(streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)), secondsWait.seconds)
+    val res = Await.result(
+      client.scanTransactions(
+        streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)
+      ), secondsWait.seconds)
 
     res.producerTransactions.size shouldBe transactions.size
   }

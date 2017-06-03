@@ -10,10 +10,13 @@ class GetTransactionHandler(server: TransactionServer)
 
   private val descriptor = Descriptors.GetTransaction
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.getTransaction(args.streamID, args.partition, args.transaction)
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
+    server.getTransaction(args.streamID, args.partition, args.transaction)
+  }
+
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+    val result = process(requestBody)
     descriptor.encodeResponse(
       TransactionService.GetTransaction.Result(Some(result))
     )

@@ -56,7 +56,13 @@ class OptionsLoader {
       helper.castCheck("subscribers.update.period-ms", prop => prop.toInt)
 
     val subscriberMonitoringZkEndpoints =
-      helper.castCheck("subscribers.monitoring.zk.endpoints", identity)
+      scala.util.Try(
+        helper.castCheck("subscribers.monitoring.zk.endpoints", identity)
+      ) match {
+        case scala.util.Success(endpoints) => endpoints
+        case scala.util.Failure(_) =>
+          helper.castCheck("zk.endpoints", identity)
+      }
 
     SubscriberUpdateOptions(
       updatePeriodMs,

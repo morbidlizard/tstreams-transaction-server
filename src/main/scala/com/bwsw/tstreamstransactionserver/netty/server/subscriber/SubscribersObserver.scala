@@ -14,9 +14,10 @@ private object SubscribersObserver {
 }
 
 
-private[subscriber] final class SubscribersObserver(curatorClient: CuratorFramework,
-                                streamInteractor: StreamCRUD,
-                                updatePeriodMs: Int)
+private[server] final class SubscribersObserver(curatorClient: CuratorFramework,
+                                                streamInteractor: StreamCRUD,
+                                                updatePeriodMs: Int
+                                               )
 {
   @volatile private var isStopped = false
 

@@ -18,7 +18,7 @@ class PutTransactionHandler(server: TransactionServer,
     )
   }
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val isPutted = process(requestBody)
     if (isPutted)
       isPuttedResponse

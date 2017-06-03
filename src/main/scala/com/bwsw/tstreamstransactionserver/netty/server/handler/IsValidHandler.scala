@@ -9,7 +9,7 @@ class IsValidHandler(server: TransactionServer)
 
   private val descriptor = Descriptors.IsValid
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)
     val result = server.isValid(args.token)
     //    logSuccessfulProcession(Descriptors.GetStream.name)

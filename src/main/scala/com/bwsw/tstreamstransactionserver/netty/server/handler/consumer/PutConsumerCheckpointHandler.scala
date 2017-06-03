@@ -19,7 +19,7 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
     )
   }
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val result = process(requestBody)
     //    logSuccessfulProcession(Descriptors.PutStream.name)
     descriptor.encodeResponse(

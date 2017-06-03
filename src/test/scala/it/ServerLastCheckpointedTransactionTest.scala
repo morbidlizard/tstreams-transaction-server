@@ -49,6 +49,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
+  private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
 
   def startTransactionServer(): Server = {
@@ -63,6 +64,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
+      subscriberUpdateOptions,
       timer = TestTimer
     )
 

@@ -35,6 +35,7 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
+  private val serverSubscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
 
   def startTransactionServer(): Server = {
@@ -48,7 +49,8 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
-      packageTransmissionOpts = serverPackageTransmissionOptions
+      packageTransmissionOpts = serverPackageTransmissionOptions,
+      subscribersUpdateOptions = serverSubscriberUpdateOptions
     )
 
     val latch = new CountDownLatch(1)

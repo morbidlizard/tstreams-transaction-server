@@ -47,6 +47,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions()
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
+  private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
   def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -60,6 +61,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
+      subscriberUpdateOptions,
       timer = TestTimer
     )
     val latch = new CountDownLatch(1)

@@ -1,17 +1,22 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateHandler, PutConsumerCheckpointHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutTransactionDataHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 
 final class RequestHandlerChooser(val server: TransactionServer,
-                                  scheduledCommitLog: ScheduledCommitLog,
-                                  val packageTransmissionOpts: TransportOptions
+                                  val scheduledCommitLog: ScheduledCommitLog,
+                                  val packageTransmissionOpts: TransportOptions,
+                                  val authOptions: AuthOptions,
+                                  val orderedExecutionPool: OrderedExecutionPool,
+                                  val openTransactionStateNotifier: OpenTransactionStateNotifier
                                  ) {
 
   private val commitLogOffsetsHandler =

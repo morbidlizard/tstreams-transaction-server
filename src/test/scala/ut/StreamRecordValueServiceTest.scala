@@ -3,7 +3,10 @@ package ut
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamValue}
 import org.scalatest.{FlatSpec, Matchers}
 
-class StreamRecordValueServiceTest extends FlatSpec with Matchers {
+class StreamRecordValueServiceTest
+  extends FlatSpec
+    with Matchers
+{
 
   "Key" should "be serialized/deserialized" in {
     val key = StreamKey(1)

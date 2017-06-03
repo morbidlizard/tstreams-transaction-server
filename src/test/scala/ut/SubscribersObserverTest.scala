@@ -3,12 +3,10 @@ package ut
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamValue}
-import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{SubscribersObserver, StreamPartitionUnit}
-import org.apache.curator.framework.CuratorFramework
-import org.apache.zookeeper.CreateMode
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamValue}
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.SubscribersObserver
 import org.scalatest.{FlatSpec, Matchers}
-import util.Utils
+import util.{SubscriberUtils, Utils}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -17,31 +15,6 @@ class SubscribersObserverTest
   extends FlatSpec
     with Matchers
 {
-
-  private def putSubscriberInStream(client: CuratorFramework,
-                                    path: String,
-                                    partition: Int,
-                                    subscriber: String
-                           ): Unit = {
-    client.create()
-      .creatingParentsIfNeeded()
-      .withMode(CreateMode.PERSISTENT)
-      .forPath(
-        s"$path/subscribers/$partition/$subscriber",
-        Array.emptyByteArray
-      )
-  }
-
-  private def deleteSubscriberInStream(client: CuratorFramework,
-                                       path: String,
-                                       partition: Int,
-                                       subscriber: String
-                                      ): Unit = {
-    client.delete()
-      .forPath(
-        s"$path/subscribers/$partition/$subscriber"
-      )
-  }
 
   "Subscribers observer" should "throws exception if it is shutdown more than once" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
@@ -129,7 +102,7 @@ class SubscribersObserverTest
         val subscriberNumber = rand.nextInt(subscriberMax)
         streamPartitionSubscribersNumber.put((streamID, partition), subscriberNumber + 1)
         (0 to subscriberNumber) foreach { subscriber =>
-          putSubscriberInStream(zkClient, pathToStream, partition, subscriber.toString)
+          SubscriberUtils.putSubscriberInStream(zkClient, pathToStream, partition, subscriber.toString)
         }
         streamPartitions.get(streamID) match {
           case None =>
@@ -180,7 +153,7 @@ class SubscribersObserverTest
     observer
       .getStreamPartitionSubscribers(streamKey.id, partition) shouldBe None
 
-    putSubscriberInStream(zkClient, streamRecord.zkPath, partition, "test")
+    SubscriberUtils.putSubscriberInStream(zkClient, streamRecord.zkPath, partition, "test")
     observer.addSteamPartition(streamKey.id, partition)
     TimeUnit.MILLISECONDS.sleep(timeToUpdateMs)
 
@@ -188,7 +161,7 @@ class SubscribersObserverTest
       .getStreamPartitionSubscribers(streamKey.id, partition)
       .get.get(0) shouldBe "test"
 
-    deleteSubscriberInStream(zkClient, streamRecord.zkPath, partition, "test")
+    SubscriberUtils.deleteSubscriberInStream(zkClient, streamRecord.zkPath, partition, "test")
     TimeUnit.MILLISECONDS.sleep(timeToUpdateMs)
 
     observer

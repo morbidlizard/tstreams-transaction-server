@@ -19,7 +19,7 @@ class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions) 
       RocksDatabaseDescriptor("CommitLogStore".getBytes(),                     columnFamilyOptions),
       RocksDatabaseDescriptor("TransactionAllStore".getBytes(),
         columnFamilyOptions,
-        TimeUnit.MINUTES.toMillis(rocksOpts.transactionDatabaseTransactionKeeptimeMin).toInt
+        TimeUnit.MINUTES.toSeconds(rocksOpts.transactionDatabaseTransactionKeeptimeMin).toInt
       ),
       RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions)
     )

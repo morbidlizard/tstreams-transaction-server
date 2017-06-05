@@ -42,6 +42,8 @@ final class RequestHandlerChooser(val server: TransactionServer,
     new PutTransactionsHandler(server, scheduledCommitLog)
   private val putSimpleTransactionAndDataHandler =
     new PutSimpleTransactionAndDataHandler(server, scheduledCommitLog)
+  private val openTransactionHandler =
+    new OpenTransactionHandler(server, scheduledCommitLog)
   private val getTransactionHandler =
     new GetTransactionHandler(server)
   private val getLastCheckpointedTransaction =
@@ -88,6 +90,8 @@ final class RequestHandlerChooser(val server: TransactionServer,
       putTransactionsHandler
     case PutSimpleTransactionAndData.methodID =>
       putSimpleTransactionAndDataHandler
+    case OpenTransaction.methodID =>
+      openTransactionHandler
     case GetTransaction.methodID =>
       getTransactionHandler
     case GetLastCheckpointedTransaction.methodID =>

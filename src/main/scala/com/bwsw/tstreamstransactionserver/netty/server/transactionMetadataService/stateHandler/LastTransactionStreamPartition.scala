@@ -7,43 +7,19 @@ import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
 import com.google.common.cache.Cache
 
-//TODO need reimplementation of access to cache
+
 class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
-  private final val lastTransactionDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE)
-  private final val lastCheckpointedTransactionDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE)
+  private final val lastTransactionDatabase =
+    rocksMetaServiceDB.getDatabase(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE)
+
+  private final val lastCheckpointedTransactionDatabase =
+    rocksMetaServiceDB.getDatabase(RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE)
 
   private final def fillLastTransactionStreamPartitionTable: Cache[KeyStreamPartition, LastOpenedAndCheckpointedTransaction] = {
     val hoursToLive = 1
     val cache = com.google.common.cache.CacheBuilder.newBuilder()
       .expireAfterAccess(hoursToLive, TimeUnit.HOURS)
       .build[KeyStreamPartition, LastOpenedAndCheckpointedTransaction]()
-
-
-    val lastTransactionDatabaseIterator = lastTransactionDatabase.iterator
-    lastTransactionDatabaseIterator.seekToFirst()
-    while (lastTransactionDatabaseIterator.isValid) {
-      val keyFound = lastTransactionDatabaseIterator.key()
-      val dataFound = lastTransactionDatabaseIterator.value()
-      cache.put(KeyStreamPartition.fromByteArray(keyFound), LastOpenedAndCheckpointedTransaction(TransactionID.fromByteArray(dataFound), None))
-      lastTransactionDatabaseIterator.next()
-    }
-    lastTransactionDatabaseIterator.close()
-
-    val lastCheckpointedTransactionDatabaseIterator = lastCheckpointedTransactionDatabase.iterator
-    lastCheckpointedTransactionDatabaseIterator.seekToFirst()
-    while (lastCheckpointedTransactionDatabaseIterator.isValid) {
-      val keyFound = lastCheckpointedTransactionDatabaseIterator.key()
-      val dataFound = lastCheckpointedTransactionDatabaseIterator.value()
-      val lastOpenedAndCheckpointedOpt = Option(cache.getIfPresent(KeyStreamPartition.fromByteArray(keyFound)))
-      lastOpenedAndCheckpointedOpt foreach { x =>
-        cache.put(
-          KeyStreamPartition.fromByteArray(keyFound),
-          LastOpenedAndCheckpointedTransaction(x.opened, Some(TransactionID.fromByteArray(dataFound)))
-        )
-      }
-      lastCheckpointedTransactionDatabaseIterator.next()
-    }
-    lastCheckpointedTransactionDatabaseIterator.close()
     cache
   }
 
@@ -52,21 +28,20 @@ class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
 
   final def getLastTransactionIDAndCheckpointedID(streamID: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
     val key = KeyStreamPartition(streamID, partition)
-    val lastTransactionOpt = Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
-    lastTransactionOpt.flatMap { _ =>
-      val binaryKey = key.toByteArray
-      Option(lastTransactionDatabase.get(binaryKey)).flatMap { dataFound1 =>
-        val openedTransaction = TransactionID.fromByteArray(dataFound1)
-        val checkpointed = Option(lastCheckpointedTransactionDatabase.get(binaryKey)).map { dataFound2 =>
-          val lastCheckpointed = TransactionID.fromByteArray(dataFound2)
-          LastOpenedAndCheckpointedTransaction(openedTransaction, Some(lastCheckpointed))
-        }
-        if (checkpointed.isDefined)
-          checkpointed
-        else
-          Some(LastOpenedAndCheckpointedTransaction(openedTransaction, None))
+    Option(lastTransactionStreamPartitionRamTable.getIfPresent(key))
+      .orElse {
+        val lastOpenedTransaction =
+          Option(lastTransactionDatabase.get(key.toByteArray))
+            .map(data => TransactionID.fromByteArray(data))
+
+        val lastCheckpointedTransaction =
+          Option(lastCheckpointedTransactionDatabase.get(key.toByteArray))
+            .map(data => TransactionID.fromByteArray(data))
+
+        lastOpenedTransaction.map(openedTxn =>
+          LastOpenedAndCheckpointedTransaction(openedTxn, lastCheckpointedTransaction)
+        )
       }
-    }
   }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray

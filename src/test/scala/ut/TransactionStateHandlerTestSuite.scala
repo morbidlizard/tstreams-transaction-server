@@ -16,7 +16,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   val streamPartitions = 1
 
   it should "not put producerTransaction with state: Checkpointed. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Checkpointed, ts)
 
@@ -26,7 +26,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   }
 
   it should "not put producerTransaction with state: Invalid. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Invalid, ts)
 
@@ -36,7 +36,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   }
 
   it should "not put producerTransaction with state: Cancel. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Cancel, ts)
 
@@ -46,7 +46,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   }
 
   it should "not put producerTransaction with state: Updated. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Updated, ts)
 
@@ -56,7 +56,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   }
 
   it should "not process the following chain of states of producer transactions: Opened -> Invalid. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val openedProducerTransaction = createProducerTransaction(Opened, ts)
     val invalidProducerTransaction = createProducerTransaction(Invalid, ts + 1)
@@ -70,7 +70,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   }
 
   it should "not process the following chain of states of producer transactions: Opened -> Updated -> Updated -> Invalid. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val openedProducerTransaction = createProducerTransaction(Opened, ts)
     val updatedProducerTransaction1 = createProducerTransaction(Updated, ts + 1)

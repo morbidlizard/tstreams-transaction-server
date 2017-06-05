@@ -171,7 +171,7 @@ class ServerProducerTransactionNotificationTest
     res.transaction.get shouldBe producerTransactionOuter
   }
 
-  //TODO work on test, it failes sometimes
+
   it should "put 2 producer transactions with opened states and then checkpoint them and should get the second checkpointed transaction" in {
     val bundle = Utils.startTransactionServerAndClient(serverBuilder, clientBuilder)
     val stream = getRandomStream
@@ -347,7 +347,7 @@ class ServerProducerTransactionNotificationTest
 
     val partition = 1
     transactions.foreach { t =>
-      val openedTransaction = ProducerTransaction(streamID, partition, t, TransactionStates.Opened, 1, 120L)
+      val openedTransaction = ProducerTransaction(streamID, partition, t, TransactionStates.Opened, 1, 25000L)
       bundle.client.putProducerState(openedTransaction)
       bundle.client.putProducerState(openedTransaction.copy(state = TransactionStates.Checkpointed))
     }
@@ -356,7 +356,7 @@ class ServerProducerTransactionNotificationTest
 
     val res = Await.result(
       bundle.client.scanTransactions(
-        streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened)
+        streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set()
       ), secondsWait.seconds)
 
     bundle.close()

@@ -164,6 +164,7 @@ object Descriptors {
   val putTransactionMethod = "putTransaction"
   val putSimpleTransactionAndDataMethod = "putSimpleTransactionAndData"
   val putTransactionsMethod = "putTransactions"
+  val openTransactionMethod = "openTransaction"
   val getTransactionMethod = "getTransaction"
   val getLastCheckpointedTransactionMethod = "getLastCheckpointedTransaction"
   val scanTransactionsMethod = "scanTransactions"
@@ -196,8 +197,10 @@ object Descriptors {
         toString(PutTransaction.name, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutSimpleTransactionAndData.Args =>
         toString(PutSimpleTransactionAndData.name, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransactions.Args   =>
+      case struct: TransactionService.PutTransactions.Args =>
         toString(PutTransactions.name, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.OpenTransaction.Args =>
+        toString(OpenTransaction.name, struct.productIterator, TransactionService.OpenTransaction.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetTransaction.Args    =>
         toString(GetTransaction.name, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetLastCheckpointedTransaction.Args =>
@@ -281,4 +284,9 @@ object Descriptors {
 
   case object GetTransactionIDByTimestamp extends
     Descriptor(getTransactionIDByTimestamp, 18:Byte, TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  case object OpenTransaction extends
+    Descriptor(openTransactionMethod, 19:Byte, TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+
 }

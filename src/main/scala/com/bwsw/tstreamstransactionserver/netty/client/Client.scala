@@ -666,6 +666,18 @@ class Client(clientOpts: ConnectionOptions,
     )
   }
 
+  def openTransaction(streamID: Int, partitionID: Int, transactionTTLMs: Long): ScalaFuture[Long] = {
+    if (logger.isDebugEnabled)
+      logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partitionID with TTL: $transactionTTLMs")
+    onShutdownThrowException()
+
+    method[TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, Long](
+      Descriptors.OpenTransaction,
+      TransactionService.OpenTransaction.Args(streamID, partitionID, transactionTTLMs),
+      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+    )(contextForProducerTransactions)
+  }
+
   /** Retrieves a producer transaction by id
     *
     * @param streamID    an id of stream.

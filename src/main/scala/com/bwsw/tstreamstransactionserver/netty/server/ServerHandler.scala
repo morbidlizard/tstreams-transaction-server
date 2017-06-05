@@ -1,6 +1,5 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToBerkeleyWriter
@@ -192,6 +191,64 @@ class ServerHandler(requestHandlerChooser: RequestHandlerChooser, logger: Logger
 
       case Descriptors.PutTransactions.methodID =>
         processRequestAsync(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)
+
+      case Descriptors.OpenTransaction.methodID =>
+        processFutureRequest(handler, isTooBigMetadataMessage, ctx, {
+          val args = Descriptors.OpenTransaction.decodeRequest(message.body)
+          val context = orderedExecutionPool.pool(args.streamID, args.partition)
+          ScalaFuture {
+            val transactionID =
+              requestHandlerChooser.server.getTransactionID
+
+            val txn = Transaction(Some(
+              ProducerTransaction(
+                args.streamID,
+                args.partition,
+                transactionID,
+                TransactionStates.Opened,
+                quantity = 0,
+                ttl = args.transactionTTLMs
+              )), None
+            )
+
+            val binaryTransaction = Descriptors.PutTransaction.encodeRequest(
+              TransactionService.PutTransaction.Args(txn)
+            )
+
+            requestHandlerChooser.scheduledCommitLog.putData(
+              CommitLogToBerkeleyWriter.putTransactionType,
+              binaryTransaction
+            )
+
+            val response = Descriptors.OpenTransaction.encodeResponse(
+              TransactionService.OpenTransaction.Result(
+                Some(transactionID)
+              )
+            )
+
+            val responseMessage = message.copy(length = response.length, body = response)
+
+            logSuccessfulProcession(handler.getName, message, ctx)
+            sendResponseToClient(responseMessage, ctx)
+
+            subscriberNotifier.notifySubscribers(
+              args.streamID,
+              args.partition,
+              transactionID,
+              count = 0,
+              TransactionState.Status.Opened,
+              args.transactionTTLMs,
+              requestHandlerChooser.authOptions.key,
+              isNotReliable = false
+            )
+          }(context)
+            .recover { case error =>
+              logUnsuccessfulProcessing(handler.getName, error, message, ctx)
+              val response = handler.createErrorResponse(error.getMessage)
+              val responseMessage = message.copy(length = response.length, body = response)
+              sendResponseToClient(responseMessage, ctx)
+            }(context)
+        })(message)
 
       case Descriptors.PutSimpleTransactionAndData.methodID =>
         processFutureRequest(handler, isTooBigMetadataMessage, ctx, {

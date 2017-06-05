@@ -43,6 +43,8 @@ trait TransactionMetaService[+MM[_]] extends ThriftService {
   
   def putSimpleTransactionAndData(streamID: Int, partition: Int, data: Seq[ByteBuffer] = Seq[ByteBuffer]()): MM[Long]
   
+  def openTransaction(streamID: Int, partition: Int, transactionTTLMs: Long): MM[Long]
+  
   def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates] = Set[com.bwsw.tstreamstransactionserver.rpc.TransactionStates]()): MM[com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo]
   
   def getTransaction(streamID: Int, partition: Int, transaction: Long): MM[com.bwsw.tstreamstransactionserver.rpc.TransactionInfo]
@@ -1638,6 +1640,594 @@ object TransactionMetaService { self =>
 
   val putSimpleTransactionAndData$result = PutSimpleTransactionAndData.Result
   type putSimpleTransactionAndData$result = PutSimpleTransactionAndData.Result
+
+  object OpenTransaction extends com.twitter.scrooge.ThriftMethod {
+    
+    object Args extends ThriftStructCodec3[Args] {
+      private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
+      val Struct = new TStruct("openTransaction_args")
+      val StreamIDField = new TField("streamID", TType.I32, 1)
+      val StreamIDFieldManifest = implicitly[Manifest[Int]]
+      val PartitionField = new TField("partition", TType.I32, 2)
+      val PartitionFieldManifest = implicitly[Manifest[Int]]
+      val TransactionTTLMsField = new TField("transactionTTLMs", TType.I64, 3)
+      val TransactionTTLMsFieldManifest = implicitly[Manifest[Long]]
+    
+      /**
+       * Field information in declaration order.
+       */
+      lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
+        new ThriftStructFieldInfo(
+          StreamIDField,
+          false,
+          false,
+          StreamIDFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          PartitionField,
+          false,
+          false,
+          PartitionFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          TransactionTTLMsField,
+          false,
+          false,
+          TransactionTTLMsFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        )
+      )
+    
+      lazy val structAnnotations: immutable$Map[String, String] =
+        immutable$Map.empty[String, String]
+    
+      /**
+       * Checks that all required fields are non-null.
+       */
+      def validate(_item: Args): Unit = {
+      }
+    
+      def withoutPassthroughFields(original: Args): Args =
+        new Args(
+          streamID =
+            {
+              val field = original.streamID
+              field
+            },
+          partition =
+            {
+              val field = original.partition
+              field
+            },
+          transactionTTLMs =
+            {
+              val field = original.transactionTTLMs
+              field
+            }
+        )
+    
+      override def encode(_item: Args, _oproto: TProtocol): Unit = {
+        _item.write(_oproto)
+      }
+    
+      override def decode(_iprot: TProtocol): Args = {
+        var streamID: Int = 0
+        var partition: Int = 0
+        var transactionTTLMs: Long = 0L
+        var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
+        var _done = false
+    
+        _iprot.readStructBegin()
+        while (!_done) {
+          val _field = _iprot.readFieldBegin()
+          if (_field.`type` == TType.STOP) {
+            _done = true
+          } else {
+            _field.id match {
+              case 1 =>
+                _field.`type` match {
+                  case TType.I32 =>
+                    streamID = readStreamIDValue(_iprot)
+                  case _actualType =>
+                    val _expectedType = TType.I32
+                    throw new TProtocolException(
+                      "Received wrong type for field 'streamID' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case 2 =>
+                _field.`type` match {
+                  case TType.I32 =>
+                    partition = readPartitionValue(_iprot)
+                  case _actualType =>
+                    val _expectedType = TType.I32
+                    throw new TProtocolException(
+                      "Received wrong type for field 'partition' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case 3 =>
+                _field.`type` match {
+                  case TType.I64 =>
+                    transactionTTLMs = readTransactionTTLMsValue(_iprot)
+                  case _actualType =>
+                    val _expectedType = TType.I64
+                    throw new TProtocolException(
+                      "Received wrong type for field 'transactionTTLMs' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case _ =>
+                if (_passthroughFields == null)
+                  _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
+                _passthroughFields += (_field.id -> TFieldBlob.read(_field, _iprot))
+            }
+            _iprot.readFieldEnd()
+          }
+        }
+        _iprot.readStructEnd()
+    
+        new Args(
+          streamID,
+          partition,
+          transactionTTLMs,
+          if (_passthroughFields == null)
+            NoPassthroughFields
+          else
+            _passthroughFields.result()
+        )
+      }
+    
+      def apply(
+        streamID: Int,
+        partition: Int,
+        transactionTTLMs: Long
+      ): Args =
+        new Args(
+          streamID,
+          partition,
+          transactionTTLMs
+        )
+    
+      def unapply(_item: Args): _root_.scala.Option[_root_.scala.Tuple3[Int, Int, Long]] = _root_.scala.Some(_item.toTuple)
+    
+    
+      @inline private def readStreamIDValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
+      }
+    
+      @inline private def writeStreamIDField(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(StreamIDField)
+        writeStreamIDValue(streamID_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeStreamIDValue(streamID_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(streamID_item)
+      }
+    
+      @inline private def readPartitionValue(_iprot: TProtocol): Int = {
+        _iprot.readI32()
+      }
+    
+      @inline private def writePartitionField(partition_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(PartitionField)
+        writePartitionValue(partition_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writePartitionValue(partition_item: Int, _oprot: TProtocol): Unit = {
+        _oprot.writeI32(partition_item)
+      }
+    
+      @inline private def readTransactionTTLMsValue(_iprot: TProtocol): Long = {
+        _iprot.readI64()
+      }
+    
+      @inline private def writeTransactionTTLMsField(transactionTTLMs_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(TransactionTTLMsField)
+        writeTransactionTTLMsValue(transactionTTLMs_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeTransactionTTLMsValue(transactionTTLMs_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeI64(transactionTTLMs_item)
+      }
+    
+    
+    }
+    
+    class Args(
+        val streamID: Int,
+        val partition: Int,
+        val transactionTTLMs: Long,
+        val _passthroughFields: immutable$Map[Short, TFieldBlob])
+      extends ThriftStruct
+      with _root_.scala.Product3[Int, Int, Long]
+      with HasThriftStructCodec3[Args]
+      with java.io.Serializable
+    {
+      import Args._
+      def this(
+        streamID: Int,
+        partition: Int,
+        transactionTTLMs: Long
+      ) = this(
+        streamID,
+        partition,
+        transactionTTLMs,
+        Map.empty
+      )
+    
+      def _1 = streamID
+      def _2 = partition
+      def _3 = transactionTTLMs
+    
+      def toTuple: _root_.scala.Tuple3[Int, Int, Long] = {
+        (
+          streamID,
+          partition,
+          transactionTTLMs
+        )
+      }
+    
+    
+    
+      override def write(_oprot: TProtocol): Unit = {
+        Args.validate(this)
+        _oprot.writeStructBegin(Struct)
+        writeStreamIDField(streamID, _oprot)
+        writePartitionField(partition, _oprot)
+        writeTransactionTTLMsField(transactionTTLMs, _oprot)
+        if (_passthroughFields.nonEmpty) {
+          _passthroughFields.values.foreach { _.write(_oprot) }
+        }
+        _oprot.writeFieldStop()
+        _oprot.writeStructEnd()
+      }
+    
+      def copy(
+        streamID: Int = this.streamID,
+        partition: Int = this.partition,
+        transactionTTLMs: Long = this.transactionTTLMs,
+        _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
+      ): Args =
+        new Args(
+          streamID,
+          partition,
+          transactionTTLMs,
+          _passthroughFields
+        )
+    
+      override def canEqual(other: Any): Boolean = other.isInstanceOf[Args]
+    
+      private def _equals(x: Args, y: Args): Boolean =
+          x.productArity == y.productArity &&
+          x.productIterator.sameElements(y.productIterator)
+    
+      override def equals(other: Any): Boolean =
+        canEqual(other) &&
+          _equals(this, other.asInstanceOf[Args]) &&
+          _passthroughFields == other.asInstanceOf[Args]._passthroughFields
+    
+      override def hashCode: Int = _root_.scala.runtime.ScalaRunTime._hashCode(this)
+    
+      override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
+    
+    
+      override def productArity: Int = 3
+    
+      override def productElement(n: Int): Any = n match {
+        case 0 => this.streamID
+        case 1 => this.partition
+        case 2 => this.transactionTTLMs
+        case _ => throw new IndexOutOfBoundsException(n.toString)
+      }
+    
+      override def productPrefix: String = "Args"
+    
+      def _codec: ThriftStructCodec3[Args] = Args
+    }
+
+    type SuccessType = Long
+    
+    object Result extends ThriftStructCodec3[Result] {
+      private val NoPassthroughFields = immutable$Map.empty[Short, TFieldBlob]
+      val Struct = new TStruct("openTransaction_result")
+      val SuccessField = new TField("success", TType.I64, 0)
+      val SuccessFieldManifest = implicitly[Manifest[Long]]
+      val ErrorField = new TField("error", TType.STRUCT, 1)
+      val ErrorFieldManifest = implicitly[Manifest[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
+    
+      /**
+       * Field information in declaration order.
+       */
+      lazy val fieldInfos: scala.List[ThriftStructFieldInfo] = scala.List[ThriftStructFieldInfo](
+        new ThriftStructFieldInfo(
+          SuccessField,
+          true,
+          false,
+          SuccessFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        ),
+        new ThriftStructFieldInfo(
+          ErrorField,
+          true,
+          false,
+          ErrorFieldManifest,
+          _root_.scala.None,
+          _root_.scala.None,
+          immutable$Map.empty[String, String],
+          immutable$Map.empty[String, String],
+          None
+        )
+      )
+    
+      lazy val structAnnotations: immutable$Map[String, String] =
+        immutable$Map.empty[String, String]
+    
+      /**
+       * Checks that all required fields are non-null.
+       */
+      def validate(_item: Result): Unit = {
+      }
+    
+      def withoutPassthroughFields(original: Result): Result =
+        new Result(
+          success =
+            {
+              val field = original.success
+              field.map { field =>
+                field
+              }
+            },
+          error =
+            {
+              val field = original.error
+              field.map { field =>
+                com.bwsw.tstreamstransactionserver.rpc.ServerException.withoutPassthroughFields(field)
+              }
+            }
+        )
+    
+      override def encode(_item: Result, _oproto: TProtocol): Unit = {
+        _item.write(_oproto)
+      }
+    
+      override def decode(_iprot: TProtocol): Result = {
+        var success: _root_.scala.Option[Long] = _root_.scala.None
+        var error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
+        var _passthroughFields: Builder[(Short, TFieldBlob), immutable$Map[Short, TFieldBlob]] = null
+        var _done = false
+    
+        _iprot.readStructBegin()
+        while (!_done) {
+          val _field = _iprot.readFieldBegin()
+          if (_field.`type` == TType.STOP) {
+            _done = true
+          } else {
+            _field.id match {
+              case 0 =>
+                _field.`type` match {
+                  case TType.I64 =>
+                    success = _root_.scala.Some(readSuccessValue(_iprot))
+                  case _actualType =>
+                    val _expectedType = TType.I64
+                    throw new TProtocolException(
+                      "Received wrong type for field 'success' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case 1 =>
+                _field.`type` match {
+                  case TType.STRUCT =>
+                    error = _root_.scala.Some(readErrorValue(_iprot))
+                  case _actualType =>
+                    val _expectedType = TType.STRUCT
+                    throw new TProtocolException(
+                      "Received wrong type for field 'error' (expected=%s, actual=%s).".format(
+                        ttypeToString(_expectedType),
+                        ttypeToString(_actualType)
+                      )
+                    )
+                }
+              case _ =>
+                if (_passthroughFields == null)
+                  _passthroughFields = immutable$Map.newBuilder[Short, TFieldBlob]
+                _passthroughFields += (_field.id -> TFieldBlob.read(_field, _iprot))
+            }
+            _iprot.readFieldEnd()
+          }
+        }
+        _iprot.readStructEnd()
+    
+        new Result(
+          success,
+          error,
+          if (_passthroughFields == null)
+            NoPassthroughFields
+          else
+            _passthroughFields.result()
+        )
+      }
+    
+      def apply(
+        success: _root_.scala.Option[Long] = _root_.scala.None,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
+      ): Result =
+        new Result(
+          success,
+          error
+        )
+    
+      def unapply(_item: Result): _root_.scala.Option[_root_.scala.Tuple2[Option[Long], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]] = _root_.scala.Some(_item.toTuple)
+    
+    
+      @inline private def readSuccessValue(_iprot: TProtocol): Long = {
+        _iprot.readI64()
+      }
+    
+      @inline private def writeSuccessField(success_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(SuccessField)
+        writeSuccessValue(success_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeSuccessValue(success_item: Long, _oprot: TProtocol): Unit = {
+        _oprot.writeI64(success_item)
+      }
+    
+      @inline private def readErrorValue(_iprot: TProtocol): com.bwsw.tstreamstransactionserver.rpc.ServerException = {
+        com.bwsw.tstreamstransactionserver.rpc.ServerException.decode(_iprot)
+      }
+    
+      @inline private def writeErrorField(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
+        _oprot.writeFieldBegin(ErrorField)
+        writeErrorValue(error_item, _oprot)
+        _oprot.writeFieldEnd()
+      }
+    
+      @inline private def writeErrorValue(error_item: com.bwsw.tstreamstransactionserver.rpc.ServerException, _oprot: TProtocol): Unit = {
+        error_item.write(_oprot)
+      }
+    
+    
+    }
+    
+    class Result(
+        val success: _root_.scala.Option[Long],
+        val error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException],
+        val _passthroughFields: immutable$Map[Short, TFieldBlob])
+      extends ThriftResponse[Long] with ThriftStruct
+      with _root_.scala.Product2[Option[Long], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]]
+      with HasThriftStructCodec3[Result]
+      with java.io.Serializable
+    {
+      import Result._
+      def this(
+        success: _root_.scala.Option[Long] = _root_.scala.None,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = _root_.scala.None
+      ) = this(
+        success,
+        error,
+        Map.empty
+      )
+    
+      def _1 = success
+      def _2 = error
+    
+      def toTuple: _root_.scala.Tuple2[Option[Long], Option[com.bwsw.tstreamstransactionserver.rpc.ServerException]] = {
+        (
+          success,
+          error
+        )
+      }
+    
+      def successField: Option[Long] = success
+      def exceptionFields: Iterable[Option[com.twitter.scrooge.ThriftException]] = Seq(error)
+    
+    
+      override def write(_oprot: TProtocol): Unit = {
+        Result.validate(this)
+        _oprot.writeStructBegin(Struct)
+        if (success.isDefined) writeSuccessField(success.get, _oprot)
+        if (error.isDefined) writeErrorField(error.get, _oprot)
+        if (_passthroughFields.nonEmpty) {
+          _passthroughFields.values.foreach { _.write(_oprot) }
+        }
+        _oprot.writeFieldStop()
+        _oprot.writeStructEnd()
+      }
+    
+      def copy(
+        success: _root_.scala.Option[Long] = this.success,
+        error: _root_.scala.Option[com.bwsw.tstreamstransactionserver.rpc.ServerException] = this.error,
+        _passthroughFields: immutable$Map[Short, TFieldBlob] = this._passthroughFields
+      ): Result =
+        new Result(
+          success,
+          error,
+          _passthroughFields
+        )
+    
+      override def canEqual(other: Any): Boolean = other.isInstanceOf[Result]
+    
+      private def _equals(x: Result, y: Result): Boolean =
+          x.productArity == y.productArity &&
+          x.productIterator.sameElements(y.productIterator)
+    
+      override def equals(other: Any): Boolean =
+        canEqual(other) &&
+          _equals(this, other.asInstanceOf[Result]) &&
+          _passthroughFields == other.asInstanceOf[Result]._passthroughFields
+    
+      override def hashCode: Int = _root_.scala.runtime.ScalaRunTime._hashCode(this)
+    
+      override def toString: String = _root_.scala.runtime.ScalaRunTime._toString(this)
+    
+    
+      override def productArity: Int = 2
+    
+      override def productElement(n: Int): Any = n match {
+        case 0 => this.success
+        case 1 => this.error
+        case _ => throw new IndexOutOfBoundsException(n.toString)
+      }
+    
+      override def productPrefix: String = "Result"
+    
+      def _codec: ThriftStructCodec3[Result] = Result
+    }
+
+    val annotations: immutable$Map[String, String] = immutable$Map.empty
+
+    type FunctionType = Nothing
+    type ServiceType = Nothing
+    type ServiceIfaceServiceType = Nothing
+
+    def toServiceIfaceService(f: FunctionType): ServiceIfaceServiceType = ???
+    def functionToService(f: FunctionType): ServiceType = ???
+    def serviceToFunction(svc: ServiceType): FunctionType = ???
+
+    val name: String = "openTransaction"
+    val serviceName: String = "TransactionMetaService"
+    val argsCodec = Args
+    val responseCodec = Result
+    val oneway: Boolean = false
+  }
+
+  // Compatibility aliases.
+  val openTransaction$args = OpenTransaction.Args
+  type openTransaction$args = OpenTransaction.Args
+
+  val openTransaction$result = OpenTransaction.Result
+  type openTransaction$result = OpenTransaction.Result
 
   object ScanTransactions extends com.twitter.scrooge.ThriftMethod {
     

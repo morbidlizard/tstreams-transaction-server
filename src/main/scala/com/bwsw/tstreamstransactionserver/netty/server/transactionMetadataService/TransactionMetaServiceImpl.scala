@@ -298,7 +298,8 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
     private val notifications = new scala.collection.mutable.ListBuffer[Unit => Unit]
 
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
-      if (logger.isDebugEnabled) logger.debug("Adding to commit new transactions from commit log file.")
+      if (logger.isDebugEnabled)
+        logger.debug("Adding to commit new transactions from commit log file.")
       notifications ++= putTransactions(transactions, batch)
     }
 

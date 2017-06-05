@@ -259,6 +259,10 @@ class Server(authOpts: AuthOptions,
         berkeleyWriter.closeRocksDB()
       }
 
+      if (orderedExecutionPool != null) {
+        orderedExecutionPool.close()
+      }
+
       if (transactionServer != null) {
         transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
         transactionServer.closeAllDatabases()

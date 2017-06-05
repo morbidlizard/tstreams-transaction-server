@@ -642,7 +642,6 @@ class Client(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partition with data: $data")
     onShutdownThrowException()
 
-    println(s"streamID $streamID")
     method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Long](
       Descriptors.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data),

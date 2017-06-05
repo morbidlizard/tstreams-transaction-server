@@ -20,7 +20,7 @@ trait TransactionStateHandler {
     scala.math.abs(currentTxn.timestamp + currentTxn.ttl) <= nextTxn.timestamp
   }
 
-  @throws[IllegalArgumentException]
+
   private def transitProducerTransactionToNewState(currentTxn: ProducerTransactionRecord,
                                                    nextTxn: ProducerTransactionRecord): Option[ProducerTransactionRecord] = {
     (currentTxn.state, nextTxn.state) match {
@@ -132,36 +132,28 @@ trait TransactionStateHandler {
 //  }
 
 
-  @throws[IllegalArgumentException]
   final def transitProducerTransactionToNewState(transactionPersistedInBerkeleyDB: ProducerTransactionRecord,
                                                  commitLogTransactions: Seq[ProducerTransactionRecord]): Option[ProducerTransactionRecord] = {
 
-    val orderedCommitLogTransactions =
-      commitLogTransactions
-        //        .sortBy(_.transactionID)
-        .sortBy(_.state.value)
-        .sortBy(_.timestamp)
-        .toList
 
-    process(transactionPersistedInBerkeleyDB :: orderedCommitLogTransactions)
+    if (isTransactionCanBeRootOfChain(transactionPersistedInBerkeleyDB)) {
+      val orderedCommitLogTransactions = commitLogTransactions.sorted
+
+      process(transactionPersistedInBerkeleyDB +: orderedCommitLogTransactions)
+    } else {
+      None
+    }
   }
 
-  @throws[IllegalArgumentException]
-  final def isTransactionCanBeRootOfChain(txn: ProducerTransactionRecord): Boolean = {
+  private final def isTransactionCanBeRootOfChain(txn: ProducerTransactionRecord): Boolean = {
     if (txn.state == TransactionStates.Opened)
       true
     else
       false
   }
 
-  @throws[IllegalArgumentException]
   final def transitProducerTransactionToNewState(commitLogTransactions: Seq[ProducerTransactionRecord]): Option[ProducerTransactionRecord] = {
-    val orderedCommitLogTransactions =
-      commitLogTransactions
-        //        .sortBy(_.transactionID)
-        .sortBy(_.state.value)
-        .sortBy(_.timestamp)
-        .toList
+    val orderedCommitLogTransactions = commitLogTransactions.sorted
 
     if (orderedCommitLogTransactions.nonEmpty &&
       isTransactionCanBeRootOfChain(orderedCommitLogTransactions.head)

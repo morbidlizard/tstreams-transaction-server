@@ -36,7 +36,7 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   )
 
   private val transactionIDService =
-    new com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
+    com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
 
   private val consumerServiceImpl = new ConsumerServiceImpl(
     rocksStorage.rocksMetaServiceDB

@@ -1,5 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
+import java.util.concurrent.atomic.AtomicLong
+
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToBerkeleyWriter
 import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestHandlerChooser}
@@ -327,8 +329,9 @@ class ServerHandler(requestHandlerChooser: RequestHandlerChooser, logger: Logger
           val txn = Descriptors.PutSimpleTransactionAndData.decodeRequest(message.body)
           val context = orderedExecutionPool.pool(txn.streamID, txn.partition)
           ScalaFuture {
-            val transactionID = requestHandlerChooser.server
-              .getTransactionID
+
+            val transactionID =
+              requestHandlerChooser.server.getTransactionID
 
             requestHandlerChooser.server.putTransactionData(
               txn.streamID,
@@ -367,7 +370,6 @@ class ServerHandler(requestHandlerChooser: RequestHandlerChooser, logger: Logger
               CommitLogToBerkeleyWriter.putTransactionsType,
               messageForPutTransactions
             )
-
 
             logSuccessfulProcession(handler.getName, message, ctx)
 

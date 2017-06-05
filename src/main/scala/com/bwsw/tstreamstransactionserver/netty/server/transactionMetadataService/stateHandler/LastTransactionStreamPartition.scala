@@ -7,6 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
 import com.google.common.cache.Cache
 
+//TODO need reimplementation of access to cache
 class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
   private final val lastTransactionDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE)
   private final val lastCheckpointedTransactionDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE)
@@ -46,7 +47,8 @@ class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
     cache
   }
 
-  private final val lastTransactionStreamPartitionRamTable: Cache[KeyStreamPartition, LastOpenedAndCheckpointedTransaction] = fillLastTransactionStreamPartitionTable
+  private final val lastTransactionStreamPartitionRamTable: Cache[KeyStreamPartition, LastOpenedAndCheckpointedTransaction] =
+    fillLastTransactionStreamPartitionTable
 
   final def getLastTransactionIDAndCheckpointedID(streamID: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
     val key = KeyStreamPartition(streamID, partition)
@@ -59,7 +61,10 @@ class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
           val lastCheckpointed = TransactionID.fromByteArray(dataFound2)
           LastOpenedAndCheckpointedTransaction(openedTransaction, Some(lastCheckpointed))
         }
-        if (checkpointed.isDefined) checkpointed else Some(LastOpenedAndCheckpointedTransaction(openedTransaction, None))
+        if (checkpointed.isDefined)
+          checkpointed
+        else
+          Some(LastOpenedAndCheckpointedTransaction(openedTransaction, None))
       }
     }
   }

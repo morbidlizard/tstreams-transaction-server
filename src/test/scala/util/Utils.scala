@@ -1,6 +1,7 @@
 package util
 
 import java.net.ServerSocket
+import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -78,6 +79,9 @@ object Utils {
       .withZookeeperOptions(
         serverBuilder.getZookeeperOptions.copy(endpoints = zkTestServer.getConnectString)
       )
+//      .withServerStorageOptions(
+//        serverBuilder.getStorageOptions.copy(Files.createTempDirectory("/tmp").toFile.getPath)
+//      )
       .withBootstrapOptions(
         serverBuilder.getBootstrapOptions.copy(port = getRandomPort)
       )

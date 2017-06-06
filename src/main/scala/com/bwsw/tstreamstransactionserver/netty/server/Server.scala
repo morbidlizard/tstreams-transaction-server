@@ -157,7 +157,7 @@ class Server(authOpts: AuthOptions,
 
 
   private val curatorSubscriberClient =
-    if (subscribersUpdateOptions.subscriberMonitoringZkEndpoints == zookeeperOpts.endpoints) {
+    if (subscribersUpdateOptions.subscriberMonitoringZkEndpoints.isEmpty) {
       zk.client
     }
     else {
@@ -165,7 +165,7 @@ class Server(authOpts: AuthOptions,
         .sessionTimeoutMs(zookeeperOpts.sessionTimeoutMs)
         .connectionTimeoutMs(zookeeperOpts.connectionTimeoutMs)
         .retryPolicy(new RetryForever(zookeeperOpts.retryDelayMs))
-        .connectString(subscribersUpdateOptions.subscriberMonitoringZkEndpoints)
+        .connectString(subscribersUpdateOptions.subscriberMonitoringZkEndpoints.get)
         .build()
 
       connection.start()
@@ -176,7 +176,7 @@ class Server(authOpts: AuthOptions,
       if (isConnected)
         connection
       else
-        throw new ZkNoConnectionException(subscribersUpdateOptions.subscriberMonitoringZkEndpoints)
+        throw new ZkNoConnectionException(subscribersUpdateOptions.subscriberMonitoringZkEndpoints.get)
     }
 
   private val openTransactionStateNotifier =

@@ -25,7 +25,7 @@ object ServerOptions {
     * @param subscriberMonitoringZkEndpoints The zookeeper server(s) connect to.
     */
   case class SubscriberUpdateOptions(subscribersUpdatePeriodMs: Int = 1000,
-                                     subscriberMonitoringZkEndpoints: String = "127.0.0.1:37001"
+                                     subscriberMonitoringZkEndpoints: Option[String] = None
                                     )
 
   /** The options are used to validate client requests by a server.

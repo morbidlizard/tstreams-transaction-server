@@ -228,7 +228,7 @@ class ServerProducerTransactionNotificationTest
 
     bundle.close()
 
-    res._2.get shouldBe ProducerTransaction(streamID, partition, transactionID, TransactionStates.Checkpointed, 1, 120L)
+    res._2.get shouldBe ProducerTransaction(streamID, partition, transactionID, TransactionStates.Checkpointed, 1, Long.MaxValue)
     res.exists shouldBe true
   }
 

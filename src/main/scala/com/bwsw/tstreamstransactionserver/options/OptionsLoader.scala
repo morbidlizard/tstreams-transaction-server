@@ -139,9 +139,6 @@ class OptionsLoader {
     val transactionDatabaseTransactionKeeptimeMin =
       helper.castCheck("transaction-database.transaction-keeptime-min",  prop => prop.toInt)
 
-    val transactionCacheSize =
-      helper.castCheck("transaction.cache.size",  prop => prop.toInt)
-
     val maxBackgroundCompactions =
       helper.castCheck("max.background.compactions",  prop => prop.toInt)
 
@@ -156,7 +153,6 @@ class OptionsLoader {
       readThreadPool,
       ttlAddMs,
       transactionDatabaseTransactionKeeptimeMin,
-      transactionCacheSize,
       maxBackgroundCompactions,
       compression,
       useFsync

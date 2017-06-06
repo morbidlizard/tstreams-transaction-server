@@ -273,7 +273,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerChooser, logger: Logger
                   txn.partition,
                   transactionID,
                   TransactionStates.Opened,
-                  txn.data.size, 3L
+                  txn.data.size, 3000L
                 )), None
               ),
               Transaction(Some(
@@ -283,7 +283,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerChooser, logger: Logger
                   transactionID,
                   TransactionStates.Checkpointed,
                   txn.data.size,
-                  120L)), None
+                  Long.MaxValue)), None
               )
             )
             val messageForPutTransactions =
@@ -405,7 +405,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerChooser, logger: Logger
                   txn.partition,
                   transactionID,
                   TransactionStates.Opened,
-                  txn.data.size, 3L
+                  txn.data.size, 3000L
                 )), None
               ),
               Transaction(Some(
@@ -415,7 +415,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerChooser, logger: Logger
                   transactionID,
                   TransactionStates.Checkpointed,
                   txn.data.size,
-                  120L)), None
+                  Long.MaxValue)), None
               )
             )
             val messageForPutTransactions =

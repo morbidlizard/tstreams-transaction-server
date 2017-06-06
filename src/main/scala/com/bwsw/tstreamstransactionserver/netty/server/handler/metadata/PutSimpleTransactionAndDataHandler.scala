@@ -13,11 +13,12 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
   private val descriptor = Descriptors.PutSimpleTransactionAndData
 
   private def process(requestBody: Array[Byte]) = {
+    val transactionID = server.getTransactionID
     val txn = descriptor.decodeRequest(requestBody)
     server.putTransactionData(
       txn.streamID,
       txn.partition,
-      txn.transaction,
+      transactionID,
       txn.data,
       0
     )
@@ -27,7 +28,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
         ProducerTransaction(
           txn.streamID,
           txn.partition,
-          txn.transaction,
+          transactionID,
           TransactionStates.Opened,
           txn.data.size, 3L
         )), None
@@ -36,7 +37,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
         ProducerTransaction(
           txn.streamID,
           txn.partition,
-          txn.transaction,
+          transactionID,
           TransactionStates.Checkpointed,
           txn.data.size,
           120L)), None
@@ -45,18 +46,20 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
     val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(
       TransactionService.PutTransactions.Args(transactions)
     )
+
     scheduledCommitLog.putData(
       CommitLogToBerkeleyWriter.putTransactionsType,
       messageForPutTransactions
     )
+    transactionID
   }
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val isPutted = process(requestBody)
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+    val transactionID = process(requestBody)
 //    logSuccessfulProcession(Descriptors.PutSimpleTransactionAndData.name)
     Descriptors.PutSimpleTransactionAndData.encodeResponse(
       TransactionService.PutSimpleTransactionAndData.Result(
-        Some(isPutted)
+        Some(transactionID)
       )
     )
   }

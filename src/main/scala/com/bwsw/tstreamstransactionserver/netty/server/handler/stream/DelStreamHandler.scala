@@ -15,7 +15,7 @@ class DelStreamHandler(server: TransactionServer)
     server.delStream(args.name)
   }
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val result = process(requestBody)
     //    logSuccessfulProcession(Descriptors.GetStream.name)
     descriptor.encodeResponse(

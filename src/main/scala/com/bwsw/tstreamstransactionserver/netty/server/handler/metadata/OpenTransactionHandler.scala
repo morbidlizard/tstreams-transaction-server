@@ -4,26 +4,45 @@ import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import com.bwsw.tstreamstransactionserver.rpc._
+import OpenTransactionHandler._
 
-class PutTransactionsHandler(server: TransactionServer,
+
+class OpenTransactionHandler(server: TransactionServer,
                              scheduledCommitLog: ScheduledCommitLog)
   extends RequestHandler {
 
-  private val descriptor = Descriptors.PutTransactions
-
   private def process(requestBody: Array[Byte]) = {
-    scheduledCommitLog.putData(
-      CommitLogToBerkeleyWriter.putTransactionsType,
-      requestBody
+    val transactionID = server.getTransactionID
+    val args = descriptor.decodeRequest(requestBody)
+
+    val txn = Transaction(Some(
+      ProducerTransaction(
+        args.streamID,
+        args.partition,
+        transactionID,
+        TransactionStates.Opened,
+        quantity = 0,
+        ttl = args.transactionTTLMs
+      )), None
     )
+
+    val binaryTransaction = Descriptors.PutTransaction.encodeRequest(
+      TransactionService.PutTransaction.Args(txn)
+    )
+
+    scheduledCommitLog.putData(
+      CommitLogToBerkeleyWriter.putTransactionType,
+      binaryTransaction
+    )
+
+    transactionID
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.PutStream.name)
+    val transactionID = process(requestBody)
     descriptor.encodeResponse(
-      TransactionService.PutTransactions.Result(Some(result))
+      TransactionService.OpenTransaction.Result(Some(transactionID))
     )
   }
 
@@ -33,7 +52,7 @@ class PutTransactionsHandler(server: TransactionServer,
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutTransactions.Result(
+      TransactionService.OpenTransaction.Result(
         None,
         Some(ServerException(message)
         )
@@ -43,3 +62,8 @@ class PutTransactionsHandler(server: TransactionServer,
 
   override def getName: String = descriptor.name
 }
+
+private object OpenTransactionHandler {
+  val descriptor = Descriptors.OpenTransaction
+}
+

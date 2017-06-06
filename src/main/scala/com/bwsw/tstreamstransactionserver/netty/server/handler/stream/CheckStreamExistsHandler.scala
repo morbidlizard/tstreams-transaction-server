@@ -15,7 +15,7 @@ class CheckStreamExistsHandler(server: TransactionServer)
     server.checkStreamExists(args.name)
   }
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val result = process(requestBody)
     //    logSuccessfulProcession(Descriptors.CheckStreamExists.name)
     descriptor.encodeResponse(

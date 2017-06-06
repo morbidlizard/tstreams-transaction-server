@@ -20,7 +20,7 @@ class AuthenticateHandler(server: TransactionServer,
     )
   }
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val authInfo = process(requestBody)
     //    logSuccessfulProcession(Descriptors.GetStream.name)
     descriptor.encodeResponse(

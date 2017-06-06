@@ -61,6 +61,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   private val packageTransmissionOptions = TransportOptions()
   private val commitLogOptions = CommitLogOptions()
   private val zookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
+  private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
   def startTransactionServer(): Server = {
     val address = zkTestServer.getConnectString
     val zookeeperOptions = ZookeeperOptions(endpoints = address)
@@ -70,6 +71,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
       storageOptions, rocksStorageOptions, commitLogOptions,
       packageTransmissionOptions,
       zookeeperSpecificOptions,
+      subscriberUpdateOptions,
       serverHandler
     )
     val latch = new CountDownLatch(1)

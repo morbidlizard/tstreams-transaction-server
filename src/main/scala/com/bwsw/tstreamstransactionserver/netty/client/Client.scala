@@ -627,10 +627,9 @@ class Client(clientOpts: ConnectionOptions,
     *
     * @param streamID    an id of stream.
     * @param partition   a partition of stream.
-    * @param transaction a transaction id.
     * @param data        a producer transaction data.
     * @return Future of putSimpleTransactionAndData operation that can be completed or not. If it is completed it returns:
-    *         1) TRUE if transaction is persisted in commit log file for next processing and it's data is persisted successfully too, otherwise FALSE.
+    *         1) Transaction ID if transaction is persisted in commit log file for next processing and it's data is persisted successfully.
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist]], if there is no such stream;
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package has size in bytes more than defined by a server;
@@ -639,13 +638,13 @@ class Client(clientOpts: ConnectionOptions,
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def putSimpleTransactionAndData(streamID: Int, partition: Int, transaction: Long, data: Seq[Array[Byte]]): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $streamID, partition $partition with data: $data")
+  def putSimpleTransactionAndData(streamID: Int, partition: Int, data: Seq[Array[Byte]]): ScalaFuture[Long] = {
+    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partition with data: $data")
     onShutdownThrowException()
 
-    method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Boolean](
+    method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Long](
       Descriptors.PutSimpleTransactionAndData,
-      TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, transaction, data),
+      TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
   }
@@ -655,17 +654,43 @@ class Client(clientOpts: ConnectionOptions,
     *
     * @param streamID    an id of stream.
     * @param partition   a partition of stream.
-    * @param transaction a transaction id.
     * @param data        a producer transaction data.
     */
-  def putSimpleTransactionAndDataWithoutResponse(streamID: Int, partition: Int, transaction: Long, data: Seq[Array[Byte]]): Unit = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction $transaction to stream $streamID, partition $partition with data: $data")
+  def putSimpleTransactionAndDataWithoutResponse(streamID: Int, partition: Int, data: Seq[Array[Byte]]): Unit = {
+    if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partition with data: $data")
     onShutdownThrowException()
 
     methodFireAndForget[TransactionService.PutSimpleTransactionAndData.Args](
       Descriptors.PutSimpleTransactionAndData,
-      TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, transaction, data)
+      TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data)
     )
+  }
+
+
+  /** Puts producer 'opened' transaction.
+    *
+    * @param streamID an id of stream.
+    * @param partitionID  a partition of stream.
+    * @param transactionTTLMs a lifetime of producer 'opened' transaction.
+    * @return Future of openTransaction operation that can be completed or not. If it is completed it returns:
+    *         1) Transaction ID if transaction is persisted in commit log file for next processing.
+    *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
+    *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. a request package has size in bytes more than defined by a server;
+    *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
+    *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
+    *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    */
+  def openTransaction(streamID: Int, partitionID: Int, transactionTTLMs: Long): ScalaFuture[Long] = {
+    if (logger.isDebugEnabled)
+      logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partitionID with TTL: $transactionTTLMs")
+    onShutdownThrowException()
+
+    method[TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, Long](
+      Descriptors.OpenTransaction,
+      TransactionService.OpenTransaction.Args(streamID, partitionID, transactionTTLMs),
+      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+    )(contextForProducerTransactions)
   }
 
   /** Retrieves a producer transaction by id

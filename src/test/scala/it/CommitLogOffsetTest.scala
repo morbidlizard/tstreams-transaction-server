@@ -42,7 +42,7 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
-
+  private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
   def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -56,6 +56,7 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
+      subscriberUpdateOptions,
       timer = TestTimer
     )
     val latch = new CountDownLatch(1)

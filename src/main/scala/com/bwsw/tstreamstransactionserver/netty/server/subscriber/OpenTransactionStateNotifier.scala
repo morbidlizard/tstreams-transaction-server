@@ -26,8 +26,8 @@ final class OpenTransactionStateNotifier(observer: SubscribersObserver,
     // 1. manage next counter for (stream, part)
     val streamPartitionUnit = StreamPartitionUnit(stream, partition)
     val currentCounter = counters.computeIfAbsent(
-      streamPartitionUnit, _ => new AtomicLong(0L)
-    ).getAndIncrement()
+      streamPartitionUnit, _ => new AtomicLong(-1L)
+    ).incrementAndGet()
 
     // 2. create state (open)
     val transactionState = new TransactionState(

@@ -10,7 +10,7 @@ class GetTransactionIDByTimestampHandler(server: TransactionServer)
 
   private val descriptor = Descriptors.GetTransactionIDByTimestamp
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)
     val result = server.getTransactionIDByTimestamp(args.timestamp)
     //    logSuccessfulProcession(Descriptors.GetStream.name)

@@ -4,16 +4,16 @@ import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
-import com.bwsw.tstreamstransactionserver.netty.server.cache.Cacheable
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey, StreamRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable.ArrayBuffer
+
 class TransactionDataServiceImpl(storageOpts: StorageOptions,
                                  rocksStorageOpts: RocksStorageOptions,
-                                 streamCache: StreamCRUD,
-                                 cache: Cacheable[CacheKey, Array[Byte]]
+                                 streamCache: StreamCRUD
                                 )
 {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -75,13 +75,6 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
         datum.get(bytes)
 
         val binaryKey = keyWithDataID.toByteArray
-        cache.put(CacheKey(
-          streamID,
-          keyWithDataID.key.partition,
-          keyWithDataID.key.transaction,
-          keyWithDataID.dataID
-        ), bytes)
-
         batch.put(binaryKey, bytes)
       }
       val isOkay = batch.write()
@@ -104,29 +97,17 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
     val rocksDB = getStorageOrThrowError(streamRecord)
 
     val key = Key(partition, transaction)
+    val fromSeqId = key.toByteArray(from)
     val toSeqId = key.toByteArray(to)
 
     val iterator = rocksDB.iterator
-    val data = {
-      (from to to).toStream
-        .map { dataID =>
-          val currentDataSeq = KeyDataSeq(key, dataID)
-          val data = cache.get(CacheKey(streamID, partition, transaction, dataID))
-            .map(data => java.nio.ByteBuffer.wrap(data))
-            .orElse {
-              iterator.seek(currentDataSeq.toByteArray)
-              if (iterator.isValid && ByteArray.compare(iterator.key(), toSeqId) <= 0) {
-                Some(java.nio.ByteBuffer.wrap(iterator.value()))
-              } else {
-                None
-              }
-            }
-          data
-        }
-        .takeWhile(remainData => remainData.isDefined)
-        .map(dataOpt => dataOpt.get)
-    }.toArray
+    iterator.seek(fromSeqId)
 
+    val data = new ArrayBuffer[ByteBuffer](to - from)
+    while (iterator.isValid && ByteArray.compare(iterator.key(), toSeqId) <= 0) {
+      data += java.nio.ByteBuffer.wrap(iterator.value())
+      iterator.next()
+    }
     iterator.close()
     data
   }

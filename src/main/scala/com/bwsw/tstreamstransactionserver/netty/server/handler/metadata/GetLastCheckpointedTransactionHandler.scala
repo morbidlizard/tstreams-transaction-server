@@ -10,9 +10,13 @@ class GetLastCheckpointedTransactionHandler(server: TransactionServer)
 
   private val descriptor = Descriptors.GetLastCheckpointedTransaction
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.getLastCheckpointedTransaction(args.streamID, args.partition)
+    server.getLastCheckpointedTransaction(args.streamID, args.partition)
+  }
+
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+    val result = process(requestBody)
     //    logSuccessfulProcession(Descriptors.GetLastCheckpointedTransaction.name)
     descriptor.encodeResponse(
       TransactionService.GetLastCheckpointedTransaction.Result(result)
@@ -34,6 +38,7 @@ class GetLastCheckpointedTransactionHandler(server: TransactionServer)
       )
     )
   }
+
 
   override def getName: String = descriptor.name
 }

@@ -15,7 +15,7 @@ class PutStreamHandler(server: TransactionServer)
     server.putStream(args.name, args.partitions, args.description, args.ttl)
   }
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val result = process(requestBody)
     //    logSuccessfulProcession(Descriptors.PutStream.name)
     descriptor.encodeResponse(

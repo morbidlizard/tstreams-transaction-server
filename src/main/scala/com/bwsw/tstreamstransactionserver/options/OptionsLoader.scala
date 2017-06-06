@@ -56,7 +56,9 @@ class OptionsLoader {
       helper.castCheck("subscribers.update.period-ms", prop => prop.toInt)
 
     val subscriberMonitoringZkEndpoints =
-      helper.castCheck("subscribers.monitoring.zk.endpoints", identity)
+      scala.util.Try(
+        helper.castCheck("subscribers.monitoring.zk.endpoints", identity)
+      ).toOption
 
     SubscriberUpdateOptions(
       updatePeriodMs,
@@ -133,9 +135,6 @@ class OptionsLoader {
     val transactionDatabaseTransactionKeeptimeMin =
       helper.castCheck("transaction-database.transaction-keeptime-min",  prop => prop.toInt)
 
-    val transactionCacheSize =
-      helper.castCheck("transaction.cache.size",  prop => prop.toInt)
-
     val maxBackgroundCompactions =
       helper.castCheck("max.background.compactions",  prop => prop.toInt)
 
@@ -150,7 +149,6 @@ class OptionsLoader {
       readThreadPool,
       ttlAddMs,
       transactionDatabaseTransactionKeeptimeMin,
-      transactionCacheSize,
       maxBackgroundCompactions,
       compression,
       useFsync

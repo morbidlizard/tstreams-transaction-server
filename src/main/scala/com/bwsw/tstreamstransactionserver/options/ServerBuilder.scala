@@ -62,7 +62,8 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: CommonOptions.
   def build() = new Server(
     authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions,
     storageOptions, rocksStorageOptions, commitLogOptions,
-    packageTransmissionOptions, zookeeperSpecificOptions
+    packageTransmissionOptions, zookeeperSpecificOptions,
+    subscribersUpdateOptions
   )
 
   def getZookeeperOptions = zookeeperOptions.copy()

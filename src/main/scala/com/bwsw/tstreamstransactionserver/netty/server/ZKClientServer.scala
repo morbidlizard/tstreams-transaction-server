@@ -37,7 +37,7 @@ class ZKClientServer(serverAddress: String,
     if (InetSocketAddressClass.isValidSocketAddress(serverAddress, serverPort)) s"$serverAddress:$serverPort"
     else throw new InvalidSocketAddress(s"Invalid socket address $serverAddress:$serverPort")
 
-  private val client = {
+  private[server] val client = {
     val connection = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(sessionTimeoutMillis)
       .connectionTimeoutMs(connectionTimeoutMillis)

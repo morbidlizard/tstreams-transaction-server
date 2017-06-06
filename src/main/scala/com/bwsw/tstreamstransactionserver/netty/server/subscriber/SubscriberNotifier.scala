@@ -10,7 +10,7 @@ private object SubscriberNotifier {
 }
 
 
-private[subscriber] class SubscriberNotifier {
+private[server] class SubscriberNotifier {
   @volatile private var isStopped = false
 
   private val clientSocket =

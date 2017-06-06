@@ -13,13 +13,17 @@ class GetCommitLogOffsetsHandler(server: TransactionServer,
 
   private val descriptor = Descriptors.GetCommitLogOffsets
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val response = TransactionService.GetCommitLogOffsets.Result(
+  private def process(requestBody: Array[Byte]) = {
+    TransactionService.GetCommitLogOffsets.Result(
       Some(CommitLogInfo(
         server.getLastProcessedCommitLogFileID,
         scheduledCommitLog.currentCommitLogFile)
       )
     )
+  }
+
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+    val response = process(requestBody)
     descriptor.encodeResponse(response)
   }
 

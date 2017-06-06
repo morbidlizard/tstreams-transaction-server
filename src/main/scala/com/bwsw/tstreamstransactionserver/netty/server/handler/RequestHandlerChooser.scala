@@ -1,17 +1,22 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateHandler, PutConsumerCheckpointHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutTransactionDataHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutProducerStateWithDataHandler, PutTransactionDataHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 
 final class RequestHandlerChooser(val server: TransactionServer,
-                                  scheduledCommitLog: ScheduledCommitLog,
-                                  val packageTransmissionOpts: TransportOptions
+                                  val scheduledCommitLog: ScheduledCommitLog,
+                                  val packageTransmissionOpts: TransportOptions,
+                                  val authOptions: AuthOptions,
+                                  val orderedExecutionPool: OrderedExecutionPool,
+                                  val openTransactionStateNotifier: OpenTransactionStateNotifier
                                  ) {
 
   private val commitLogOffsetsHandler =
@@ -35,8 +40,12 @@ final class RequestHandlerChooser(val server: TransactionServer,
     new PutTransactionHandler(server, scheduledCommitLog)
   private val putTransactionsHandler =
     new PutTransactionsHandler(server, scheduledCommitLog)
+  private val putProducerStateWithDataHandler =
+    new PutProducerStateWithDataHandler(server, scheduledCommitLog)
   private val putSimpleTransactionAndDataHandler =
     new PutSimpleTransactionAndDataHandler(server, scheduledCommitLog)
+  private val openTransactionHandler =
+    new OpenTransactionHandler(server, scheduledCommitLog)
   private val getTransactionHandler =
     new GetTransactionHandler(server)
   private val getLastCheckpointedTransaction =
@@ -81,8 +90,12 @@ final class RequestHandlerChooser(val server: TransactionServer,
       putTransactionHandler
     case PutTransactions.methodID =>
       putTransactionsHandler
+    case PutProducerStateWithData.methodID =>
+      putProducerStateWithDataHandler
     case PutSimpleTransactionAndData.methodID =>
       putSimpleTransactionAndDataHandler
+    case OpenTransaction.methodID =>
+      openTransactionHandler
     case GetTransaction.methodID =>
       getTransactionHandler
     case GetLastCheckpointedTransaction.methodID =>

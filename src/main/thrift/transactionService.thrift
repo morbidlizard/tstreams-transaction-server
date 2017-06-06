@@ -105,7 +105,11 @@ service TransactionMetaService {
 
    bool putTransactions(1: list<Transaction> transactions) throws (1:ServerException error),
 
-   bool putSimpleTransactionAndData(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data) throws (1:ServerException error),
+   bool putProducerStateWithData(1: ProducerTransaction transaction, 2: list<binary> data, 3: i32 from) throws (1:ServerException error),
+
+   transactionIDType putSimpleTransactionAndData(1: StreamIDType streamID, 2: PartitionType partition, 3: list<binary> data) throws (1:ServerException error),
+
+   transactionIDType openTransaction(1: StreamIDType streamID, 2: PartitionType partition, 3: i64 transactionTTLMs) throws (1:ServerException error),
 
    ScanTransactionsInfo scanTransactions(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType from, 4: transactionIDType to, 5: i32 count, 6: set<TransactionStates> states) throws (1:ServerException error),
 
@@ -160,7 +164,11 @@ service TransactionService {
 
   bool putTransactions(1: list<Transaction> transactions) throws (1:ServerException error),
 
-  bool putSimpleTransactionAndData(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType transaction, 4: list<binary> data) throws (1:ServerException error),
+  bool putProducerStateWithData(1: ProducerTransaction transaction, 2: list<binary> data, 3: i32 from) throws (1:ServerException error),
+
+  transactionIDType putSimpleTransactionAndData(1: StreamIDType streamID, 2: PartitionType partition, 3: list<binary> data) throws (1:ServerException error),
+
+  transactionIDType openTransaction(1: StreamIDType streamID, 2: PartitionType partition, 3: i64 transactionTTLMs) throws (1:ServerException error),
 
   ScanTransactionsInfo scanTransactions(1: StreamIDType streamID, 2: PartitionType partition, 3: transactionIDType from, 4: transactionIDType to, 5: i32 count, 6: set<TransactionStates> states) throws (1:ServerException error),
 

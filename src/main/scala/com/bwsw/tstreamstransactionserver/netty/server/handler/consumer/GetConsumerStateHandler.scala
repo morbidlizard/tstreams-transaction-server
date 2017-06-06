@@ -10,7 +10,7 @@ class GetConsumerStateHandler (server: TransactionServer)
 
   private val descriptor = Descriptors.GetConsumerState
 
-  override def handleAndSendResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)
     val result = server.getConsumerState(
       args.name,

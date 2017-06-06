@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.3.7.8-SNAPSHOT"
+version := "1.3.7.9-SNAPSHOT"
 
 scalaVersion := "2.12.2"
 
@@ -42,17 +42,24 @@ publishTo := {
 publishArtifact in Test := false
 assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
 
+
+
 val sroogeGenOutput = "src/main/thrift/gen"
-ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile := new File(sroogeGenOutput)
+ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile := baseDirectory.value / sroogeGenOutput
+
+val protobufGenOutput = "src/main/protobuf/gen"
 
 ScroogeSBT.autoImport.scroogeBuildOptions in Compile := Seq()
 unmanagedSourceDirectories in Compile += baseDirectory.value / "src/main/resources"
 managedSourceDirectories in Compile += baseDirectory.value / sroogeGenOutput
+managedSourceDirectories in Compile += baseDirectory.value / protobufGenOutput
 parallelExecution in Test := false
 
 PB.targets in Compile := Seq(
-  scalapb.gen(singleLineToString = true) -> (sourceManaged in Compile).value
+  scalapb.gen(singleLineToString = true) -> baseDirectory.value / protobufGenOutput
 )
+
+test in assembly := {}
 
 resolvers ++= Seq(
   "twitter-repo" at "https://maven.twttr.com",

@@ -162,8 +162,10 @@ object Descriptors {
   val getStreamMethod = "getStream"
   val delStreamMethod = "delStream"
   val putTransactionMethod = "putTransaction"
+  val putProducerStateWithData = "putProducerStateWithData"
   val putSimpleTransactionAndDataMethod = "putSimpleTransactionAndData"
   val putTransactionsMethod = "putTransactions"
+  val openTransactionMethod = "openTransaction"
   val getTransactionMethod = "getTransaction"
   val getLastCheckpointedTransactionMethod = "getLastCheckpointedTransaction"
   val scanTransactionsMethod = "scanTransactions"
@@ -194,10 +196,14 @@ object Descriptors {
         toString(DelStream.name, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutTransaction.Args    =>
         toString(PutTransaction.name, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutProducerStateWithData.Args =>
+        toString(PutProducerStateWithData.name, struct.productIterator, TransactionService.PutProducerStateWithData.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutSimpleTransactionAndData.Args =>
         toString(PutSimpleTransactionAndData.name, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransactions.Args   =>
+      case struct: TransactionService.PutTransactions.Args =>
         toString(PutTransactions.name, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.OpenTransaction.Args =>
+        toString(OpenTransaction.name, struct.productIterator, TransactionService.OpenTransaction.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetTransaction.Args    =>
         toString(GetTransaction.name, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetLastCheckpointedTransaction.Args =>
@@ -281,4 +287,10 @@ object Descriptors {
 
   case object GetTransactionIDByTimestamp extends
     Descriptor(getTransactionIDByTimestamp, 18:Byte, TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  case object OpenTransaction extends
+    Descriptor(openTransactionMethod, 19:Byte, TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  case object PutProducerStateWithData extends
+    Descriptor(putProducerStateWithData, 20:Byte, TransactionService.PutProducerStateWithData.Args, TransactionService.PutProducerStateWithData.Result, protocolTCompactFactory, protocolTBinaryFactory)
 }

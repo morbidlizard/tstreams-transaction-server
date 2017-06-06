@@ -3,16 +3,14 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionIDService
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.UnaryOperator
 
-private object TransactionIDService {
-  val SCALE = 100000
-}
-
-final class TransactionIDService
+object TransactionIDService
   extends ITransactionIDGenerator
 {
+  private val SCALE = 100000
+
   private val transactionIDAndCurrentTime = {
     val transactionGeneratorUnit =
-      TransactionGeneratorUnit(1, 0L)
+      TransactionGeneratorUnit(0, 0L)
 
     new AtomicReference(transactionGeneratorUnit)
   }
@@ -30,7 +28,7 @@ final class TransactionIDService
 
   override def getTransaction(): Long = {
     val now = System.currentTimeMillis()
-    val txn = transactionIDAndCurrentTime.getAndUpdate(update(now))
+    val txn = transactionIDAndCurrentTime.updateAndGet(update(now))
     getTransaction(now) + txn.transactionID
   }
 

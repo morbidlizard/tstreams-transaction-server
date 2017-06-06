@@ -2,7 +2,7 @@ FROM ubuntu:xenial
 
 LABEL maintainer BITWORKS
 
-ENV version 1.3.7.8-SNAPSHOT
+ENV version 1.3.7.9-SNAPSHOT
 ENV slf4j_version 1.7.24
 
 ENV DEBIAN_FRONTEND noninteractive

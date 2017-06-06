@@ -5,11 +5,12 @@ import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
-import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
 import com.bwsw.tstreamstransactionserver.netty.{InetSocketAddressClass, Message}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerChooser
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
@@ -19,16 +20,23 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
+import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
 
-class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOptions,
-             serverOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
-             storageOpts: StorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOptions: CommitLogOptions,
-             packageTransmissionOpts: TransportOptions, zookeeperSpecificOpts: ServerOptions.ZooKeeperOptions,
-             serverHandler: (RequestHandlerChooser, Logger) => SimpleChannelInboundHandler[ByteBuf] =
-             (handler, logger) => new ServerHandler(handler, logger),
+class Server(authOpts: AuthOptions,
+             zookeeperOpts: CommonOptions.ZookeeperOptions,
+             serverOpts: BootstrapOptions,
+             serverReplicationOpts: ServerReplicationOptions,
+             storageOpts: StorageOptions,
+             rocksStorageOpts: RocksStorageOptions,
+             commitLogOptions: CommitLogOptions,
+             packageTransmissionOpts: TransportOptions,
+             zookeeperSpecificOpts: ServerOptions.ZooKeeperOptions,
+             subscribersUpdateOptions: SubscriberUpdateOptions,
+             serverHandler: (RequestHandlerChooser, Logger) =>
+               SimpleChannelInboundHandler[ByteBuf] = (handler, logger) => new ServerHandler(handler, logger),
              timer: Time = new Time{}
             ) {
 
@@ -53,7 +61,8 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       zookeeperOpts.connectionTimeoutMs,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )) match {
-    case scala.util.Success(client) => client
+    case scala.util.Success(client) =>
+      client
     case scala.util.Failure(throwable) =>
       shutdown()
       throw throwable
@@ -63,12 +72,15 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
     rocksStorageOpts.readThreadPool,
     rocksStorageOpts.writeThreadPool
   )
+
+  private val zkStreamDatabase =
+    zk.streamDatabase(s"${storageOpts.streamZookeeperDirectory}")
   private val transactionServer = new TransactionServer(
     executionContext,
     authOpts,
     storageOpts,
     rocksStorageOpts,
-    zk.streamDatabase(s"${storageOpts.streamZookeeperDirectory}"),
+    zkStreamDatabase,
     timer
   )
 
@@ -128,13 +140,64 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
   }
 
 
-  private val berkeleyWriterExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
-  private val commitLogCloseExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build())
-  private val bossGroup = new EpollEventLoopGroup(1)
-  private val workerGroup = new EpollEventLoopGroup()
+  private val berkeleyWriterExecutor =
+    Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
+  private val commitLogCloseExecutor =
+    Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build())
+
+  private val bossGroup =
+    new EpollEventLoopGroup(1)
+
+  private val workerGroup =
+    new EpollEventLoopGroup()
+
+  private val orderedExecutionPool =
+    new OrderedExecutionPool(serverOpts.orderedExecutionPoolSize)
+
+
+
+  private val curatorSubscriberClient =
+    if (subscribersUpdateOptions.subscriberMonitoringZkEndpoints.isEmpty) {
+      zk.client
+    }
+    else {
+      val connection = CuratorFrameworkFactory.builder()
+        .sessionTimeoutMs(zookeeperOpts.sessionTimeoutMs)
+        .connectionTimeoutMs(zookeeperOpts.connectionTimeoutMs)
+        .retryPolicy(new RetryForever(zookeeperOpts.retryDelayMs))
+        .connectString(subscribersUpdateOptions.subscriberMonitoringZkEndpoints.get)
+        .build()
+
+      connection.start()
+      val isConnected = connection.blockUntilConnected(
+        zookeeperOpts.connectionTimeoutMs,
+        TimeUnit.MILLISECONDS
+      )
+      if (isConnected)
+        connection
+      else
+        throw new ZkNoConnectionException(subscribersUpdateOptions.subscriberMonitoringZkEndpoints.get)
+    }
+
+  private val openTransactionStateNotifier =
+    new OpenTransactionStateNotifier(
+      new SubscribersObserver(
+        curatorSubscriberClient,
+        zkStreamDatabase,
+        subscribersUpdateOptions.subscribersUpdatePeriodMs
+      ),
+      new SubscriberNotifier
+    )
 
   private val requestHandlerChooser: RequestHandlerChooser =
-    new RequestHandlerChooser(transactionServer, scheduledCommitLogImpl, packageTransmissionOpts)
+    new RequestHandlerChooser(
+      transactionServer,
+      scheduledCommitLogImpl,
+      packageTransmissionOpts,
+      authOpts,
+      orderedExecutionPool,
+      openTransactionStateNotifier
+    )
 
   def start(function: => Unit = ()): Unit = {
     try {
@@ -194,6 +257,10 @@ class Server(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOption
       if (berkeleyWriter != null) {
         berkeleyWriter.run()
         berkeleyWriter.closeRocksDB()
+      }
+
+      if (orderedExecutionPool != null) {
+        orderedExecutionPool.close()
       }
 
       if (transactionServer != null) {

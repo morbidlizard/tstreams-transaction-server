@@ -17,7 +17,10 @@ import scala.collection.mutable.ArrayBuffer
 class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
                                 pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
                                 transactionServer: TransactionServer,
-                                incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy) extends Runnable with Time {
+                                incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
+  extends Runnable
+    with Time
+{
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val processAccordingToPolicy = createProcessingFunction()
 

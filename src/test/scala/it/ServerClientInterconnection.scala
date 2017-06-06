@@ -46,6 +46,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
+  private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
+
 
   def startTransactionServer(): Server = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -59,6 +61,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
       zookeeperSpecificOpts = serverZookeeperSpecificOptions,
+      subscriberUpdateOptions,
       timer = TestTimer
     )
     val l = new CountDownLatch(1)
@@ -129,7 +132,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       override val state: TransactionStates = transactionState
       override val stream: Int = streamID
       override val ttl: Long = Long.MaxValue
-      override val quantity: Int = -1
+      override val quantity: Int = 0
       override val partition: Int = streamObj.partitions
     }
 
@@ -268,7 +271,48 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     data should contain theSameElementsAs dataFromDatabase
   }
 
-  it should "put transactions and get them back(scanTransactions)" in {
+  it should "[putProducerStateWithData] put a producer transaction (Opened) with data, and server should persist data." in {
+    //arrange
+    val stream =
+      getRandomStream
+
+    val streamID =
+      Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val openedProducerTransaction =
+      getRandomProducerTransaction(streamID, stream, TransactionStates.Opened)
+
+    val dataAmount = 30
+    val data = Array.fill(dataAmount)(rand.nextString(10).getBytes)
+
+    val from = dataAmount
+    val to = 2*from
+    Await.result(client.putProducerStateWithData(openedProducerTransaction, data, from), secondsWait.seconds)
+
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
+    transactionServer.berkeleyWriter.run()
+
+    val successResponse = Await.result(
+      client.getTransaction(streamID, stream.partitions, openedProducerTransaction.transactionID
+      ), secondsWait.seconds)
+
+    val successResponseData = Await.result(
+      client.getTransactionData(
+        streamID, stream.partitions, openedProducerTransaction.transactionID, from, to
+      ), secondsWait.seconds)
+
+
+    //assert
+    successResponse shouldBe TransactionInfo(
+      exists = true,
+      Some(openedProducerTransaction)
+    )
+
+    successResponseData should contain theSameElementsInOrderAs data
+  }
+
+  it should "[scanTransactions] put transactions and get them back" in {
     val stream = getRandomStream
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -326,6 +370,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     //assert
     response shouldBe TransactionInfo(exists = false, None)
   }
+
 
   it should "put a producer transaction (Opened), return it and shouldn't return a producer transaction which id is greater (getTransaction)" in {
     //arrange

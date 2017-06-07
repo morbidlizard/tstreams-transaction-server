@@ -266,11 +266,9 @@ class ServerProducerTransactionNotificationTest
     val from = TransactionIDService.getTransaction()
 
     val transactions = (0 until ALL).map { _ =>
-      bundle.client.putSimpleTransactionAndData(streamID, partition, data)
+      Await.result(bundle.client.putSimpleTransactionAndData(streamID, partition, data), 5.seconds)
     }
-
-
-    Thread.sleep(2000)
+    
     val to = TransactionIDService.getTransaction()
 
     val res = Await.result(bundle.client.scanTransactions(

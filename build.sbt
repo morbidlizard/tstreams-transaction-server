@@ -59,7 +59,6 @@ PB.targets in Compile := Seq(
   scalapb.gen(singleLineToString = true) -> baseDirectory.value / protobufGenOutput
 )
 
-test in assembly := {}
 
 resolvers ++= Seq(
   "twitter-repo" at "https://maven.twttr.com",

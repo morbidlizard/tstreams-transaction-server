@@ -209,6 +209,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
     )
   }
 
+
   private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)],
                               batch: Batch): ListBuffer[Unit => Unit] = {
     val (producerTransactions, consumerTransactions) =
@@ -234,6 +235,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
                   s"transaction ${persistedProducerTransactionRocks.transactionID} " +
                   s"with state ${persistedProducerTransactionRocks.state} to new state"
               )
+
 
             val producerTransaction =
               transitProducerTransactionToNewState(persistedProducerTransactionRocks, txns)

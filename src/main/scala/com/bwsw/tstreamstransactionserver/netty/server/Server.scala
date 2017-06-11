@@ -4,7 +4,7 @@ import java.util
 import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
 import com.bwsw.tstreamstransactionserver.netty.{InetSocketAddressClass, Message}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
@@ -68,7 +68,7 @@ class Server(authOpts: AuthOptions,
       throw throwable
   }
 
-  private val executionContext = new ServerExecutionContext(
+  private val executionContext = new ServerExecutionContextGrids(
     rocksStorageOpts.readThreadPool,
     rocksStorageOpts.writeThreadPool
   )

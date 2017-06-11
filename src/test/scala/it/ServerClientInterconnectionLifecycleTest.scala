@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.options.ServerBuilder
@@ -38,7 +38,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     val streamAfterDelete = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, Some("Previous one was deleted"), 538L)
 
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
@@ -93,7 +93,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
@@ -135,7 +135,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
@@ -173,7 +173,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
@@ -214,7 +214,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
@@ -257,7 +257,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Cancel->Updated->Checkpointed. Should return Invalid Transaction(due to transaction with Cancel state)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(

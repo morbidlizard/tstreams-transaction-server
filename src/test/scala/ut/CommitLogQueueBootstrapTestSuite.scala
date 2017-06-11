@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogStorage}
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.{CommitLogQueueBootstrap, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions, StorageOptions}
@@ -18,7 +18,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   //arrange
   val authOptions = AuthOptions()
   val rocksStorageOptions = RocksStorageOptions()
-  val executionContext = new ServerExecutionContext(2, 2)
+  val executionContext = new ServerExecutionContextGrids(2, 2)
   val storageOptions = StorageOptions(new StringBuffer().append("target").append(File.separatorChar).append("clqb").toString)
 
 

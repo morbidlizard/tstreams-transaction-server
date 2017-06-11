@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.nio.ByteBuffer
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
@@ -17,7 +17,7 @@ import scala.collection.Set
 
 
 
-class TransactionServer(val executionContext: ServerExecutionContext,
+class TransactionServer(val executionContext: ServerExecutionContextGrids,
                         authOpts: AuthOptions,
                         storageOpts: StorageOptions,
                         rocksStorageOpts: RocksStorageOptions,

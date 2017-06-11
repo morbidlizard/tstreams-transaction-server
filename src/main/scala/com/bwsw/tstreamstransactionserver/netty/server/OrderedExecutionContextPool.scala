@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import com.bwsw.tstreamstransactionserver.netty.ExecutionContextGrid
+import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 
 import scala.concurrent.ExecutionContextExecutorService
 

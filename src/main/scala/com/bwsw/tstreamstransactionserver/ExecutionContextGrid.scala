@@ -1,7 +1,7 @@
-package com.bwsw.tstreamstransactionserver.netty
+package com.bwsw.tstreamstransactionserver
 
 import java.util.concurrent.ThreadPoolExecutor.DiscardPolicy
-import java.util.concurrent.{Executors, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 

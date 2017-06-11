@@ -35,8 +35,8 @@ object ServerOptions {
     * @param tokenTTL           the time a token live before expiration.
     */
   case class AuthOptions(key: String = "",
-                         activeTokensNumber: Int = 100,
-                         tokenTTL: Int = 300
+                         activeTokensNumber: Int = 10000,
+                         tokenTTL: Int = 600
                         )
 
   /** The options are used to define folders for databases.

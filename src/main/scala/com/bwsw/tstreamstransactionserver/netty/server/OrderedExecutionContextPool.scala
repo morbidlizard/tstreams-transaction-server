@@ -1,12 +1,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import com.bwsw.tstreamstransactionserver.netty.ExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.ExecutionContextGrid
 
 import scala.concurrent.ExecutionContextExecutorService
 
-final class OrderedExecutionPool(poolNumber: Int) {
+final class OrderedExecutionContextPool(poolNumber: Int) {
   private val singleThreadPools =
-    Array.fill(poolNumber)(ExecutionContext.apply("OrderedExecutionService-%d"))
+    Array.fill(poolNumber)(ExecutionContextGrid.apply("OrderedExecutionService-%d"))
 
   def pool(stream: Int, partition: Int): ExecutionContextExecutorService = {
     val n = singleThreadPools.length

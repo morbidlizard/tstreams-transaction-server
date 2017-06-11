@@ -5,6 +5,8 @@ import java.util.concurrent.{Executors, LinkedBlockingQueue, ThreadPoolExecutor,
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
+
 /** Context is a wrapper for java executors
   *
   *  @constructor creates a context with a number of executors services.
@@ -12,35 +14,34 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
   *  @param f an executor service.
   *
   */
-class ExecutionContext(nContexts: Int, f: => java.util.concurrent.ExecutorService) {
+class ExecutionContextGrid(nContexts: Int, f: => java.util.concurrent.ExecutorService) {
   require(nContexts > 0)
 
-  private def newExecutionContext = scala.concurrent.ExecutionContext.fromExecutorService(f)
+  private def newExecutionContext = ExecutionContext.fromExecutorService(f)
 
   private val contexts = Array.fill(nContexts)(newExecutionContext)
 
-  def getContext(value: Long) = contexts((value % nContexts).toInt)
-
-  lazy val getContext = contexts(0)
+  def getContext(value: Long): ExecutionContextExecutorService = contexts((value % nContexts).toInt)
 
   def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
 
-  def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContext.TasksCompletedTLL, TimeUnit.MILLISECONDS))
+  def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContextGrid.TasksCompletedTLL, TimeUnit.MILLISECONDS))
 }
 
+class SinglePoolExecutionContextGrid(f: => java.util.concurrent.ExecutorService) extends ExecutionContextGrid(1, f) {
+  def getContext: ExecutionContextExecutorService = getContext(0)
+}
 
-object ExecutionContext {
+object ExecutionContextGrid {
   /** The time to wait all tasks completed by thread pool */
   private val TasksCompletedTLL = 10000
 
   /** Creates an 1 single-threaded context with name */
-  def apply(nameFormat: String) = new ExecutionContext(
-    1,
+  def apply(nameFormat: String) = new SinglePoolExecutionContextGrid(
     new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
   )
   /** Creates FixedThreadPool with defined threadNumber*/
-  def apply(threadNumber: Int, nameFormat: String) = new ExecutionContext(
-    1,
+  def apply(threadNumber: Int, nameFormat: String) = new SinglePoolExecutionContextGrid(
     new ThreadPoolExecutor(threadNumber, threadNumber, 0L, TimeUnit.MILLISECONDS,
       new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
   )

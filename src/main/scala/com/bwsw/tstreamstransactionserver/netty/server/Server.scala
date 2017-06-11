@@ -152,7 +152,7 @@ class Server(authOpts: AuthOptions,
     new EpollEventLoopGroup()
 
   private val orderedExecutionPool =
-    new OrderedExecutionPool(serverOpts.orderedExecutionPoolSize)
+    new OrderedExecutionContextPool(serverOpts.orderedExecutionPoolSize)
 
 
 

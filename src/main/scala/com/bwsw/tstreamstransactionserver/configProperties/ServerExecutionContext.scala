@@ -1,13 +1,13 @@
 package com.bwsw.tstreamstransactionserver.configProperties
 
-import com.bwsw.tstreamstransactionserver.netty.ExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.ExecutionContextGrid
 
 import scala.concurrent.ExecutionContextExecutorService
 
 class ServerExecutionContext(rocksWriteNThreads: Int, rocksReadNThreads: Int) {
-  private val commitLogExecutionContext = ExecutionContext("CommitLogPool-%d")
-  private val serverWriteExecutionContext = ExecutionContext(rocksWriteNThreads, "ServerWritePool-%d")
-  private val serverReadExecutionContext = ExecutionContext(rocksReadNThreads, "ServerReadPool-%d")
+  private val commitLogExecutionContext = ExecutionContextGrid("CommitLogPool-%d")
+  private val serverWriteExecutionContext = ExecutionContextGrid(rocksWriteNThreads, "ServerWritePool-%d")
+  private val serverReadExecutionContext = ExecutionContextGrid(rocksReadNThreads, "ServerReadPool-%d")
 
   val commitLogContext: ExecutionContextExecutorService = commitLogExecutionContext.getContext
   val serverWriteContext: ExecutionContextExecutorService = serverWriteExecutionContext.getContext

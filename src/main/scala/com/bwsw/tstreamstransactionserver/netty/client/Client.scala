@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
-import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
+import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
 import com.bwsw.tstreamstransactionserver.netty._
@@ -49,9 +49,9 @@ class Client(clientOpts: ConnectionOptions,
   /** A special context for making requests asynchronously, although they are processed sequentially;
     * If's for: putTransaction, putTransactions, setConsumerState.
     */
-  private[client] final val processTransactionsPutOperationPool = ExecutionContext("ClientTransactionPool-%d")
+  private[client] final val processTransactionsPutOperationPool = ExecutionContextGrid("ClientTransactionPool-%d")
 
-  private final val executionContext = new ClientExecutionContext(clientOpts.threadPool)
+  private final val executionContext = new ClientExecutionContextGrid(clientOpts.threadPool)
 
   private final val context = executionContext.context
   private final val contextForProducerTransactions = processTransactionsPutOperationPool.getContext

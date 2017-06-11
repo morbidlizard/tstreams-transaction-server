@@ -1,11 +1,11 @@
 package ut
 
-import com.bwsw.tstreamstransactionserver.netty.server.OrderedExecutionPool
+import com.bwsw.tstreamstransactionserver.netty.server.OrderedExecutionContextPool
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Random
 
-class OrderedExecutionPoolTest
+class OrderedExecutionContextPoolTest
   extends FlatSpec
     with Matchers
 {
@@ -31,7 +31,7 @@ class OrderedExecutionPoolTest
 
   "Ordered execution pool" should "should assign tasks as formula requires if pool size is even" in {
     val poolSize = 6
-    val orderedExecutionPool = new OrderedExecutionPool(poolSize)
+    val orderedExecutionPool = new OrderedExecutionContextPool(poolSize)
 
     val indexToContext = collection.mutable.Map[Int, String]()
 
@@ -53,7 +53,7 @@ class OrderedExecutionPoolTest
 
   it should "should assign tasks as formula requires if pool size is odd" in {
     val poolSize = 13
-    val orderedExecutionPool = new OrderedExecutionPool(poolSize)
+    val orderedExecutionPool = new OrderedExecutionContextPool(poolSize)
 
     val indexToContext = collection.mutable.Map[Int, String]()
 

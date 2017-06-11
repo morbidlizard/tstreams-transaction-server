@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.Descriptors._
-import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionPool, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateHandler, PutConsumerCheckpointHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutTransactionDataHandler}
@@ -15,7 +15,7 @@ final class RequestHandlerChooser(val server: TransactionServer,
                                   val scheduledCommitLog: ScheduledCommitLog,
                                   val packageTransmissionOpts: TransportOptions,
                                   val authOptions: AuthOptions,
-                                  val orderedExecutionPool: OrderedExecutionPool,
+                                  val orderedExecutionPool: OrderedExecutionContextPool,
                                   val openTransactionStateNotifier: OpenTransactionStateNotifier
                                  ) {
 

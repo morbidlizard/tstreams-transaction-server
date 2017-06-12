@@ -40,10 +40,10 @@ object Throwable {
   object ClientIllegalOperationAfterShutdown
     extends IllegalStateException("It's not allowed do any operations after client shutdown!")
 
-  class MasterIsPersistentZnode(path: String)
+  class MasterIsPersistentZnodeException(path: String)
     extends IllegalArgumentException(s"Master node: $path is persistent node, but should be ephemeral.")
 
-  class MasterDataIsIllegal(path: String, data: String)
+  class MasterDataIsIllegalException(path: String, data: String)
     extends IllegalArgumentException(s"Master node: $path, data is: $data. It's not ip adrress.")
 
   class MasterPathIsAbsent(path: String)

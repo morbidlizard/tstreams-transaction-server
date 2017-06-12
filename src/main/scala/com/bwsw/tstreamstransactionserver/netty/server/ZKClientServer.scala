@@ -3,17 +3,13 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.io.Closeable
 import java.util
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
-import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
+import com.bwsw.tstreamstransactionserver.exception.Throwable.ZkNoConnectionException
+import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
-import com.google.common.net.InetAddresses
-import io.netty.resolver.dns.DnsNameResolver
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
-import org.apache.curator.framework.recipes.leader.Participant
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
 import org.apache.zookeeper.data.ACL
@@ -33,9 +29,7 @@ class ZKClientServer(serverAddress: String,
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private val socketAddress: String =
-    if (InetSocketAddressClass.isValidSocketAddress(serverAddress, serverPort)) s"$serverAddress:$serverPort"
-    else throw new InvalidSocketAddress(s"Invalid socket address $serverAddress:$serverPort")
+  private val socketAddress = SocketHostPortPair.create(serverAddress, serverPort).get
 
   private[server] val client = {
     val connection = CuratorFrameworkFactory.builder()

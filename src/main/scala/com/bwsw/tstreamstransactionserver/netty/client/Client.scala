@@ -22,8 +22,8 @@ import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import scala.concurrent.{Await, Future => ScalaFuture, Promise => ScalaPromise}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future => ScalaFuture, Promise => ScalaPromise}
 
 
 /** A client who connects to a server.
@@ -135,7 +135,7 @@ class Client(clientOpts: ConnectionOptions,
   }
 
 
-  final def currentConnectionSocketAddress: Either[Throwable, Option[InetSocketAddressClass]] = zKLeaderClient.master
+  final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] = zKLeaderClient.master
   private[client] def reconnect(): Unit = {
     val isConnected = isReconnected.getAndSet(true)
     if (!isConnected) {

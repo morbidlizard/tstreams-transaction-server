@@ -50,8 +50,8 @@ object Protocol {
       entity.write(oprot)
 
       val bytes = util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-      val isFireAndForgetMethod = if (isFireAndForgetMethod) 1:Byte else 0:Byte
-      Message(messageId, bytes.length, getProtocolIdByName(protocol), bytes, token, methodID, isFireAndForgetMethod)
+      val isFireAndForgetMethodProtocolPresentation = if (isFireAndForgetMethod) 1:Byte else 0:Byte
+      Message(messageId, bytes.length, getProtocolIdByName(protocol), bytes, token, methodID, isFireAndForgetMethodProtocolPresentation)
     }
 
     /** A method for serializing request and adding an id to id. */

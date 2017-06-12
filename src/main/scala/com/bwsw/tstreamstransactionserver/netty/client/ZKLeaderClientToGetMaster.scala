@@ -3,14 +3,14 @@ package com.bwsw.tstreamstransactionserver.netty.client
 import java.io.{Closeable, File}
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.{MasterDataIsIllegal, MasterIsPersistentZnode, MasterPathIsAbsent, ZkNoConnectionException}
-import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{MasterDataIsIllegalException, MasterIsPersistentZnodeException, MasterPathIsAbsent, ZkNoConnectionException}
+import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
+import com.bwsw.tstreamstransactionserver.netty.client.ZKLeaderClientToGetMaster._
 import org.apache.curator.RetryPolicy
-import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
-import org.apache.curator.framework.recipes.cache.{NodeCache, NodeCacheListener}
+import org.apache.curator.framework.recipes.cache.{ChildData, NodeCache, NodeCacheListener}
 import org.apache.curator.framework.state.ConnectionStateListener
+import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.slf4j.LoggerFactory
-import ZKLeaderClientToGetMaster._
 
 
 class ZKLeaderClientToGetMaster(connection: CuratorFramework,
@@ -21,7 +21,7 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
   extends NodeCacheListener with Closeable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  @volatile private[client] var master: Either[Throwable, Option[InetSocketAddressClass]] = Right(None)
+  @volatile private[client] var master: Either[Throwable, Option[SocketHostPortPair]] = Right(None)
 
   def this(endpoints: String,
            sessionTimeoutMillis: Int,
@@ -71,37 +71,13 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
       connection.close()
   }
 
-  private def setMasterThrowableIllegalData(path: String, data: String) ={
-    master = Left(new MasterDataIsIllegal(path, data))
-    if (logger.isDebugEnabled)
-      logger.debug(s"" +
-        s"On Zookeeper server(s) ${connection.getZookeeperClient.getCurrentConnectionString} " +
-        s"data(now it is $data) in coordination path $prefix is corrupted!"
-      )
-  }
-
   override def nodeChanged(): Unit = {
     Option(nodeToWatch.getCurrentData) match {
       case Some(node) =>
-        if (node.getStat.getEphemeralOwner == nonEphermalNode) {
-          master = Left(new MasterIsPersistentZnode(node.getPath))
-        }
-        else {
-          val addressPort = new String(node.getData)
-          val splitIndex = addressPort.lastIndexOf(':')
-          if (splitIndex != -1) {
-            val (address, port) = addressPort.splitAt(splitIndex)
-            val portToInt = scala.util.Try(port.tail.toInt)
-            if (portToInt.isSuccess && InetSocketAddressClass.isValidSocketAddress(address, portToInt.get)) {
-              master = Right(Some(InetSocketAddressClass(address, portToInt.get)))
-            }
-            else {
-              setMasterThrowableIllegalData(node.getPath, addressPort)
-            }
-          } else {
-            setMasterThrowableIllegalData(node.getPath, addressPort)
-          }
-        }
+        if (node.getStat.getEphemeralOwner == nonEphemeralNode)
+          master = Left(new MasterIsPersistentZnodeException(node.getPath))
+        else
+          master = setMasterIfCandidateExists(node)
       case None =>
         scala.util.Try(checkOnPathToMasterDoesExist()) match {
           case scala.util.Success(_) =>
@@ -111,10 +87,23 @@ class ZKLeaderClientToGetMaster(connection: CuratorFramework,
         }
     }
   }
+
+  private def setMasterIfCandidateExists(node: ChildData) = {
+    val hostPort = new String(node.getData)
+    val connectionData = connection.getZookeeperClient.getCurrentConnectionString
+
+    SocketHostPortPair.fromString(hostPort) match {
+      case Some(hostPortPairOpt) =>
+        Right(Some(hostPortPairOpt))
+      case None =>
+        logger.error(s"Master information data ($hostPort) is corrupted for $connectionData$prefix.")
+        Left(new MasterDataIsIllegalException(node.getPath, hostPort))
+    }
+  }
 }
 
 object ZKLeaderClientToGetMaster{
-  val nonEphermalNode = 0L
+  val nonEphemeralNode = 0L
 }
 
 

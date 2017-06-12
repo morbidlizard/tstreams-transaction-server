@@ -5,7 +5,7 @@ import java.util
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
+import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
@@ -93,7 +93,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
         )
       )
 
-    assertThrows[MasterDataIsIllegal] {
+    assertThrows[MasterDataIsIllegalException] {
       clientBuilder.build()
     }
 
@@ -129,7 +129,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
         )
       )
 
-    assertThrows[MasterIsPersistentZnode] {
+    assertThrows[MasterIsPersistentZnodeException] {
       clientBuilder.build()
     }
 
@@ -166,7 +166,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
         )
       )
 
-    assertThrows[MasterDataIsIllegal] {
+    assertThrows[MasterDataIsIllegalException] {
       clientBuilder.build()
     }
 
@@ -202,7 +202,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
         )
       )
 
-    assertThrows[MasterDataIsIllegal] {
+    assertThrows[MasterDataIsIllegalException] {
       clientBuilder.build()
     }
 
@@ -238,7 +238,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
         )
       )
 
-    assertThrows[MasterDataIsIllegal] {
+    assertThrows[MasterDataIsIllegalException] {
       clientBuilder.build()
     }
 
@@ -291,8 +291,8 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     Thread.sleep(200)
     val newSocketAddress = client.currentConnectionSocketAddress.right.get.get
 
-    initialSocketAddress shouldBe InetSocketAddressClass(host, initialPort)
-    newSocketAddress     shouldBe InetSocketAddressClass(host, newPort)
+    initialSocketAddress shouldBe SocketHostPortPair(host, initialPort)
+    newSocketAddress     shouldBe SocketHostPortPair(host, newPort)
 
     client.shutdown()
     zkTestServer.close()

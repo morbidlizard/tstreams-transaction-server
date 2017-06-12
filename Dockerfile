@@ -41,5 +41,5 @@ RUN mkdir -p /root/.sbt/0.13 && \
     rm -rf /root/.ivy2/cache
 
 WORKDIR /var/log/tts
-ENTRYPOINT ["/opt/bin/tts/rundocker.sh", "/etc/conf/config.properties"]
+ENTRYPOINT ["/bin/bash", "/opt/bin/tts/rundocker.sh", "/etc/conf/config.properties"]
 

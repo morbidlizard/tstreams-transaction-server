@@ -6,8 +6,8 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerChooser
-import com.bwsw.tstreamstransactionserver.netty.server.{SingleNodeServer, ServerHandler, ZKClientServer}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
+import com.bwsw.tstreamstransactionserver.netty.server.{ServerHandler, SingleNodeServer, ZKClientServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
@@ -40,7 +40,7 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
   @volatile private var server: SingleNodeServer = _
   private val serverGotRequest = new AtomicInteger(0)
 
-  private def serverHandler(requestHandlerChooser: RequestHandlerChooser,
+  private def serverHandler(requestHandlerChooser: RequestHandlerRouter,
                             logger: Logger) =
     new ServerHandler(requestHandlerChooser, logger)
     {

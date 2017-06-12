@@ -41,7 +41,6 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(closeDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
-  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
   def startTransactionServer(): Server = {
@@ -55,7 +54,6 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       subscriberUpdateOptions,
       timer = TestTimer
     )

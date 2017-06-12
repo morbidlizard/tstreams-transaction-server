@@ -60,12 +60,6 @@ object ServerOptions {
                               * berkeleyReadThreadPool: Int = 2 */
                            )
 
-  /** The options for generating id for a new commit log file.
-    *
-    * @param zkFileIdGeneratorPath the coordination path for counter for generating and retrieving commit log file id.
-    */
-  case class ZooKeeperOptions(zkFileIdGeneratorPath: String = "/tts/file_id_gen")
-
   /** The options are used for replication environment.
     *
     * @param authKey the special security token which is used by the slaves to authenticate on master.
@@ -170,7 +164,8 @@ object ServerOptions {
                               syncValue: Int = 0,
                               incompleteReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
                               closeDelayMs: Int = 200,
-                              expungeDelaySec: Int = 86400
+                              expungeDelaySec: Int = 86400,
+                              zkFileIdGeneratorPath: String = "/tts/file_id_gen"
                              )
 }
 

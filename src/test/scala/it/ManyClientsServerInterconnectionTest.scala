@@ -45,7 +45,6 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions()
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
-  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
   def startTransactionServer(): Server = {
@@ -59,7 +58,6 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       subscriberUpdateOptions,
       timer = TestTimer
     )

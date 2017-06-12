@@ -44,7 +44,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(closeDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
-  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
 
@@ -59,7 +58,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       subscriberUpdateOptions,
       timer = TestTimer
     )

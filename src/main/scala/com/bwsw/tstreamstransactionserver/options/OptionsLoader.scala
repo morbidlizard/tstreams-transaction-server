@@ -27,7 +27,6 @@ class OptionsLoader {
   private val serverRocksStorageOptions = loadServerRocksStorageOptions()
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
   private val commitLogOptions = loadCommitLogOptions()
-  private val zookeeperSpecificOptions = loadZookeeperSpecificOptions()
   private val subscribersUpdateOptions = loadSubscribersUpdateOptions()
 
   private lazy val helper = new OptionHelper(props)
@@ -181,37 +180,30 @@ class OptionsLoader {
   private def loadCommitLogOptions() = {
     implicit val typeTag = classOf[CommitLogOptions]
 
-    val commitLogWriteSyncPolicy =
+    val writeSyncPolicy =
       helper.castCheck("commit-log.write-sync-policy", prop => CommitLogWriteSyncPolicy.withName(prop))
 
-    val commitLogWriteSyncValue =
+    val writeSyncValue =
       helper.castCheck("commit-log.write-sync-value", prop => prop.toInt)
 
-    val incompleteCommitLogReadPolicy =
+    val incompleteReadPolicy =
       helper.castCheck("commit-log.incomplete-read-policy", prop => IncompleteCommitLogReadPolicy.withName(prop))
 
-    val commitLogCloseDelayMs =
+    val closeDelayMs =
       helper.castCheck("commit-log.close-delay-ms", prop => prop.toInt)
 
-    val commitLogExpungeDelaySec =
+    val expungeDelaySec =
       helper.castCheck("commit-log.rocksdb-expunge-delay-sec", prop => prop.toInt)
-
-    CommitLogOptions(
-      commitLogWriteSyncPolicy,
-      commitLogWriteSyncValue,
-      incompleteCommitLogReadPolicy,
-      commitLogCloseDelayMs,
-      commitLogExpungeDelaySec
-    )
-  }
-
-  private def loadZookeeperSpecificOptions() = {
-    implicit val typeTag = classOf[ServerOptions.ZooKeeperOptions]
 
     val zkFileIdGeneratorPath =
       helper.castCheck("commit-log.zk-file-id-gen-path", identity)
 
-    ServerOptions.ZooKeeperOptions(
+    CommitLogOptions(
+      writeSyncPolicy,
+      writeSyncValue,
+      incompleteReadPolicy,
+      closeDelayMs,
+      expungeDelaySec,
       zkFileIdGeneratorPath
     )
   }
@@ -246,10 +238,6 @@ class OptionsLoader {
 
   def getCommitLogOptions = {
     commitLogOptions
-  }
-
-  def getZookeeperSpecificOptions = {
-    zookeeperSpecificOptions
   }
 
   def getSubscribersUpdateOptions = {

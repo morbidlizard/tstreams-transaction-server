@@ -11,8 +11,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerChooser
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
+import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.bootstrap.ServerBootstrap
@@ -33,7 +33,6 @@ class Server(authOpts: AuthenticationOptions,
              rocksStorageOpts: RocksStorageOptions,
              commitLogOptions: CommitLogOptions,
              packageTransmissionOpts: TransportOptions,
-             zookeeperSpecificOpts: ServerOptions.ZooKeeperOptions,
              subscribersUpdateOptions: SubscriberUpdateOptions,
              serverHandler: (RequestHandlerChooser, Logger) =>
                SimpleChannelInboundHandler[ByteBuf] = (handler, logger) => new ServerHandler(handler, logger),
@@ -128,7 +127,7 @@ class Server(authOpts: AuthenticationOptions,
 
 
   private val fileIDGenerator = new zk.FileIDGenerator(
-    zookeeperSpecificOpts.zkFileIdGeneratorPath
+    commitLogOptions.zkFileIdGeneratorPath
   )
 
   val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue,

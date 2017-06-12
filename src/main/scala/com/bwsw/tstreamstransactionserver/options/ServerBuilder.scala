@@ -4,7 +4,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.Server
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 
-class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: CommonOptions.ZookeeperOptions,
+class ServerBuilder private(authOpts: AuthenticationOptions, zookeeperOpts: CommonOptions.ZookeeperOptions,
                             bootstrapOpts: BootstrapOptions, serverReplicationOpts: ServerReplicationOptions,
                             storageOpts: StorageOptions, rocksStorageOpts: RocksStorageOptions, commitLogOpts: CommitLogOptions,
                             packageTransmissionOpts: TransportOptions, zookeeperSpecificOpt: ServerOptions.ZooKeeperOptions,
@@ -21,14 +21,14 @@ class ServerBuilder private(authOpts: AuthOptions, zookeeperOpts: CommonOptions.
   private val subscribersUpdateOptions = subscriberUpdateOpts
 
   def this() = this(
-    AuthOptions(), CommonOptions.ZookeeperOptions(),
+    AuthenticationOptions(), CommonOptions.ZookeeperOptions(),
     BootstrapOptions(), ServerReplicationOptions(),
     StorageOptions(), RocksStorageOptions(), CommitLogOptions(),
     TransportOptions(), ServerOptions.ZooKeeperOptions(),
     SubscriberUpdateOptions()
   )
 
-  def withAuthOptions(authOptions: AuthOptions) =
+  def withAuthOptions(authOptions: AuthenticationOptions) =
     new ServerBuilder(authOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, zookeeperSpecificOptions, subscribersUpdateOptions)
 
   def withZookeeperOptions(zookeeperOptions: ZookeeperOptions) =

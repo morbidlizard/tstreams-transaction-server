@@ -1,16 +1,17 @@
 package com.bwsw.tstreamstransactionserver.netty.server.authService
 
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
 import com.google.common.cache.CacheBuilder
 import org.slf4j.{Logger, LoggerFactory}
+
 import scala.util.Random
 
-class AuthServiceImpl(authOpts: AuthOptions) {
+class AuthServiceImpl(authOpts: AuthenticationOptions) {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private val usersToken = CacheBuilder.newBuilder()
-    .maximumSize(authOpts.activeTokensNumber)
-    .expireAfterAccess(authOpts.tokenTTL, java.util.concurrent.TimeUnit.SECONDS)
+    .maximumSize(authOpts.keyCacheSize)
+    .expireAfterAccess(authOpts.keyCacheExpirationTimeSec, java.util.concurrent.TimeUnit.SECONDS)
     .build[java.lang.Integer, String]()
 
   private[server] final def authenticate(authKey: String): Int = {

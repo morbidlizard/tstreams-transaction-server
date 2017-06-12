@@ -6,13 +6,13 @@ import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
-import com.bwsw.tstreamstransactionserver.netty.{InetSocketAddressClass, Message}
+import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerChooser
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
-import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.options.{CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.bootstrap.ServerBootstrap
@@ -25,7 +25,7 @@ import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
 
-class Server(authOpts: AuthOptions,
+class Server(authOpts: AuthenticationOptions,
              zookeeperOpts: CommonOptions.ZookeeperOptions,
              serverOpts: BootstrapOptions,
              serverReplicationOpts: ServerReplicationOptions,
@@ -46,10 +46,10 @@ class Server(authOpts: AuthOptions,
   private def createTransactionServerAddress() = {
     (System.getenv("HOST"), System.getenv("PORT0")) match {
       case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
-      case _ => (serverOpts.host, serverOpts.port)
+      case _ => (serverOpts.bindHost, serverOpts.bindPort)
     }
   }
-  if (!InetSocketAddressClass.isValidSocketAddress(serverOpts.host, serverOpts.port))
+  if (!InetSocketAddressClass.isValidSocketAddress(serverOpts.bindHost, serverOpts.bindPort))
     throw new InvalidSocketAddress(s"Invalid socket address $serverOpts.localHost:$serverOpts.port")
 
   private val zk = scala.util.Try(
@@ -106,7 +106,7 @@ class Server(authOpts: AuthOptions,
   private val commitLogQueue = {
     val queue = new CommitLogQueueBootstrap(
       30,
-      new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogDirectory),
+      new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogRawDirectory),
       transactionServer
     )
     val priorityQueue = queue.fillQueue()
@@ -128,7 +128,7 @@ class Server(authOpts: AuthOptions,
 
 
   private val fileIDGenerator = new zk.FileIDGenerator(
-    zookeeperSpecificOpts.counterPathFileIdGen
+    zookeeperSpecificOpts.zkFileIdGeneratorPath
   )
 
   val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue,
@@ -152,12 +152,12 @@ class Server(authOpts: AuthOptions,
     new EpollEventLoopGroup()
 
   private val orderedExecutionPool =
-    new OrderedExecutionContextPool(serverOpts.orderedExecutionPoolSize)
+    new OrderedExecutionContextPool(serverOpts.openOperationsPoolSize)
 
 
 
   private val curatorSubscriberClient =
-    if (subscribersUpdateOptions.subscriberMonitoringZkEndpoints.isEmpty) {
+    if (subscribersUpdateOptions.monitoringZkEndpoints.isEmpty) {
       zk.client
     }
     else {
@@ -165,7 +165,7 @@ class Server(authOpts: AuthOptions,
         .sessionTimeoutMs(zookeeperOpts.sessionTimeoutMs)
         .connectionTimeoutMs(zookeeperOpts.connectionTimeoutMs)
         .retryPolicy(new RetryForever(zookeeperOpts.retryDelayMs))
-        .connectString(subscribersUpdateOptions.subscriberMonitoringZkEndpoints.get)
+        .connectString(subscribersUpdateOptions.monitoringZkEndpoints.get)
         .build()
 
       connection.start()
@@ -176,7 +176,7 @@ class Server(authOpts: AuthOptions,
       if (isConnected)
         connection
       else
-        throw new ZkNoConnectionException(subscribersUpdateOptions.subscriberMonitoringZkEndpoints.get)
+        throw new ZkNoConnectionException(subscribersUpdateOptions.monitoringZkEndpoints.get)
     }
 
   private val openTransactionStateNotifier =
@@ -184,7 +184,7 @@ class Server(authOpts: AuthOptions,
       new SubscribersObserver(
         curatorSubscriberClient,
         zkStreamDatabase,
-        subscribersUpdateOptions.subscribersUpdatePeriodMs
+        subscribersUpdateOptions.updatePeriodMs
       ),
       new SubscriberNotifier
     )
@@ -209,7 +209,7 @@ class Server(authOpts: AuthOptions,
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
-      val f = b.bind(serverOpts.host, serverOpts.port).sync()
+      val f = b.bind(serverOpts.bindHost, serverOpts.bindPort).sync()
       berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
 

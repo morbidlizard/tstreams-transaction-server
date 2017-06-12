@@ -3,7 +3,6 @@ package it
 import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -39,7 +38,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
 
   private val maxIdleTimeBetweenRecordsMs = 10000
 
-  private val serverAuthOptions = ServerOptions.AuthOptions()
+  private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
@@ -77,7 +76,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
 
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
@@ -94,7 +93,7 @@ class ManyClientsServerInterconnectionTest extends FlatSpec with Matchers with B
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {

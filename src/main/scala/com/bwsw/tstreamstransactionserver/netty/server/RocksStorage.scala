@@ -4,11 +4,10 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDatabaseDescriptor}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 
 class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions) {
-  private val columnFamilyOptions = rocksOpts.createChilderCollumnOptions()
+  private val columnFamilyOptions = rocksOpts.createColumnFamilyOptions()
   val rocksMetaServiceDB: RocksDBALL = new RocksDBALL(
     storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
     rocksOpts,
@@ -19,7 +18,7 @@ class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions) 
       RocksDatabaseDescriptor("CommitLogStore".getBytes(),                     columnFamilyOptions),
       RocksDatabaseDescriptor("TransactionAllStore".getBytes(),
         columnFamilyOptions,
-        TimeUnit.MINUTES.toSeconds(rocksOpts.transactionDatabaseTransactionKeeptimeMin).toInt
+        TimeUnit.MINUTES.toSeconds(rocksOpts.transactionExpungeDelayMin).toInt
       ),
       RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions)
     )

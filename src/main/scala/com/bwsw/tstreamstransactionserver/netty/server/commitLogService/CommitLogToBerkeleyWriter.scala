@@ -1,14 +1,14 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.{Future, PriorityBlockingQueue}
+import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
+import com.bwsw.tstreamstransactionserver.netty.Descriptors
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
-import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
-import com.bwsw.tstreamstransactionserver.rpc.{Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
+import com.bwsw.tstreamstransactionserver.rpc.Transaction
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -26,8 +26,6 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
 
   private def createProcessingFunction() = { (commitLogEntity: CommitLogStorage) =>
     incompleteCommitLogReadPolicy match {
-      case ResyncMajority => true //todo for replicated mode use only 'resync-majority'
-
       case SkipLog =>
         val fileKey = FileKey(commitLogEntity.getID)
         val fileValue = FileValue(commitLogEntity.getContent, if (commitLogEntity.md5Exists()) Some(commitLogEntity.getMD5) else None)

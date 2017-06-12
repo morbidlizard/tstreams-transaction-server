@@ -3,7 +3,6 @@ package it
 import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -13,9 +12,8 @@ import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
-import scala.concurrent.{Future => ScalaFuture}
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future => ScalaFuture}
 
 
 class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with BeforeAndAfterEach {
@@ -41,7 +39,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
 
   private val maxIdleTimeBetweenRecordsMs = 10000
 
-  private val serverAuthOptions = ServerOptions.AuthOptions()
+  private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
@@ -81,7 +79,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
 
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
@@ -98,7 +96,7 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {

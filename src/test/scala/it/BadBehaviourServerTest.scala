@@ -1,14 +1,13 @@
 package it
 
 import java.io.File
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerChooser
-import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, TransactionServer, ZKClientServer}
+import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, ZKClientServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
@@ -20,8 +19,8 @@ import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import org.slf4j.Logger
 
-import scala.concurrent.duration._
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
@@ -53,7 +52,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     }
 
 
-  private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+  private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
   private val bootstrapOptions = BootstrapOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
   private val storageOptions = StorageOptions()
@@ -92,14 +91,14 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
   override def afterEach(): Unit = {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
     zkTestServer.close()
   }
 

@@ -39,7 +39,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
   override def afterEach() {
@@ -50,7 +50,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
   it should "correctly return producerTransactions on: LT < A: " +
     "return (LT, Nil), where A - from transaction bound, B - to transaction bound" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -113,7 +113,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
   it should "correctly return producerTransactions on: LT < A: " +
     "return (LT, Nil), where A - from transaction bound, B - to transaction bound. " +
     "No transactions had been persisted on server before scanTransactions was called" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -150,7 +150,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
   it should "correctly return producerTransactions on: A <= LT < B: " +
     "return (LT, AvailableTransactions[A, LT]), where A - from transaction bound, B - to transaction bound" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -209,7 +209,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
   it should "correctly return producerTransactions until first opened and not checkpointed transaction on: A <= LT < B: " +
     "return (LT, AvailableTransactions[A, LT]), where A - from transaction bound, B - to transaction bound" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -265,7 +265,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
   it should "correctly return producerTransactions on: LT >= B: " +
     "return (LT, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -328,7 +328,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
   it should "correctly return producerTransactions with defined count and states(which discard all producers transactions thereby retuning an empty collection of them) on: LT >= B: " +
     "return (LT, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -390,7 +390,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
   it should "correctly return producerTransactions with defined count and states(which accepts all producers transactions thereby retuning all of them) on: LT >= B: " +
     "return (LT, AvailableTransactions[A, B]), where A - from transaction bound, B - to transaction bound" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -452,7 +452,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
   }
 
   it should "return all transactions if no incomplete" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -505,7 +505,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
 
 
   it should "return only transactions up to 1st incomplete(transaction after Opened one)" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -583,7 +583,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
   }
 
   it should "return none if empty" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
@@ -621,7 +621,7 @@ class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAf
   }
 
   it should "return none if to < from" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)

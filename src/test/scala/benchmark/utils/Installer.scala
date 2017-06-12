@@ -2,7 +2,7 @@ package benchmark.utils
 
 import java.io.File
 
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, CommitLogOptions}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, CommitLogOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import org.apache.commons.io.FileUtils
 
@@ -18,14 +18,14 @@ trait Installer {
   def clearDB() = {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
   }
 
   def startTransactionServer() = {
     new Thread(() =>
       serverBuilder
-        .withAuthOptions(AuthOptions(key = "pingstation"))
+        .withAuthOptions(AuthenticationOptions(key = "pingstation"))
         .withCommitLogOptions(CommitLogOptions(commitLogCloseDelayMs = 1000))
         .build().start()
     ).start()

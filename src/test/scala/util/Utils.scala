@@ -1,15 +1,13 @@
 package util
 
 import java.net.ServerSocket
-import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.test.TestingServer
-import org.apache.zookeeper.CreateMode
 
 object Utils {
   private val sessionTimeoutMillis = 1000
@@ -59,7 +57,7 @@ object Utils {
         builder.getZookeeperOptions.copy(endpoints = zkTestServer.getConnectString)
       )
       .withBootstrapOptions(
-        builder.getBootstrapOptions.copy(port = getRandomPort)
+        builder.getBootstrapOptions.copy(bindPort = getRandomPort)
       )
       .build()
 
@@ -83,7 +81,7 @@ object Utils {
 //        serverBuilder.getStorageOptions.copy(Files.createTempDirectory("/tmp").toFile.getPath)
 //      )
       .withBootstrapOptions(
-        serverBuilder.getBootstrapOptions.copy(port = getRandomPort)
+        serverBuilder.getBootstrapOptions.copy(bindPort = getRandomPort)
       )
       .build()
 

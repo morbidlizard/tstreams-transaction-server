@@ -8,14 +8,11 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.options.ServerBuilder
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
-import util.Utils.startZkServerAndGetIt
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import util.Utils.startZkServerAndGetIt
 
 class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   private val serverBuilder = new ServerBuilder()
@@ -27,7 +24,7 @@ class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers wi
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
   override def afterEach(): Unit = beforeEach()

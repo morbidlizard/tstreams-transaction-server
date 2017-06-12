@@ -7,8 +7,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceIm
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue, TransactionMetaServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue, TransactionMetaServiceImpl}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc
 import com.bwsw.tstreamstransactionserver.rpc._
@@ -18,7 +18,7 @@ import scala.collection.Set
 
 
 class TransactionServer(val executionContext: ServerExecutionContextGrids,
-                        authOpts: AuthOptions,
+                        authOpts: AuthenticationOptions,
                         storageOpts: StorageOptions,
                         rocksStorageOpts: RocksStorageOptions,
                         streamCache: StreamCRUD,

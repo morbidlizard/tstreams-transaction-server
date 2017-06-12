@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.{MethodDoesnotFoundException, ServerUnreachableException}
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{MethodDoesNotFoundException, ServerUnreachableException}
 import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
 import com.twitter.scrooge.ThriftStruct
 import io.netty.buffer.ByteBuf
@@ -85,7 +85,7 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
           retryCompletePromise(message.id, Descriptors.IsValid.decodeResponse(message)) 
 
         case methodByte =>
-          val throwable = new MethodDoesnotFoundException(methodByte.toString)
+          val throwable = new MethodDoesNotFoundException(methodByte.toString)
           ctx.fireExceptionCaught(throwable)
           throw throwable
       }

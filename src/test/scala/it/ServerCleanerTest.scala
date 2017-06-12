@@ -7,14 +7,13 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import util.Utils._
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamValue}
 
 import scala.language.reflectiveCalls
 
@@ -48,7 +47,7 @@ class ServerCleanerTest extends FlatSpec
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
   override def afterEach() {
@@ -57,7 +56,7 @@ class ServerCleanerTest extends FlatSpec
 
 
   "Cleaner" should "remove all expired transactions from OpenedTransactions table and invalidate them in AllTransactions table" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)

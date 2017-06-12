@@ -265,7 +265,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       val server = serverBuilder
         .withServerStorageOptions(storageOptions)
         .withZookeeperOptions(zkOptions)
-        .withBootstrapOptions(BootstrapOptions(host = newHost, port = newPort))
+        .withBootstrapOptions(BootstrapOptions(bindHost = newHost, bindPort = newPort))
         .build()
       val latch = new CountDownLatch(1)
       new Thread(() => {
@@ -301,7 +301,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
 
@@ -318,7 +318,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
   it should "not start on wrong inet address" in {
@@ -327,7 +327,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     val serverBuilder = new ServerBuilder()
       .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withBootstrapOptions(BootstrapOptions(host = "1270.0.0.1"))
+      .withBootstrapOptions(BootstrapOptions(bindHost = "1270.0.0.1"))
 
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()
@@ -336,7 +336,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
   it should "not start on negative port value" in {
@@ -345,7 +345,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     val serverBuilder = new ServerBuilder()
       .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withBootstrapOptions(BootstrapOptions(port = Int.MinValue))
+      .withBootstrapOptions(BootstrapOptions(bindPort = Int.MinValue))
 
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()
@@ -354,7 +354,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
     zkTestServer.close()
   }
 
@@ -364,7 +364,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     val serverBuilder = new ServerBuilder()
       .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .withBootstrapOptions(BootstrapOptions(port = 65536))
+      .withBootstrapOptions(BootstrapOptions(bindPort = 65536))
 
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()
@@ -373,7 +373,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
 }

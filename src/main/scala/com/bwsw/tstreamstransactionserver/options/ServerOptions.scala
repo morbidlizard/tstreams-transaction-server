@@ -10,33 +10,33 @@ object ServerOptions {
 
   /** The options are applied on bootstrap of a server.
     *
-    * @param host ipv4 or ipv6 listen address in string representation.
-    * @param port a port.
-    * @param orderedExecutionPoolSize a number of pool that contains single thread executor to work with transactions.
+    * @param bindHost ipv4 or ipv6 listen address in string representation.
+    * @param bindPort a port.
+    * @param openOperationsPoolSize a number of pool that contains single thread executor to work with transactions.
     */
-  case class BootstrapOptions(host: String = "127.0.0.1",
-                              port: Int = 8071,
-                              orderedExecutionPoolSize: Int = Runtime.getRuntime.availableProcessors()
+  case class BootstrapOptions(bindHost: String = "127.0.0.1",
+                              bindPort: Int = 8071,
+                              openOperationsPoolSize: Int = Runtime.getRuntime.availableProcessors()
                              )
 
   /** The options are used to provide notification service for subscribers.
     *
-    * @param subscribersUpdatePeriodMs delay in milliseconds between updates of current subscribers online.
-    * @param subscriberMonitoringZkEndpoints The zookeeper server(s) connect to.
+    * @param updatePeriodMs delay in milliseconds between updates of current subscribers online.
+    * @param monitoringZkEndpoints The zookeeper server(s) connect to.
     */
-  case class SubscriberUpdateOptions(subscribersUpdatePeriodMs: Int = 1000,
-                                     subscriberMonitoringZkEndpoints: Option[String] = None
+  case class SubscriberUpdateOptions(updatePeriodMs: Int = 1000,
+                                     monitoringZkEndpoints: Option[String] = None
                                     )
 
   /** The options are used to validate client requests by a server.
     *
-    * @param key                the key to authorize.
-    * @param activeTokensNumber the number of active tokens a server can handle over time.
-    * @param tokenTTL           the time a token live before expiration.
+    * @param key the key to authorize.
+    * @param keyCacheSize the number of active tokens a server can handle over time.
+    * @param keyCacheExpirationTimeSec           the time a token live before expiration.
     */
-  case class AuthOptions(key: String = "",
-                         activeTokensNumber: Int = 10000,
-                         tokenTTL: Int = 600
+  case class AuthenticationOptions(key: String = "",
+                                   keyCacheSize: Int = 10000,
+                                   keyCacheExpirationTimeSec: Int = 600
                         )
 
   /** The options are used to define folders for databases.
@@ -45,7 +45,7 @@ object ServerOptions {
     * @param streamZookeeperDirectory the zooKeeper path for stream entities.
     * @param dataDirectory     the path where rocksdb databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     * @param metadataDirectory the path where a berkeley environment and it's databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
-    * @param commitLogDirectory the path where commit log files are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
+    * @param commitLogRawDirectory the path where commit log files are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     * @param commitLogRocksDirectory the path where rocksdb with persisted commit log files is placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
     *
     */
@@ -53,7 +53,7 @@ object ServerOptions {
                             streamZookeeperDirectory: String = "/tts/streams",
                             dataDirectory: String = "transaction_data",
                             metadataDirectory: String = "transaction_metadata",
-                            commitLogDirectory: String = "commit_log",
+                            commitLogRawDirectory: String = "commit_log",
                             commitLogRocksDirectory: String = "commit_log_rocks" //,
                             /** streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
                               * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
@@ -62,9 +62,9 @@ object ServerOptions {
 
   /** The options for generating id for a new commit log file.
     *
-    * @param counterPathFileIdGen the coordination path for counter for generating and retrieving commit log file id.
+    * @param zkFileIdGeneratorPath the coordination path for counter for generating and retrieving commit log file id.
     */
-  case class ZooKeeperOptions(counterPathFileIdGen: String = "/server_counter/file_id_gen")
+  case class ZooKeeperOptions(zkFileIdGeneratorPath: String = "/tts/file_id_gen")
 
   /** The options are used for replication environment.
     *
@@ -88,39 +88,39 @@ object ServerOptions {
     *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
     * @param readThreadPool           the number of threads of pool are used to do read operations from Rocksdb databases.
     *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
-    * @param ttlAddMs                 the time to add to [[com.bwsw.tstreamstransactionserver.rpc.StreamValue.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
-    * @param transactionDatabaseTransactionKeeptimeMin the lifetime of a producer transaction after persistence to database.(default: 6 months). If negative integer - transactions aren't deleted at all.
+    * @param transactionTtlAppendMs                 the time to add to [[com.bwsw.tstreamstransactionserver.rpc.StreamValue.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
+    * @param transactionExpungeDelayMin the lifetime of a producer transaction after persistence to database.(default: 6 months). If negative integer - transactions aren't deleted at all.
     * @param maxBackgroundCompactions is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.
     * @param compression Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION].
     *                    If it's unimportant use a LZ4_COMPRESSION as default value.
-    * @param useFsync if true, then every store to stable storage will issue a fsync.
+    * @param isFsync if true, then every store to stable storage will issue a fsync.
     *                 If false, then every store to stable storage will issue a fdatasync.
     *                 This parameter should be set to true while storing data to filesystem like ext3 that can lose files after a reboot.
     */
   case class RocksStorageOptions(writeThreadPool: Int = 2,
                                  readThreadPool: Int = 2,
-                                 ttlAddMs: Int = 50,
-                                 transactionDatabaseTransactionKeeptimeMin: Int = TimeUnit.DAYS.toMillis(180).toInt,
+                                 transactionTtlAppendMs: Int = 50,
+                                 transactionExpungeDelayMin: Int = TimeUnit.DAYS.toMillis(180).toInt, //todo: fixit?
                                  maxBackgroundCompactions: Int = 1,
                                  compression: CompressionType = CompressionType.LZ4_COMPRESSION,
-                                 useFsync: Boolean = true
+                                 isFsync: Boolean = true
                                 ) {
 
 
 
     def createDBOptions(maxBackgroundCompactions: Int = this.maxBackgroundCompactions,
-                        useFsync: Boolean = this.useFsync): DBOptions = {
+                        isFsync: Boolean = this.isFsync): DBOptions = {
 
       new DBOptions()
         .setCreateIfMissing(true)
         .setCreateMissingColumnFamilies(true)
         .setMaxBackgroundCompactions(maxBackgroundCompactions)
-        .setUseFsync(useFsync)
+        .setUseFsync(isFsync)
     }
 
     def createOptions(maxBackgroundCompactions: Int = this.maxBackgroundCompactions,
                      compression: CompressionType = this.compression,
-                     useFsync: Boolean = this.useFsync): Options = {
+                     useFsync: Boolean = this.isFsync): Options = {
       new Options()
         .setCreateIfMissing(true)
         .setCompressionType(compression)
@@ -129,7 +129,7 @@ object ServerOptions {
     }
 
 
-    def createChilderCollumnOptions(compression: CompressionType = this.compression): ColumnFamilyOptions ={
+    def createColumnFamilyOptions(compression: CompressionType = this.compression): ColumnFamilyOptions ={
       new ColumnFamilyOptions()
         .setCompressionType(compression)
     }
@@ -147,8 +147,8 @@ object ServerOptions {
     *                           If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client.
     *                           If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset.
     */
-  case class TransportOptions(maxMetadataPackageSize: Int = 100000000,
-                              maxDataPackageSize: Int = 100000000
+  case class TransportOptions(maxMetadataPackageSize: Int = 10000000,
+                              maxDataPackageSize: Int = 10000000
                              )
 
   /** The options are applied when processing commit log files.

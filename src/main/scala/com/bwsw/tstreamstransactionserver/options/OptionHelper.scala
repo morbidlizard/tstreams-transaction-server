@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.options
 import java.util.Properties
 
 class OptionHelper(properties: Properties) {
-  def checkPropertyOnExistence(property: String)(classType: Class[_]): String = {
+  def checkPropertyExists(property: String)(classType: Class[_]): String = {
     Option(properties.getProperty(property))
       .getOrElse(throw new NoSuchElementException(
         s"No property by key: '$property' has been found for '${classType.getSimpleName}'." +
@@ -14,7 +14,7 @@ class OptionHelper(properties: Properties) {
   def castCheck[T](property: String,
                    constructor: String => T
                   )(implicit classType: Class[_]): T = {
-    val value = checkPropertyOnExistence(property)(classType)
+    val value = checkPropertyExists(property)(classType)
     try {
       constructor(value)
     } catch {

@@ -9,7 +9,6 @@ object CommitLogWriteSyncPolicy extends Enumeration {
 
 object IncompleteCommitLogReadPolicy extends Enumeration {
   type IncompleteCommitLogReadPolicy = Value
-  val ResyncMajority = Value("resync-majority")
   val SkipLog = Value("skip-log")
   val TryRead = Value("try-read")
   val Error = Value("error")

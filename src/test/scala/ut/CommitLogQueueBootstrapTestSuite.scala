@@ -7,16 +7,16 @@ import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.{CommitLogQueueBootstrap, TransactionServer}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthOptions, RocksStorageOptions, StorageOptions}
-import util.Utils.startZkServerAndGetIt
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, RocksStorageOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import util.Utils.startZkServerAndGetIt
 
 import scala.collection.mutable.ArrayBuffer
 
 class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with BeforeAndAfterAll {
   //arrange
-  val authOptions = AuthOptions()
+  val authOptions = AuthenticationOptions()
   val rocksStorageOptions = RocksStorageOptions()
   val executionContext = new ServerExecutionContextGrids(2, 2)
   val storageOptions = StorageOptions(new StringBuffer().append("target").append(File.separatorChar).append("clqb").toString)
@@ -33,7 +33,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
     streamDatabaseZK
   )
 
-  val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
+  val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory)
   val commitLogQueueBootstrap = new CommitLogQueueBootstrap(10, commitLogCatalogue, transactionServer)
 
 
@@ -81,7 +81,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   }
 
   private def createCommitLogFiles(number: Int) = {
-    val commitLogCatalogueByDate = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory)
+    val commitLogCatalogueByDate = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory)
 
     (0 until number).foreach(fileNamePrefix => {
       commitLogCatalogueByDate.createFile(fileNamePrefix.toString)

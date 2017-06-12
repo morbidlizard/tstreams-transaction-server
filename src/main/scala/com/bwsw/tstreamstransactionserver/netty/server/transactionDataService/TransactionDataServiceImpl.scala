@@ -17,7 +17,7 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
                                 )
 {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val ttlToAdd: Int = rocksStorageOpts.ttlAddMs
+  private val ttlToAdd: Int = rocksStorageOpts.transactionTtlAppendMs
 
   private def calculateTTL(ttl: Long): Int = scala.math.abs((ttl + ttlToAdd).toInt)
 

@@ -25,7 +25,7 @@ class OpenTransactionTest extends FlatSpec
   private val commitLogToBerkeleyDBTaskDelayMs = 100
   private val serverBuilder = new ServerBuilder()
     .withCommitLogOptions(ServerOptions.CommitLogOptions(
-      commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs
+      closeDelayMs = commitLogToBerkeleyDBTaskDelayMs
     ))
     .withServerStorageOptions(serverStorageOptions)
 

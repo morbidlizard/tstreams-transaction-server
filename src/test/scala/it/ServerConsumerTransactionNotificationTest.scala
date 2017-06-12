@@ -31,7 +31,7 @@ class ServerConsumerTransactionNotificationTest extends FlatSpec with Matchers w
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(closeDelayMs = commitLogToBerkeleyDBTaskDelayMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
   private val serverSubscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()

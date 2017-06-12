@@ -193,15 +193,15 @@ class OptionsLoader {
     val commitLogCloseDelayMs =
       helper.castCheck("commit-log.close-delay-ms", prop => prop.toInt)
 
-    val commitLogFileTtlSec =
-      helper.castCheck("commit-log.rocksdb-file-ttl-sec", prop => prop.toInt)
+    val commitLogExpungeDelaySec =
+      helper.castCheck("commit-log.rocksdb-expunge-delay-sec", prop => prop.toInt)
 
     CommitLogOptions(
       commitLogWriteSyncPolicy,
       commitLogWriteSyncValue,
       incompleteCommitLogReadPolicy,
       commitLogCloseDelayMs,
-      commitLogFileTtlSec
+      commitLogExpungeDelaySec
     )
   }
 

@@ -26,7 +26,7 @@ trait Installer {
     new Thread(() =>
       serverBuilder
         .withAuthOptions(AuthenticationOptions(key = "pingstation"))
-        .withCommitLogOptions(CommitLogOptions(commitLogCloseDelayMs = 1000))
+        .withCommitLogOptions(CommitLogOptions(closeDelayMs = 1000))
         .build().start()
     ).start()
   }

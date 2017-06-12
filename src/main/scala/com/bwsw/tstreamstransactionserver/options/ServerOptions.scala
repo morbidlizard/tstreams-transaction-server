@@ -153,24 +153,24 @@ object ServerOptions {
 
   /** The options are applied when processing commit log files.
     *
-    * @param commitLogWriteSyncPolicy policies to work with commitlog.
+    * @param syncPolicy policies to work with commitlog.
     *                                 If 'every-n-seconds' mode is chosen then data is flushed into file when specified count of seconds from last flush operation passed.
     *                                 If 'every-new-file' mode is chosen then data is flushed into file when new file starts.
     *                                 If 'every-nth' mode is chosen then data is flushed into file when specified count of write operations passed.
-    * @param commitLogWriteSyncValue  count of write operations or count of seconds between flush operations. It depends on the selected policy.
-    * @param incompleteCommitLogReadPolicy policies to read from commitlog files.
+    * @param syncValue  count of write operations or count of seconds between flush operations. It depends on the selected policy.
+    * @param incompleteReadPolicy policies to read from commitlog files.
     *                                      If 'resync-majority' mode is chosen then ???(not implemented yet).
     *                                      If 'skip-log' mode is chosen commit log files than haven't md5 file are not read.
     *                                      If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read.
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
-    * @param commitLogCloseDelayMs the time through a commit log file is closed.
-    * @param commitLogFileTtlSec the time a commit log files live before they are deleted.
+    * @param closeDelayMs the time through a commit log file is closed.
+    * @param expungeDelaySec the time a commit log files live before they are deleted.
     */
-  case class CommitLogOptions(commitLogWriteSyncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
-                              commitLogWriteSyncValue: Int = 0,
-                              incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
-                              commitLogCloseDelayMs: Int = 200,
-                              commitLogFileTtlSec: Int = 86400
+  case class CommitLogOptions(syncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
+                              syncValue: Int = 0,
+                              incompleteReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
+                              closeDelayMs: Int = 200,
+                              expungeDelaySec: Int = 86400
                              )
 }
 

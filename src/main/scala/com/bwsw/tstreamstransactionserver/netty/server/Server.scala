@@ -100,7 +100,7 @@ class Server(authOpts: AuthenticationOptions,
   private val rocksDBCommitLog = new RocksDbConnection(
     rocksStorageOpts,
     s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}",
-    commitLogOptions.commitLogFileTtlSec
+    commitLogOptions.expungeDelaySec
   )
 
   private val commitLogQueue = {
@@ -120,7 +120,7 @@ class Server(authOpts: AuthenticationOptions,
     rocksDBCommitLog,
     commitLogQueue,
     transactionServer,
-    commitLogOptions.incompleteCommitLogReadPolicy
+    commitLogOptions.incompleteReadPolicy
   ) {
     override def getCurrentTime: Long = timer.getCurrentTime
   }
@@ -210,7 +210,7 @@ class Server(authOpts: AuthenticationOptions,
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
       val f = b.bind(serverOpts.bindHost, serverOpts.bindPort).sync()
-      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.commitLogCloseDelayMs, commitLogOptions.commitLogCloseDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.closeDelayMs, commitLogOptions.closeDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
 
       zk.putSocketAddress(zookeeperOpts.prefix)
@@ -238,7 +238,7 @@ class Server(authOpts: AuthenticationOptions,
       if (berkeleyWriterExecutor != null) {
         berkeleyWriterExecutor.shutdown()
         berkeleyWriterExecutor.awaitTermination(
-          commitLogOptions.commitLogCloseDelayMs * 5,
+          commitLogOptions.closeDelayMs * 5,
           TimeUnit.MILLISECONDS
         )
       }
@@ -249,7 +249,7 @@ class Server(authOpts: AuthenticationOptions,
       if (commitLogCloseExecutor != null) {
         commitLogCloseExecutor.shutdown()
         commitLogCloseExecutor.awaitTermination(
-          commitLogOptions.commitLogCloseDelayMs * 5,
+          commitLogOptions.closeDelayMs * 5,
           TimeUnit.MILLISECONDS
         )
       }

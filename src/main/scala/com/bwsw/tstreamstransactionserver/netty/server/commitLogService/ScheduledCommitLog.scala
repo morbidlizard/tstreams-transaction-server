@@ -21,10 +21,10 @@ class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[Comm
 
 
   private def createCommitLog() = {
-    val policy = commitLogOptions.commitLogWriteSyncPolicy match {
-      case EveryNth => OnCountInterval(commitLogOptions.commitLogWriteSyncValue)
+    val policy = commitLogOptions.syncPolicy match {
+      case EveryNth => OnCountInterval(commitLogOptions.syncValue)
       case EveryNewFile => OnRotation
-      case EveryNSeconds => OnTimeInterval(commitLogOptions.commitLogWriteSyncValue)
+      case EveryNSeconds => OnTimeInterval(commitLogOptions.syncValue)
     }
     new CommitLog(Int.MaxValue, s"${storageOptions.path}${java.io.File.separatorChar}${storageOptions.commitLogRawDirectory}", policy, genFileID)
   }

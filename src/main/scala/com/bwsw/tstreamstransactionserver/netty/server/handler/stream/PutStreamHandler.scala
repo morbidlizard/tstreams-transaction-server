@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionServi
 class PutStreamHandler(server: TransactionServer)
   extends RequestHandler {
 
-  private val descriptor = Descriptors.PutStream
+  private val descriptor = Protocol.PutStream
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)

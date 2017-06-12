@@ -4,7 +4,7 @@ import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
@@ -158,11 +158,11 @@ object CommitLogToBerkeleyWriter {
   val putTransactionsType: Byte = 2
   val setConsumerStateType: Byte = 3
 
-  private def deserializePutTransaction(message: Array[Byte]) = Descriptors.PutTransaction.decodeRequest(message)
+  private def deserializePutTransaction(message: Array[Byte]) = Protocol.PutTransaction.decodeRequest(message)
 
-  private def deserializePutTransactions(message: Array[Byte]) = Descriptors.PutTransactions.decodeRequest(message)
+  private def deserializePutTransactions(message: Array[Byte]) = Protocol.PutTransactions.decodeRequest(message)
 
-  private def deserializeSetConsumerState(message: Array[Byte]) = Descriptors.PutConsumerCheckpoint.decodeRequest(message)
+  private def deserializeSetConsumerState(message: Array[Byte]) = Protocol.PutConsumerCheckpoint.decodeRequest(message)
 
 
   def retrieveTransactions(record: CommitLogRecord): Seq[(Transaction, Long)] = record.messageType match {

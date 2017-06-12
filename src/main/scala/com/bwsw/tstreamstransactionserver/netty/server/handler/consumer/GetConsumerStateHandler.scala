@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionServi
 class GetConsumerStateHandler (server: TransactionServer)
   extends RequestHandler {
 
-  private val descriptor = Descriptors.GetConsumerState
+  private val descriptor = Protocol.GetConsumerState
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)

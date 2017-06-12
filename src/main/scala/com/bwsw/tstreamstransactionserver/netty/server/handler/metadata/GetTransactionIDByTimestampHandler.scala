@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionServi
 class GetTransactionIDByTimestampHandler(server: TransactionServer)
   extends RequestHandler {
 
-  private val descriptor = Descriptors.GetTransactionIDByTimestamp
+  private val descriptor = Protocol.GetTransactionIDByTimestamp
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)

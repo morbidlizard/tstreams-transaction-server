@@ -1,13 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
 class IsValidHandler(server: TransactionServer)
   extends RequestHandler{
 
-  private val descriptor = Descriptors.IsValid
+  private val descriptor = Protocol.IsValid
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)

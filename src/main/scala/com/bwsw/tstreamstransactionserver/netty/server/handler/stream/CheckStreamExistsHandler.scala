@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionServi
 class CheckStreamExistsHandler(server: TransactionServer)
   extends RequestHandler {
 
-  private val descriptor = Descriptors.CheckStreamExists
+  private val descriptor = Protocol.CheckStreamExists
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)

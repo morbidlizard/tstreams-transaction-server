@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
@@ -11,7 +11,7 @@ class GetCommitLogOffsetsHandler(server: TransactionServer,
                                 )
   extends RequestHandler {
 
-  private val descriptor = Descriptors.GetCommitLogOffsets
+  private val descriptor = Protocol.GetCommitLogOffsets
 
   private def process(requestBody: Array[Byte]) = {
     TransactionService.GetCommitLogOffsets.Result(

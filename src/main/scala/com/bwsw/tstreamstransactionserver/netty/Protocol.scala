@@ -2,14 +2,12 @@ package com.bwsw.tstreamstransactionserver.netty
 
 import java.util
 
+import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import com.twitter.scrooge.{ThriftStruct, ThriftStructCodec3}
 import org.apache.thrift.protocol._
 import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
-import scala.collection.mutable
-
-object Descriptors {
+object Protocol {
 
 
   /** A class for building Descriptors objects that contain all necessary information how to serialize/deserialize structures of request/response methods,
@@ -44,15 +42,16 @@ object Descriptors {
       *
       */
     @inline
-    private final def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message = {
+    private final def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Long, token: Int,
+                             isFireAndForgetMethod: Boolean): Message = {
       val buffer = new TMemoryBuffer(128)
       val oprot = protocol.getProtocol(buffer)
 
       entity.write(oprot)
 
       val bytes = util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-      val isFireAndForgetMethodToByte = if (isFireAndForgetMethod) 1:Byte else 0:Byte
-      Message(messageId, bytes.length, getProtocolID(protocol), bytes, token, methodID, isFireAndForgetMethodToByte)
+      val isFireAndForgetMethod = if (isFireAndForgetMethod) 1:Byte else 0:Byte
+      Message(messageId, bytes.length, getProtocolIdByName(protocol), bytes, token, methodID, isFireAndForgetMethod)
     }
 
     /** A method for serializing request and adding an id to id. */
@@ -141,14 +140,14 @@ object Descriptors {
   private val protocolJsonFactory     = new TJSONProtocol.Factory
 
   /** get byte by protocol  */
-  def getProtocolID(protocol: TProtocolFactory): Byte = protocol match {
+  def getProtocolIdByName(protocol: TProtocolFactory): Byte = protocol match {
     case `protocolTCompactFactory` => 0
     case `protocolTBinaryFactory`  => 1
     case `protocolJsonFactory`     => 2
   }
 
   /** get protocol by byte  */
-  def getIdProtocol(byte: Byte): TProtocolFactory = byte match {
+  def getProtocolNameById(byte: Byte): TProtocolFactory = byte match {
     case 0 => protocolTCompactFactory
     case 1 => protocolTBinaryFactory
     case 2 => protocolJsonFactory

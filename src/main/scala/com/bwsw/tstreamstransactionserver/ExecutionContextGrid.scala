@@ -25,7 +25,7 @@ class ExecutionContextGrid(nContexts: Int, f: => java.util.concurrent.ExecutorSe
 
   def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
 
-  def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContextGrid.TasksCompletedTLL, TimeUnit.MILLISECONDS))
+  def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContextGrid.TASK_TERMINATION_MAX_WAIT_MS, TimeUnit.MILLISECONDS))
 }
 
 class SinglePoolExecutionContextGrid(f: => java.util.concurrent.ExecutorService) extends ExecutionContextGrid(1, f) {
@@ -34,7 +34,7 @@ class SinglePoolExecutionContextGrid(f: => java.util.concurrent.ExecutorService)
 
 object ExecutionContextGrid {
   /** The time to wait all tasks completed by thread pool */
-  private val TasksCompletedTLL = 10000
+  private val TASK_TERMINATION_MAX_WAIT_MS = 10000
 
   /** Creates an 1 single-threaded context with name */
   def apply(nameFormat: String) = new SinglePoolExecutionContextGrid(

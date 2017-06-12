@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors._
+import com.bwsw.tstreamstransactionserver.netty.Protocol._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateHandler, PutConsumerCheckpointHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutTransactionDataHandler}

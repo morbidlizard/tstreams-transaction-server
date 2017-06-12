@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
@@ -44,7 +44,7 @@ class PutTransactionHandler(server: TransactionServer,
 }
 
 private object PutTransactionHandler {
-  val descriptor = Descriptors.PutTransaction
+  val descriptor = Protocol.PutTransaction
   val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
     TransactionService.PutTransaction.Result(Some(true))
   )

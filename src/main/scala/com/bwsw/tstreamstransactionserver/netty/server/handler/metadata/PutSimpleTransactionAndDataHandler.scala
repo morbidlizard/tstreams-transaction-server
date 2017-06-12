@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Descriptors
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
@@ -10,7 +10,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
                                          scheduledCommitLog: ScheduledCommitLog)
   extends RequestHandler {
 
-  private val descriptor = Descriptors.PutSimpleTransactionAndData
+  private val descriptor = Protocol.PutSimpleTransactionAndData
 
   private def process(requestBody: Array[Byte]) = {
     val transactionID = server.getTransactionID
@@ -43,7 +43,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
           120L)), None
       )
     )
-    val messageForPutTransactions = Descriptors.PutTransactions.encodeRequest(
+    val messageForPutTransactions = Protocol.PutTransactions.encodeRequest(
       TransactionService.PutTransactions.Args(transactions)
     )
 
@@ -57,7 +57,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val transactionID = process(requestBody)
 //    logSuccessfulProcession(Descriptors.PutSimpleTransactionAndData.name)
-    Descriptors.PutSimpleTransactionAndData.encodeResponse(
+    Protocol.PutSimpleTransactionAndData.encodeResponse(
       TransactionService.PutSimpleTransactionAndData.Result(
         Some(transactionID)
       )

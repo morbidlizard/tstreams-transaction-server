@@ -1,9 +1,11 @@
 FROM ubuntu:xenial
 
-LABEL maintainer BITWORKS
+MAINTAINER Bitworks Software info@bitworks.software
 
-ENV version 1.3.7.9-SNAPSHOT
-ENV slf4j_version 1.7.24
+EXPOSE 8071
+
+ENV TTS_VERSION 1.3.7.9-SNAPSHOT
+ENV SLF4J_VERSION 1.7.24
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -26,23 +28,18 @@ RUN echo "deb http://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list
     rm -rf /var/lib/apt/lists/*
 
 # see .dockerignore in root dir
-COPY ./project /opt/bin/tts/project
-COPY ./build.sbt /opt/bin/tts/
-COPY ./src/main /opt/bin/tts/src/main
-COPY ./rundocker.sh /opt/
+COPY ./project ./build.sbt ./src ./rundocker.sh /opt/bin/tts/
 
 WORKDIR /opt/bin/tts
 
-RUN mkdir -p /root/.sbt/0.13
-
-RUN sbt 'set test in assembly := {}' clean assembly
-
-RUN mv target/scala-2.12/tstreams-transaction-server-${version}.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-${slf4j_version}.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-log4j12/jars/slf4j-log4j12-${slf4j_version}.jar . && \
+RUN mkdir -p /root/.sbt/0.13 && \
+    sbt 'set test in assembly := {}' clean assembly && \
+    mv target/scala-2.12/tstreams-transaction-server-${TTS_VERSION}.jar . && \
+    mv /root/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-${SLF4J_VERSION}.jar . && \
+    mv /root/.ivy2/cache/org.slf4j/slf4j-log4j12/jars/slf4j-log4j12-${SLF4J_VERSION}.jar . && \
     sbt clean clean-files && \
     rm -rf /root/.ivy2/cache
 
 WORKDIR /var/log/tts
-ENTRYPOINT /opt/rundocker.sh /etc/conf/config.properties ${version} ${slf4j_version}
+ENTRYPOINT ["/opt/bin/tts/rundocker.sh", "/etc/conf/config.properties"]
 

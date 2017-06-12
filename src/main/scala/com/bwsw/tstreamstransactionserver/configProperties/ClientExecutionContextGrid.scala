@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.configProperties
 import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 
 class ClientExecutionContextGrid(nThreads: Int) {
-  private lazy val contextGrid = ExecutionContextGrid(nThreads, "ClientPool-%d")
+  private lazy val contextGrid = ExecutionContextGrid(nThreads, "ClientExecutionContextGrid-%d")
 
   lazy val context = contextGrid.getContext
 

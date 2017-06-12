@@ -8,8 +8,9 @@ object ClientOptions {
     * @param requestTimeoutMs    the time to wait a request is completed and response is accepted. On setting option also take into consideration [[com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions]].
     * @param threadPool          the number of threads of thread pool to serialize/deserialize requests/responses.
     */
-  case class ConnectionOptions(connectionTimeoutMs: Int = 5000, requestTimeoutMs: Int = 500,
-                               requestTimeoutRetryCount: Int = 3, retryDelayMs: Int = 200, threadPool: Int = 2)
+  case class ConnectionOptions(connectionTimeoutMs: Int = 5000, requestTimeoutMs: Int = 5000,
+                               requestTimeoutRetryCount: Int = 3, retryDelayMs: Int = 200,
+                               threadPool: Int = Runtime.getRuntime.availableProcessors())
 
   /** The options are used to validate client requests by a server.
     *

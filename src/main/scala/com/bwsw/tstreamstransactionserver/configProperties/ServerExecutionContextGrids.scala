@@ -3,20 +3,18 @@ package com.bwsw.tstreamstransactionserver.configProperties
 import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 
 class ServerExecutionContextGrids(rocksWriteNThreads: Int, rocksReadNThreads: Int) {
-  private val commitLogExecutionContext = ExecutionContextGrid("CommitLogPool-%d")
-  private val serverWriteExecutionContext = ExecutionContextGrid(rocksWriteNThreads, "ServerWritePool-%d")
-  private val serverReadExecutionContext = ExecutionContextGrid(rocksReadNThreads, "ServerReadPool-%d")
+  private val commitLogExecutionContextGrid = ExecutionContextGrid("CommitLogExecutionContextGrid-%d")
+  private val serverWriteExecutionContextGrid = ExecutionContextGrid(rocksWriteNThreads, "ServerWriteExecutionContextGrid-%d")
+  private val serverReadExecutionContextGrid = ExecutionContextGrid(rocksReadNThreads, "ServerReadExecutionContextGrid-%d")
 
-  val commitLogContext = commitLogExecutionContext.getContext
-  val serverWriteContext = serverWriteExecutionContext.getContext
-  val serverReadContext = serverReadExecutionContext.getContext
+  private val contextGrids = Seq(commitLogExecutionContextGrid,
+    serverReadExecutionContextGrid, serverWriteExecutionContextGrid)
+
+  val commitLogContext = commitLogExecutionContextGrid.getContext
+  val serverWriteContext = serverWriteExecutionContextGrid.getContext
+  val serverReadContext = serverReadExecutionContextGrid.getContext
 
   def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted(): Unit = {
-    val contextGrids = collection.immutable.Seq(
-      commitLogExecutionContext,
-      serverReadExecutionContext,
-      serverWriteExecutionContext
-    )
     contextGrids foreach (context => context.stopAccessNewTasks())
     contextGrids foreach (context => context.awaitAllCurrentTasksAreCompleted())
   }

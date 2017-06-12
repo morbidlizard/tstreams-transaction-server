@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.options
 
 
 object CommonOptions {
-  val propertyFileName = "config"
+  val PROPERTY_FILE_NAME = "config"
 
   /** The options are applied on establishing connection to a ZooKeeper server(cluster).
     *
@@ -17,5 +17,4 @@ object CommonOptions {
                               sessionTimeoutMs: Int = 10000,
                               retryDelayMs: Int = 500,
                               connectionTimeoutMs: Int = 10000)
-
 }

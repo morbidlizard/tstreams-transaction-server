@@ -9,15 +9,15 @@ import org.rocksdb.CompressionType
 
 
 class OptionsLoader {
-  require(System.getProperty(CommonOptions.propertyFileName) != null,
+  require(System.getProperty(CommonOptions.PROPERTY_FILE_NAME) != null,
     s"There is no file with properties. " +
-      s"You should define a path to a property file through '-D${CommonOptions.propertyFileName}=<path_to_file>' " +
-      s"(e.g. 'java -D${CommonOptions.propertyFileName}=/home/user/config.properties " +
+      s"You should define a path to a property file through '-D${CommonOptions.PROPERTY_FILE_NAME}=<path_to_file>' " +
+      s"(e.g. 'java -D${CommonOptions.PROPERTY_FILE_NAME}=/home/user/config.properties " +
       s"-cp target/scala-2.12/tstreams-transaction-server-1.3.7.4-SNAPSHOT.jar:/home/user/slf4j-api-1.7.24.jar:/home/user/slf4j-simple-1.7.24.jar " +
       "com.bwsw.tstreamstransactionserver.ServerLauncher').")
 
   private val props = new Properties()
-  props.load(new FileInputStream(System.getProperty(CommonOptions.propertyFileName)))
+  props.load(new FileInputStream(System.getProperty(CommonOptions.PROPERTY_FILE_NAME)))
 
   private val serverAuthOptions = loadServerAuthOptions()
   private val zookeeperOptions = loadZookeeperOptions()
@@ -38,7 +38,6 @@ class OptionsLoader {
       helper.castCheck("bootstrap.host", identity)
     val bindPort =
       helper.castCheck("bootstrap.port", prop => prop.toInt)
-
     val openOperationsPoolSize =
       helper.castCheck("bootstrap.open-ops-pool-size", prop => prop.toInt)
 
@@ -50,7 +49,6 @@ class OptionsLoader {
 
     val updatePeriodMs =
       helper.castCheck("subscribers.update-period-ms", prop => prop.toInt)
-
     val subscriberMonitoringZkEndpoints =
       scala.util.Try(
         helper.castCheck("subscribers.monitoring-zk-endpoints", identity)
@@ -62,16 +60,14 @@ class OptionsLoader {
   private def loadServerAuthOptions() = {
     implicit val typeTag = classOf[ServerOptions.AuthenticationOptions]
 
-    val authenticationKey =
+    val key =
       helper.castCheck("authentication.key", identity)
-
-    val authenticationKeyCacheSize =
+    val keyCacheSize =
       helper.castCheck("authentication.key-cache-size", prop => prop.toInt)
-
-    val authenticationKeyCacheExpirationTimeSec =
+    val keyCacheExpirationTimeSec =
       helper.castCheck("authentication.key-cache-expiration-time-sec", prop => prop.toInt)
 
-    ServerOptions.AuthenticationOptions(authenticationKey, authenticationKeyCacheSize, authenticationKeyCacheExpirationTimeSec)
+    ServerOptions.AuthenticationOptions(key, keyCacheSize, keyCacheExpirationTimeSec)
   }
 
   private def loadServerStorageOptions() = {

@@ -3,7 +3,7 @@ package benchmark.utils
 import java.io.File
 
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, CommitLogOptions}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.commons.io.FileUtils
 
 import scala.concurrent.Await
@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 
 
 trait Installer {
-  private val serverBuilder = new ServerBuilder()
+  private val serverBuilder = new SingleNodeServerBuilder()
   private val clientBuilder = new ClientBuilder()
   private val storageOptions = serverBuilder.getStorageOptions
 
@@ -25,7 +25,7 @@ trait Installer {
   def startTransactionServer() = {
     new Thread(() =>
       serverBuilder
-        .withAuthOptions(AuthenticationOptions(key = "pingstation"))
+        .withAuthenticationOptions(AuthenticationOptions(key = "pingstation"))
         .withCommitLogOptions(CommitLogOptions(closeDelayMs = 1000))
         .build().start()
     ).start()

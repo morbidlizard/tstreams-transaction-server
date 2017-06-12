@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.InetSocketAddressClass
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever
@@ -19,7 +19,7 @@ import org.apache.zookeeper.data.ACL
 import org.scalatest.{FlatSpec, Matchers}
 
 
-class ClientServerZookeeperTest extends FlatSpec with Matchers {
+class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
 
   "Client" should "not connect to zookeeper server that isn't running" in {
     val clientBuilder = new ClientBuilder()
@@ -255,7 +255,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
       endpoints = zkTestServer.getConnectString
     )
 
-    val serverBuilder = new ServerBuilder()
+    val serverBuilder = new SingleNodeServerBuilder()
     val clientBuilder = new ClientBuilder()
       .withZookeeperOptions(zkOptions)
 
@@ -307,7 +307,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
 
   "Server" should "not connect to zookeeper server that isn't running" in {
     val storageOptions = StorageOptions()
-    val serverBuilder = new ServerBuilder()
+    val serverBuilder = new SingleNodeServerBuilder()
       .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888", connectionTimeoutMs = 2000))
 
@@ -324,7 +324,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
   it should "not start on wrong inet address" in {
     val zkTestServer = new TestingServer(true)
     val storageOptions = StorageOptions()
-    val serverBuilder = new ServerBuilder()
+    val serverBuilder = new SingleNodeServerBuilder()
       .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
       .withBootstrapOptions(BootstrapOptions(bindHost = "1270.0.0.1"))
@@ -342,7 +342,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
   it should "not start on negative port value" in {
     val zkTestServer = new TestingServer(true)
     val storageOptions = StorageOptions()
-    val serverBuilder = new ServerBuilder()
+    val serverBuilder = new SingleNodeServerBuilder()
       .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
       .withBootstrapOptions(BootstrapOptions(bindPort = Int.MinValue))
@@ -361,7 +361,7 @@ class ClientServerZookeeperTest extends FlatSpec with Matchers {
   it should "not start on port value exceeds 65535" in {
     val zkTestServer = new TestingServer(true)
     val storageOptions = StorageOptions()
-    val serverBuilder = new ServerBuilder()
+    val serverBuilder = new SingleNodeServerBuilder()
       .withServerStorageOptions(storageOptions)
       .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
       .withBootstrapOptions(BootstrapOptions(bindPort = 65536))

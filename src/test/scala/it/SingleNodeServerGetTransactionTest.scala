@@ -1,13 +1,13 @@
 package it
 
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.scalatest.{FlatSpec, Matchers}
 import util.Utils
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class ServerGetTransactionTest
+class SingleNodeServerGetTransactionTest
   extends FlatSpec
     with Matchers
 {
@@ -15,7 +15,7 @@ class ServerGetTransactionTest
 
   "Client" should "get transaction ID that not less that current time" in {
     val bundle = Utils.startTransactionServerAndClient(
-      new ServerBuilder(), new ClientBuilder()
+      new SingleNodeServerBuilder(), new ClientBuilder()
     )
     val client = bundle.client
 
@@ -29,7 +29,7 @@ class ServerGetTransactionTest
 
   it should "get transaction ID by timestamp" in {
     val bundle = Utils.startTransactionServerAndClient(
-      new ServerBuilder(), new ClientBuilder()
+      new SingleNodeServerBuilder(), new ClientBuilder()
     )
     val client = bundle.client
 

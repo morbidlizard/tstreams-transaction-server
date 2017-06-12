@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
+import com.bwsw.tstreamstransactionserver.netty.server.{SingleNodeServer, Time}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
@@ -16,13 +16,13 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future => ScalaFuture}
 
 
-class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class SingleNodeServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   val clientsNum = 2
 
   var zkTestServer: TestingServer = _
   var clients: Array[Client] = new Array[Client](clientsNum)
-  var transactionServer: Server = _
+  var transactionServer: SingleNodeServer = _
 
   private val clientBuilder = new ClientBuilder()
 
@@ -49,10 +49,10 @@ class ServerLastCheckpointedTransactionTest extends FlatSpec with Matchers with 
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
 
-  def startTransactionServer(): Server = {
+  def startTransactionServer(): SingleNodeServer = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    transactionServer = new Server(
-      authOpts = serverAuthOptions,
+    transactionServer = new SingleNodeServer(
+      authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
       serverReplicationOpts = serverReplicationOptions,

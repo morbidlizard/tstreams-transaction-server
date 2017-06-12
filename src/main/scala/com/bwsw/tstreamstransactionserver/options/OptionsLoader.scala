@@ -19,7 +19,7 @@ class OptionsLoader {
   private val props = new Properties()
   props.load(new FileInputStream(System.getProperty(CommonOptions.PROPERTY_FILE_NAME)))
 
-  private val serverAuthOptions = loadServerAuthOptions()
+  private val serverAuthOptions = loadServerAuthenticationOptions()
   private val zookeeperOptions = loadZookeeperOptions()
   private val bootstrapOptions = loadBootstrapOptions()
   private val serverReplicationOptions = loadServerReplicationOptions()
@@ -57,7 +57,7 @@ class OptionsLoader {
     SubscriberUpdateOptions(updatePeriodMs, subscriberMonitoringZkEndpoints)
   }
 
-  private def loadServerAuthOptions() = {
+  private def loadServerAuthenticationOptions() = {
     implicit val typeTag = classOf[ServerOptions.AuthenticationOptions]
 
     val key =
@@ -204,7 +204,7 @@ class OptionsLoader {
     )
   }
 
-  def getServerAuthOptions = {
+  def getServerAuthenticationOptions = {
     serverAuthOptions
   }
 

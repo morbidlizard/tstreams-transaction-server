@@ -7,7 +7,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerChooser
-import com.bwsw.tstreamstransactionserver.netty.server.{Server, ServerHandler, ZKClientServer}
+import com.bwsw.tstreamstransactionserver.netty.server.{SingleNodeServer, ServerHandler, ZKClientServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
@@ -22,7 +22,7 @@ import org.slf4j.Logger
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
 
   private val rand = scala.util.Random
@@ -37,7 +37,7 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
 
 
   private val requestTimeoutMs = 500
-  @volatile private var server: Server = _
+  @volatile private var server: SingleNodeServer = _
   private val serverGotRequest = new AtomicInteger(0)
 
   private def serverHandler(requestHandlerChooser: RequestHandlerChooser,
@@ -60,10 +60,10 @@ class BadBehaviourServerTest extends FlatSpec with Matchers with BeforeAndAfterE
   private val packageTransmissionOptions = TransportOptions()
   private val commitLogOptions = CommitLogOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
-  def startTransactionServer(): Server = {
+  def startTransactionServer(): SingleNodeServer = {
     val address = zkTestServer.getConnectString
     val zookeeperOptions = ZookeeperOptions(endpoints = address)
-    server = new Server(
+    server = new SingleNodeServer(
       authOptions, zookeeperOptions,
       bootstrapOptions, serverReplicationOptions,
       storageOptions, rocksStorageOptions, commitLogOptions,

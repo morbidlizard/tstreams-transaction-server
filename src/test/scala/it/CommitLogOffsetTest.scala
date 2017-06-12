@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
+import com.bwsw.tstreamstransactionserver.netty.server.{SingleNodeServer, Time}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
@@ -18,7 +18,7 @@ import scala.concurrent.duration._
 class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
   var client: Client = _
-  var transactionServer: Server = _
+  var transactionServer: SingleNodeServer = _
 
   val clientsNum = 2
   private val clientBuilder = new ClientBuilder()
@@ -43,10 +43,10 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
-  def startTransactionServer(): Server = {
+  def startTransactionServer(): SingleNodeServer = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    transactionServer = new Server(
-      authOpts = serverAuthOptions,
+    transactionServer = new SingleNodeServer(
+      authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
       serverReplicationOpts = serverReplicationOptions,

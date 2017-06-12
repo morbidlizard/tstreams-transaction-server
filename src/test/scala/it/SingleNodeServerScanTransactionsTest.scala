@@ -13,7 +13,7 @@ import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import util.Utils._
 
 
-class ServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 

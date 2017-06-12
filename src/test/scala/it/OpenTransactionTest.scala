@@ -5,7 +5,7 @@ import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder, ServerOptions}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
@@ -23,7 +23,7 @@ class OpenTransactionTest extends FlatSpec
     path = Files.createTempDirectory("dbs_").toFile.getPath
   )
   private val commitLogToBerkeleyDBTaskDelayMs = 100
-  private val serverBuilder = new ServerBuilder()
+  private val serverBuilder = new SingleNodeServerBuilder()
     .withCommitLogOptions(ServerOptions.CommitLogOptions(
       closeDelayMs = commitLogToBerkeleyDBTaskDelayMs
     ))

@@ -17,7 +17,7 @@ import util.Utils._
 
 import scala.language.reflectiveCalls
 
-class ServerCleanerTest extends FlatSpec
+class SingleNodeServerCleanerTest extends FlatSpec
   with Matchers
   with BeforeAndAfterEach {
 

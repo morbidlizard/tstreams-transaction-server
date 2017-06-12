@@ -7,17 +7,17 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
-import com.bwsw.tstreamstransactionserver.options.ServerBuilder
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import util.Utils.startZkServerAndGetIt
 
-class ServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers with BeforeAndAfterEach {
-  private val serverBuilder = new ServerBuilder()
+class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+  private val serverBuilder = new SingleNodeServerBuilder()
   private val storageOptions = serverBuilder.getStorageOptions
-  private val authOptions = serverBuilder.getAuthOptions
+  private val authOptions = serverBuilder.getAuthenticationOptions
   private val secondsWait = 5
 
   override def beforeEach(): Unit = {

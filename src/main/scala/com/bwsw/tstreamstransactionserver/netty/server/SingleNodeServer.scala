@@ -25,18 +25,18 @@ import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
 
-class Server(authOpts: AuthenticationOptions,
-             zookeeperOpts: CommonOptions.ZookeeperOptions,
-             serverOpts: BootstrapOptions,
-             serverReplicationOpts: ServerReplicationOptions,
-             storageOpts: StorageOptions,
-             rocksStorageOpts: RocksStorageOptions,
-             commitLogOptions: CommitLogOptions,
-             packageTransmissionOpts: TransportOptions,
-             subscribersUpdateOptions: SubscriberUpdateOptions,
-             serverHandler: (RequestHandlerChooser, Logger) =>
+class SingleNodeServer(authenticationOpts: AuthenticationOptions,
+                       zookeeperOpts: CommonOptions.ZookeeperOptions,
+                       serverOpts: BootstrapOptions,
+                       serverReplicationOpts: ServerReplicationOptions,
+                       storageOpts: StorageOptions,
+                       rocksStorageOpts: RocksStorageOptions,
+                       commitLogOptions: CommitLogOptions,
+                       packageTransmissionOpts: TransportOptions,
+                       subscribersUpdateOptions: SubscriberUpdateOptions,
+                       serverHandler: (RequestHandlerChooser, Logger) =>
                SimpleChannelInboundHandler[ByteBuf] = (handler, logger) => new ServerHandler(handler, logger),
-             timer: Time = new Time{}
+                       timer: Time = new Time{}
             ) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -76,7 +76,7 @@ class Server(authOpts: AuthenticationOptions,
     zk.streamDatabase(s"${storageOpts.streamZookeeperDirectory}")
   private val transactionServer = new TransactionServer(
     executionContext,
-    authOpts,
+    authenticationOpts,
     storageOpts,
     rocksStorageOpts,
     zkStreamDatabase,
@@ -193,7 +193,7 @@ class Server(authOpts: AuthenticationOptions,
       transactionServer,
       scheduledCommitLogImpl,
       packageTransmissionOpts,
-      authOpts,
+      authenticationOpts,
       orderedExecutionPool,
       openTransactionStateNotifier
     )

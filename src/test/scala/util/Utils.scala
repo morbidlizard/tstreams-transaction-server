@@ -4,7 +4,7 @@ import java.net.ServerSocket
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.test.TestingServer
@@ -50,7 +50,7 @@ object Utils {
     }.get
   }
 
-  def startTransactionServer(builder: ServerBuilder): ZkSeverAndTransactionServer = {
+  def startTransactionServer(builder: SingleNodeServerBuilder): ZkSeverAndTransactionServer = {
     val zkTestServer = new TestingServer(true)
     val transactionServer = builder
       .withZookeeperOptions(
@@ -70,7 +70,7 @@ object Utils {
     ZkSeverAndTransactionServer(zkTestServer, transactionServer)
   }
 
-  def startTransactionServerAndClient(serverBuilder: ServerBuilder,
+  def startTransactionServerAndClient(serverBuilder: SingleNodeServerBuilder,
                                       clientBuilder: ClientBuilder): ZkSeverTxnServerTxnClient = {
     val zkTestServer = new TestingServer(true)
     val transactionServer = serverBuilder

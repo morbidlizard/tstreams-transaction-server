@@ -1,10 +1,10 @@
 package util
 
-import com.bwsw.tstreamstransactionserver.netty.server.Server
+import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
 import org.apache.curator.test.TestingServer
 
 final class ZkSeverAndTransactionServer(val zkServer: TestingServer,
-                                        val transactionServer: Server
+                                        val transactionServer: SingleNodeServer
                                  )
 {
   def close(): Unit = {
@@ -14,6 +14,6 @@ final class ZkSeverAndTransactionServer(val zkServer: TestingServer,
 }
 
 object ZkSeverAndTransactionServer{
-  def apply(zkServer: TestingServer, transactionServer: Server): ZkSeverAndTransactionServer =
+  def apply(zkServer: TestingServer, transactionServer: SingleNodeServer): ZkSeverAndTransactionServer =
     new ZkSeverAndTransactionServer(zkServer, transactionServer)
 }

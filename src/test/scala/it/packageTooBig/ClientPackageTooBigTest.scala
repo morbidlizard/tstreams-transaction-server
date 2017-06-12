@@ -4,10 +4,10 @@ import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
-import com.bwsw.tstreamstransactionserver.netty.server.Server
+import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions, TransportOptions}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{FlatSpec, Matchers}
@@ -19,8 +19,8 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
    private val serverStorageOptions = StorageOptions(path = "/tmp")
    private val packageTransmissionOptions = TransportOptions(maxMetadataPackageSize = 1000000)
 
-   private def startTransactionServer(zkConnectionString: String): Server = {
-     val server = new ServerBuilder()
+   private def startTransactionServer(zkConnectionString: String): SingleNodeServer = {
+     val server = new SingleNodeServerBuilder()
        .withServerStorageOptions(serverStorageOptions)
        .withZookeeperOptions(ZookeeperOptions(endpoints = zkConnectionString))
        .withPackageTransmissionOptions(packageTransmissionOptions)

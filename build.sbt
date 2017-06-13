@@ -74,11 +74,17 @@ libraryDependencies ++= Seq(
   "org.rocksdb" % "rocksdbjni" % "5.3.6",
   "org.scalactic" %% "scalactic" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
-  "io.netty" % "netty-all" % "4.1.11.Final",
+  ("io.netty" % "netty-all" % "4.1.11.Final")
+    .exclude("log4j", "log4j")
+    .exclude("org.slf4j", "slf4j-api"),
   "org.json4s" %% "json4s-jackson" % "3.5.1",
 
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",
   "org.slf4j" % "slf4j-log4j12" % "1.7.24" % "provided",
+
+  ("org.apache.bookkeeper" % "bookkeeper-server" % "4.4.0")
+    .exclude("log4j", "log4j")
+    .exclude("org.slf4j", "slf4j-api"),
 
   ("org.apache.curator" % "curator-framework" % "2.12.0")
     .exclude("org.slf4j", "slf4j-api"),

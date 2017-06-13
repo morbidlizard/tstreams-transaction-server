@@ -3,15 +3,15 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContext
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastOpenedAndCheckpointedTransaction
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
-import util.Utils.startZkServerAndGetIt
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
+import util.Utils.startZkServerAndGetIt
 
 import scala.annotation.tailrec
 import scala.language.reflectiveCalls
@@ -43,7 +43,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
   }
 
   override def afterEach() {
@@ -51,10 +51,10 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
   }
   private val path = "/tts/test_path"
   it should "correctly return last transaction id per stream and partition" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -108,10 +108,10 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
   }
 
   it should "correctly return last transaction and last checkpointed transaction id per stream and partition" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -173,10 +173,10 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
   }
 
   it should "correctly return last transaction and last checkpointed transaction id per stream and partition and checkpointed transaction should be proccessed earlier" in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
     val streamsNumber = 1
@@ -233,10 +233,10 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
   }
 
   it should "correctly return last transaction id per stream and partition even if some transactions are out of order." in {
-    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthOptions()
+    val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContext(2, 2)
+    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 

@@ -1,11 +1,11 @@
 package util
 
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.Server
+import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
 import org.apache.curator.test.TestingServer
 
 class ZkSeverTxnServerTxnClient(val zkServer: TestingServer,
-                                val transactionServer: Server,
+                                val transactionServer: SingleNodeServer,
                                 val client: Client
                                )
 {
@@ -18,7 +18,7 @@ class ZkSeverTxnServerTxnClient(val zkServer: TestingServer,
 
 object ZkSeverTxnServerTxnClient {
   def apply(zkServer: TestingServer,
-            transactionServer: Server,
+            transactionServer: SingleNodeServer,
             client: Client): ZkSeverTxnServerTxnClient =
     new ZkSeverTxnServerTxnClient(
       zkServer,

@@ -1,33 +1,55 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package com.bwsw.tstreamstransactionserver.exception
 
 import java.net.SocketTimeoutException
 
 object Throwable {
   val TokenInvalidExceptionMessage: String = "Token isn't valid."
+
   class TokenInvalidException(message: String = TokenInvalidExceptionMessage)
     extends IllegalArgumentException(message)
 
   val serverConnectionExceptionMessage: String = "Can't connect to Server."
+
   class ServerConnectionException
     extends SocketTimeoutException(serverConnectionExceptionMessage)
 
   val serverUnreachableExceptionMessage: String = "Server is unreachable."
+
   class ServerUnreachableException(socket: String)
     extends SocketTimeoutException(s"Server $socket is unreachable.")
 
-//  val requestTimeoutExceptionMessage: String = "Request exceeds timeout."
   class RequestTimeoutException(reqId: Long, ttl: Long)
-  extends Exception(s"Request $reqId exceeds $ttl ms.")
+    extends Exception(s"Request $reqId exceeds $ttl ms.")
 
   val zkGetMasterExceptionMessage: String = "Can't get master from ZooKeeper."
+
   class ZkGetMasterException(endpoints: String)
     extends Exception(s"Can't get master from ZooKeeper servers: $endpoints.")
 
   val zkNoConnectionExceptionMessage: String = "Can't connect to ZooKeeper server(s): "
+
   class ZkNoConnectionException(endpoints: String)
     extends Exception(new StringBuilder(zkNoConnectionExceptionMessage).append(endpoints).append('!').toString())
 
-  class MethodDoesnotFoundException(method: String)
+  class MethodDoesNotFoundException(method: String)
     extends IllegalArgumentException(new StringBuilder(method).append(" isn't implemented!").toString())
 
   class InvalidSocketAddress(message: String)
@@ -36,10 +58,10 @@ object Throwable {
   object ClientIllegalOperationAfterShutdown
     extends IllegalStateException("It's not allowed do any operations after client shutdown!")
 
-  class MasterIsPersistentZnode(path: String)
+  class MasterIsPersistentZnodeException(path: String)
     extends IllegalArgumentException(s"Master node: $path is persistent node, but should be ephemeral.")
 
-  class MasterDataIsIllegal(path: String, data: String)
+  class MasterDataIsIllegalException(path: String, data: String)
     extends IllegalArgumentException(s"Master node: $path, data is: $data. It's not ip adrress.")
 
   class MasterPathIsAbsent(path: String)
@@ -50,6 +72,7 @@ object Throwable {
   } with NoSuchElementException(message)
 
   val PackageTooBigExceptionMessagePart: String = "A size of client request is greater"
+
   class PackageTooBigException(msg: String = "")
     extends Exception(msg)
 

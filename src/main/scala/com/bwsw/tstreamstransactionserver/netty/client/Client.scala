@@ -1,10 +1,29 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
-import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContext
+import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
 import com.bwsw.tstreamstransactionserver.netty._
@@ -21,8 +40,8 @@ import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import scala.concurrent.{Await, Future => ScalaFuture, Promise => ScalaPromise}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future => ScalaFuture, Promise => ScalaPromise}
 
 
 /** A client who connects to a server.
@@ -49,9 +68,9 @@ class Client(clientOpts: ConnectionOptions,
   /** A special context for making requests asynchronously, although they are processed sequentially;
     * If's for: putTransaction, putTransactions, setConsumerState.
     */
-  private[client] final val processTransactionsPutOperationPool = ExecutionContext("ClientTransactionPool-%d")
+  private[client] final val processTransactionsPutOperationPool = ExecutionContextGrid("ClientTransactionPool-%d")
 
-  private final val executionContext = new ClientExecutionContext(clientOpts.threadPool)
+  private final val executionContext = new ClientExecutionContextGrid(clientOpts.threadPool)
 
   private final val context = executionContext.context
   private final val contextForProducerTransactions = processTransactionsPutOperationPool.getContext
@@ -134,7 +153,7 @@ class Client(clientOpts: ConnectionOptions,
   }
 
 
-  final def currentConnectionSocketAddress: Either[Throwable, Option[InetSocketAddressClass]] = zKLeaderClient.master
+  final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] = zKLeaderClient.master
   private[client] def reconnect(): Unit = {
     val isConnected = isReconnected.getAndSet(true)
     if (!isConnected) {
@@ -173,12 +192,12 @@ class Client(clientOpts: ConnectionOptions,
 
   /** A general method for sending requests to a server and getting a response back.
     *
-    * @param descriptor look at [[com.bwsw.tstreamstransactionserver.netty.Descriptors]].
+    * @param descriptor look at [[com.bwsw.tstreamstransactionserver.netty.Protocol]].
     * @param request    a request that client would like to send.
     * @return a response from server(however, it may return an exception from server).
     *
     */
-  private final def method[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Descriptors.Descriptor[Req, Rep],
+  private final def method[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Protocol.Descriptor[Req, Rep],
                                                                         request: Req,
                                                                         f: Rep => A
                                                                        )(implicit methodContext: concurrent.ExecutionContext): ScalaFuture[A] = {
@@ -229,7 +248,7 @@ class Client(clientOpts: ConnectionOptions,
 
   @throws[TokenInvalidException]
   @throws[PackageTooBigException]
-  private final def methodFireAndForget[Req <: ThriftStruct](descriptor: Descriptors.Descriptor[Req, _],
+  private final def methodFireAndForget[Req <: ThriftStruct](descriptor: Protocol.Descriptor[Req, _],
                                                              request: Req
                                                             ): Unit = {
 
@@ -242,7 +261,7 @@ class Client(clientOpts: ConnectionOptions,
     val messageId = nextSeqId.getAndIncrement()
     val message = descriptor.encodeRequestToMessage(request)(messageId, token, isFireAndForgetMethod = true)
 
-    if (logger.isDebugEnabled) logger.debug(Descriptors.methodWithArgsToString(messageId, request))
+    if (logger.isDebugEnabled) logger.debug(Protocol.methodWithArgsToString(messageId, request))
     validateMessageSize(message)
 
     @tailrec
@@ -259,7 +278,7 @@ class Client(clientOpts: ConnectionOptions,
 
   private def validateMessageSize(message: Message): Unit = {
     message.method match {
-      case Descriptors.PutTransactionData.methodID if maxDataPackageSize != -1 =>
+      case Protocol.PutTransactionData.methodID if maxDataPackageSize != -1 =>
         if (message.length > maxDataPackageSize)
           throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
             s"than maxDataPackageSize ($maxDataPackageSize).")
@@ -368,7 +387,7 @@ class Client(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled()) logger.debug(s"Calling method 'getCommitLogOffsets' to get offsets.")
     onShutdownThrowException()
     method[TransactionService.GetCommitLogOffsets.Args, TransactionService.GetCommitLogOffsets.Result, com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo](
-      Descriptors.GetCommitLogOffsets,
+      Protocol.GetCommitLogOffsets,
       TransactionService.GetCommitLogOffsets.Args(),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -393,7 +412,7 @@ class Client(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream $stream with $partitions partitions, ttl $ttl and description.")
     onShutdownThrowException()
     method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Int](
-      Descriptors.PutStream,
+      Protocol.PutStream,
       TransactionService.PutStream.Args(stream, partitions, description, ttl),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -416,7 +435,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Int](
-      Descriptors.PutStream,
+      Protocol.PutStream,
       TransactionService.PutStream.Args(stream.name, stream.partitions, stream.description, stream.ttl),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -439,7 +458,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.DelStream.Args, TransactionService.DelStream.Result, Boolean](
-      Descriptors.DelStream,
+      Protocol.DelStream,
       TransactionService.DelStream.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -463,7 +482,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.GetStream.Args, TransactionService.GetStream.Result, Option[com.bwsw.tstreamstransactionserver.rpc.Stream]](
-      Descriptors.GetStream,
+      Protocol.GetStream,
       TransactionService.GetStream.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success
     )(context)
@@ -486,7 +505,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, Boolean](
-      Descriptors.CheckStreamExists,
+      Protocol.CheckStreamExists,
       TransactionService.CheckStreamExists.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -510,7 +529,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.GetTransactionID.Args, TransactionService.GetTransactionID.Result, Long](
-      Descriptors.GetTransactionID,
+      Protocol.GetTransactionID,
       TransactionService.GetTransactionID.Args(),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -536,7 +555,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, Long](
-      Descriptors.GetTransactionIDByTimestamp,
+      Protocol.GetTransactionIDByTimestamp,
       TransactionService.GetTransactionIDByTimestamp.Args(timestamp),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -569,7 +588,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
-      Descriptors.PutTransactions,
+      Protocol.PutTransactions,
       TransactionService.PutTransactions.Args(transactions),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
@@ -594,7 +613,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, Boolean](
-      Descriptors.PutTransaction,
+      Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(producerTransactionToTransaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
@@ -617,7 +636,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, Boolean](
-      Descriptors.PutTransaction,
+      Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(Transaction(None, Some(transaction))),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
@@ -643,7 +662,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Long](
-      Descriptors.PutSimpleTransactionAndData,
+      Protocol.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
@@ -661,7 +680,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     methodFireAndForget[TransactionService.PutSimpleTransactionAndData.Args](
-      Descriptors.PutSimpleTransactionAndData,
+      Protocol.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data)
     )
   }
@@ -687,7 +706,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, Long](
-      Descriptors.OpenTransaction,
+      Protocol.OpenTransaction,
       TransactionService.OpenTransaction.Args(streamID, partitionID, transactionTTLMs),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
@@ -713,7 +732,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, TransactionInfo](
-      Descriptors.GetTransaction,
+      Protocol.GetTransaction,
       TransactionService.GetTransaction.Args(streamID, partition, transaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -739,7 +758,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.GetLastCheckpointedTransaction.Args, TransactionService.GetLastCheckpointedTransaction.Result, Long](
-      Descriptors.GetLastCheckpointedTransaction,
+      Protocol.GetLastCheckpointedTransaction,
       TransactionService.GetLastCheckpointedTransaction.Args(streamID, partition),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -780,7 +799,7 @@ class Client(clientOpts: ConnectionOptions,
       onShutdownThrowException()
 
       method[TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, ScanTransactionsInfo](
-        Descriptors.ScanTransactions,
+        Protocol.ScanTransactions,
         TransactionService.ScanTransactions.Args(streamID, partition, from, to, count, states),
         x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
       )(context)
@@ -806,17 +825,18 @@ class Client(clientOpts: ConnectionOptions,
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting transaction data to stream $streamID, partition $partition, transaction $transaction.")
+    if (logger.isDebugEnabled)
+      logger.debug(s"Putting transaction data to stream $streamID, partition $partition, transaction $transaction.")
     onShutdownThrowException()
 
     method[TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result, Boolean](
-      Descriptors.PutTransactionData,
+      Protocol.PutTransactionData,
       TransactionService.PutTransactionData.Args(streamID, partition, transaction, data, from),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
 
-  /** Putting any binary data and setting transaction state on server.
+  /** Putting any binary data and persisting/updating transaction state on server.
     *
     * @param producerTransaction a producer transaction contains all necessary information for persisting data.
     * @param data                a data to persist.
@@ -832,8 +852,21 @@ class Client(clientOpts: ConnectionOptions,
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putProducerStateWithData(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = ScalaFuture {
-    putTransactionData(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, data, from)
-      .flatMap(_ => putProducerState(producerTransaction))(context)
+    import producerTransaction._
+    if (logger.isDebugEnabled)
+      logger.debug(
+        s"Putting producer transaction to stream " +
+          s"$stream, partition $partition, transaction $transactionID, state $state, ttl: $ttl, quantity: $quantity " +
+          s"with data $data"
+      )
+
+    onShutdownThrowException()
+
+    method[TransactionService.PutProducerStateWithData.Args, TransactionService.PutProducerStateWithData.Result, Boolean](
+      Protocol.PutProducerStateWithData,
+      TransactionService.PutProducerStateWithData.Args(producerTransaction, data, from),
+      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+    )(context)
   }(contextForProducerTransactions).flatten
 
 
@@ -866,7 +899,7 @@ class Client(clientOpts: ConnectionOptions,
       onShutdownThrowException()
 
       method[TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, Seq[Array[Byte]]](
-        Descriptors.GetTransactionData,
+        Protocol.GetTransactionData,
         TransactionService.GetTransactionData.Args(streamID, partition, transaction, from, to),
         x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
       )(context)
@@ -892,7 +925,7 @@ class Client(clientOpts: ConnectionOptions,
       logger.debug(s"Setting consumer state ${consumerTransaction.name} on stream ${consumerTransaction.stream}, partition ${consumerTransaction.partition}, transaction ${consumerTransaction.transactionID}.")
 
     method[TransactionService.PutConsumerCheckpoint.Args, TransactionService.PutConsumerCheckpoint.Result, Boolean](
-      Descriptors.PutConsumerCheckpoint,
+      Protocol.PutConsumerCheckpoint,
       TransactionService.PutConsumerCheckpoint.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
@@ -917,7 +950,7 @@ class Client(clientOpts: ConnectionOptions,
     onShutdownThrowException()
 
     method[TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, Long](
-      Descriptors.GetConsumerState,
+      Protocol.GetConsumerState,
       TransactionService.GetConsumerState.Args(name, streamID, partition),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
@@ -943,7 +976,7 @@ class Client(clientOpts: ConnectionOptions,
       val authKey = authOpts.key
 
       method[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, Unit](
-        Descriptors.Authenticate,
+        Protocol.Authenticate,
         TransactionService.Authenticate.Args(authKey),
         x => {
           val authInfo = x.success.get

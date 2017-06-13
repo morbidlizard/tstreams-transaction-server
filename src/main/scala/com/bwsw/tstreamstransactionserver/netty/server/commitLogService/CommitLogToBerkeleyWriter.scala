@@ -1,14 +1,34 @@
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
-import java.util.concurrent.{Future, PriorityBlockingQueue}
+import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
+import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.{Descriptors, Message}
-import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, ResyncMajority, SkipLog, TryRead}
-import com.bwsw.tstreamstransactionserver.rpc.{Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
+import com.bwsw.tstreamstransactionserver.rpc.Transaction
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -26,8 +46,6 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
 
   private def createProcessingFunction() = { (commitLogEntity: CommitLogStorage) =>
     incompleteCommitLogReadPolicy match {
-      case ResyncMajority => true //todo for replicated mode use only 'resync-majority'
-
       case SkipLog =>
         val fileKey = FileKey(commitLogEntity.getID)
         val fileValue = FileValue(commitLogEntity.getContent, if (commitLogEntity.md5Exists()) Some(commitLogEntity.getMD5) else None)
@@ -160,11 +178,11 @@ object CommitLogToBerkeleyWriter {
   val putTransactionsType: Byte = 2
   val setConsumerStateType: Byte = 3
 
-  private def deserializePutTransaction(message: Array[Byte]) = Descriptors.PutTransaction.decodeRequest(message)
+  private def deserializePutTransaction(message: Array[Byte]) = Protocol.PutTransaction.decodeRequest(message)
 
-  private def deserializePutTransactions(message: Array[Byte]) = Descriptors.PutTransactions.decodeRequest(message)
+  private def deserializePutTransactions(message: Array[Byte]) = Protocol.PutTransactions.decodeRequest(message)
 
-  private def deserializeSetConsumerState(message: Array[Byte]) = Descriptors.PutConsumerCheckpoint.decodeRequest(message)
+  private def deserializeSetConsumerState(message: Array[Byte]) = Protocol.PutConsumerCheckpoint.decodeRequest(message)
 
 
   def retrieveTransactions(record: CommitLogRecord): Seq[(Transaction, Long)] = record.messageType match {

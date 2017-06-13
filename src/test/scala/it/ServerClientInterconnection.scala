@@ -1,18 +1,17 @@
 package it
 
 import java.io.File
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.LongAdder
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.CommitLogCatalogue
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
+import com.bwsw.tstreamstransactionserver.netty.server.{SingleNodeServer, Time}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
+import com.bwsw.tstreamstransactionserver.rpc._
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -22,7 +21,7 @@ import scala.concurrent.{Await, Future}
 class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
   var client: Client = _
-  var transactionServer: Server = _
+  var transactionServer: SingleNodeServer = _
 
   val clientsNum = 2
   private val clientBuilder = new ClientBuilder()
@@ -38,21 +37,20 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   private val maxIdleTimeBetweenRecordsMs = 1000
 
-  private val serverAuthOptions = ServerOptions.AuthOptions()
+  private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = Int.MaxValue)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(closeDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
-  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
 
-  def startTransactionServer(): Server = {
+  def startTransactionServer(): SingleNodeServer = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    transactionServer = new Server(
-      authOpts = serverAuthOptions,
+    transactionServer = new SingleNodeServer(
+      authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
       serverReplicationOpts = serverReplicationOptions,
@@ -60,7 +58,6 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       subscriberUpdateOptions,
       timer = TestTimer
     )
@@ -77,7 +74,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
 
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
@@ -95,7 +92,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {
@@ -132,7 +129,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       override val state: TransactionStates = transactionState
       override val stream: Int = streamID
       override val ttl: Long = Long.MaxValue
-      override val quantity: Int = -1
+      override val quantity: Int = 0
       override val partition: Int = streamObj.partitions
     }
 
@@ -271,7 +268,48 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     data should contain theSameElementsAs dataFromDatabase
   }
 
-  it should "put transactions and get them back(scanTransactions)" in {
+  it should "[putProducerStateWithData] put a producer transaction (Opened) with data, and server should persist data." in {
+    //arrange
+    val stream =
+      getRandomStream
+
+    val streamID =
+      Await.result(client.putStream(stream), secondsWait.seconds)
+
+    val openedProducerTransaction =
+      getRandomProducerTransaction(streamID, stream, TransactionStates.Opened)
+
+    val dataAmount = 30
+    val data = Array.fill(dataAmount)(rand.nextString(10).getBytes)
+
+    val from = dataAmount
+    val to = 2*from
+    Await.result(client.putProducerStateWithData(openedProducerTransaction, data, from), secondsWait.seconds)
+
+    //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
+    transactionServer.scheduledCommitLogImpl.run()
+    transactionServer.berkeleyWriter.run()
+
+    val successResponse = Await.result(
+      client.getTransaction(streamID, stream.partitions, openedProducerTransaction.transactionID
+      ), secondsWait.seconds)
+
+    val successResponseData = Await.result(
+      client.getTransactionData(
+        streamID, stream.partitions, openedProducerTransaction.transactionID, from, to
+      ), secondsWait.seconds)
+
+
+    //assert
+    successResponse shouldBe TransactionInfo(
+      exists = true,
+      Some(openedProducerTransaction)
+    )
+
+    successResponseData should contain theSameElementsInOrderAs data
+  }
+
+  it should "[scanTransactions] put transactions and get them back" in {
     val stream = getRandomStream
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
@@ -329,6 +367,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     //assert
     response shouldBe TransactionInfo(exists = false, None)
   }
+
 
   it should "put a producer transaction (Opened), return it and shouldn't return a producer transaction which id is greater (getTransaction)" in {
     //arrange

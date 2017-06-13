@@ -5,14 +5,14 @@ import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerBuilder, ServerOptions}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
+import util.Utils
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import util.Utils
 
 class OpenTransactionTest extends FlatSpec
   with Matchers
@@ -23,9 +23,9 @@ class OpenTransactionTest extends FlatSpec
     path = Files.createTempDirectory("dbs_").toFile.getPath
   )
   private val commitLogToBerkeleyDBTaskDelayMs = 100
-  private val serverBuilder = new ServerBuilder()
+  private val serverBuilder = new SingleNodeServerBuilder()
     .withCommitLogOptions(ServerOptions.CommitLogOptions(
-      commitLogCloseDelayMs = commitLogToBerkeleyDBTaskDelayMs
+      closeDelayMs = commitLogToBerkeleyDBTaskDelayMs
     ))
     .withServerStorageOptions(serverStorageOptions)
 
@@ -39,14 +39,14 @@ class OpenTransactionTest extends FlatSpec
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
   }
 
   override def afterEach() {
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {

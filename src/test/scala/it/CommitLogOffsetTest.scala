@@ -1,10 +1,10 @@
 package it
 
 import java.io.File
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.CountDownLatch
 
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.{Server, Time}
+import com.bwsw.tstreamstransactionserver.netty.server.{SingleNodeServer, Time}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
@@ -18,7 +18,7 @@ import scala.concurrent.duration._
 class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
   var client: Client = _
-  var transactionServer: Server = _
+  var transactionServer: SingleNodeServer = _
 
   val clientsNum = 2
   private val clientBuilder = new ClientBuilder()
@@ -34,20 +34,19 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
 
   private val maxIdleTimeBetweenRecordsMs = 1000
 
-  private val serverAuthOptions = ServerOptions.AuthOptions()
+  private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(commitLogCloseDelayMs = Int.MaxValue)
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(closeDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
-  private val serverZookeeperSpecificOptions = ServerOptions.ZooKeeperOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
-  def startTransactionServer(): Server = {
+  def startTransactionServer(): SingleNodeServer = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    transactionServer = new Server(
-      authOpts = serverAuthOptions,
+    transactionServer = new SingleNodeServer(
+      authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
       serverReplicationOpts = serverReplicationOptions,
@@ -55,7 +54,6 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      zookeeperSpecificOpts = serverZookeeperSpecificOptions,
       subscriberUpdateOptions,
       timer = TestTimer
     )
@@ -72,7 +70,7 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
 
     TestTimer.resetTimer()
     zkTestServer = new TestingServer(true)
@@ -89,7 +87,7 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogDirectory))
+    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
   }
 
   implicit object ProducerTransactionSortable extends Ordering[ProducerTransaction] {

@@ -114,7 +114,7 @@ object ServerOptions {
   case class RocksStorageOptions(writeThreadPool: Int = 2,
                                  readThreadPool: Int = 2,
                                  transactionTtlAppendMs: Int = 50,
-                                 transactionExpungeDelayMin: Int = TimeUnit.DAYS.toMillis(180).toInt, //todo: fixit?
+                                 transactionExpungeDelayMin: Int = TimeUnit.DAYS.toMinutes(180).toInt,
                                  maxBackgroundCompactions: Int = 1,
                                  compression: CompressionType = CompressionType.LZ4_COMPRESSION,
                                  isFsync: Boolean = true

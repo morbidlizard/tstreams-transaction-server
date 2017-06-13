@@ -181,6 +181,7 @@ object Protocol {
   val getStreamMethod = "getStream"
   val delStreamMethod = "delStream"
   val putTransactionMethod = "putTransaction"
+  val putProducerStateWithData = "putProducerStateWithData"
   val putSimpleTransactionAndDataMethod = "putSimpleTransactionAndData"
   val putTransactionsMethod = "putTransactions"
   val openTransactionMethod = "openTransaction"
@@ -214,6 +215,8 @@ object Protocol {
         toString(DelStream.name, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutTransaction.Args    =>
         toString(PutTransaction.name, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutProducerStateWithData.Args =>
+        toString(PutProducerStateWithData.name, struct.productIterator, TransactionService.PutProducerStateWithData.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutSimpleTransactionAndData.Args =>
         toString(PutSimpleTransactionAndData.name, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutTransactions.Args =>
@@ -307,5 +310,6 @@ object Protocol {
   case object OpenTransaction extends
     Descriptor(openTransactionMethod, 19:Byte, TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
-
+  case object PutProducerStateWithData extends
+    Descriptor(putProducerStateWithData, 20:Byte, TransactionService.PutProducerStateWithData.Args, TransactionService.PutProducerStateWithData.Result, protocolTCompactFactory, protocolTBinaryFactory)
 }

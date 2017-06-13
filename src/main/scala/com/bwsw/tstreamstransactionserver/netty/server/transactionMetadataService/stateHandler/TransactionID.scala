@@ -20,10 +20,17 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 class TransactionID(val id: Long) extends AnyVal {
   def toByteArray: Array[Byte] = {
-    java.nio.ByteBuffer.allocate(java.lang.Long.BYTES)
+    val size = java.lang.Long.BYTES
+    val buffer = java.nio.ByteBuffer.allocate(size)
       .putLong(id)
-      .array()
+    buffer.flip()
+
+    val bytes = new Array[Byte](size)
+    buffer.get(bytes)
+    bytes
   }
+
+  override def toString: String = id.toString
 }
 
 object TransactionID {

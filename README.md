@@ -30,8 +30,8 @@ You should pass a file with properties in both cases. The file should contain th
 | storage-model.streams.zk-directory                | The zooKeeper path for stream entities. | string | /tts/streams | all path starts with '/' and separated with the same character |
 | storage-model.data.directory                      | The path where rocksdb databases are placed relatively to property "path".  |string |transaction_data| |
 | storage-model.metadata.directory                  | The path where a berkeley environment and it's databases are placed relatively to "path".  |string |transaction_metadata| |
-| storage-model.commit-log.raw-directory            | the path where commit log files are placed relatively to "path".  |string |commmit_log| |
-| storage-model.commit-log.rocks-directory          | the path where rocksdb with persisted commit log files is placed relatively to "path".  |string |commit_log_rocks| |
+| storage-model.commit-log.raw-directory            | The path where commit log files are placed relatively to "path".  |string |commmit_log| |
+| storage-model.commit-log.rocks-directory          | The path where rocksdb with persisted commit log files is placed relatively to "path".  |string |commit_log_rocks| |
 | rocksdb.write-thread-pool                         | The number of threads of pool are used to do write operations from Rocksdb databases.|int    | 4| [1,...]|
 | rocksdb.read-thread-pool                          | The number of threads of pool are used to do read operations from Rocksdb databases.|int    | 2| [1,...]|
 | rocksdb.transaction-ttl-append-ms                 | The time to add to a stream that is used to, with stream ttl, to determine how long all producer transactions data belonging to the stream live. |int    | 50| [1,...]|
@@ -49,9 +49,9 @@ You should pass a file with properties in both cases. The file should contain th
 | commit-log.write-sync-policy                      | Policies to work with commitlog. If 'every-n-seconds' mode is chosen then data is flushed into file when specified count of seconds from last flush operation passed. If 'every-new-file' mode is chosen then data is flushed into file when new file starts. If 'every-nth' mode is chosen then data is flushed into file when specified count of write operations passed.  |string    | every-nth| [every-n-seconds, every-nth, every-new-file]|
 | commit-log.write-sync-value                       | Count of write operations or count of seconds between flush operations. It depends on the selected policy |int    | 10000| [1,...]|
 | commit-log.incomplete-read-policy                 | Policies to read from commitlog files. If 'resync-majority' mode is chosen then ???(not implemented yet). If 'skip-log' mode is chosen commit log files than haven't md5 file are not read. If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read. If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working. |string |error |[resync-majority (mandatory for replicated mode), skip-log, try-read, error] |
-| commit-log.close-delay-ms                         | the time through a commit log file is closed. |int  |200    |
-| commit-log.rocksdb-expunge-delay-sec              | the time a commit log files live before they are deleted. | int | 86400 |
-| commit-log.zk-file-id-gen-path                    | the coordination path for counter for generating and retrieving commit log file id. | string | /server_counter/file_id_gen |
+| commit-log.close-delay-ms                         | The time through a commit log file is closed. |int  |200    |
+| commit-log.rocksdb-expunge-delay-sec              | The time a commit log files live before they are deleted. | int | 86400 |
+| commit-log.zk-file-id-gen-path                    | The coordination path for counter for generating and retrieving commit log file id. | string | /server_counter/file_id_gen |
 
 It isn't required to adhere the specified order of the properties, it's for example only. 
 But all properties should be defined with the exact names and appropriate types. 

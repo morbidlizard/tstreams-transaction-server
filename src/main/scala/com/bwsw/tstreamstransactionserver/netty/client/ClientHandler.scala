@@ -69,6 +69,9 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
         case Protocol.PutTransactions.methodID =>
           retryCompletePromise(message.id, Protocol.PutTransactions.decodeResponse(message))
 
+        case Protocol.PutProducerStateWithData.methodID =>
+          retryCompletePromise(message.id, Protocol.PutProducerStateWithData.decodeResponse(message))
+
         case Protocol.PutSimpleTransactionAndData.methodID =>
           retryCompletePromise(message.id, Protocol.PutSimpleTransactionAndData.decodeResponse(message))
 

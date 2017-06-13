@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler
 import com.bwsw.tstreamstransactionserver.netty.Protocol._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateHandler, PutConsumerCheckpointHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutTransactionDataHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutProducerStateWithDataHandler, PutTransactionDataHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
@@ -57,6 +57,8 @@ final class RequestHandlerRouter(val server: TransactionServer,
     new PutTransactionHandler(server, scheduledCommitLog)
   private val putTransactionsHandler =
     new PutTransactionsHandler(server, scheduledCommitLog)
+  private val putProducerStateWithDataHandler =
+    new PutProducerStateWithDataHandler(server, scheduledCommitLog)
   private val putSimpleTransactionAndDataHandler =
     new PutSimpleTransactionAndDataHandler(server, scheduledCommitLog)
   private val openTransactionHandler =
@@ -105,6 +107,8 @@ final class RequestHandlerRouter(val server: TransactionServer,
       putTransactionHandler
     case PutTransactions.methodID =>
       putTransactionsHandler
+    case PutProducerStateWithData.methodID =>
+      putProducerStateWithDataHandler
     case PutSimpleTransactionAndData.methodID =>
       putSimpleTransactionAndDataHandler
     case OpenTransaction.methodID =>

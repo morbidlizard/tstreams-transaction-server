@@ -1,11 +1,12 @@
 FROM ubuntu:xenial
 
-MAINTAINER Bitworks Software info@bitworks.software
+LABEL maintainer Bitworks Software info@bitworks.software
 
 EXPOSE 8071
 
-ENV TTS_VERSION 1.3.7.9-SNAPSHOT
+ENV TTS_VERSION 1.3.8.1-SNAPSHOT
 ENV SLF4J_VERSION 1.7.24
+ENV SCALA_VERSION 2.12.2
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -15,30 +16,20 @@ RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | te
     apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886 && \
     apt-get update && \
     apt-get install -y --no-install-recommends apt-utils && \
+    apt-get install -y --no-install-recommends wget && \
     echo "oracle-java8-installer shared/accepted-oracle-license-v1-1 select true" | debconf-set-selections && \
     apt-get install -y --no-install-recommends oracle-java8-installer && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN echo "deb http://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list && \
-    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 642AC823 && \
-    apt-get update && \
-    apt-get install -y --allow-unauthenticated --no-install-recommends sbt && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# see .dockerignore in root dir
-COPY ./project ./build.sbt ./src ./rundocker.sh /opt/bin/tts/
+COPY ./rundocker.sh /opt/bin/tts/
 
 WORKDIR /opt/bin/tts
 
-RUN mkdir -p /root/.sbt/0.13 && \
-    sbt 'set test in assembly := {}' clean assembly && \
-    mv target/scala-2.12/tstreams-transaction-server-${TTS_VERSION}.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-${SLF4J_VERSION}.jar . && \
-    mv /root/.ivy2/cache/org.slf4j/slf4j-log4j12/jars/slf4j-log4j12-${SLF4J_VERSION}.jar . && \
-    sbt clean clean-files && \
-    rm -rf /root/.ivy2/cache
+RUN wget http://central.maven.org/maven2/org/scala-lang/scala-library/${SCALA_VERSION}/scala-library-${SCALA_VERSION}.jar && \
+    wget http://central.maven.org/maven2/org/slf4j/slf4j-api/${SLF4J_VERSION}/slf4j-api-${SLF4J_VERSION}.jar && \
+    wget http://central.maven.org/maven2/org/slf4j/slf4j-log4j12/${SLF4J_VERSION}/slf4j-log4j12-${SLF4J_VERSION}.jar && \
+    wget --no-check-certificate https://oss.sonatype.org/content/repositories/snapshots/com/bwsw/tstreams-transaction-server_2.12/${TTS_VERSION}/tstreams-transaction-server_2.12-${TTS_VERSION}.jar
 
 WORKDIR /var/log/tts
 ENTRYPOINT ["/bin/bash", "/opt/bin/tts/rundocker.sh", "/etc/conf/config.properties"]

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# It expects 3 argument:
+# It expects 1 argument:
 # $1 path to config file
+
+# It expects 2 global arguments:
 # $2 transaction server version
 # $3 sfl4j version
 
@@ -11,11 +13,8 @@ PROJECT_PATH='/opt/bin/tts/'
 
 cp ${EXTERNAL_CONFIG_PATH} ${CONFIG}
 
-# todo: fixit, why do you assign +X attribute to $CONFIG?
-chmod +x ${CONFIG}
+chmod u=rw ${CONFIG}
 
-# todo: test script. I removed backticks(``) from places it is excessive. Don't use `` if you don't understand what it does
-#
 
 # Expects 2 arguments: property and value to set
 #
@@ -29,11 +28,9 @@ function change_property()
 }
 
 change_property 'storage-model.file-prefix' '/storage'
-change_property 'bind.port' 8080
-# todo: what about bind.host parameter? I suppose it must be 127.0.0.1 always, but an user can change it.
-# todo: fixit
-#
+change_property 'bootstrap.host' '127.0.0.1'
+change_property 'bootstrap.port' 8080
 
 exec java -Dconfig=${CONFIG} \
-  -classpath ${PROJECT_PATH}tstreams-transaction-server-${TTS_VERSION}.jar:${PROJECT_PATH}slf4j-api-${SLF4J_VERSION}.jar:${PROJECT_PATH}slf4j-log4j12-${SLF4J_VERSION}.jar \
+  -classpath ${PROJECT_PATH}tstreams-transaction-server_2.12-${TTS_VERSION}.jar:${PROJECT_PATH}slf4j-api-${SLF4J_VERSION}.jar:${PROJECT_PATH}slf4j-log4j12-${SLF4J_VERSION}.jar:${PROJECT_PATH}scala-library-${SCALA_VERSION}.jar \
   com.bwsw.tstreamstransactionserver.ServerLauncher

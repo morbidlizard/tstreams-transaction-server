@@ -24,7 +24,8 @@ import java.util.concurrent.TimeUnit
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDatabaseDescriptor}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 
-class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions) {
+
+class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions, readOnly: Boolean = false) {
   private val columnFamilyOptions = rocksOpts.createColumnFamilyOptions()
   val rocksMetaServiceDB: RocksDBALL = new RocksDBALL(
     storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
@@ -39,7 +40,8 @@ class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions) 
         TimeUnit.MINUTES.toSeconds(rocksOpts.transactionExpungeDelayMin).toInt
       ),
       RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions)
-    )
+    ),
+    readOnly
   )
 }
 

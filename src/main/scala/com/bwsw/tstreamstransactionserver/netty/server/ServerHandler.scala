@@ -210,6 +210,10 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter, logger: Logger)
       case Protocol.PutTransactions.methodID =>
         processRequestAsync(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)
 
+
+      case Protocol.PutProducerStateWithData.methodID =>
+        processRequestAsync(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)
+
       case Protocol.OpenTransaction.methodID =>
         processFutureRequest(handler, isTooBigMetadataMessage, ctx, {
           val args = Protocol.OpenTransaction.decodeRequest(message.body)
@@ -397,6 +401,9 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter, logger: Logger)
         processRequestAsyncFireAndForget(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)
 
       case Protocol.PutTransactions.methodID =>
+        processRequestAsyncFireAndForget(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)
+
+      case Protocol.PutProducerStateWithData.methodID =>
         processRequestAsyncFireAndForget(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)
 
       case Protocol.PutSimpleTransactionAndData.methodID =>

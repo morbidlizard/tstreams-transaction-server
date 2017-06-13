@@ -825,7 +825,8 @@ class Client(clientOpts: ConnectionOptions,
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
-    if (logger.isDebugEnabled) logger.debug(s"Putting transaction data to stream $streamID, partition $partition, transaction $transaction.")
+    if (logger.isDebugEnabled)
+      logger.debug(s"Putting transaction data to stream $streamID, partition $partition, transaction $transaction.")
     onShutdownThrowException()
 
     method[TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result, Boolean](
@@ -835,7 +836,7 @@ class Client(clientOpts: ConnectionOptions,
     )(context)
   }
 
-  /** Putting any binary data and setting transaction state on server.
+  /** Putting any binary data and persisting/updating transaction state on server.
     *
     * @param producerTransaction a producer transaction contains all necessary information for persisting data.
     * @param data                a data to persist.
@@ -851,8 +852,21 @@ class Client(clientOpts: ConnectionOptions,
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putProducerStateWithData(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = ScalaFuture {
-    putTransactionData(producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID, data, from)
-      .flatMap(_ => putProducerState(producerTransaction))(context)
+    import producerTransaction._
+    if (logger.isDebugEnabled)
+      logger.debug(
+        s"Putting producer transaction to stream " +
+          s"$stream, partition $partition, transaction $transactionID, state $state, ttl: $ttl, quantity: $quantity " +
+          s"with data $data"
+      )
+
+    onShutdownThrowException()
+
+    method[TransactionService.PutProducerStateWithData.Args, TransactionService.PutProducerStateWithData.Result, Boolean](
+      Protocol.PutProducerStateWithData,
+      TransactionService.PutProducerStateWithData.Args(producerTransaction, data, from),
+      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+    )(context)
   }(contextForProducerTransactions).flatten
 
 

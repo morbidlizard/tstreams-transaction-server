@@ -26,14 +26,14 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnectio
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey, StreamRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
+import TransactionDataServiceImpl._
 
 import scala.collection.mutable.ArrayBuffer
 
 class TransactionDataServiceImpl(storageOpts: StorageOptions,
                                  rocksStorageOpts: RocksStorageOptions,
                                  streamCache: StreamCRUD
-                                )
-{
+                                ) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val ttlToAdd: Int = rocksStorageOpts.transactionTtlAppendMs
 
@@ -53,7 +53,9 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
     val key = StorageName(streamRecord.key.id.toString)
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
       val calculatedTTL = calculateTTL(streamRecord.ttl)
-      if (logger.isDebugEnabled()) logger.debug(s"Creating new database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] for persisting and reading transactions data.")
+      if (logger.isDebugEnabled())
+        logger.debug(prefixName + s"Creating new database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] " +
+          s"for persisting and reading transactions data.")
       new RocksDbConnection(rocksStorageOpts, s"$pathForData${key.toString}", calculatedTTL)
     })
   }
@@ -65,14 +67,20 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
       .getOrElse {
         if (logger.isDebugEnabled()) {
           val calculatedTTL = calculateTTL(streamRecord.ttl)
-          logger.debug(s"Database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] doesn't exits!")
+          logger.debug(prefixName +
+            s"Database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] doesn't exits!"
+          )
         }
         throw new StreamDoesNotExist(streamRecord.name)
       }
   }
 
 
-  final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean = {
+  final def putTransactionData(streamID: Int,
+                               partition: Int,
+                               transaction: Long,
+                               data: Seq[ByteBuffer],
+                               from: Int): Boolean = {
     if (data.isEmpty) true
     else {
       val streamRecord = streamCache
@@ -83,32 +91,46 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
 
       val batch = rocksDB.newBatch
 
-      val rangeDataToSave = from until (from + data.length)
+      var currentDataID = from
       val key = Key(partition, transaction)
-      val keysWithDataIDs = rangeDataToSave map (dataID => KeyDataSeq(key, dataID))
 
-      (keysWithDataIDs zip data) foreach { case (keyWithDataID, datum) =>
+      data foreach { datum =>
         val sizeOfSlicedData = datum.limit() - datum.position()
         val bytes = new Array[Byte](sizeOfSlicedData)
         datum.get(bytes)
 
-        val binaryKey = keyWithDataID.toByteArray
+        val binaryKey = key.toByteArray(currentDataID)
         batch.put(binaryKey, bytes)
+        if (logger.isDebugEnabled) {
+          logger.debug(
+            prefixName + s"On stream ${streamRecord.id}, partition: $partition, transaction $transaction " +
+              s"putted data: id $currentDataID, body:$bytes"
+          )
+        }
+
+        currentDataID = currentDataID + 1
       }
+
       val isOkay = batch.write()
 
       if (logger.isDebugEnabled) {
         if (isOkay)
-          logger.debug(s"On stream ${streamRecord.id}, partition: $partition, transaction $transaction saved transaction data successfully.")
+          logger.debug(prefixName + s"On stream ${streamRecord.id}, partition: $partition, transaction $transaction " +
+            s"saved transaction data successfully.")
         else
-          logger.debug(s"On stream ${streamRecord.id}, partition: $partition, transaction $transaction transaction data wasn't saved.")
+          logger.debug(prefixName + s"On stream ${streamRecord.id}, partition: $partition, transaction $transaction " +
+            s"transaction data wasn't saved.")
       }
 
       isOkay
     }
   }
 
-  def getTransactionData(streamID: Int, partition: Int, transaction: Long, from: Int, to: Int): Seq[ByteBuffer] = {
+  def getTransactionData(streamID: Int,
+                         partition: Int,
+                         transaction: Long,
+                         from: Int,
+                         to: Int): Seq[ByteBuffer] = {
     val streamRecord = streamCache
       .getStream(StreamKey(streamID))
       .getOrElse(throw new StreamDoesNotExist(streamID.toString))
@@ -127,8 +149,21 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
       iterator.next()
     }
     iterator.close()
+
+    if (logger.isDebugEnabled) {
+      logger.debug(prefixName +
+        s"Requested data on stream ${streamRecord.id}, partition: $partition, transaction $transaction " +
+        s"in range [$from,$to]. Retrieved data ${data.length} units"
+      )
+    }
+
     data
   }
 
-  def closeTransactionDataDatabases(): Unit = rocksDBStorageToStream.values().forEach(_.close())
+  def closeTransactionDataDatabases(): Unit =
+    rocksDBStorageToStream.values().forEach(_.close())
+}
+
+object TransactionDataServiceImpl {
+  val prefixName = "[TransactionDataService] "
 }

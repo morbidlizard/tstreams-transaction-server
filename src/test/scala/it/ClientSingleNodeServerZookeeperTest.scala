@@ -249,7 +249,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
   it should "connect to server, and when the server shutdown, starts on another port — client should reconnect properly" in {
     val zkTestServer = new TestingServer(true)
 
-    val zkPrefix = "/tts"
+    val zkPrefix = "/tts/master"
     val zkOptions = ZookeeperOptions(
       prefix = zkPrefix,
       endpoints = zkTestServer.getConnectString

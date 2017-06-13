@@ -265,12 +265,12 @@ class SingleNodeServerProducerTransactionNotificationTest
 
     val from = TransactionIDService.getTransaction()
 
-    val transactions = (0 until ALL).map { _ =>
-      bundle.client.putSimpleTransactionAndData(streamID, partition, data)
+    (0 until ALL).map { _ =>
+      Await.result(bundle.client.putSimpleTransactionAndData(streamID, partition, data), 5.seconds)
     }
 
-
     Thread.sleep(2000)
+
     val to = TransactionIDService.getTransaction()
 
     val res = Await.result(bundle.client.scanTransactions(
@@ -284,7 +284,7 @@ class SingleNodeServerProducerTransactionNotificationTest
 
     bundle.close()
 
-    res.producerTransactions.size shouldBe transactions.size
+    res.producerTransactions.size shouldBe ALL
     resData should contain theSameElementsInOrderAs data
   }
 

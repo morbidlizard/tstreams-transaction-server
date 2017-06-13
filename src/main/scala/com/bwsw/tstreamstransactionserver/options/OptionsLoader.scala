@@ -33,7 +33,7 @@ class OptionsLoader {
     s"There is no file with properties. " +
       s"You should define a path to a property file through '-D${CommonOptions.PROPERTY_FILE_NAME}=<path_to_file>' " +
       s"(e.g. 'java -D${CommonOptions.PROPERTY_FILE_NAME}=/home/user/config.properties " +
-      s"-cp target/scala-2.12/tstreams-transaction-server-1.3.7.4-SNAPSHOT.jar:/home/user/slf4j-api-1.7.24.jar:/home/user/slf4j-simple-1.7.24.jar " +
+      s"-cp target/scala-2.12/tstreams-transaction-server-1.3.8.1-SNAPSHOT.jar:/home/user/slf4j-api-1.7.24.jar:/home/user/slf4j-simple-1.7.24.jar " +
       "com.bwsw.tstreamstransactionserver.ServerLauncher').")
 
   private val props = new Properties()

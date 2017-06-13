@@ -2,9 +2,10 @@
 # It expects 1 argument:
 # $1 path to config file
 
-# It expects 2 global arguments:
-# $2 transaction server version
-# $3 sfl4j version
+# It expects 3 global arguments:
+# TTS_VERSION    transaction server version
+# SLF4J_VERSION  sfl4j version
+# SCALA_VERSION  scala library version
 
 EXTERNAL_CONFIG_PATH=$1
 

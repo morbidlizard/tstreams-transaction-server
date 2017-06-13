@@ -31,8 +31,8 @@ object ServerOptions {
   /** The options are applied on bootstrap of a server.
     *
     * @param bindHost ipv4 or ipv6 listen address in string representation.
-    * @param bindPort a port.
-    * @param openOperationsPoolSize a number of pool that contains single thread executor to work with transactions.
+    * @param bindPort port to a server binds.
+    * @param openOperationsPoolSize size of the ordered pool that contains single thread executors to work with some producer transaction operations.
     */
   case class BootstrapOptions(bindHost: String = "127.0.0.1",
                               bindPort: Int = 8071,
@@ -42,7 +42,7 @@ object ServerOptions {
   /** The options are used to provide notification service for subscribers.
     *
     * @param updatePeriodMs delay in milliseconds between updates of current subscribers online.
-    * @param monitoringZkEndpoints The zookeeper server(s) connect to.
+    * @param monitoringZkEndpoints The ZooKeeper server(s) connect to.
     */
   case class SubscriberUpdateOptions(updatePeriodMs: Int = 1000,
                                      monitoringZkEndpoints: Option[String] = None
@@ -50,9 +50,9 @@ object ServerOptions {
 
   /** The options are used to validate client requests by a server.
     *
-    * @param key the key to authorize.
+    * @param key the key to authorize server's clients.
     * @param keyCacheSize the number of active tokens a server can handle over time.
-    * @param keyCacheExpirationTimeSec           the time a token live before expiration.
+    * @param keyCacheExpirationTimeSec           The lifetime of token after last access before expiration..
     */
   case class AuthenticationOptions(key: String = "",
                                    keyCacheSize: Int = 10000,
@@ -61,12 +61,12 @@ object ServerOptions {
 
   /** The options are used to define folders for databases.
     *
-    * @param path              the path where folders of Commit log, berkeley environment and rocksdb databases would be placed.
+    * @param path              the path where folders of Commit log and rocksdb databases would be placed.
     * @param streamZookeeperDirectory the zooKeeper path for stream entities.
-    * @param dataDirectory     the path where rocksdb databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
-    * @param metadataDirectory the path where a berkeley environment and it's databases are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
-    * @param commitLogRawDirectory the path where commit log files are placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
-    * @param commitLogRocksDirectory the path where rocksdb with persisted commit log files is placed relatively to [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]]
+    * @param dataDirectory     the subfolder of [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]] where rocksdb databases are placed which contain producer data.
+    * @param metadataDirectory the subfolder of [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]] where rocksdb database is placed which contains producer and consumer transactions.
+    * @param commitLogRawDirectory the subfolder of [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]] where commit log files are placed.
+    * @param commitLogRocksDirectory The subfolder of [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]] where rocksdb database is placed which contains commit log files.
     *
     */
   case class StorageOptions(path: String = "/tmp",
@@ -98,14 +98,14 @@ object ServerOptions {
     * For performance optimization intuition: https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
     *
     *
-    * @param writeThreadPool          the number of threads of pool are used to do write operations from Rocksdb databases.
+    * @param writeThreadPool          the number of threads of pool are used to do write operations to Rocksdb databases.
     *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
     * @param readThreadPool           the number of threads of pool are used to do read operations from Rocksdb databases.
     *                                 Used for [[com.bwsw.tstreamstransactionserver.netty.server.ServerHandler]]
-    * @param transactionTtlAppendMs                 the time to add to [[com.bwsw.tstreamstransactionserver.rpc.StreamValue.ttl]] that is used to, with stream ttl, to determine how long all producer transactions data belonging to one stream live.
+    * @param transactionTtlAppendMs                 the value to sum with a stream [[com.bwsw.tstreamstransactionserver.rpc.StreamValue.ttl]] attribute, to determine lifetime of all producer transactions data belonging to the stream.
     * @param transactionExpungeDelayMin the lifetime of a producer transaction after persistence to database.(default: 6 months). If negative integer - transactions aren't deleted at all.
-    * @param maxBackgroundCompactions is the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.
-    * @param compression Compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION].
+    * @param maxBackgroundCompactions the maximum number of concurrent background compactions. The default is 1, but to fully utilize your CPU and storage you might want to increase this to approximately number of cores in the system.
+    * @param compression compression takes one of values: [NO_COMPRESSION, SNAPPY_COMPRESSION, ZLIB_COMPRESSION, BZLIB2_COMPRESSION, LZ4_COMPRESSION, LZ4HC_COMPRESSION].
     *                    If it's unimportant use a LZ4_COMPRESSION as default value.
     * @param isFsync if true, then every store to stable storage will issue a fsync.
     *                 If false, then every store to stable storage will issue a fdatasync.
@@ -177,8 +177,9 @@ object ServerOptions {
     *                                      If 'skip-log' mode is chosen commit log files than haven't md5 file are not read.
     *                                      If 'try-read' mode is chosen commit log files than haven't md5 file are tried to be read.
     *                                      If 'error' mode is chosen commit log files than haven't md5 file throw throwable and stop server working.
-    * @param closeDelayMs the time through a commit log file is closed.
-    * @param expungeDelaySec the time a commit log files live before they are deleted.
+    * @param closeDelayMs the time through which a commit log file is closed.
+    * @param expungeDelaySec the lifetime of commit log files before they are deleted.
+    * @param zkFileIdGeneratorPath the coordination path for counter that is used to generate and retrieve commit log file id.
     */
   case class CommitLogOptions(syncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
                               syncValue: Int = 0,

@@ -210,7 +210,6 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter, logger: Logger)
       case Protocol.PutTransactions.methodID =>
         processRequestAsync(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)
 
-
       case Protocol.PutProducerStateWithData.methodID =>
         processRequestAsync(commitLogContext, handler, isTooBigMetadataMessage, ctx)(message)
 

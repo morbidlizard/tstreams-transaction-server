@@ -1,13 +1,13 @@
-package com.bwsw.tstreamstransactionserver.netty.server.commitLogService.bookkeeper
+package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
 import java.util.concurrent.BlockingQueue
 
+import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.Utils._
+import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{BKException, BookKeeper, LedgerHandle}
 import org.apache.curator.framework.CuratorFramework
 import org.apache.zookeeper.KeeperException
 import org.apache.zookeeper.data.Stat
-import Utils._
-import org.apache.bookkeeper.client.BookKeeper.DigestType
 
 import scala.annotation.tailrec
 

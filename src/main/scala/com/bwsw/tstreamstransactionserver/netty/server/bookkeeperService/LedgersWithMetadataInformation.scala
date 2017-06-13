@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.commitLogService.bookkeeper
+package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
 import org.apache.zookeeper.data.Stat
 

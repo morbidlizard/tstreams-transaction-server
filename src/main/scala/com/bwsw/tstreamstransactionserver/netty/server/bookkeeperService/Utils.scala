@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.commitLogService.bookkeeper
+package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
 import java.io.IOException
 import java.net.ServerSocket

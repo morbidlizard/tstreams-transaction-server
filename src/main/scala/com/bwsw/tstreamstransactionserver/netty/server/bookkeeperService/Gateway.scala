@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.commitLogService.bookkeeper
+package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
 import java.util.concurrent.ArrayBlockingQueue
 
@@ -45,10 +45,16 @@ class Gateway(zkClient: CuratorFramework,
     openedLedgers
   )
 
+  @volatile private var currentLedgerHandle: Option[LedgerHandle] = None
   override def run(): Unit = {
-    if (openedLedgers.size() > 1) {
-      val ledgerHandle = openedLedgers.poll()
-      ledgerHandle.close()
+    val ledgerHandle = Option(openedLedgers.poll())
+    var ledgerOpenedNumber = openedLedgers.size()
+    if (ledgerOpenedNumber > 1) {
+      ledgerOpenedNumber = ledgerOpenedNumber - 1
+      currentLedgerHandle = ledgerHandle
+    }
+    else if (ledgerOpenedNumber > 0) {
+      ledgerHandle.foreach(handle => handle.close())
     }
   }
 }

@@ -227,8 +227,19 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
       val f = b.bind(serverOpts.bindHost, serverOpts.bindPort).sync()
-      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.closeDelayMs, commitLogOptions.closeDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
+
+      berkeleyWriterExecutor.scheduleWithFixedDelay(
+        scheduledCommitLogImpl,
+        commitLogOptions.closeDelayMs,
+        commitLogOptions.closeDelayMs,
+        java.util.concurrent.TimeUnit.MILLISECONDS
+      )
+      commitLogCloseExecutor.scheduleWithFixedDelay(
+        berkeleyWriter,
+        0L,
+        10L,
+        java.util.concurrent.TimeUnit.MILLISECONDS
+      )
 
       zk.putSocketAddress(zookeeperOpts.prefix)
 

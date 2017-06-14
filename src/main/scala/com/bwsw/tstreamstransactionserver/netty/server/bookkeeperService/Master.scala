@@ -14,16 +14,13 @@ import scala.annotation.tailrec
 class Master(client: CuratorFramework,
              bookKeeper: BookKeeper,
              master: ServerRole,
+             replicationConfig: ReplicationConfig,
              ledgerLogPath: String,
              password: Array[Byte],
              timeBetweenCreationOfLedgers: Int,
              openedLedgers: BlockingQueue[LedgerHandle]
             )
 {
-  private val ensembleNumber = 3
-  private val writeQuorumNumber = 3
-  private val ackQuorumNumber = 2
-
 
   def lead(skipPast: EntryId): EntryId = {
     val ledgersWithMetadataInformation =
@@ -169,12 +166,15 @@ class Master(client: CuratorFramework,
   private def createLedgersLog(ledgersIDsBinary: Array[Byte]) =
   {
     scala.util.Try(
-      client.create.forPath(ledgerLogPath, ledgersIDsBinary)
+      client.create
+        .creatingParentsIfNeeded()
+        .forPath(ledgerLogPath, ledgersIDsBinary)
     ) match {
       case scala.util.Success(_) =>
       case scala.util.Failure(throwable) => throwable match {
         case _: KeeperException.NodeExistsException =>
-        case _ => throw throwable
+        case _ =>
+          throw throwable
       }
     }
   }
@@ -200,26 +200,28 @@ class Master(client: CuratorFramework,
                                   previousLedgers: Array[Long]
                                  ) = {
 
-    var lastAccessTimes = System.currentTimeMillis()
+    var lastAccessTimes = 0L
     @tailrec
     def onBeingLeaderDo(logVersion: Int,
                         previousLedgers: Array[Long]
                        ): Unit = {
       if (master.hasLeadership) {
-        if ((lastAccessTimes - System.currentTimeMillis()) <= timeBetweenCreationOfLedgers) {
-          lastAccessTimes = System.currentTimeMillis()
+        if ((System.currentTimeMillis() - lastAccessTimes) <= timeBetweenCreationOfLedgers) {
           onBeingLeaderDo(
             logVersion,
             previousLedgers
           )
         }
         else {
+          lastAccessTimes = System.currentTimeMillis()
+
           val ledgerHandle = ledgerHandleToWrite(
-            ensembleNumber,
-            writeQuorumNumber,
-            ackQuorumNumber,
+            replicationConfig.ensembleNumber,
+            replicationConfig.writeQuorumNumber,
+            replicationConfig.ackQuorumNumber,
             BookKeeper.DigestType.MAC
           )
+
 
           val previousLedgersWithNewOne = previousLedgers :+ ledgerHandle.getId
           val ledgersIDsToBytes = longArrayToBytes(previousLedgersWithNewOne)
@@ -229,6 +231,7 @@ class Master(client: CuratorFramework,
             updateLedgersLog(ledgersIDsToBytes, logVersion)
           }
 
+          println(s"ledger ${ledgerHandle.getId}")
           openedLedgers.add(ledgerHandle)
 
           lastAccessTimes = System.currentTimeMillis()

@@ -1,17 +1,28 @@
 package util
 
+import java.io.File
 import java.net.ServerSocket
+import java.util
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
+import org.apache.bookkeeper.conf.ServerConfiguration
+import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
+import org.apache.bookkeeper.proto.BookieServer
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.test.TestingServer
+import org.apache.zookeeper.CreateMode
+import org.apache.zookeeper.ZooDefs.Ids
+import org.apache.zookeeper.data.ACL
+
+import scala.collection.immutable
 
 object Utils {
   private val sessionTimeoutMillis = 1000
   private val connectionTimeoutMillis = 1000
+
 
   def startZkServerAndGetIt: (TestingServer, CuratorFramework) = {
     val zkServer = new TestingServer(true)
@@ -29,8 +40,73 @@ object Utils {
     (zkServer, zkClient)
   }
 
-  private val rand = scala.util.Random
 
+  private val zkLedgersRootPath = "/ledgers"
+  private val zkBookiesAvailablePath = s"$zkLedgersRootPath/available"
+  def startBookieServer(zkEndpoints: String, bookieNumber: Int): BookieServer = {
+
+    def createBookieFolder(prefix: String) = {
+      val bookieFolder =
+        new File(s"/tmp/bookie${System.currentTimeMillis()}", "current")
+
+      val bookieCurrent =
+        new File(bookieFolder.getPath, "current")
+
+      bookieFolder.mkdir()
+      bookieCurrent.mkdir()
+
+      bookieFolder.getPath
+    }
+
+    def startBookie(bookieNumber: Int): BookieServer = {
+      val bookieFolder = createBookieFolder(Integer.toString(bookieNumber))
+
+      val serverConfig = new ServerConfiguration()
+        .setBookiePort(Utils.getRandomPort)
+        .setZkServers(zkEndpoints)
+        .setJournalDirName(bookieFolder)
+        .setLedgerDirNames(Array(bookieFolder))
+        .setAllowLoopback(true)
+
+      serverConfig
+        .setZkLedgersRootPath(zkLedgersRootPath)
+
+      serverConfig.setLedgerManagerFactoryClass(
+        classOf[HierarchicalLedgerManagerFactory]
+      )
+
+      val server = new BookieServer(serverConfig)
+      server.start()
+      server
+    }
+    startBookie(bookieNumber)
+  }
+
+  def startZkServerBookieServerZkClient(serverNumber: Int): (TestingServer, CuratorFramework, Array[BookieServer]) = {
+    val (zkServer, zkClient) = startZkServerAndGetIt
+
+    zkClient.create()
+      .creatingParentsIfNeeded()
+      .withMode(CreateMode.PERSISTENT)
+      .withACL(new util.ArrayList[ACL](Ids.OPEN_ACL_UNSAFE))
+      .forPath(zkLedgersRootPath)
+
+    zkClient.create()
+      .withMode(CreateMode.PERSISTENT)
+      .withACL(new util.ArrayList[ACL](Ids.OPEN_ACL_UNSAFE))
+      .forPath(zkBookiesAvailablePath)
+
+    val bookies = (0 until serverNumber).map(serverIndex =>
+      startBookieServer(
+        zkClient.getZookeeperClient.getCurrentConnectionString,
+        serverIndex
+      )
+    ).toArray
+
+    (zkServer, zkClient, bookies)
+  }
+
+  private val rand = scala.util.Random
   def getRandomStream =
     new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
       override val name: String = rand.nextInt(10000).toString
@@ -99,4 +175,7 @@ object Utils {
 
     ZkSeverTxnServerTxnClient(zkTestServer, transactionServer, client)
   }
+
+
+
 }

@@ -1,22 +1,31 @@
 package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
-import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent._
 import java.util.concurrent.locks.ReentrantLock
 
+import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 import org.apache.bookkeeper.client.{BookKeeper, LedgerHandle}
 import org.apache.bookkeeper.conf.ClientConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.apache.curator.framework.CuratorFramework
 
-final class Gateway(zkClient: CuratorFramework,
-              masterSelector: ServerRole,
-              ledgerLogPath: String,
-              bookKeeperPathPassword: Array[Byte],
-              timeBetweenCreationOfLedgers: Int
-             )
-  extends Runnable {
+import scala.concurrent.ExecutionContextExecutorService
+
+final class BookkeeperGateway(zkClient: CuratorFramework,
+                              masterSelector: ServerRole,
+                              replicationConfig: ReplicationConfig,
+                              ledgerLogPath: String,
+                              bookKeeperPathPassword: Array[Byte],
+                              timeBetweenCreationOfLedgers: Int
+                             )
+  extends Runnable
+{
+
   private val openedLedgers =
-    new ArrayBlockingQueue[LedgerHandle](5)
+    new ArrayBlockingQueue[LedgerHandle](10)
+
+  def openedLedgersNumber: Int =
+    openedLedgers.size()
 
   private val bookKeeper: BookKeeper = {
     val lowLevelZkClient = zkClient.getZookeeperClient
@@ -38,20 +47,36 @@ final class Gateway(zkClient: CuratorFramework,
     zkClient,
     bookKeeper,
     masterSelector,
+    replicationConfig,
     ledgerLogPath,
     bookKeeperPathPassword,
     timeBetweenCreationOfLedgers,
     openedLedgers
   )
 
+  private val task = new Callable[Unit] {
+    override def call(): Unit = {
+      val entryId = EntryId(-1, -1)
+      while (true) {
+        if (masterSelector.hasLeadership)
+          master.lead(entryId)
+        else
+          () //not implemented yet
+      }
+    }
+  }
+
+  private lazy val bookieContext: ExecutionContextExecutorService =
+    ExecutionContextGrid("bookkeeper-master-%d").getContext
+
+  def init(): Future[Unit] = bookieContext.submit(task)
 
   private val lock = new ReentrantLock()
-
   def currentLedgerHandle: Option[LedgerHandle] = {
     lock.lock()
-    val ledger = Option(openedLedgers.peek())
+    val ledgerHandle = Option(openedLedgers.peek())
     lock.unlock()
-    ledger
+    ledgerHandle
   }
 
   override def run(): Unit = {

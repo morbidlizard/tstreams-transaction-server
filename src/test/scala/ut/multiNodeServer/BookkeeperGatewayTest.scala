@@ -1,5 +1,7 @@
 package ut.multiNodeServer
 
+import java.util.concurrent.{Executors, TimeUnit}
+
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.{BookkeeperGateway, ReplicationConfig, ServerRole}
 import org.scalatest.{FlatSpec, Matchers}
 import util.Utils
@@ -9,15 +11,19 @@ class BookkeeperGatewayTest
     with Matchers
 {
 
-  private val ensembleNumber = 5
-  private val writeQourumNumber = 4
-  private val ackQuorumNumber = 3
+  private val ensembleNumber = 4
+  private val writeQourumNumber = 3
+  private val ackQuorumNumber = 2
 
   private val replicationConfig = ReplicationConfig(
     ensembleNumber,
     writeQourumNumber,
     ackQuorumNumber
   )
+
+  private val masterSelector = new ServerRole {
+    override def hasLeadership: Boolean = true
+  }
 
   private val bookiesNumber =
     ensembleNumber max writeQourumNumber max ackQuorumNumber
@@ -29,17 +35,14 @@ class BookkeeperGatewayTest
     "test".getBytes()
 
   private val createNewLedgerEveryTimeMs =
-    500
+    250
 
 
-  "Bookkeeper gateway" should "ad" in {
-    val (zkServer, zkClient, bookies) = Utils.startZkServerBookieServerZkClient(bookiesNumber)
+  "Bookkeeper gateway" should "return ledger the first created ledger." in {
+    val (zkServer, zkClient, bookies) =
+      Utils.startZkServerBookieServerZkClient(bookiesNumber)
 
-    val masterSelector = new ServerRole {
-      override def hasLeadership: Boolean = true
-    }
-
-    val bookeeperGateway = new BookkeeperGateway(
+    val bookkeeperGateway = new BookkeeperGateway(
       zkClient,
       masterSelector,
       replicationConfig,
@@ -48,15 +51,55 @@ class BookkeeperGatewayTest
       createNewLedgerEveryTimeMs
     )
 
-    val task = bookeeperGateway.init()
+    val task = bookkeeperGateway.init()
 
     Thread.sleep(createNewLedgerEveryTimeMs)
-    println(bookeeperGateway.currentLedgerHandle.get.getId)
 
+    val currentLedger = bookkeeperGateway.currentLedgerHandle
 
-
+    currentLedger shouldBe defined
+    currentLedger.get.getId shouldBe 0
 
     task.cancel(true)
+    zkClient.close()
+    bookies.foreach(_.shutdown())
+    zkServer.close()
+  }
+
+  it should "return ledger the second created ledger as first is closed." in {
+    val (zkServer, zkClient, bookies) =
+      Utils.startZkServerBookieServerZkClient(bookiesNumber)
+
+    val bookkeeperGateway = new BookkeeperGateway(
+      zkClient,
+      masterSelector,
+      replicationConfig,
+      ledgerLogPath,
+      passwordLedgerLogPath,
+      createNewLedgerEveryTimeMs
+    )
+
+    val task = bookkeeperGateway.init()
+    val contextForClosingLedgers =
+      Executors.newSingleThreadScheduledExecutor()
+
+    val taskCloseLedgers = contextForClosingLedgers.scheduleWithFixedDelay(
+      bookkeeperGateway,
+      0,
+      createNewLedgerEveryTimeMs/5,
+      TimeUnit.MILLISECONDS
+    )
+
+    Thread.sleep(createNewLedgerEveryTimeMs*2)
+
+    val currentLedger = bookkeeperGateway.currentLedgerHandle
+    currentLedger shouldBe defined
+    currentLedger.get.getId shouldBe 1
+
+
+    taskCloseLedgers.cancel(true)
+    task.cancel(true)
+
     zkClient.close()
     bookies.foreach(_.shutdown())
     zkServer.close()

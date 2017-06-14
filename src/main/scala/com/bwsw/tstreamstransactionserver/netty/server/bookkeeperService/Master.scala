@@ -222,7 +222,6 @@ class Master(client: CuratorFramework,
             BookKeeper.DigestType.MAC
           )
 
-
           val previousLedgersWithNewOne = previousLedgers :+ ledgerHandle.getId
           val ledgersIDsToBytes = longArrayToBytes(previousLedgersWithNewOne)
           if (logVersion == 0) {
@@ -231,7 +230,6 @@ class Master(client: CuratorFramework,
             updateLedgersLog(ledgersIDsToBytes, logVersion)
           }
 
-          println(s"ledger ${ledgerHandle.getId}")
           openedLedgers.add(ledgerHandle)
 
           lastAccessTimes = System.currentTimeMillis()

@@ -35,7 +35,7 @@ object Utils {
       .build()
 
     zkClient.start()
-    zkClient.blockUntilConnected(100, TimeUnit.MILLISECONDS)
+    zkClient.blockUntilConnected(connectionTimeoutMillis, TimeUnit.MILLISECONDS)
 
     (zkServer, zkClient)
   }

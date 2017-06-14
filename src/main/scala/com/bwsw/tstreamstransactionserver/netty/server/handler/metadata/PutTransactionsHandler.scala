@@ -23,12 +23,11 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import PutTransactionsHandler._
 
 class PutTransactionsHandler(server: TransactionServer,
                              scheduledCommitLog: ScheduledCommitLog)
   extends RequestHandler {
-
-  private val descriptor = Protocol.PutTransactions
 
   private def process(requestBody: Array[Byte]) = {
     scheduledCommitLog.putData(
@@ -38,11 +37,11 @@ class PutTransactionsHandler(server: TransactionServer,
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.PutStream.name)
-    descriptor.encodeResponse(
-      TransactionService.PutTransactions.Result(Some(result))
-    )
+    val isPutted = process(requestBody)
+    if (isPutted)
+      isPuttedResponse
+    else
+      isNotPuttedResponse
   }
 
   override def handle(requestBody: Array[Byte]): Unit = {
@@ -50,7 +49,7 @@ class PutTransactionsHandler(server: TransactionServer,
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
-    descriptor.encodeResponse(
+    protocol.encodeResponse(
       TransactionService.PutTransactions.Result(
         None,
         Some(ServerException(message)
@@ -59,5 +58,15 @@ class PutTransactionsHandler(server: TransactionServer,
     )
   }
 
-  override def getName: String = descriptor.name
+  override def getName: String = protocol.name
+}
+
+private object PutTransactionsHandler {
+  val protocol = Protocol.PutTransactions
+  val isPuttedResponse: Array[Byte] = protocol.encodeResponse(
+    TransactionService.PutTransactions.Result(Some(true))
+  )
+  val isNotPuttedResponse: Array[Byte] = protocol.encodeResponse(
+    TransactionService.PutTransactions.Result(Some(false))
+  )
 }

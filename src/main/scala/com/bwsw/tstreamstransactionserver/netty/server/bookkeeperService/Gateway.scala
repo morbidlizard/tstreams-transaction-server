@@ -1,23 +1,22 @@
 package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.locks.ReentrantLock
 
 import org.apache.bookkeeper.client.{BookKeeper, LedgerHandle}
 import org.apache.bookkeeper.conf.ClientConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.apache.curator.framework.CuratorFramework
 
-class Gateway(zkClient: CuratorFramework,
+final class Gateway(zkClient: CuratorFramework,
               masterSelector: ServerRole,
               ledgerLogPath: String,
               bookKeeperPathPassword: Array[Byte],
               timeBetweenCreationOfLedgers: Int
              )
-  extends Runnable
-{
+  extends Runnable {
   private val openedLedgers =
     new ArrayBlockingQueue[LedgerHandle](5)
-
 
   private val bookKeeper: BookKeeper = {
     val lowLevelZkClient = zkClient.getZookeeperClient
@@ -45,16 +44,21 @@ class Gateway(zkClient: CuratorFramework,
     openedLedgers
   )
 
-  @volatile private var currentLedgerHandle: Option[LedgerHandle] = None
+
+  private val lock = new ReentrantLock()
+
+  def currentLedgerHandle: Option[LedgerHandle] = {
+    lock.lock()
+    val ledger = Option(openedLedgers.peek())
+    lock.unlock()
+    ledger
+  }
+
   override def run(): Unit = {
-    val ledgerHandle = Option(openedLedgers.poll())
-    var ledgerOpenedNumber = openedLedgers.size()
-    if (ledgerOpenedNumber > 1) {
-      ledgerOpenedNumber = ledgerOpenedNumber - 1
-      currentLedgerHandle = ledgerHandle
-    }
-    else if (ledgerOpenedNumber > 0) {
-      ledgerHandle.foreach(handle => handle.close())
-    }
+    lock.lock()
+    val ledgerNumber = openedLedgers.size()
+    if (ledgerNumber > 1)
+      openedLedgers.poll().close()
+    lock.unlock()
   }
 }

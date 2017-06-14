@@ -21,6 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
+import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
@@ -106,6 +107,7 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
   final def getTransactionIDByTimestamp(timestamp: Long): Long =
     transactionIDService.getTransaction(timestamp)
 
+  @throws[StreamDoesNotExist]
   final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean =
     transactionDataServiceImpl.putTransactionData(streamID, partition, transaction, data, from)
 

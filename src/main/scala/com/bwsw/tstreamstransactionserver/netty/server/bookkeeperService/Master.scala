@@ -23,7 +23,7 @@ class Master(client: CuratorFramework,
             )
 {
 
-  def lead(skipPast: EntryId): EntryId = {
+  def lead(skipPast: LedgerID): LedgerID = {
     val ledgersWithMetadataInformation =
       retrieveAllLedgersFromZkServer
 
@@ -41,7 +41,7 @@ class Master(client: CuratorFramework,
       openLedgersHandlers(newLedgers, BookKeeper.DigestType.MAC)
         .toList
 
-    val lastDisplayedEntry: EntryId =
+    val lastDisplayedLedgerID: LedgerID =
       traverseLedgersRecords(
         newLedgerHandles,
         skipPast
@@ -49,7 +49,7 @@ class Master(client: CuratorFramework,
 
     whileLeaderDo(stat.getVersion, ledgerIDs)
 
-    lastDisplayedEntry
+    lastDisplayedLedgerID
   }
 
   private def retrieveAllLedgersFromZkServer: LedgersWithMetadataInformation = {
@@ -74,7 +74,7 @@ class Master(client: CuratorFramework,
   }
 
   private def processNewLedgersThatHaventSeenBefore(ledgers: Array[Long],
-                                                    skipPast: EntryId) = {
+                                                    skipPast: LedgerID) = {
     if (skipPast.ledgerId != noLeadgerId) {
       val ledgerToStartWith = ledgers.indexWhere(id => id >= skipPast.ledgerId)
       ledgers.slice(ledgerToStartWith, ledgers.length)
@@ -110,7 +110,7 @@ class Master(client: CuratorFramework,
 
   @tailrec
   private def traverseLedgersRecords(ledgerHandlers: List[LedgerHandle],
-                                     lastDisplayedEntry: EntryId): EntryId =
+                                     lastDisplayedEntry: LedgerID): LedgerID =
     ledgerHandlers match {
       case Nil =>
         lastDisplayedEntry
@@ -119,7 +119,7 @@ class Master(client: CuratorFramework,
         val lastProcessedLedger =
           if (ledgerHandle.isClosed && (lastDisplayedEntry.ledgerId > ledgerHandle.getId)) {
             closedLedgers.add(ledgerHandle)
-            EntryId(ledgerHandle.getId)
+            LedgerID(ledgerHandle.getId)
           }
           else {
             lastDisplayedEntry

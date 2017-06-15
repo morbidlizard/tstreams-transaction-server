@@ -34,19 +34,20 @@ class PutTransactionHandler(server: TransactionServer,
 
   private def process(requestBody: Array[Byte],
                       callback: AsyncCallback.AddCallback) = {
-    val ledger = gateway.currentLedgerHandle.right.get.get
+    gateway.doOperationWithCurrentLedgerToWrite { ledger =>
 
-    val record = new Record(
-      RecordType.TransactionSeq,
-      System.currentTimeMillis(),
-      requestBody
-    )
+      val record = new Record(
+        RecordType.TransactionSeq,
+        System.currentTimeMillis(),
+        requestBody
+      )
 
-    ledger.asyncAddEntry(
-      record.toByteArray,
-      callback,
-      null
-    )
+      ledger.asyncAddEntry(
+        record.toByteArray,
+        callback,
+        null
+      )
+    }
   }
 
   override def getName: String = protocol.name

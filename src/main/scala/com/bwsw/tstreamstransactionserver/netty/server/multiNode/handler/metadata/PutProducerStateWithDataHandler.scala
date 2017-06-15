@@ -63,19 +63,19 @@ class PutSimpleTransactionAndData(server: TransactionServer,
         TransactionService.PutTransactions.Args(transactions)
       )
 
-    val ledger = gateway.currentLedgerHandle.right.get.get
+    gateway.doOperationWithCurrentLedgerToWrite { ledger =>
+      val record = new Record(
+        RecordType.TransactionSeq,
+        System.currentTimeMillis(),
+        messageForPutTransactions
+      )
 
-    val record = new Record(
-      RecordType.TransactionSeq,
-      System.currentTimeMillis(),
-      messageForPutTransactions
-    )
-
-    ledger.asyncAddEntry(
-      record.toByteArray,
-      callback,
-      transactionID
-    )
+      ledger.asyncAddEntry(
+        record.toByteArray,
+        callback,
+        transactionID
+      )
+    }
   }
 
   override def getName: String = protocol.name

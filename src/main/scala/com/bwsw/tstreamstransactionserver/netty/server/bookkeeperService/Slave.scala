@@ -18,7 +18,7 @@ class Slave(client: CuratorFramework,
            )
 {
 
-  def follow(skipPast: EntryId): EntryId = {
+  def follow(skipPast: LedgerID): LedgerID = {
     val ledgers =
       retrieveLedgersUntilNodeDoesntExist(skipPast)
     val lastLedgerAndItsLastRecordSeen =
@@ -29,7 +29,7 @@ class Slave(client: CuratorFramework,
 
 
   @tailrec
-  private final def retrieveLedgersUntilNodeDoesntExist(lastLedgerAndItsLastRecordSeen: EntryId): Array[Long] =
+  private final def retrieveLedgersUntilNodeDoesntExist(lastLedgerAndItsLastRecordSeen: LedgerID): Array[Long] =
   {
     scala.util.Try {
       val ledgerIDsBinary = client.getData
@@ -52,7 +52,7 @@ class Slave(client: CuratorFramework,
   }
 
   private def processNewLedgersThatHaventSeenBefore(ledgers: Array[Long],
-                                                    skipPast: EntryId) = {
+                                                    skipPast: LedgerID) = {
     if (skipPast.ledgerId != noLeadgerId) {
       val index = ledgers.indexWhere(id => id >= skipPast.ledgerId)
       ledgers.slice(index, ledgers.length)
@@ -63,9 +63,9 @@ class Slave(client: CuratorFramework,
 
   @tailrec
   private final def monitorLedgerUntilItIsCompleted(ledger: Long,
-                                                    lastLedgerAndItsLastRecordSeen: EntryId,
+                                                    lastLedgerAndItsLastRecordSeen: LedgerID,
                                                     isLedgerCompleted: Boolean
-                                                   ): EntryId = {
+                                                   ): LedgerID = {
     if (isLedgerCompleted || slave.hasLeadership) {
       lastLedgerAndItsLastRecordSeen
     } else {
@@ -80,7 +80,7 @@ class Slave(client: CuratorFramework,
       val lastProcessedLedger =
         if (isLedgerCompleted && (lastLedgerAndItsLastRecordSeen.ledgerId > ledgerHandle.getId)) {
           closedLedgers.add(ledgerHandle)
-          EntryId(ledgerHandle.getId)
+          LedgerID(ledgerHandle.getId)
         }
         else {
           lastLedgerAndItsLastRecordSeen
@@ -98,8 +98,8 @@ class Slave(client: CuratorFramework,
 
 
   private final def readUntilWeAreSlave(ledgers: Array[Long],
-                                        lastLedgerAndItsLastRecordSeen: EntryId
-                                       ): EntryId = {
+                                        lastLedgerAndItsLastRecordSeen: LedgerID
+                                       ): LedgerID = {
     ledgers.foldRight(lastLedgerAndItsLastRecordSeen)((ledger, lastLedgerAndItsLastRecordSeen) =>
       monitorLedgerUntilItIsCompleted(ledger,
         lastLedgerAndItsLastRecordSeen,
@@ -109,7 +109,7 @@ class Slave(client: CuratorFramework,
   }
 
   @tailrec
-  private final def retrieveUpcomingLedgers(ledgers: Array[Long], lastReadEntry: EntryId): EntryId = {
+  private final def retrieveUpcomingLedgers(ledgers: Array[Long], lastReadEntry: LedgerID): LedgerID = {
     if (!slave.hasLeadership) {
       val lastLedgerAndItsLastRecordSeen =
         readUntilWeAreSlave(ledgers, lastReadEntry)

@@ -55,10 +55,9 @@ class BookkeeperGatewayTest
 
     Thread.sleep(createNewLedgerEveryTimeMs)
 
-    val currentLedger = bookkeeperGateway.currentLedgerHandle.right.get
-
-    currentLedger shouldBe defined
-    currentLedger.get.getId shouldBe 0
+    bookkeeperGateway.doOperationWithCurrentLedgerToWrite { currentLedger =>
+      currentLedger.getId shouldBe 0
+    }
 
     task.cancel(true)
     zkClient.close()
@@ -66,7 +65,8 @@ class BookkeeperGatewayTest
     zkServer.close()
   }
 
-  it should "return ledger the second created ledger as first is closed." in {
+  it should "return ledger the second created ledger for write operations as first is closed " +
+    "and the first shoulde be ready for retrieving data." in {
     val (zkServer, zkClient, bookies) =
       Utils.startZkServerBookieServerZkClient(bookiesNumber)
 
@@ -92,10 +92,16 @@ class BookkeeperGatewayTest
 
     Thread.sleep(createNewLedgerEveryTimeMs*2)
 
-    val currentLedger = bookkeeperGateway.currentLedgerHandle.right.get
-    currentLedger shouldBe defined
-    currentLedger.get.getId shouldBe 1
+    val closedLedgers = bookkeeperGateway.getClosedLedgers
+    bookkeeperGateway.doOperationWithCurrentLedgerToWrite { currentLedger =>
+      currentLedger.getId shouldBe 1
+    }
 
+    closedLedgers.size() shouldBe 1
+
+    closedLedgers.forEach(ledger =>
+      ledger.isClosed shouldBe true
+    )
 
     taskCloseLedgers.cancel(true)
     task.cancel(true)

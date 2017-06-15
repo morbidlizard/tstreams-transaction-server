@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
+import java.util
 import java.util.concurrent._
 import java.util.concurrent.locks.ReentrantLock
 
@@ -10,6 +11,7 @@ import org.apache.bookkeeper.conf.ClientConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.apache.curator.framework.CuratorFramework
 
+import scala.annotation.tailrec
 import scala.concurrent.ExecutionContextExecutorService
 
 final class BookkeeperGateway(zkClient: CuratorFramework,
@@ -29,6 +31,12 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
 
   def openedLedgersNumber: Int =
     openedLedgers.size()
+
+  def getClosedLedgers: util.Collection[LedgerHandle] = {
+    val ledgers = new util.LinkedList[LedgerHandle]()
+    ledgersToReadFrom.drainTo(ledgers)
+    ledgers
+  }
 
   private val bookKeeper: BookKeeper = {
     val lowLevelZkClient = zkClient.getZookeeperClient
@@ -69,12 +77,12 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
 
   private val addNewLedgersIfMasterTask = new Callable[Unit] {
     override def call(): Unit = {
-      val entryId = EntryId(-1)
+      var ledgerID = LedgerID(-1)
       while (true) {
         if (masterSelector.hasLeadership)
-          master.lead(entryId)
+          ledgerID = master.lead(ledgerID)
         else
-          slave.follow(entryId)
+          ledgerID = slave.follow(ledgerID)
       }
     }
   }
@@ -84,15 +92,34 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
 
   def init(): Future[Unit] = bookieContext.submit(addNewLedgersIfMasterTask)
 
+
   private val lock = new ReentrantLock()
-  def currentLedgerHandle: Either[ServerIsSlaveException, Option[LedgerHandle]] = {
+  @throws[Exception]
+  def doOperationWithCurrentLedgerToWrite(operate: LedgerHandle => Unit): Unit = {
+
+    @tailrec
+    def retryToGetLedger: LedgerHandle = {
+      val openedLedger = openedLedgers.peek()
+      if (openedLedger == null) {
+        TimeUnit.MILLISECONDS.sleep(10)
+        retryToGetLedger
+      }
+      else {
+        openedLedger
+      }
+    }
+
     if (masterSelector.hasLeadership) {
-      lock.lock()
-      val ledgerHandle = Option(openedLedgers.peek())
-      lock.unlock()
-      Right(ledgerHandle)
-    } else {
-      Left(new ServerIsSlaveException)
+      scala.util.Try {
+        lock.lock()
+        operate(retryToGetLedger)
+      } match {
+        case scala.util.Success(_) =>
+          lock.unlock()
+        case scala.util.Failure(throwable) =>
+          lock.unlock()
+          throw throwable
+      }
     }
   }
 

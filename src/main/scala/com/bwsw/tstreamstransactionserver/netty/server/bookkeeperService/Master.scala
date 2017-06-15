@@ -47,9 +47,7 @@ class Master(client: CuratorFramework,
         skipPast
       )
 
-    whileLeaderDo(stat.getVersion, ledgerIDs)
-
-    lastDisplayedLedgerID
+    whileLeaderDo(stat.getVersion, lastDisplayedLedgerID, ledgerIDs)
   }
 
   private def retrieveAllLedgersFromZkServer: LedgersWithMetadataInformation = {
@@ -178,24 +176,26 @@ class Master(client: CuratorFramework,
   }
 
   private final def whileLeaderDo(logVersion: Int,
+                                  lastDisplayedLedger: LedgerID,
                                   previousLedgers: Array[Long]
                                  ) = {
 
     var lastAccessTimes = 0L
     @tailrec
     def onBeingLeaderDo(logVersion: Int,
+                        lastDisplayedLedger: LedgerID,
                         previousLedgers: Array[Long]
-                       ): Unit = {
+                       ): LedgerID = {
       if (master.hasLeadership) {
         if ((System.currentTimeMillis() - lastAccessTimes) <= timeBetweenCreationOfLedgers) {
           onBeingLeaderDo(
             logVersion,
+            lastDisplayedLedger,
             previousLedgers
           )
         }
         else {
           lastAccessTimes = System.currentTimeMillis()
-
           val ledgerHandle = ledgerHandleToWrite(
             replicationConfig.ensembleNumber,
             replicationConfig.writeQuorumNumber,
@@ -212,15 +212,14 @@ class Master(client: CuratorFramework,
           }
 
           openedLedgers.add(ledgerHandle)
-
-          lastAccessTimes = System.currentTimeMillis()
           onBeingLeaderDo(
             logVersion + 1,
+            LedgerID(ledgerHandle.getId),
             previousLedgersWithNewOne
           )
         }
-      }
+      } else lastDisplayedLedger
     }
-    onBeingLeaderDo(logVersion, previousLedgers)
+    onBeingLeaderDo(logVersion, lastDisplayedLedger, previousLedgers)
   }
 }

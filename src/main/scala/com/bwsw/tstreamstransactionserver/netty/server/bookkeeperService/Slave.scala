@@ -111,7 +111,7 @@ class Slave(client: CuratorFramework,
   @tailrec
   private final def retrieveUpcomingLedgers(ledgers: Array[Long], lastReadEntry: LedgerID): LedgerID = {
     if (!slave.hasLeadership) {
-      val lastLedgerAndItsLastRecordSeen =
+      val lastLedgerSeen =
         readUntilWeAreSlave(ledgers, lastReadEntry)
 
       val ledgersIDsBinary = client.getData
@@ -121,13 +121,13 @@ class Slave(client: CuratorFramework,
 
       val upcomingLedgers = {
         val index = newLedgers.indexWhere(id =>
-          id > lastLedgerAndItsLastRecordSeen.ledgerId)
+          id > lastLedgerSeen.ledgerId)
         newLedgers.slice(index, newLedgers.length)
       }
 
       retrieveUpcomingLedgers(
         upcomingLedgers,
-        lastLedgerAndItsLastRecordSeen
+        lastLedgerSeen
       )
     } else {
       lastReadEntry

@@ -34,7 +34,7 @@ class PutTransactionsHandler(server: TransactionServer,
 
   private def process(requestBody: Array[Byte],
                       callback: AsyncCallback.AddCallback) = {
-    val ledger = gateway.currentLedgerHandle.get
+    val ledger = gateway.currentLedgerHandle.right.get.get
 
     val record = new Record(
       RecordType.TransactionSeq,

@@ -44,6 +44,9 @@ object Throwable {
   class ZkGetMasterException(endpoints: String)
     extends Exception(s"Can't get master from ZooKeeper servers: $endpoints.")
 
+  class ServerIsSlaveException
+    extends IllegalStateException("Server role is slave now - no write operations can be done.")
+
   val zkNoConnectionExceptionMessage: String = "Can't connect to ZooKeeper server(s): "
 
   class ZkNoConnectionException(endpoints: String)

@@ -18,7 +18,8 @@ class Master(client: CuratorFramework,
              ledgerLogPath: String,
              password: Array[Byte],
              timeBetweenCreationOfLedgers: Int,
-             openedLedgers: BlockingQueue[LedgerHandle]
+             openedLedgers: BlockingQueue[LedgerHandle],
+             closedLedgers: BlockingQueue[LedgerHandle]
             )
 {
 
@@ -43,16 +44,7 @@ class Master(client: CuratorFramework,
     val lastDisplayedEntry: EntryId =
       traverseLedgersRecords(
         newLedgerHandles,
-        EntryId(skipPast.ledgerId, skipPast.entryId + 1),
-        skipPast,
-        (entry, data) =>{
-          println(s"" +
-            s"Ledger = ${entry.ledgerId}, " +
-            s"RecordID = ${entry.entryId}, " +
-            s"Value = ${bytesToIntsArray(data).head}, " +
-            "catchup"
-          )
-        }
+        skipPast
       )
 
     whileLeaderDo(stat.getVersion, ledgerIDs)
@@ -118,35 +110,24 @@ class Master(client: CuratorFramework,
 
   @tailrec
   private def traverseLedgersRecords(ledgerHandlers: List[LedgerHandle],
-                                     nextEntry: EntryId,
-                                     lastDisplayedEntry: EntryId,
-                                     processNewData: (EntryId, Array[Byte]) => Unit
-                                    ): EntryId =
+                                     lastDisplayedEntry: EntryId): EntryId =
     ledgerHandlers match {
       case Nil =>
         lastDisplayedEntry
 
-      case ledgeHandle :: handles =>
-        if (nextEntry.entryId > ledgeHandle.getLastAddConfirmed) {
-          val startEntry = EntryId(ledgeHandle.getId, 0)
-          traverseLedgersRecords(handles, startEntry, lastDisplayedEntry, processNewData)
-        }
-        else {
-          val entries = ledgeHandle.readEntries(
-            nextEntry.entryId,
-            ledgeHandle.getLastAddConfirmed
-          )
-
-          var newLastDisplayedEntry = lastDisplayedEntry
-          while (entries.hasMoreElements) {
-            val entry = entries.nextElement
-            val entryData = entry.getEntry
-            newLastDisplayedEntry = EntryId(ledgeHandle.getId, entry.getEntryId)
-            processNewData(newLastDisplayedEntry, entryData)
+      case ledgerHandle :: handles =>
+        val lastProcessedLedger =
+          if (ledgerHandle.isClosed && (lastDisplayedEntry.ledgerId > ledgerHandle.getId)) {
+            closedLedgers.add(ledgerHandle)
+            EntryId(ledgerHandle.getId)
           }
-          traverseLedgersRecords(handles, nextEntry, newLastDisplayedEntry, processNewData)
-        }
+          else {
+            lastDisplayedEntry
+          }
+
+        traverseLedgersRecords(handles, lastProcessedLedger)
     }
+
 
   private def ledgerHandleToWrite(ensembleNumber: Int,
                                   writeQuorumNumber: Int,

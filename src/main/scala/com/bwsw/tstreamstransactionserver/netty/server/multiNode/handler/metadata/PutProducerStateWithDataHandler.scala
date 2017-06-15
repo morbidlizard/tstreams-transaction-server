@@ -63,7 +63,7 @@ class PutSimpleTransactionAndData(server: TransactionServer,
         TransactionService.PutTransactions.Args(transactions)
       )
 
-    val ledger = gateway.currentLedgerHandle.get
+    val ledger = gateway.currentLedgerHandle.right.get.get
 
     val record = new Record(
       RecordType.TransactionSeq,

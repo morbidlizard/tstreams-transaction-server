@@ -4,6 +4,7 @@ import java.util.concurrent._
 import java.util.concurrent.locks.ReentrantLock
 
 import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
+import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
 import org.apache.bookkeeper.client.{BookKeeper, LedgerHandle}
 import org.apache.bookkeeper.conf.ClientConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
@@ -16,13 +17,15 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
                               replicationConfig: ReplicationConfig,
                               ledgerLogPath: String,
                               bookKeeperPathPassword: Array[Byte],
-                              timeBetweenCreationOfLedgers: Int
-                             )
+                              timeBetweenCreationOfLedgers: Int)
   extends Runnable
 {
 
   private val openedLedgers =
     new LinkedBlockingQueue[LedgerHandle](10)
+
+  private val ledgersToReadFrom =
+    new LinkedBlockingQueue[LedgerHandle](100)
 
   def openedLedgersNumber: Int =
     openedLedgers.size()
@@ -51,17 +54,27 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     ledgerLogPath,
     bookKeeperPathPassword,
     timeBetweenCreationOfLedgers,
-    openedLedgers
+    openedLedgers,
+    ledgersToReadFrom
+  )
+
+  private val slave = new Slave(
+    zkClient,
+    bookKeeper,
+    masterSelector,
+    ledgerLogPath,
+    bookKeeperPathPassword,
+    ledgersToReadFrom
   )
 
   private val addNewLedgersIfMasterTask = new Callable[Unit] {
     override def call(): Unit = {
-      val entryId = EntryId(-1, -1)
+      val entryId = EntryId(-1)
       while (true) {
         if (masterSelector.hasLeadership)
           master.lead(entryId)
         else
-          () //not implemented yet
+          slave.follow(entryId)
       }
     }
   }
@@ -72,18 +85,25 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
   def init(): Future[Unit] = bookieContext.submit(addNewLedgersIfMasterTask)
 
   private val lock = new ReentrantLock()
-  def currentLedgerHandle: Option[LedgerHandle] = {
-    lock.lock()
-    val ledgerHandle = Option(openedLedgers.peek())
-    lock.unlock()
-    ledgerHandle
+  def currentLedgerHandle: Either[ServerIsSlaveException, Option[LedgerHandle]] = {
+    if (masterSelector.hasLeadership) {
+      lock.lock()
+      val ledgerHandle = Option(openedLedgers.peek())
+      lock.unlock()
+      Right(ledgerHandle)
+    } else {
+      Left(new ServerIsSlaveException)
+    }
   }
 
   override def run(): Unit = {
     lock.lock()
     val ledgerNumber = openedLedgers.size()
-    if (ledgerNumber > 1)
-      openedLedgers.poll().close()
+    if (ledgerNumber > 1) {
+      val ledger = openedLedgers.poll()
+      ledger.close()
+      ledgersToReadFrom.add(ledger)
+    }
     lock.unlock()
   }
 }

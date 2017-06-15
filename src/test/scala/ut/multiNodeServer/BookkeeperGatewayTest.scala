@@ -55,7 +55,7 @@ class BookkeeperGatewayTest
 
     Thread.sleep(createNewLedgerEveryTimeMs)
 
-    val currentLedger = bookkeeperGateway.currentLedgerHandle
+    val currentLedger = bookkeeperGateway.currentLedgerHandle.right.get
 
     currentLedger shouldBe defined
     currentLedger.get.getId shouldBe 0
@@ -92,7 +92,7 @@ class BookkeeperGatewayTest
 
     Thread.sleep(createNewLedgerEveryTimeMs*2)
 
-    val currentLedger = bookkeeperGateway.currentLedgerHandle
+    val currentLedger = bookkeeperGateway.currentLedgerHandle.right.get
     currentLedger shouldBe defined
     currentLedger.get.getId shouldBe 1
 

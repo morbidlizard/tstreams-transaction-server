@@ -120,6 +120,8 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
           lock.unlock()
           throw throwable
       }
+    } else {
+      throw new ServerIsSlaveException
     }
   }
 

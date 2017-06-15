@@ -6,6 +6,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.{Bookke
 import org.scalatest.{FlatSpec, Matchers}
 import util.Utils
 
+import scala.collection.JavaConverters._
+
 class BookkeeperGatewayTest
   extends FlatSpec
     with Matchers
@@ -65,8 +67,8 @@ class BookkeeperGatewayTest
     zkServer.close()
   }
 
-  it should "return ledger the second created ledger for write operations as first is closed " +
-    "and the first shoulde be ready for retrieving data." in {
+  it should "return the second created ledger for write operations as first is closed " +
+    "and the first should be ready for retrieving data." in {
     val (zkServer, zkClient, bookies) =
       Utils.startZkServerBookieServerZkClient(bookiesNumber)
 
@@ -110,5 +112,73 @@ class BookkeeperGatewayTest
     bookies.foreach(_.shutdown())
     zkServer.close()
   }
+
+  it should "return the second created ledger for write operations as first is closed " +
+    "and the first should contain data and be ready for retrieving data." in {
+    val (zkServer, zkClient, bookies) =
+      Utils.startZkServerBookieServerZkClient(bookiesNumber)
+
+    val bookkeeperGateway = new BookkeeperGateway(
+      zkClient,
+      masterSelector,
+      replicationConfig,
+      ledgerLogPath,
+      passwordLedgerLogPath,
+      createNewLedgerEveryTimeMs
+    )
+
+    val task = bookkeeperGateway.init()
+    val contextForClosingLedgers =
+      Executors.newSingleThreadScheduledExecutor()
+
+    val taskCloseLedgers = contextForClosingLedgers.scheduleWithFixedDelay(
+      bookkeeperGateway,
+      0,
+      createNewLedgerEveryTimeMs/5,
+      TimeUnit.MILLISECONDS
+    )
+
+    Thread.sleep(createNewLedgerEveryTimeMs)
+
+    val rand = scala.util.Random
+    val stringLength = 10
+
+    val dataNumber = 100
+    val data = new Array[String](dataNumber)
+
+    bookkeeperGateway.doOperationWithCurrentLedgerToWrite { currentLedger =>
+      currentLedger.getId shouldBe 0
+      data.zipWithIndex.foreach { case (_, index) =>
+        val str = rand.nextString(stringLength)
+        data(index) = str
+        currentLedger.addEntry(str.getBytes())
+      }
+    }
+
+    Thread.sleep(createNewLedgerEveryTimeMs)
+    val closedLedgers = bookkeeperGateway.getClosedLedgers.asScala
+
+    val ledgerWithData = closedLedgers.head
+    val otherLedgers   = closedLedgers.tail
+
+    val lastRecordConfirmed = ledgerWithData.readLastConfirmed()
+    lastRecordConfirmed shouldBe dataNumber -1
+
+    val enum = ledgerWithData.readEntries(0L, lastRecordConfirmed)
+    data foreach {datum =>
+      val ledgerEntry = enum.nextElement()
+      datum shouldBe new String(ledgerEntry.getEntry)
+    }
+
+    otherLedgers.foreach(ledger => ledger.getLastAddConfirmed shouldBe -1L)
+
+    taskCloseLedgers.cancel(true)
+    task.cancel(true)
+
+    zkClient.close()
+    bookies.foreach(_.shutdown())
+    zkServer.close()
+  }
+
 
 }

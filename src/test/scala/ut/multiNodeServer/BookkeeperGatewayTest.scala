@@ -57,7 +57,7 @@ class BookkeeperGatewayTest
 
     Thread.sleep(createNewLedgerEveryTimeMs)
 
-    bookkeeperGateway.doOperationWithCurrentLedgerToWrite { currentLedger =>
+    bookkeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
       currentLedger.getId shouldBe 0
     }
 
@@ -95,7 +95,7 @@ class BookkeeperGatewayTest
     Thread.sleep(createNewLedgerEveryTimeMs*2)
 
     val closedLedgers = bookkeeperGateway.getClosedLedgers
-    bookkeeperGateway.doOperationWithCurrentLedgerToWrite { currentLedger =>
+    bookkeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
       currentLedger.getId shouldBe 1
     }
 
@@ -146,7 +146,7 @@ class BookkeeperGatewayTest
     val dataNumber = 100
     val data = new Array[String](dataNumber)
 
-    bookkeeperGateway.doOperationWithCurrentLedgerToWrite { currentLedger =>
+    bookkeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
       currentLedger.getId shouldBe 0
       data.zipWithIndex.foreach { case (_, index) =>
         val str = rand.nextString(stringLength)

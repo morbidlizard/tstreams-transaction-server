@@ -86,7 +86,7 @@ class BookkeeperMasterSlaveTest
     val dataNumber = 100
     val data = new Array[String](dataNumber)
 
-    bookkeeperGatewayMaster.doOperationWithCurrentLedgerToWrite { currentLedger =>
+    bookkeeperGatewayMaster.doOperationWithCurrentWriteLedger { currentLedger =>
       currentLedger.getId shouldBe 0
       data.zipWithIndex.foreach { case (_, index) =>
         val str = rand.nextString(stringLength)

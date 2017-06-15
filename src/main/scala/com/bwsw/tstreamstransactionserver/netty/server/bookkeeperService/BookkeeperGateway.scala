@@ -97,7 +97,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
 
   private val lock = new ReentrantLock()
   @throws[Exception]
-  def doOperationWithCurrentLedgerToWrite(operate: LedgerHandle => Unit): Unit = {
+  def doOperationWithCurrentWriteLedger(operate: LedgerHandle => Unit): Unit = {
 
     @tailrec
     def retryToGetLedger: LedgerHandle = {

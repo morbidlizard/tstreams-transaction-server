@@ -117,7 +117,7 @@ class Master(client: CuratorFramework,
 
       case ledgerHandle :: handles =>
         val lastProcessedLedger =
-          if (ledgerHandle.isClosed && (lastDisplayedEntry.ledgerId > ledgerHandle.getId)) {
+          if (ledgerHandle.isClosed && (lastDisplayedEntry.ledgerId < ledgerHandle.getId)) {
             closedLedgers.add(ledgerHandle)
             LedgerID(ledgerHandle.getId)
           }

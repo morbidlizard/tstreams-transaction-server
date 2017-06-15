@@ -75,7 +75,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     ledgersToReadFrom
   )
 
-  private val addNewLedgersIfMasterTask = new Callable[Unit] {
+  private val addNewLedgersIfMasterAndReadNewLedgersIfSlaveTask = new Callable[Unit] {
     override def call(): Unit = {
       var ledgerID = LedgerID(-1)
       while (true) {
@@ -90,7 +90,9 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
   private lazy val bookieContext: ExecutionContextExecutorService =
     ExecutionContextGrid("bookkeeper-master-%d").getContext
 
-  def init(): Future[Unit] = bookieContext.submit(addNewLedgersIfMasterTask)
+  def init(): Future[Unit] = bookieContext.submit(
+    addNewLedgersIfMasterAndReadNewLedgersIfSlaveTask
+  )
 
 
   private val lock = new ReentrantLock()

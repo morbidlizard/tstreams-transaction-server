@@ -14,7 +14,9 @@ class Slave(client: CuratorFramework,
             slave: Electable,
             ledgerLogPath: String,
             password: Array[Byte],
+            timeBetweenCreationOfLedgers: Int,
             closedLedgers: BlockingQueue[LedgerHandle]
+
            )
 {
 
@@ -43,7 +45,7 @@ class Slave(client: CuratorFramework,
         ledgers
       case scala.util.Failure(throwable) => throwable match {
         case _: KeeperException.NoNodeException =>
-          TimeUnit.MILLISECONDS.sleep(200)
+          TimeUnit.MILLISECONDS.sleep(timeBetweenCreationOfLedgers)
           retrieveLedgersUntilNodeDoesntExist(lastLedgerAndItsLastRecordSeen)
         case _ =>
           throw throwable
@@ -86,7 +88,7 @@ class Slave(client: CuratorFramework,
           lastLedgerAndItsLastRecordSeen
         }
 
-      TimeUnit.MILLISECONDS.sleep(200)
+      TimeUnit.MILLISECONDS.sleep(timeBetweenCreationOfLedgers)
       monitorLedgerUntilItIsCompleted(
         ledger,
         lastProcessedLedger,

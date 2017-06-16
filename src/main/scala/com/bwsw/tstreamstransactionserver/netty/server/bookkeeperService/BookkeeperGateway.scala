@@ -12,7 +12,6 @@ import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.apache.curator.framework.CuratorFramework
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContextExecutorService
 
 final class BookkeeperGateway(zkClient: CuratorFramework,
@@ -32,11 +31,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
 
   private val ledgersToReadBuffer =
     new util.ArrayList[LedgerHandle]()
-
-
-  def openedLedgersNumber: Int =
-    openedLedgers.size()
-
+  
   def getClosedLedgers: util.Collection[LedgerHandle] = {
     val ledgers = new util.LinkedList[LedgerHandle]()
     ledgersToReadFrom.drainTo(ledgers)
@@ -77,6 +72,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     selector,
     ledgerLogPath,
     bookKeeperPathPassword,
+    timeBetweenCreationOfLedgers,
     ledgersToReadFrom
   )
 

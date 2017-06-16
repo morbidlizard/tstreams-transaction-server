@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
-trait ServerRole {
+trait Electable {
   def hasLeadership: Boolean
+  def stopParticipateInElection(): Unit
 }

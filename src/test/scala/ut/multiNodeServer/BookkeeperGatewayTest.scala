@@ -2,7 +2,7 @@ package ut.multiNodeServer
 
 import java.util.concurrent.{Executors, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.{BookkeeperGateway, ReplicationConfig, ServerRole}
+import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.{BookkeeperGateway, ReplicationConfig, Electable}
 import org.scalatest.{FlatSpec, Matchers}
 import util.Utils
 
@@ -23,8 +23,9 @@ class BookkeeperGatewayTest
     ackQuorumNumber
   )
 
-  private val masterSelector = new ServerRole {
+  private val masterSelector = new Electable {
     override def hasLeadership: Boolean = true
+    override def stopParticipateInElection(): Unit = {}
   }
 
   private val bookiesNumber =

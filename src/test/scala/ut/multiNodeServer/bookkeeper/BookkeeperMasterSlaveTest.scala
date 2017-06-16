@@ -2,7 +2,7 @@ package ut.multiNodeServer.bookkeeper
 
 import java.util.concurrent.{Executors, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.{BookkeeperGateway, ReplicationConfig, ServerRole}
+import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.{BookkeeperGateway, LeaderSelector, ReplicationConfig, Electable}
 import org.scalatest.{FlatSpec, Matchers}
 import util.Utils
 
@@ -23,14 +23,6 @@ class BookkeeperMasterSlaveTest
     ackQuorumNumber
   )
 
-  private val masterSelector = new ServerRole {
-    override def hasLeadership: Boolean = true
-  }
-
-  private val slaveSelector = new ServerRole {
-    override def hasLeadership: Boolean = false
-  }
-
   private val bookiesNumber =
     ensembleNumber max writeQourumNumber max ackQuorumNumber
 
@@ -40,6 +32,9 @@ class BookkeeperMasterSlaveTest
   private val passwordLedgerLogPath =
     "test".getBytes()
 
+  private val electionPath =
+    "/tts/master"
+
   private val createNewLedgerEveryTimeMs =
     250
 
@@ -47,6 +42,17 @@ class BookkeeperMasterSlaveTest
   "Bookkeeper master" should "put data and Bookkeeper slave should read it" in {
     val (zkServer, zkClient, bookies) =
       Utils.startZkServerBookieServerZkClient(bookiesNumber)
+
+    val masterSelector = new Electable {
+      override def hasLeadership: Boolean = true
+      override def stopParticipateInElection(): Unit = ()
+    }
+
+    val slaveSelector = new Electable {
+      override def hasLeadership: Boolean = false
+      override def stopParticipateInElection(): Unit = ()
+    }
+
 
     val bookkeeperGatewayMaster = new BookkeeperGateway(
       zkClient,
@@ -71,6 +77,7 @@ class BookkeeperMasterSlaveTest
 
     val contextForClosingLedgers =
       Executors.newSingleThreadScheduledExecutor()
+
     val taskCloseLedgers = contextForClosingLedgers.scheduleWithFixedDelay(
       bookkeeperGatewayMaster,
       0,
@@ -134,5 +141,81 @@ class BookkeeperMasterSlaveTest
     zkServer.close()
   }
 
+  it should "transit its role to 'slave' and handle it correctly" in {
+    val (zkServer, zkClient, bookies) =
+      Utils.startZkServerBookieServerZkClient(bookiesNumber)
 
+    val selector1 = new LeaderSelector(zkClient, electionPath)
+    val selector2 = new LeaderSelector(zkClient, electionPath)
+
+    val bookkeeperGateway1 = new BookkeeperGateway(
+      zkClient,
+      selector1,
+      replicationConfig,
+      ledgerLogPath,
+      passwordLedgerLogPath,
+      createNewLedgerEveryTimeMs
+    )
+
+    val bookkeeperGateway2 = new BookkeeperGateway(
+      zkClient,
+      selector2,
+      replicationConfig,
+      ledgerLogPath,
+      passwordLedgerLogPath,
+      createNewLedgerEveryTimeMs
+    )
+
+    val task1 = bookkeeperGateway1.init()
+    val task2 = bookkeeperGateway2.init()
+
+
+    val contextForClosingLedgers1 =
+      Executors.newSingleThreadScheduledExecutor()
+
+    val taskCloseLedgers1 = contextForClosingLedgers1.scheduleWithFixedDelay(
+      bookkeeperGateway1,
+      0,
+      createNewLedgerEveryTimeMs/5,
+      TimeUnit.MILLISECONDS
+    )
+
+    val contextForClosingLedgers2 =
+      Executors.newSingleThreadScheduledExecutor()
+
+    val taskCloseLedgers2 = contextForClosingLedgers2.scheduleWithFixedDelay(
+      bookkeeperGateway2,
+      0,
+      createNewLedgerEveryTimeMs/5,
+      TimeUnit.MILLISECONDS
+    )
+
+    Thread.sleep(createNewLedgerEveryTimeMs*3)
+    val closedLedgers1 =
+      bookkeeperGateway1.getClosedLedgers
+        .asScala.toArray.map(_.getId)
+
+    task1.cancel(true)
+    bookkeeperGateway1.close()
+    taskCloseLedgers1.cancel(true)
+    contextForClosingLedgers1.shutdown()
+
+
+    Thread.sleep(createNewLedgerEveryTimeMs*5)
+    val closedLedgers2 =
+      bookkeeperGateway2.getClosedLedgers
+        .asScala.toArray.map(_.getId)
+
+    val newLedgers2 = closedLedgers2.diff(closedLedgers1)
+    newLedgers2 shouldBe sorted
+
+    task2.cancel(true)
+    bookkeeperGateway2.close()
+    taskCloseLedgers2.cancel(true)
+    contextForClosingLedgers2.shutdown()
+
+    bookies.foreach(_.shutdown())
+    zkClient.close()
+    zkServer.close()
+  }
 }

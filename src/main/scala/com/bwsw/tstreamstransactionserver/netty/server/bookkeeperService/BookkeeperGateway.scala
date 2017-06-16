@@ -12,10 +12,11 @@ import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.apache.curator.framework.CuratorFramework
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContextExecutorService
 
 final class BookkeeperGateway(zkClient: CuratorFramework,
-                              masterSelector: ServerRole,
+                              selector: Electable,
                               replicationConfig: ReplicationConfig,
                               ledgerLogPath: String,
                               bookKeeperPathPassword: Array[Byte],
@@ -28,6 +29,10 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
 
   private val ledgersToReadFrom =
     new LinkedBlockingQueue[LedgerHandle](100)
+
+  private val ledgersToReadBuffer =
+    new util.ArrayList[LedgerHandle]()
+
 
   def openedLedgersNumber: Int =
     openedLedgers.size()
@@ -57,7 +62,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
   private val master = new Master(
     zkClient,
     bookKeeper,
-    masterSelector,
+    selector,
     replicationConfig,
     ledgerLogPath,
     bookKeeperPathPassword,
@@ -69,7 +74,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
   private val slave = new Slave(
     zkClient,
     bookKeeper,
-    masterSelector,
+    selector,
     ledgerLogPath,
     bookKeeperPathPassword,
     ledgersToReadFrom
@@ -79,7 +84,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     override def call(): Unit = {
       var ledgerID = LedgerID(-1)
       while (true) {
-        if (masterSelector.hasLeadership)
+        if (selector.hasLeadership)
           ledgerID = master.lead(ledgerID)
         else
           ledgerID = slave.follow(ledgerID)
@@ -93,7 +98,6 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
   def init(): Future[Unit] = bookieContext.submit(
     addNewLedgersIfMasterAndReadNewLedgersIfSlaveTask
   )
-
 
   private val lock = new ReentrantLock()
   @throws[Exception]
@@ -111,7 +115,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
       }
     }
 
-    if (masterSelector.hasLeadership) {
+    if (selector.hasLeadership) {
       scala.util.Try {
         lock.lock()
         operate(retryToGetLedger)
@@ -133,8 +137,21 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     if (ledgerNumber > 1) {
       val ledger = openedLedgers.poll()
       ledger.close()
-      ledgersToReadFrom.add(ledger)
+      if (master.areAllClosedLedgersGotten) {
+        val buffer = new util.LinkedList[LedgerHandle]()
+        ledgersToReadBuffer.removeAll(buffer)
+        buffer.add(ledger)
+
+        ledgersToReadFrom.addAll(buffer)
+      } else {
+        ledgersToReadBuffer.add(ledger)
+      }
     }
     lock.unlock()
+  }
+
+  def close(): Unit = {
+    selector.stopParticipateInElection()
+    master.close()
   }
 }

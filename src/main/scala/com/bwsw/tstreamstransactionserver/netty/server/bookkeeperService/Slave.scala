@@ -11,7 +11,7 @@ import scala.annotation.tailrec
 
 class Slave(client: CuratorFramework,
             bookKeeper: BookKeeper,
-            slave: ServerRole,
+            slave: Electable,
             ledgerLogPath: String,
             password: Array[Byte],
             closedLedgers: BlockingQueue[LedgerHandle]

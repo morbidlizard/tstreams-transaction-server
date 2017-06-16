@@ -3,20 +3,22 @@ package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 import java.io.Closeable
 
 import org.apache.curator.framework.CuratorFramework
-import org.apache.curator.framework.recipes.leader.{LeaderSelector, LeaderSelectorListenerAdapter}
+import org.apache.curator.framework.recipes.leader.LeaderSelectorListenerAdapter
 
-class LeaderRole(client: CuratorFramework,
-                 electionPath: String
-                )
+class LeaderSelector(client: CuratorFramework,
+                     electionPath: String)
   extends LeaderSelectorListenerAdapter
     with Closeable
-    with ServerRole
+    with Electable
 {
 
-
-
   private val leaderSelector = {
-    val leader = new LeaderSelector(client, electionPath, this)
+    val leader =
+      new org.apache.curator.framework.recipes.leader.LeaderSelector(
+        client,
+        electionPath,
+        this
+      )
     leader.autoRequeue()
     leader.start()
 
@@ -29,7 +31,6 @@ class LeaderRole(client: CuratorFramework,
   @throws[Exception]
   override def takeLeadership(client: CuratorFramework): Unit = {
     this.synchronized {
-      println("Becoming leader")
       try {
         while(true) this.wait()
       }
@@ -40,6 +41,8 @@ class LeaderRole(client: CuratorFramework,
     }
   }
 
-  override def close(): Unit =
+  override def stopParticipateInElection(): Unit =
     leaderSelector.close()
+
+  override def close(): Unit = stopParticipateInElection()
 }

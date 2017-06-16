@@ -1,7 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
+import java.io.Closeable
 import java.util.concurrent.BlockingQueue
 
+import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.Utils._
 import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{BKException, BookKeeper, LedgerHandle}
@@ -13,7 +15,7 @@ import scala.annotation.tailrec
 
 class Master(client: CuratorFramework,
              bookKeeper: BookKeeper,
-             master: ServerRole,
+             master: Electable,
              replicationConfig: ReplicationConfig,
              ledgerLogPath: String,
              password: Array[Byte],
@@ -21,8 +23,14 @@ class Master(client: CuratorFramework,
              openedLedgers: BlockingQueue[LedgerHandle],
              closedLedgers: BlockingQueue[LedgerHandle]
             )
+  extends Closeable
 {
 
+  private val executorFetchingPreviousLedgers =
+    ExecutionContextGrid("master-catchup-%d")
+
+
+  @volatile private var allClosedLedgersAreGotten = false
   def lead(skipPast: LedgerID): LedgerID = {
     val ledgersWithMetadataInformation =
       retrieveAllLedgersFromZkServer
@@ -33,22 +41,38 @@ class Master(client: CuratorFramework,
       ledgersWithMetadataInformation.mustCreate
     )
 
-    val newLedgers: Stream[Long] =
-      processNewLedgersThatHaventSeenBefore(ledgerIDs, skipPast)
-        .toStream
+    allClosedLedgersAreGotten = false
+    executorFetchingPreviousLedgers.getContext.execute(
+      () => {
 
-    val newLedgerHandles =
-      openLedgersHandlers(newLedgers, BookKeeper.DigestType.MAC)
-        .toList
+        val newLedgers: Stream[Long] =
+          processNewLedgersThatHaventSeenBefore(ledgerIDs, skipPast)
+            .toStream
 
-    val lastDisplayedLedgerID: LedgerID =
-      traverseLedgersRecords(
-        newLedgerHandles,
-        skipPast
-      )
+        val newLedgerHandles =
+          openLedgersHandlers(newLedgers, BookKeeper.DigestType.MAC)
+            .toList
 
-    whileLeaderDo(stat.getVersion, lastDisplayedLedgerID, ledgerIDs)
+
+        traverseLedgersRecords(
+          newLedgerHandles,
+          skipPast
+        )
+
+        allClosedLedgersAreGotten = true
+      }
+    )
+
+    val lastDisplayedLedgerID = ledgerIDs
+      .lastOption
+      .map(ledger => LedgerID(ledger))
+      .getOrElse(skipPast)
+
+    whileLeaderDo(mustCreate, lastDisplayedLedgerID, ledgerIDs)
   }
+
+  final def areAllClosedLedgersGotten: Boolean =
+    allClosedLedgersAreGotten
 
   private def retrieveAllLedgersFromZkServer: LedgersWithMetadataInformation = {
     val zNodeMetadata: Stat = new Stat()
@@ -108,19 +132,19 @@ class Master(client: CuratorFramework,
 
   @tailrec
   private def traverseLedgersRecords(ledgerHandlers: List[LedgerHandle],
-                                     lastDisplayedEntry: LedgerID): LedgerID =
+                                     ledgerID: LedgerID): LedgerID =
     ledgerHandlers match {
       case Nil =>
-        lastDisplayedEntry
+        ledgerID
 
       case ledgerHandle :: handles =>
         val lastProcessedLedger =
-          if (ledgerHandle.isClosed && (lastDisplayedEntry.ledgerId < ledgerHandle.getId)) {
+          if (ledgerHandle.isClosed && (ledgerID.ledgerId < ledgerHandle.getId)) {
             closedLedgers.add(ledgerHandle)
             LedgerID(ledgerHandle.getId)
           }
           else {
-            lastDisplayedEntry
+            ledgerID
           }
 
         traverseLedgersRecords(handles, lastProcessedLedger)
@@ -158,12 +182,12 @@ class Master(client: CuratorFramework,
     }
   }
 
-  private def updateLedgersLog(ledgersIDsBinary: Array[Byte],
-                               logVersion: Int) =
+  private def updateLedgersLog(ledgersIDsBinary: Array[Byte]) =
   {
+    val meta = client.checkExists().forPath(ledgerLogPath)
     scala.util.Try(
       client.setData()
-        .withVersion(logVersion)
+        .withVersion(meta.getVersion)
         .forPath(ledgerLogPath, ledgersIDsBinary)
     ) match {
       case scala.util.Success(_) =>
@@ -175,21 +199,21 @@ class Master(client: CuratorFramework,
     }
   }
 
-  private final def whileLeaderDo(logVersion: Int,
+  private final def whileLeaderDo(mustCreate: Boolean,
                                   lastDisplayedLedger: LedgerID,
                                   previousLedgers: Array[Long]
                                  ) = {
 
     var lastAccessTimes = 0L
     @tailrec
-    def onBeingLeaderDo(logVersion: Int,
+    def onBeingLeaderDo(mustCreate: Boolean,
                         lastDisplayedLedger: LedgerID,
                         previousLedgers: Array[Long]
                        ): LedgerID = {
       if (master.hasLeadership) {
         if ((System.currentTimeMillis() - lastAccessTimes) <= timeBetweenCreationOfLedgers) {
           onBeingLeaderDo(
-            logVersion,
+            mustCreate,
             lastDisplayedLedger,
             previousLedgers
           )
@@ -205,21 +229,26 @@ class Master(client: CuratorFramework,
 
           val previousLedgersWithNewOne = previousLedgers :+ ledgerHandle.getId
           val ledgersIDsToBytes = longArrayToBytes(previousLedgersWithNewOne)
-          if (logVersion == 0) {
+          if (mustCreate) {
             createLedgersLog(ledgersIDsToBytes)
           } else {
-            updateLedgersLog(ledgersIDsToBytes, logVersion)
+            updateLedgersLog(ledgersIDsToBytes)
           }
 
           openedLedgers.add(ledgerHandle)
           onBeingLeaderDo(
-            logVersion + 1,
+            mustCreate = false,
             LedgerID(ledgerHandle.getId),
             previousLedgersWithNewOne
           )
         }
       } else lastDisplayedLedger
     }
-    onBeingLeaderDo(logVersion, lastDisplayedLedger, previousLedgers)
+    onBeingLeaderDo(mustCreate, lastDisplayedLedger, previousLedgers)
+  }
+
+  override def close(): Unit = {
+    executorFetchingPreviousLedgers.stopAccessNewTasks()
+    executorFetchingPreviousLedgers.awaitAllCurrentTasksAreCompleted()
   }
 }

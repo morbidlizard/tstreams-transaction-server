@@ -20,13 +20,11 @@ class Slave(client: CuratorFramework,
            )
 {
 
-  def follow(skipPast: LedgerID): LedgerID = {
+  def follow(skipPast: LedgerID): Unit = {
     val ledgers =
       retrieveLedgersUntilNodeDoesntExist(skipPast)
-    val lastLedgerAndItsLastRecordSeen =
-      retrieveUpcomingLedgers(ledgers,  skipPast)
 
-    lastLedgerAndItsLastRecordSeen
+      retrieveUpcomingLedgers(ledgers,  skipPast)
   }
 
 
@@ -111,7 +109,7 @@ class Slave(client: CuratorFramework,
   }
 
   @tailrec
-  private final def retrieveUpcomingLedgers(ledgers: Array[Long], lastReadEntry: LedgerID): LedgerID = {
+  private final def retrieveUpcomingLedgers(ledgers: Array[Long], lastReadEntry: LedgerID): Unit = {
     if (!slave.hasLeadership) {
       val lastLedgerSeen =
         readUntilWeAreSlave(ledgers, lastReadEntry)
@@ -131,8 +129,6 @@ class Slave(client: CuratorFramework,
         upcomingLedgers,
         lastLedgerSeen
       )
-    } else {
-      lastReadEntry
     }
   }
 }

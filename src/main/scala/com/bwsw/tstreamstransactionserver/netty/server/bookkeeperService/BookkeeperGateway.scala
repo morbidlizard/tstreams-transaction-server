@@ -19,19 +19,17 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
                               replicationConfig: ReplicationConfig,
                               ledgerLogPath: String,
                               bookKeeperPathPassword: Array[Byte],
-                              timeBetweenCreationOfLedgers: Int)
+                              timeBetweenCreationOfLedgers: Int,
+                              ledgerToStartToRead: Long)
   extends Runnable
 {
 
-  private val openedLedgers =
+  private val ledgersToWriteTo =
     new LinkedBlockingQueue[LedgerHandle](10)
 
   private val ledgersToReadFrom =
     new LinkedBlockingQueue[LedgerHandle](100)
 
-  private val ledgersToReadBuffer =
-    new util.ArrayList[LedgerHandle]()
-  
   def getClosedLedgers: util.Collection[LedgerHandle] = {
     val ledgers = new util.LinkedList[LedgerHandle]()
     ledgersToReadFrom.drainTo(ledgers)
@@ -62,8 +60,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     ledgerLogPath,
     bookKeeperPathPassword,
     timeBetweenCreationOfLedgers,
-    openedLedgers,
-    ledgersToReadFrom
+    ledgersToWriteTo
   )
 
   private val slave = new Slave(
@@ -76,24 +73,31 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     ledgersToReadFrom
   )
 
-  private val addNewLedgersIfMasterAndReadNewLedgersIfSlaveTask = new Callable[Unit] {
-    override def call(): Unit = {
-      var ledgerID = LedgerID(-1)
-      while (true) {
-        if (selector.hasLeadership)
-          ledgerID = master.lead(ledgerID)
-        else
-          ledgerID = slave.follow(ledgerID)
+  private val addNewLedgersIfMasterAndReadNewLedgersIfSlaveTask =
+    new Runnable {
+      override def run(): Unit = {
+        while (true) {
+          if (selector.hasLeadership)
+            master.lead()
+        }
       }
     }
-  }
 
-  private lazy val bookieContext: ExecutionContextExecutorService =
-    ExecutionContextGrid("bookkeeper-master-%d").getContext
-
-  def init(): Future[Unit] = bookieContext.submit(
-    addNewLedgersIfMasterAndReadNewLedgersIfSlaveTask
+  val masterTask = new Thread(
+    addNewLedgersIfMasterAndReadNewLedgersIfSlaveTask,
+    "bookkeeper-master-%d"
   )
+
+  val slaveTask = new Thread(
+//    slave.follow(ledgerID)
+    "bookkeeper-slave-%d"
+  )
+
+
+  def init(): Thread = {
+    masterTask.run()
+    masterTask
+  }
 
   private val lock = new ReentrantLock()
   @throws[Exception]
@@ -101,7 +105,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
 
     @tailrec
     def retryToGetLedger: LedgerHandle = {
-      val openedLedger = openedLedgers.peek()
+      val openedLedger = ledgersToWriteTo.peek()
       if (openedLedger == null) {
         TimeUnit.MILLISECONDS.sleep(10)
         retryToGetLedger
@@ -129,25 +133,15 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
 
   override def run(): Unit = {
     lock.lock()
-    val ledgerNumber = openedLedgers.size()
+    val ledgerNumber = ledgersToWriteTo.size()
     if (ledgerNumber > 1) {
-      val ledger = openedLedgers.poll()
+      val ledger = ledgersToWriteTo.poll()
       ledger.close()
-      if (master.areAllClosedLedgersGotten) {
-        val buffer = new util.LinkedList[LedgerHandle]()
-        ledgersToReadBuffer.removeAll(buffer)
-        buffer.add(ledger)
-
-        ledgersToReadFrom.addAll(buffer)
-      } else {
-        ledgersToReadBuffer.add(ledger)
-      }
     }
     lock.unlock()
   }
 
   def close(): Unit = {
     selector.stopParticipateInElection()
-    master.close()
   }
 }

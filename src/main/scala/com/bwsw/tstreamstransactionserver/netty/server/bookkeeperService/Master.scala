@@ -1,9 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
 
-import java.io.Closeable
 import java.util.concurrent.BlockingQueue
 
-import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.Utils._
 import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{BKException, BookKeeper, LedgerHandle}
@@ -20,18 +18,10 @@ class Master(client: CuratorFramework,
              ledgerLogPath: String,
              password: Array[Byte],
              timeBetweenCreationOfLedgers: Int,
-             openedLedgers: BlockingQueue[LedgerHandle],
-             closedLedgers: BlockingQueue[LedgerHandle]
-            )
-  extends Closeable
+             openedLedgers: BlockingQueue[LedgerHandle])
 {
 
-  private val executorFetchingPreviousLedgers =
-    ExecutionContextGrid("master-catchup-%d")
-
-
-  @volatile private var allClosedLedgersAreGotten = false
-  def lead(skipPast: LedgerID): LedgerID = {
+  def lead(): Unit = {
     val ledgersWithMetadataInformation =
       retrieveAllLedgersFromZkServer
 
@@ -41,38 +31,9 @@ class Master(client: CuratorFramework,
       ledgersWithMetadataInformation.mustCreate
     )
 
-    allClosedLedgersAreGotten = false
-    executorFetchingPreviousLedgers.getContext.execute(
-      () => {
-
-        val newLedgers: Stream[Long] =
-          processNewLedgersThatHaventSeenBefore(ledgerIDs, skipPast)
-            .toStream
-
-        val newLedgerHandles =
-          openLedgersHandlers(newLedgers, BookKeeper.DigestType.MAC)
-            .toList
-
-
-        traverseLedgersRecords(
-          newLedgerHandles,
-          skipPast
-        )
-
-        allClosedLedgersAreGotten = true
-      }
-    )
-
-    val lastDisplayedLedgerID = ledgerIDs
-      .lastOption
-      .map(ledger => LedgerID(ledger))
-      .getOrElse(skipPast)
-
-    whileLeaderDo(mustCreate, lastDisplayedLedgerID, ledgerIDs)
+    whileLeaderDo(mustCreate, ledgerIDs)
   }
 
-  final def areAllClosedLedgersGotten: Boolean =
-    allClosedLedgersAreGotten
 
   private def retrieveAllLedgersFromZkServer: LedgersWithMetadataInformation = {
     val zNodeMetadata: Stat = new Stat()
@@ -130,27 +91,6 @@ class Master(client: CuratorFramework,
       .map(_.get)
   }
 
-  @tailrec
-  private def traverseLedgersRecords(ledgerHandlers: List[LedgerHandle],
-                                     ledgerID: LedgerID): LedgerID =
-    ledgerHandlers match {
-      case Nil =>
-        ledgerID
-
-      case ledgerHandle :: handles =>
-        val lastProcessedLedger =
-          if (ledgerHandle.isClosed && (ledgerID.ledgerId < ledgerHandle.getId)) {
-            closedLedgers.add(ledgerHandle)
-            LedgerID(ledgerHandle.getId)
-          }
-          else {
-            ledgerID
-          }
-
-        traverseLedgersRecords(handles, lastProcessedLedger)
-    }
-
-
   private def ledgerHandleToWrite(ensembleNumber: Int,
                                   writeQuorumNumber: Int,
                                   ackQuorumNumber: Int,
@@ -200,21 +140,18 @@ class Master(client: CuratorFramework,
   }
 
   private final def whileLeaderDo(mustCreate: Boolean,
-                                  lastDisplayedLedger: LedgerID,
-                                  previousLedgers: Array[Long]
-                                 ) = {
+                                  previousLedgers: Array[Long]) =
+  {
 
     var lastAccessTimes = 0L
     @tailrec
     def onBeingLeaderDo(mustCreate: Boolean,
-                        lastDisplayedLedger: LedgerID,
-                        previousLedgers: Array[Long]
-                       ): LedgerID = {
+                        previousLedgers: Array[Long]): Unit =
+    {
       if (master.hasLeadership) {
         if ((System.currentTimeMillis() - lastAccessTimes) <= timeBetweenCreationOfLedgers) {
           onBeingLeaderDo(
             mustCreate,
-            lastDisplayedLedger,
             previousLedgers
           )
         }
@@ -238,17 +175,11 @@ class Master(client: CuratorFramework,
           openedLedgers.add(ledgerHandle)
           onBeingLeaderDo(
             mustCreate = false,
-            LedgerID(ledgerHandle.getId),
             previousLedgersWithNewOne
           )
         }
-      } else lastDisplayedLedger
+      }
     }
-    onBeingLeaderDo(mustCreate, lastDisplayedLedger, previousLedgers)
-  }
-
-  override def close(): Unit = {
-    executorFetchingPreviousLedgers.stopAccessNewTasks()
-    executorFetchingPreviousLedgers.awaitAllCurrentTasksAreCompleted()
+    onBeingLeaderDo(mustCreate, previousLedgers)
   }
 }

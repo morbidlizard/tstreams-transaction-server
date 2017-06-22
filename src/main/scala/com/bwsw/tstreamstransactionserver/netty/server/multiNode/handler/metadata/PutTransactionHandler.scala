@@ -3,12 +3,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metada
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.BookkeeperGateway
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.record.{Record, RecordType}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 import PutTransactionHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType}
 
 private object PutTransactionHandler {
   val protocol = Protocol.PutTransaction

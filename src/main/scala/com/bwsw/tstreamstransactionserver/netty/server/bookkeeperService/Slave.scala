@@ -75,7 +75,8 @@ class Slave(client: CuratorFramework,
         password
       )
 
-      val isLedgerCompleted = bookKeeper.isClosed(ledger)
+
+      val isLedgerCompleted = ledgerHandle.isClosed
 
       val lastProcessedLedger =
         if (isLedgerCompleted && (lastLedgerAndItsLastRecordSeen.ledgerId < ledgerHandle.getId)) {

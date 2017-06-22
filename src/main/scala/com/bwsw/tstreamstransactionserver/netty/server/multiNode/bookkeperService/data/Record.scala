@@ -1,8 +1,8 @@
-package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.record
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data
 
-final class Record(val recordType: RecordType.Value,
-                   val timestamp: Long,
-                   val body: Array[Byte])
+class Record(val recordType: RecordType.Value,
+             val timestamp: Long,
+             val body: Array[Byte])
 {
   def toByteArray: Array[Byte] = {
     val size = Record.recordTypeSizeField +

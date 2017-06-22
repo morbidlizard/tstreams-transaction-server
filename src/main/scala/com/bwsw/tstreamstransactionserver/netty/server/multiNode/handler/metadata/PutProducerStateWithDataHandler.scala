@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
 import io.netty.channel.ChannelHandlerContext
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutSimpleTransactionAndDataHandler._
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.record.{Record, RecordType}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType}
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 
 private object PutSimpleTransactionAndDataHandler {

@@ -25,10 +25,10 @@ class LedgerInMemory(id: Long)
   }
 
   override def lastEntryID(): Long =
-    entryIDGen.get() - 1l
+    entryIDGen.get() - 1L
 
   override def readRange(from: Long, to: Long): Array[Array[Byte]] = {
-    val dataNumber = scala.math.abs(from - to)
+    val dataNumber = scala.math.abs(to - from + 1)
     val data = new Array[Array[Byte]](dataNumber.toInt)
 
     var index = 0

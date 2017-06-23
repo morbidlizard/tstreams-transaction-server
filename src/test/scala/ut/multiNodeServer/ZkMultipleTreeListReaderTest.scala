@@ -3,12 +3,12 @@ package ut.multiNodeServer
 import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.StorageManager
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ZkMultipleTreeListReader
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-import ut.multiNodeServer.ZkTreeListTest.{LedgerInMemory, StorageManagerInMemory}
+import ut.multiNodeServer.ZkTreeListTest.StorageManagerInMemory
 
 class ZkMultipleTreeListReaderTest
   extends FlatSpec
@@ -48,7 +48,8 @@ class ZkMultipleTreeListReaderTest
 
     val producerTransactionsNumber = 100
 
-    var atomicLong = new AtomicLong(System.currentTimeMillis())
+    val initialTime = 0L
+    var atomicLong = new AtomicLong(initialTime)
 
     val firstTreeRecords = {
       (0 until producerTransactionsNumber)
@@ -75,7 +76,9 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndIncrement()
     )
 
-    atomicLong.set(System.currentTimeMillis())
+    atomicLong.set(initialTime - 50)
+
+//    atomicLong.set(System.currentTimeMillis())
 
     val secondTreeRecords = {
       (0 until producerTransactionsNumber)
@@ -102,6 +105,8 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndIncrement()
     )
 
+    println(firstTimestampRecord.timestamp, secondTimestampRecord.timestamp)
+
     val storage = new StorageManagerInMemory
 
     val firstLedger = storage.addLedger()
@@ -112,7 +117,9 @@ class ZkMultipleTreeListReaderTest
     secondTreeRecords.foreach(binaryRecord => secondLedger.addEntry(binaryRecord))
     secondLedger.addEntry(secondTimestampRecord.toByteArray)
 
-    
+    ZkMultipleTreeListReader.processTwoLedgers(storage)
+
+
 
   }
 

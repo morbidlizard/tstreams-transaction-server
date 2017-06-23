@@ -320,6 +320,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
     def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
       if (logger.isDebugEnabled)
         logger.debug("Adding to commit new transactions from commit log file.")
+
       notifications ++= putTransactions(transactions, batch)
     }
 

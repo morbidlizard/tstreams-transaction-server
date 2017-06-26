@@ -1,6 +1,6 @@
 package ut.multiNodeServer.ZkTreeListTest
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{MetadataRecord, Record}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{MetadataRecord, LedgerIDAndItsLastRecordID}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 class ZkMultipleTreeListReaderMetadataTest
@@ -12,7 +12,7 @@ class ZkMultipleTreeListReaderMetadataTest
     val timestamp = System.currentTimeMillis()
 
     val metadataRecord = new MetadataRecord(
-      timestamp, Array.empty[Record]
+      timestamp, Array.empty[LedgerIDAndItsLastRecordID]
     )
 
     MetadataRecord.fromByteArray(metadataRecord.toByteArray) shouldBe metadataRecord
@@ -24,7 +24,7 @@ class ZkMultipleTreeListReaderMetadataTest
     val timestamp = System.currentTimeMillis()
     val rand = scala.util.Random
     val records = Array.fill(recordNumber)(
-      Record(rand.nextLong(), rand.nextLong())
+      LedgerIDAndItsLastRecordID(rand.nextLong(), rand.nextLong())
     )
 
     val metadataRecord = new MetadataRecord(

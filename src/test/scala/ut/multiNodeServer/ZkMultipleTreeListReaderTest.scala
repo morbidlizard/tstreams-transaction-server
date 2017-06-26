@@ -131,18 +131,18 @@ class ZkMultipleTreeListReaderTest
       Array(database)
     )
 
+    val data: Option[Array[Byte]] = Option(
+      databaseManager.getRecordFromDatabase(0, "randomKey".getBytes())
+    )
+
     val testReader = new ZkMultipleTreeListReader(
       Array(zkTreeList1, zkTreeList2),
       storage,
-      databaseManager,
-      0
+      data
     )
 
-    testReader.process()
-
-//    ZkMultipleTreeListReader.processTwoLedgers(storage)
-
-
+    val result = testReader.process()
+    println(result._2.mkString("; "))
 
     zkClient.close()
     zkServer.close()

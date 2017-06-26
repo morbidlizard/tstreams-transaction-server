@@ -3,18 +3,16 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.MetadataRecord
 
-class ZkMultipleTreeListReader(zkTreeLists: Seq[ZookeeperTreeListLong],
-                               keyValueDatabaseManager: KeyValueDatabaseManager,
-                               databaseIndex: Int)
-{
-  val batch = keyValueDatabaseManager.newBatch
-
-  zkTreeLists.foreach(zkTreeList => zkTreeList)
-
-}
+import ZkMultipleTreeListReader.{key, NoLedgerExist, NoRecordRead}
 
 object ZkMultipleTreeListReader {
+  val key = "lastKey".getBytes
+
+  private val NoLedgerExist: Long = -1L
+  private val NoRecordRead: Long = -1L
+
   def ledgerLastRecord(ledger: Ledger): Record = {
     Record.fromByteArray(ledger.readEntry(ledger.lastEntryID()))
   }
@@ -80,6 +78,141 @@ object ZkMultipleTreeListReader {
           ledgerSecondLastLedgerRecordIDAfterTimestampApplied
         )
 
+    }
+  }
+}
+
+class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
+                               storageManager: StorageManager,
+                               keyValueDatabaseManager: KeyValueDatabaseManager,
+                               databaseIndex: Int) {
+
+  @throws[IllegalArgumentException]
+  private def getRecordsToStartWith(databaseData: Option[Array[Byte]]): Array[LedgerIDAndItsLastRecordID] = {
+    databaseData match {
+      case Some(bytes) =>
+        val stateOfProcessing = MetadataRecord.fromByteArray(bytes)
+        require(
+          stateOfProcessing.records.length == zkTreeLists.length,
+          "Number of trees have been changed since last processing!"
+        )
+        stateOfProcessing.records.map(record =>
+          LedgerIDAndItsLastRecordID(
+            record.ledgerID,
+            record.LedgerLastRecordID
+          )
+        )
+      case None =>
+        zkTreeLists.map(zkTreeList =>
+          zkTreeList.firstEntityID
+            .map(id => LedgerIDAndItsLastRecordID(id, NoRecordRead))
+            .orElse(Some(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)))
+            .get
+        )
+    }
+  }
+
+  private def ledgerLastRecord(ledger: Ledger): Record = {
+    Record.fromByteArray(ledger.readEntry(ledger.lastEntryID()))
+  }
+  
+  private def getAllRecordsOrderedUntilTimestampMet(from: Long,
+                                                    ledger: Ledger,
+                                                    timestamp: Long) = {
+    val fromCorrected =
+      if (from < 0L) 0L
+      else from
+
+    val lastRecordID = ledger.lastEntryID()
+    val indexes = fromCorrected to lastRecordID
+
+    ledger.readRange(fromCorrected, lastRecordID)
+      .map(binaryEntry => Record.fromByteArray(binaryEntry))
+      .zip(indexes).sortBy(_._1.timestamp)
+      .takeWhile(_._1.timestamp <= timestamp)
+  }
+
+
+  private def getLastRecordIDEqOrLsTimestamp(records: Seq[(Record, Long)]) = {
+    records.lastOption.map(_._2).getOrElse(NoRecordRead)
+  }
+
+  private def determineTimestampUntilProcess(ledgersToProcess: Array[LedgerIDAndItsLastRecordID]): Long = {
+    ledgersToProcess.foldLeft(Long.MaxValue)((acc, ledgerAndRecord) =>
+      if (ledgerAndRecord.ledgerID == NoLedgerExist) {
+        acc
+      }
+      else {
+        val timestamp = storageManager
+          .getLedger(ledgerAndRecord.ledgerID)
+          .map(ledgerID => ledgerLastRecord(ledgerID))
+          .map{record =>
+            require(
+              record.recordType == RecordType.Timestamp,
+              "All ledgers must have their last record as type of 'Timestamp'"
+            )
+            record.timestamp
+          }
+          .getOrElse(throw new
+              IllegalStateException(
+                s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledgerAndRecord.ledgerID}"
+              )
+          )
+        acc min timestamp
+      }
+    )
+  }
+
+  private def getOrderedRecordsByLedgerAndItsLastRecordIDBeforeTimestamp(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID],
+                                                                         timestamp: Long) = {
+    ledgersAndTheirLastRecordsToProcess
+      .map(ledger =>
+        if (ledger.ledgerID == NoLedgerExist)
+          (Array.empty[Record],
+            LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)
+          )
+        else {
+          val records = storageManager
+            .getLedger(ledger.ledgerID)
+            .map(ledgerID => getAllRecordsOrderedUntilTimestampMet(ledger.recordID, ledgerID, timestamp))
+            .getOrElse(throw new
+                IllegalStateException(
+                  s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledger.ledgerID}"
+                )
+            )
+          val lastRecordIDProcessed = getLastRecordIDEqOrLsTimestamp(records)
+          val orderedRecords = records.map(_._1)
+          (orderedRecords,
+            LedgerIDAndItsLastRecordID(ledger.ledgerID, lastRecordIDProcessed)
+          )
+        })
+  }
+
+  def process(): Unit = {
+    val data: Option[Array[Byte]] = Option(keyValueDatabaseManager
+      .getRecordFromDatabase(
+        databaseIndex,
+        ZkMultipleTreeListReader.key
+      )
+    )
+
+    val ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID] =
+      getRecordsToStartWith(data)
+
+    val timestamp: Long =
+      determineTimestampUntilProcess(ledgersAndTheirLastRecordsToProcess)
+
+    if (timestamp == Long.MaxValue)
+    {
+      Array.empty[Record]
+    }
+    else {
+      val c = getOrderedRecordsByLedgerAndItsLastRecordIDBeforeTimestamp(
+        ledgersAndTheirLastRecordsToProcess,
+        timestamp
+      )
+
+      c.foreach(x => println(x._2))
     }
   }
 }

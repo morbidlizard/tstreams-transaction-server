@@ -9,7 +9,7 @@ class KeyValueDatabaseInMemory
   private val db = new TrieMap[Array[Byte], Array[Byte]]()
 
   override def get(key: Array[Byte]): Array[Byte] =
-    db(key)
+    db.getOrElse(key, null)
 
   override def put(key: Array[Byte], data: Array[Byte]): Boolean = {
     db.put(key, data)

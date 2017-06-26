@@ -3,12 +3,16 @@ package ut.multiNodeServer
 import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabase
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ZkMultipleTreeListReader
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import ut.multiNodeServer.ZkTreeListTest.StorageManagerInMemory
+import util.Utils
+import util.db.{KeyValueDatabaseInMemory, KeyValueDatabaseManagerInMemory}
 
 class ZkMultipleTreeListReaderTest
   extends FlatSpec
@@ -105,8 +109,6 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndIncrement()
     )
 
-    println(firstTimestampRecord.timestamp, secondTimestampRecord.timestamp)
-
     val storage = new StorageManagerInMemory
 
     val firstLedger = storage.addLedger()
@@ -117,10 +119,33 @@ class ZkMultipleTreeListReaderTest
     secondTreeRecords.foreach(binaryRecord => secondLedger.addEntry(binaryRecord))
     secondLedger.addEntry(secondTimestampRecord.toByteArray)
 
-    ZkMultipleTreeListReader.processTwoLedgers(storage)
+    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
+    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, "/treeList1")
+    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, "/treeList2")
+
+    zkTreeList1.createNode(firstLedger.id)
+    zkTreeList2.createNode(secondLedger.id)
+
+    val database = new KeyValueDatabaseInMemory
+    val databaseManager = new KeyValueDatabaseManagerInMemory(
+      Array(database)
+    )
+
+    val testReader = new ZkMultipleTreeListReader(
+      Array(zkTreeList1, zkTreeList2),
+      storage,
+      databaseManager,
+      0
+    )
+
+    testReader.process()
+
+//    ZkMultipleTreeListReader.processTwoLedgers(storage)
 
 
 
+    zkClient.close()
+    zkServer.close()
   }
 
 }

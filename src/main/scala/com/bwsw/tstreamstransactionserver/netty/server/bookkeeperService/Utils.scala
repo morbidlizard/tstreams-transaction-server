@@ -54,7 +54,7 @@ object Utils {
     } match {
       case scala.util.Success(port) =>
         port
-      case scala.util.Failure(throwable: IOException) =>
+      case scala.util.Failure(throwable) =>
         throw throwable
     }
   }

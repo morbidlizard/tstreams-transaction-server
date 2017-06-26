@@ -77,6 +77,7 @@ libraryDependencies ++= Seq(
   ("io.netty" % "netty-all" % "4.1.11.Final")
     .exclude("log4j", "log4j")
     .exclude("org.slf4j", "slf4j-api"),
+
   "org.json4s" %% "json4s-jackson" % "3.5.1",
 
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",

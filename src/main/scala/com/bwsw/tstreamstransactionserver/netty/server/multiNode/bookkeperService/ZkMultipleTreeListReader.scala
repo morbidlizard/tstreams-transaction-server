@@ -1,11 +1,11 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
+import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType}
 
-class ZkMultipleTreeListReader(storage: StorageManager)
+class ZkMultipleTreeListReader(zkTreeLists: Seq[ZookeeperTreeListLong])
 {
-
-
+  zkTreeLists.foreach(zkTreeList => zkTreeList)
 
 }
 

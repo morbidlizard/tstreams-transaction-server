@@ -18,9 +18,13 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabase
 import org.rocksdb._
 
-class RocksDBPartitionDatabase(client: TtlDB, databaseHandler: ColumnFamilyHandle) {
+class RocksDBPartitionDatabase(client: TtlDB,
+                               databaseHandler: ColumnFamilyHandle)
+  extends KeyValueDatabase
+{
   RocksDB.loadLibrary()
 
   def get(key: Array[Byte]): Array[Byte] = client.get(databaseHandler, key)

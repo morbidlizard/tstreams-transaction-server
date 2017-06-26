@@ -21,7 +21,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
         val stateOfProcessing = MetadataRecord.fromByteArray(bytes)
         require(
           stateOfProcessing.records.length == zkTreeLists.length,
-          "Number of trees have been changed since last processing!"
+          "Number of trees has been changed since last processing!"
         )
         stateOfProcessing.records.map(record =>
           LedgerIDAndItsLastRecordID(

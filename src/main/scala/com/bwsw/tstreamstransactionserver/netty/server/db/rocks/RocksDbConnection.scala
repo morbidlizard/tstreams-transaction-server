@@ -25,7 +25,8 @@ import org.apache.commons.io.FileUtils
 import org.rocksdb._
 
 class RocksDbConnection(rocksStorageOpts: RocksStorageOptions,
-                        absolutePath: String, ttl: Int = -1,
+                        absolutePath: String,
+                        ttl: Int = -1,
                         readOnly: Boolean = false)
   extends Closeable
 {

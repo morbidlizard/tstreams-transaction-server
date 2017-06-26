@@ -21,13 +21,14 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.util.concurrent.TimeUnit
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDatabaseDescriptor}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 
 
 class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions, readOnly: Boolean = false) {
   private val columnFamilyOptions = rocksOpts.createColumnFamilyOptions()
-  val rocksMetaServiceDB: RocksDBALL = new RocksDBALL(
+  val rocksMetaServiceDB: KeyValueDatabaseManager = new RocksDBALL(
     storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
     rocksOpts,
     Seq(

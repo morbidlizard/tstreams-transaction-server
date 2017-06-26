@@ -1,10 +1,15 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType}
 
-class ZkMultipleTreeListReader(zkTreeLists: Seq[ZookeeperTreeListLong])
+class ZkMultipleTreeListReader(zkTreeLists: Seq[ZookeeperTreeListLong],
+                               keyValueDatabaseManager: KeyValueDatabaseManager,
+                               databaseIndex: Int)
 {
+  val batch = keyValueDatabaseManager.newBatch
+
   zkTreeLists.foreach(zkTreeList => zkTreeList)
 
 }
@@ -41,7 +46,7 @@ object ZkMultipleTreeListReader {
 
     (ledgerFirstOpt, secondLedgerOpt) match {
       case (Some(firstLedger),Some(secondLedger)) =>
-        val ledgerFirstLastRecord = ledgerLastRecord(firstLedger)
+        val ledgerFirstLastRecord  = ledgerLastRecord(firstLedger)
         val ledgerSecondLastRecord = ledgerLastRecord(secondLedger)
 
         val readUpToTimestamp = determineRightBoundProcessUntil(

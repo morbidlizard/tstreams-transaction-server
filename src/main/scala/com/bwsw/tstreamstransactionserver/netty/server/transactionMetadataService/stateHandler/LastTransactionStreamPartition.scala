@@ -21,11 +21,11 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
 import com.google.common.cache.Cache
 
 
-class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
+class LastTransactionStreamPartition(rocksMetaServiceDB: KeyValueDatabaseManager) {
   private final val lastTransactionDatabase =
     rocksMetaServiceDB.getDatabase(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE)
 
@@ -62,13 +62,16 @@ class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
   }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
-  final def deleteLastOpenedAndCheckpointedTransactions(streamID: Int, batch: Batch) {
+  final def deleteLastOpenedAndCheckpointedTransactions(streamID: Int, batch: KeyValueDatabaseBatch) {
     val from = KeyStreamPartition(streamID, Int.MinValue).toByteArray
     val to = KeyStreamPartition(streamID, Int.MaxValue).toByteArray
 
     val lastTransactionDatabaseIterator = lastTransactionDatabase.iterator
     lastTransactionDatabaseIterator.seek(from)
-    while (lastTransactionDatabaseIterator.isValid && comparator.compare(lastTransactionDatabaseIterator.key(), to) <= 0) {
+    while (
+      lastTransactionDatabaseIterator.isValid &&
+        comparator.compare(lastTransactionDatabaseIterator.key(), to) <= 0
+    ) {
       batch.remove(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE, lastTransactionDatabaseIterator.key())
       lastTransactionDatabaseIterator.next()
     }
@@ -76,14 +79,19 @@ class LastTransactionStreamPartition(rocksMetaServiceDB: RocksDBALL) {
 
     val lastCheckpointedTransactionDatabaseIterator = lastCheckpointedTransactionDatabase.iterator
     lastCheckpointedTransactionDatabaseIterator.seek(from)
-    while (lastCheckpointedTransactionDatabaseIterator.isValid && comparator.compare(lastCheckpointedTransactionDatabaseIterator.key(), to) <= 0) {
+    while (
+      lastCheckpointedTransactionDatabaseIterator.isValid &&
+      comparator.compare(lastCheckpointedTransactionDatabaseIterator.key(), to) <= 0)
+    {
       batch.remove(RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE, lastCheckpointedTransactionDatabaseIterator.key())
       lastCheckpointedTransactionDatabaseIterator.next()
     }
     lastCheckpointedTransactionDatabaseIterator.close()
   }
 
-  private[transactionMetadataService] final def putLastTransaction(key: KeyStreamPartition, transactionId: Long, isOpenedTransaction: Boolean, batch: Batch) = {
+  private[transactionMetadataService] final def putLastTransaction(key: KeyStreamPartition,
+                                                                   transactionId: Long, isOpenedTransaction: Boolean,
+                                                                   batch: KeyValueDatabaseBatch) = {
     val updatedTransactionID = new TransactionID(transactionId)
     if (isOpenedTransaction)
       batch.put(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE, key.toByteArray, updatedTransactionID.toByteArray)

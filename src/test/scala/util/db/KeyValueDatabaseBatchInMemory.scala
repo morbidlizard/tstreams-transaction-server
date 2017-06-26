@@ -1,11 +1,13 @@
 package util.db
 
+import java.util.concurrent.atomic.AtomicLong
+
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabase, KeyValueDatabaseBatch}
 
 import scala.collection.mutable.ArrayBuffer
 
 class KeyValueDatabaseBatchInMemory(dbs: Array[KeyValueDatabase])
-  extends KeyValueDatabaseBatch
+  extends KeyValueDatabaseBatch(new AtomicLong(-1L))
 {
   private val operationBuffer = new ArrayBuffer[Unit => Unit]()
 

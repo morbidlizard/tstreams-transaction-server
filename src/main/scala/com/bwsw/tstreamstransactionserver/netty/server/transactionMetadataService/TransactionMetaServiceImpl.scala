@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamKey
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
 import com.bwsw.tstreamstransactionserver.rpc._
@@ -32,7 +32,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 
-class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
+class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
                                  lastTransactionStreamPartition: LastTransactionStreamPartition,
                                  consumerService: ConsumerServiceImpl)
   extends TransactionStateHandler
@@ -91,7 +91,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
   private type Timestamp = Long
 
   private final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Timestamp)],
-                                                                       batch: Batch) = {
+                                                                       batch: KeyValueDatabaseBatch) = {
     if (logger.isDebugEnabled)
       logger.debug("Decomposing transactions to producer and consumer transactions")
 
@@ -169,7 +169,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
 
   private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
                                                                       producerTransactionWithNewState: ProducerTransactionRecord,
-                                                                      batch: Batch): Unit = {
+                                                                      batch: KeyValueDatabaseBatch): Unit = {
     updateLastTransactionStreamPartitionRamTable(
       key,
       producerTransactionWithNewState.transactionID,
@@ -192,7 +192,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
 
   private def putTransactionToAllAndOpenedTables(producerTransactionRecord: ProducerTransactionRecord,
                                                  notifications: scala.collection.mutable.ListBuffer[Unit => Unit],
-                                                 batch: Batch) =
+                                                 batch: KeyValueDatabaseBatch) =
   {
     val binaryTxn = producerTransactionRecord.producerTransaction.toByteArray
     val binaryKey = producerTransactionRecord.key.toByteArray
@@ -229,7 +229,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
 
 
   private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)],
-                              batch: Batch): ListBuffer[Unit => Unit] = {
+                              batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
     val (producerTransactions, consumerTransactions) =
       decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions, batch)
 

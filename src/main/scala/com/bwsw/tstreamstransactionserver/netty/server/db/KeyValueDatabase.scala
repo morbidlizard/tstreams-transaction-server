@@ -8,4 +8,6 @@ abstract class KeyValueDatabase {
   def delete(key: Array[Byte]): Boolean
 
   def getLastRecord: Option[(Array[Byte], Array[Byte])]
+
+  def iterator: KeyValueDatabaseIterator
 }

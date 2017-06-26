@@ -1,6 +1,6 @@
 package util.db
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabase
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabase, KeyValueDatabaseIterator}
 
 import scala.collection.concurrent.TrieMap
 
@@ -23,4 +23,6 @@ class KeyValueDatabaseInMemory
   override def getLastRecord: Option[(Array[Byte], Array[Byte])] = {
     db.lastOption
   }
+
+  override def iterator: KeyValueDatabaseIterator = ???
 }

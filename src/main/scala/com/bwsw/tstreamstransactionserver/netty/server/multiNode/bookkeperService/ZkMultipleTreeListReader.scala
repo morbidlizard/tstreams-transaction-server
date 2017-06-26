@@ -96,24 +96,24 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
   private def getOrderedRecordsByLedgerAndItsLastRecordIDBeforeTimestamp(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID],
                                                                          timestamp: Long) = {
     ledgersAndTheirLastRecordsToProcess
-      .map(ledger =>
-        if (ledger.ledgerID == NoLedgerExist)
+      .map(ledgerMetaInfo =>
+        if (ledgerMetaInfo.ledgerID == NoLedgerExist)
           (Array.empty[Record],
             LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)
           )
         else {
           val records = storageManager
-            .getLedger(ledger.ledgerID)
-            .map(ledgerID => getAllRecordsOrderedUntilTimestampMet(ledger.ledgerID, ledgerID, timestamp))
+            .getLedger(ledgerMetaInfo.ledgerID)
+            .map(ledger => getAllRecordsOrderedUntilTimestampMet(ledgerMetaInfo.ledgerLastRecordID, ledger, timestamp))
             .getOrElse(throw new
                 IllegalStateException(
-                  s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledger.ledgerID}"
+                  s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledgerMetaInfo.ledgerID}"
                 )
             )
           val lastRecordIDProcessed = getLastRecordIDEqOrLsTimestamp(records)
           val orderedRecords = records.map(_._1)
           (orderedRecords,
-            LedgerIDAndItsLastRecordID(ledger.ledgerID, lastRecordIDProcessed)
+            LedgerIDAndItsLastRecordID(ledgerMetaInfo.ledgerID, lastRecordIDProcessed)
           )
         })
   }

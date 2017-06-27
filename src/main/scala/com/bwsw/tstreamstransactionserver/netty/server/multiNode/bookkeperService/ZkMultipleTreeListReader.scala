@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import ZkMultipleTreeListReader.{NoLedgerExist, NoRecordRead}
 
 private object ZkMultipleTreeListReader {
@@ -114,17 +114,18 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
   private def excludeFinalState(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID]): List[Int] = {
     (ledgersAndTheirLastRecordsToProcess zip zkTreeLists zipWithIndex)
       .foldRight(List.empty[Int]) { case (((ledgerMetaInfo, zkTreeList), index), acc) =>
-        val ledger = storageManager
+        storageManager
           .getLedger(ledgerMetaInfo.ledgerID)
-          .get
-
-        if (zkTreeList.lastEntityID.get == ledgerMetaInfo.ledgerID &&
-          ledger.lastEntryID() == ledgerMetaInfo.ledgerLastRecordID
-        ) {
-          acc
-        } else {
-          index :: acc
-        }
+          .map { ledger =>
+            if (zkTreeList.lastEntityID.get == ledgerMetaInfo.ledgerID &&
+              ledger.lastEntryID() == ledgerMetaInfo.ledgerLastRecordID
+            ) {
+              acc
+            } else {
+              index :: acc
+            }
+          }
+          .getOrElse(acc)
       }
   }
 

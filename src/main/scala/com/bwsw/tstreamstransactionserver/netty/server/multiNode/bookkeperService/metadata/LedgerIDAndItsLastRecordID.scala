@@ -3,8 +3,8 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 object LedgerIDAndItsLastRecordID{
   val sizeInBytes: Int = java.lang.Long.BYTES*2
 
-  def apply(ledgerID: Long, LedgerLastRecordID: Long): LedgerIDAndItsLastRecordID =
-    new LedgerIDAndItsLastRecordID(ledgerID, LedgerLastRecordID)
+  def apply(ledgerID: Long, ledgerLastRecordID: Long): LedgerIDAndItsLastRecordID =
+    new LedgerIDAndItsLastRecordID(ledgerID, ledgerLastRecordID)
 
   def fromByteArray(bytes: Array[Byte]): LedgerIDAndItsLastRecordID = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)

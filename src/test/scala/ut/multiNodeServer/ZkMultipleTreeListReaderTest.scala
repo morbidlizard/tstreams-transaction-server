@@ -4,16 +4,14 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabase
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ZkMultipleTreeListReader
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType, TimestampRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import ut.multiNodeServer.ZkTreeListTest.StorageManagerInMemory
 import util.Utils
-import util.db.{KeyValueDatabaseInMemory, KeyValueDatabaseManagerInMemory}
 
 class ZkMultipleTreeListReaderTest
   extends FlatSpec
@@ -47,14 +45,47 @@ class ZkMultipleTreeListReaderTest
       quantity = -1,
       ttl = ttlTxn
     )
+  private def uuid = java.util.UUID.randomUUID.toString
 
-  "ZkMultipleTreeListReaderTest" should "asdsd" in {
+  private lazy val (zkServer, zkClient) = Utils.startZkServerAndGetIt
+  override def afterAll(): Unit = {
+    zkClient.close()
+    zkServer.close()
+  }
+
+
+  "ZkMultipleTreeListReaderTest" should "not retrieve any records from database because ZkTreeListLong doesn't have entities" in {
+    val storage = new StorageManagerInMemory
+
+    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+
+    val trees = Array(zkTreeList1, zkTreeList2)
+    val testReader = new ZkMultipleTreeListReader(
+      trees,
+      storage
+    )
+
+    val (records, updatedLedgersWithTheirLastRecords) =
+      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+
+    records shouldBe empty
+    updatedLedgersWithTheirLastRecords.length shouldBe trees.length
+    updatedLedgersWithTheirLastRecords.foreach(ledgerIDAndItsLastRecordID =>
+      ledgerIDAndItsLastRecordID shouldBe
+        LedgerIDAndItsLastRecordID(ledgerID = -1L, ledgerLastRecordID = -1L)
+    )
+  }
+
+
+  it should "retrieve records from database because ZkTreeListLong have ledgers ids and a storage contains records within the ledgers," +
+    "ledgers are closed at the same time" in {
     val stream = generateStream
 
-    val producerTransactionsNumber = 100
+    val producerTransactionsNumber = 99
 
     val initialTime = 0L
-    var atomicLong = new AtomicLong(initialTime)
+    val atomicLong = new AtomicLong(initialTime)
 
     val firstTreeRecords = {
       (0 until producerTransactionsNumber)
@@ -82,8 +113,6 @@ class ZkMultipleTreeListReaderTest
     )
 
     atomicLong.set(initialTime)
-
-//    atomicLong.set(System.currentTimeMillis())
 
     val secondTreeRecords = {
       (0 until producerTransactionsNumber)
@@ -120,25 +149,46 @@ class ZkMultipleTreeListReaderTest
     secondTreeRecords.foreach(binaryRecord => secondLedger.addEntry(binaryRecord))
     secondLedger.addEntry(secondTimestampRecord.toByteArray)
 
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, "/treeList1")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, "/treeList2")
+    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
 
+    val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
-      Array(zkTreeList1, zkTreeList2),
+      trees,
       storage
     )
 
-    val (records, newData) = testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
-    val (records1, newData1) = testReader.process(newData)
-    println(newData1.mkString("; "))
-    println(records.length, records1.length)
+    val (records1, updatedLedgersWithTheirLastRecords1) =
+      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
 
-    zkClient.close()
-    zkServer.close()
+    val (records2, updatedLedgersWithTheirLastRecords2) =
+      testReader.process(updatedLedgersWithTheirLastRecords1)
+
+    records1.length shouldBe producerTransactionsNumber * 2 + 2
+    records2 shouldBe empty
+
+    updatedLedgersWithTheirLastRecords1.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+
+    updatedLedgersWithTheirLastRecords1.tail.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+
+    updatedLedgersWithTheirLastRecords2.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+
+    updatedLedgersWithTheirLastRecords2.tail.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
   }
 
 }

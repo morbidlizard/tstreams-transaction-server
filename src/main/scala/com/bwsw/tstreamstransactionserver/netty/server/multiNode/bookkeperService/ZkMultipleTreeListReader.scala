@@ -55,7 +55,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     records.lastOption.map(_._2).getOrElse(NoRecordRead)
   }
 
-  private def determineTimestampUntilProcess(ledgersToProcess: Array[LedgerIDAndItsLastRecordID]): Option[Long] = {
+  private def determineTimestampProcessUntil(ledgersToProcess: Array[LedgerIDAndItsLastRecordID]): Option[Long] = {
     ledgersToProcess.foldLeft(Option.empty[Long])((timestampOpt, ledgerAndRecord) =>
       if (ledgerAndRecord.ledgerID == NoLedgerExist) {
         timestampOpt
@@ -76,7 +76,6 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
                 s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledgerAndRecord.ledgerID}"
               )
           )
-
 
         timestampOpt
           .map(_ min timestamp)
@@ -111,8 +110,8 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
       )
   }
 
-  private def excludeFinalState(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID]): List[Int] = {
-    (ledgersAndTheirLastRecordsToProcess zip zkTreeLists zipWithIndex)
+  private def excludeProcessedLedgers(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID]): List[Int] = {
+    ledgersAndTheirLastRecordsToProcess.zip(zkTreeLists).zipWithIndex
       .foldRight(List.empty[Int]) { case (((ledgerMetaInfo, zkTreeList), index), acc) =>
         storageManager
           .getLedger(ledgerMetaInfo.ledgerID)
@@ -129,12 +128,14 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
       }
   }
 
-  private def orderLedgers(ledgers1: Array[LedgerIDAndItsLastRecordID],
-                           ledgers2: Array[LedgerIDAndItsLastRecordID],
-                           indexes: Seq[Int]) = {
-    val map = (indexes zip ledgers2).toMap
-    indexes foreach(index => ledgers1.update(index, map(index)))
-    ledgers1
+  private def orderLedgers(ledgersOutOfProcessing: Array[LedgerIDAndItsLastRecordID],
+                           processedLedgers: Array[LedgerIDAndItsLastRecordID],
+                           processedLedgersIndexes: Seq[Int]) = {
+    val indexToProcessedLedgerMap = (processedLedgersIndexes zip processedLedgers).toMap
+    processedLedgersIndexes.foreach(index =>
+      ledgersOutOfProcessing.update(index, indexToProcessedLedgerMap(index))
+    )
+    ledgersOutOfProcessing
   }
 
   def process(ledgersAndTheirLastRecordIDsProcessed: Array[LedgerIDAndItsLastRecordID]): (Array[Record], Array[LedgerIDAndItsLastRecordID]) = {
@@ -147,20 +148,20 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     val ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID] =
       getRecordsToStartWith(ledgersAndTheirLastRecordIDsProcessedCopy)
 
-    val ledgersIndexesToProcess =
-      excludeFinalState(ledgersAndTheirLastRecordsToProcess)
+    val processedLedgersIndexes =
+      excludeProcessedLedgers(ledgersAndTheirLastRecordsToProcess)
 
     val ledgersToProcess =
-      ledgersIndexesToProcess.map(index =>
+      processedLedgersIndexes.map(index =>
         ledgersAndTheirLastRecordsToProcess(index)
       ).toArray
 
     val timestampOpt: Option[Long] =
-      determineTimestampUntilProcess(ledgersToProcess)
+      determineTimestampProcessUntil(ledgersToProcess)
 
-    val result = timestampOpt
+    val (records, processedLedgers) = timestampOpt
       .map { timestamp =>
-        val (records, ledgerRecordIDs) =
+        val (records, ledgersIDsAndItsRecordIDs) =
           getOrderedRecordsByLedgerAndItsLastRecordIDBeforeTimestamp(
             ledgersToProcess,
             timestamp
@@ -168,13 +169,19 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
 
         val orderedRecords = records.flatten.sorted
 
-        (orderedRecords, ledgerRecordIDs)
+        (orderedRecords, ledgersIDsAndItsRecordIDs)
       }
       .orElse(
-        Some((Array.empty[Record], ledgersAndTheirLastRecordsToProcess))
+        Some((Array.empty[Record], ledgersToProcess))
       )
       .get
 
-    (result._1, orderLedgers(ledgersAndTheirLastRecordsToProcess, result._2, ledgersIndexesToProcess))
+    (records,
+      orderLedgers(
+        ledgersAndTheirLastRecordsToProcess,
+        processedLedgers,
+        processedLedgersIndexes
+      )
+    )
   }
 }

@@ -1,8 +1,11 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data
 
+import java.util
+
 class Record(val recordType: RecordType.Value,
              val timestamp: Long,
              val body: Array[Byte])
+  extends Ordered[Record]
 {
   def toByteArray: Array[Byte] = {
     val size = Record.recordTypeSizeField +
@@ -29,6 +32,21 @@ class Record(val recordType: RecordType.Value,
       false
   }
 
+  override def hashCode(): Int = {
+    31 * (
+      31 * (
+        31 + timestamp.hashCode()
+        ) + recordType.id.hashCode()
+      ) + util.Arrays.hashCode(body)
+  }
+
+  override def compare(that: Record): Int = {
+    if (this.timestamp < that.timestamp) -1
+    else if (this.timestamp > that.timestamp) 1
+    else if (this.recordType.id < that.recordType.id) -1
+    else if (this.recordType.id > that.recordType.id) 1
+    else 0
+  }
 }
 
 object Record {

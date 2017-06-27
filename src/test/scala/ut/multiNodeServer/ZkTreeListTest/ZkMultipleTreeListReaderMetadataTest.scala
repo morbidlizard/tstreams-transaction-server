@@ -9,10 +9,8 @@ class ZkMultipleTreeListReaderMetadataTest
     with BeforeAndAfterAll
 {
   "Metadata record" should "contain timestamp without records" in {
-    val timestamp = System.currentTimeMillis()
-
     val metadataRecord = new MetadataRecord(
-      timestamp, Array.empty[LedgerIDAndItsLastRecordID]
+      Array.empty[LedgerIDAndItsLastRecordID]
     )
 
     MetadataRecord.fromByteArray(metadataRecord.toByteArray) shouldBe metadataRecord
@@ -21,14 +19,13 @@ class ZkMultipleTreeListReaderMetadataTest
   it should "contain timestamp with records" in {
     val recordNumber = 10
 
-    val timestamp = System.currentTimeMillis()
     val rand = scala.util.Random
     val records = Array.fill(recordNumber)(
       LedgerIDAndItsLastRecordID(rand.nextLong(), rand.nextLong())
     )
 
     val metadataRecord = new MetadataRecord(
-      timestamp, records
+      records
     )
 
     MetadataRecord.fromByteArray(metadataRecord.toByteArray) shouldBe metadataRecord

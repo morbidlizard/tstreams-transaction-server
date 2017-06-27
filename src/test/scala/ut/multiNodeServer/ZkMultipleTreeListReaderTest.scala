@@ -7,6 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarc
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabase
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ZkMultipleTreeListReader
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType, TimestampRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
@@ -80,7 +81,7 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndIncrement()
     )
 
-    atomicLong.set(initialTime - 50)
+    atomicLong.set(initialTime)
 
 //    atomicLong.set(System.currentTimeMillis())
 
@@ -126,23 +127,15 @@ class ZkMultipleTreeListReaderTest
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
 
-    val database = new KeyValueDatabaseInMemory
-    val databaseManager = new KeyValueDatabaseManagerInMemory(
-      Array(database)
-    )
-
-    val data: Option[Array[Byte]] = Option(
-      databaseManager.getRecordFromDatabase(0, "randomKey".getBytes())
-    )
-
     val testReader = new ZkMultipleTreeListReader(
       Array(zkTreeList1, zkTreeList2),
-      storage,
-      data
+      storage
     )
 
-    val result = testReader.process()
-    println(result._2.mkString("; "))
+    val (records, newData) = testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+    val (records1, newData1) = testReader.process(newData)
+    println(newData1.mkString("; "))
+    println(records.length, records1.length)
 
     zkClient.close()
     zkServer.close()

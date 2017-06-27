@@ -54,7 +54,7 @@ class ZkMultipleTreeListReaderTest
   }
 
 
-  "ZkMultipleTreeListReaderTest" should "not retrieve any records from database because ZkTreeListLong doesn't have entities" in {
+  "ZkMultipleTreeListReader" should "not retrieve records from database because ZkTreeListLong doesn't have entities" in {
     val storage = new StorageManagerInMemory
 
     val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
@@ -77,9 +77,67 @@ class ZkMultipleTreeListReaderTest
     )
   }
 
+  it should "retrieve records even if one of ZkTreeListLong objects doesn't have entities" in {
+    val storage = new StorageManagerInMemory
+
+    val producerTransactionsNumber = 99
+
+    val initialTime = 0L
+    val atomicLong = new AtomicLong(initialTime)
+    val stream = generateStream
+
+    val firstTreeRecords = {
+      (0 until producerTransactionsNumber)
+        .map(txnID => getRandomProducerTransaction(
+          stream.id,
+          1,
+          Opened,
+          txnID,
+          50000L
+        ))
+        .map { txn =>
+          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
+            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
+          )
+          new Record(
+            RecordType.Transaction,
+            atomicLong.getAndIncrement(),
+            binaryTransaction
+          ).toByteArray
+        }
+    }
+
+    val firstTimestampRecord = new TimestampRecord(
+      atomicLong.getAndIncrement()
+    )
+
+    val firstLedger = storage.addLedger()
+    firstTreeRecords.foreach(binaryRecord => firstLedger.addEntry(binaryRecord))
+    firstLedger.addEntry(firstTimestampRecord.toByteArray)
+
+    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+
+    zkTreeList2.createNode(firstLedger.id)
+
+    val trees = Array(zkTreeList1, zkTreeList2)
+    val testReader = new ZkMultipleTreeListReader(
+      trees,
+      storage
+    )
+
+    val (records, updatedLedgersWithTheirLastRecords) =
+      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+
+    records.length shouldBe 100
+    updatedLedgersWithTheirLastRecords.length shouldBe trees.length
+    updatedLedgersWithTheirLastRecords.tail.head shouldBe
+      LedgerIDAndItsLastRecordID(firstLedger.id, producerTransactionsNumber)
+  }
+
 
   it should "retrieve records from database because ZkTreeListLong have ledgers ids and a storage contains records within the ledgers," +
-    "ledgers are closed at the same time" in {
+    " ledgers are closed at the same time" in {
     val stream = generateStream
 
     val producerTransactionsNumber = 99
@@ -179,6 +237,234 @@ class ZkMultipleTreeListReaderTest
       LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
         ledgerLastRecordID = producerTransactionsNumber
       )
+
+    updatedLedgersWithTheirLastRecords2.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+
+    updatedLedgersWithTheirLastRecords2.tail.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+  }
+
+  it should "retrieve records from database because ZkTreeListLong have ledgers ids and a storage contains records within the ledgers," +
+    " first ledger is closed earlier than second ledger" in {
+    val stream = generateStream
+
+    val producerTransactionsNumber = 99
+
+    val initialTime = 0L
+    val atomicLong = new AtomicLong(initialTime)
+
+    val firstTreeRecords = {
+      (0 until producerTransactionsNumber)
+        .map(txnID => getRandomProducerTransaction(
+          stream.id,
+          1,
+          Opened,
+          txnID,
+          50000L
+        ))
+        .map { txn =>
+          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
+            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
+          )
+          new Record(
+            RecordType.Transaction,
+            atomicLong.getAndIncrement(),
+            binaryTransaction
+          ).toByteArray
+        }
+    }
+
+    val firstTimestampRecord = new TimestampRecord(
+      atomicLong.getAndIncrement()
+    )
+
+    atomicLong.set(initialTime + 50)
+
+    val secondTreeRecords = {
+      (0 until producerTransactionsNumber)
+        .map(txnID => getRandomProducerTransaction(
+          stream.id,
+          1,
+          Checkpointed,
+          txnID,
+          50000L
+        ))
+        .map { txn =>
+          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
+            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
+          )
+          new Record(
+            RecordType.Transaction,
+            atomicLong.getAndIncrement(),
+            binaryTransaction
+          ).toByteArray
+        }
+    }
+
+    val secondTimestampRecord = new TimestampRecord(
+      atomicLong.getAndIncrement()
+    )
+
+    val storage = new StorageManagerInMemory
+
+    val firstLedger = storage.addLedger()
+    firstTreeRecords.foreach(binaryRecord => firstLedger.addEntry(binaryRecord))
+    firstLedger.addEntry(firstTimestampRecord.toByteArray)
+
+    val secondLedger = storage.addLedger()
+    secondTreeRecords.foreach(binaryRecord => secondLedger.addEntry(binaryRecord))
+    secondLedger.addEntry(secondTimestampRecord.toByteArray)
+
+    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+
+    zkTreeList1.createNode(firstLedger.id)
+    zkTreeList2.createNode(secondLedger.id)
+
+    val trees = Array(zkTreeList1, zkTreeList2)
+    val testReader = new ZkMultipleTreeListReader(
+      trees,
+      storage
+    )
+
+    val (records1, updatedLedgersWithTheirLastRecords1) =
+      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+
+    val (records2, updatedLedgersWithTheirLastRecords2) =
+      testReader.process(updatedLedgersWithTheirLastRecords1)
+
+    records1.length shouldBe 150
+    records2.length shouldBe 50
+
+    updatedLedgersWithTheirLastRecords1.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+
+    updatedLedgersWithTheirLastRecords1.tail.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+        ledgerLastRecordID = 49
+      )
+
+
+    updatedLedgersWithTheirLastRecords2.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+
+    updatedLedgersWithTheirLastRecords2.tail.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+  }
+
+  it should "retrieve records from database because ZkTreeListLong have ledgers ids and a storage contains records within the ledgers," +
+    " second ledger is closed earlier than first ledger" in {
+    val stream = generateStream
+
+    val producerTransactionsNumber = 99
+
+    val initialTime = 0L
+    val atomicLong = new AtomicLong(initialTime)
+
+    val firstTreeRecords = {
+      (0 until producerTransactionsNumber)
+        .map(txnID => getRandomProducerTransaction(
+          stream.id,
+          1,
+          Opened,
+          txnID,
+          50000L
+        ))
+        .map { txn =>
+          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
+            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
+          )
+          new Record(
+            RecordType.Transaction,
+            atomicLong.getAndIncrement(),
+            binaryTransaction
+          ).toByteArray
+        }
+    }
+
+    val firstTimestampRecord = new TimestampRecord(
+      atomicLong.getAndIncrement()
+    )
+
+    atomicLong.set(initialTime - 50)
+
+    val secondTreeRecords = {
+      (0 until producerTransactionsNumber)
+        .map(txnID => getRandomProducerTransaction(
+          stream.id,
+          1,
+          Checkpointed,
+          txnID,
+          50000L
+        ))
+        .map { txn =>
+          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
+            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
+          )
+          new Record(
+            RecordType.Transaction,
+            atomicLong.getAndIncrement(),
+            binaryTransaction
+          ).toByteArray
+        }
+    }
+
+    val secondTimestampRecord = new TimestampRecord(
+      atomicLong.getAndIncrement()
+    )
+
+    val storage = new StorageManagerInMemory
+
+    val firstLedger = storage.addLedger()
+    firstTreeRecords.foreach(binaryRecord => firstLedger.addEntry(binaryRecord))
+    firstLedger.addEntry(firstTimestampRecord.toByteArray)
+
+    val secondLedger = storage.addLedger()
+    secondTreeRecords.foreach(binaryRecord => secondLedger.addEntry(binaryRecord))
+    secondLedger.addEntry(secondTimestampRecord.toByteArray)
+
+    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+
+    zkTreeList1.createNode(firstLedger.id)
+    zkTreeList2.createNode(secondLedger.id)
+
+    val trees = Array(zkTreeList1, zkTreeList2)
+    val testReader = new ZkMultipleTreeListReader(
+      trees,
+      storage
+    )
+
+    val (records1, updatedLedgersWithTheirLastRecords1) =
+      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+
+    val (records2, updatedLedgersWithTheirLastRecords2) =
+      testReader.process(updatedLedgersWithTheirLastRecords1)
+
+    records1.length shouldBe 150
+    records2.length shouldBe 50
+
+    updatedLedgersWithTheirLastRecords1.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+        ledgerLastRecordID = 49
+      )
+
+    updatedLedgersWithTheirLastRecords1.tail.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
+
 
     updatedLedgersWithTheirLastRecords2.head shouldBe
       LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,

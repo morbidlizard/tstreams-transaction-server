@@ -137,9 +137,15 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     ledgers1
   }
 
-  def process(data: Array[LedgerIDAndItsLastRecordID]): (Array[Record], Array[LedgerIDAndItsLastRecordID]) = {
+  def process(ledgersAndTheirLastRecordIDsProcessed: Array[LedgerIDAndItsLastRecordID]): (Array[Record], Array[LedgerIDAndItsLastRecordID]) = {
+    val ledgersAndTheirLastRecordIDsProcessedCopy =
+      java.util.Arrays.copyOf(
+        ledgersAndTheirLastRecordIDsProcessed,
+        ledgersAndTheirLastRecordIDsProcessed.length
+      )
+
     val ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID] =
-      getRecordsToStartWith(data)
+      getRecordsToStartWith(ledgersAndTheirLastRecordIDsProcessedCopy)
 
     val ledgersIndexesToProcess =
       excludeFinalState(ledgersAndTheirLastRecordsToProcess)

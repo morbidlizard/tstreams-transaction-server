@@ -3,6 +3,6 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 abstract class StorageManager()
 {
   def addLedger(): LedgerHandle
-  def getLedger(id: Long): Option[LedgerHandle]
+  def getLedgerHandle(id: Long): Option[LedgerHandle]
   def deleteLedger(id: Long): Boolean
 }

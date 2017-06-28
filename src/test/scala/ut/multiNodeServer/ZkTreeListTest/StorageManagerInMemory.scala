@@ -25,7 +25,7 @@ class StorageManagerInMemory
       throw new IllegalArgumentException()
   }
 
-  override def getLedger(id: Long): Option[LedgerHandle] = {
+  override def getLedgerHandle(id: Long): Option[LedgerHandle] = {
     Option(storage.get(id))
   }
 

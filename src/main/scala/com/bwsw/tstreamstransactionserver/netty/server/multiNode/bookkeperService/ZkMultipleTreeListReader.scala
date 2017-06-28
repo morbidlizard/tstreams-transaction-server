@@ -32,7 +32,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     }
   }
 
-  private def getLastRecordID(records: Seq[RecordWithIndex]) = {
+  private def getLastRecordID(records: Array[RecordWithIndex]) = {
     records.lastOption.map(_.index).getOrElse(NoRecordRead)
   }
 
@@ -68,8 +68,8 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     )
   }
 
-  private def getOrderedRecordsAcrossLedgersAndTheirLastRecordIDs(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID],
-                                                                  timestamp: Long) = {
+  private def getOrderedRecordsAndLastRecordIDsAcrossLedgers(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID],
+                                                             timestamp: Long) = {
     ledgersAndTheirLastRecordsToProcess
       .map(ledgerMetaInfo =>
         if (ledgerMetaInfo.ledgerID == NoLedgerExist)
@@ -116,8 +116,8 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
       }
   }
 
-  private def getNextLedgersIfNecessary(ledgersAndTheirLastRecords: Array[LedgerIDAndItsLastRecordID]) = {
-    (ledgersAndTheirLastRecords zip zkTreeLists).map {
+  private def getNextLedgersIfNecessary(lastRecordsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]) = {
+    (lastRecordsAcrossLedgers zip zkTreeLists).map {
       case (ledgerAndItsLastRecord, zkTreeList) =>
         storageManager
           .getLedgerHandle(ledgerAndItsLastRecord.ledgerID)
@@ -151,49 +151,49 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     ledgersOutOfProcessing
   }
 
-  def process(ledgersAndTheirLastRecordIDsProcessed: Array[LedgerIDAndItsLastRecordID]): (Array[Record], Array[LedgerIDAndItsLastRecordID]) = {
-    val ledgersAndTheirLastRecordIDsProcessedCopy =
+  def process(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): (Array[Record], Array[LedgerIDAndItsLastRecordID]) = {
+    val processedLastRecordIDsAcrossLedgersCopy =
       java.util.Arrays.copyOf(
-        ledgersAndTheirLastRecordIDsProcessed,
-        ledgersAndTheirLastRecordIDsProcessed.length
+        processedLastRecordIDsAcrossLedgers,
+        processedLastRecordIDsAcrossLedgers.length
       )
 
-    val ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID] =
+    val nextRecordsAcrossLedgersToProcess: Array[LedgerIDAndItsLastRecordID] =
       getNextLedgersIfNecessary(
-        getRecordsToStartWith(ledgersAndTheirLastRecordIDsProcessedCopy)
+        getRecordsToStartWith(processedLastRecordIDsAcrossLedgersCopy)
       )
 
-    val processedLedgersIndexes =
-      excludeProcessedLastLedgersIfTheyWere(ledgersAndTheirLastRecordsToProcess)
+    val notProcessedLedgersIndexes =
+      excludeProcessedLastLedgersIfTheyWere(nextRecordsAcrossLedgersToProcess)
         .toArray
 
-    val ledgersToProcess =
-      processedLedgersIndexes.map(index =>
-        ledgersAndTheirLastRecordsToProcess(index)
+    val lastRecordsAcrossLedgersToProcess =
+      notProcessedLedgersIndexes.map(index =>
+        nextRecordsAcrossLedgersToProcess(index)
       )
 
     val timestampOpt: Option[Long] =
-      findMaxAvailableLastRecordTimestamp(ledgersToProcess)
+      findMaxAvailableLastRecordTimestamp(lastRecordsAcrossLedgersToProcess)
 
     val (records, processedLedgers) = timestampOpt
       .map { timestamp =>
-        val (records, ledgersIDsAndItsRecordIDs) =
-          getOrderedRecordsAcrossLedgersAndTheirLastRecordIDs(
-            ledgersToProcess,
+        val (records, ledgersIDsAndTheirRecordIDs) =
+          getOrderedRecordsAndLastRecordIDsAcrossLedgers(
+            lastRecordsAcrossLedgersToProcess,
             timestamp
           ).unzip
 
         val orderedRecords = records.flatten.sorted
 
-        (orderedRecords, ledgersIDsAndItsRecordIDs)
+        (orderedRecords, ledgersIDsAndTheirRecordIDs)
       }
-      .getOrElse((Array.empty[Record], ledgersToProcess))
+      .getOrElse((Array.empty[Record], lastRecordsAcrossLedgersToProcess))
 
     (records,
       orderLedgers(
-        ledgersAndTheirLastRecordsToProcess,
+        nextRecordsAcrossLedgersToProcess,
         processedLedgers,
-        processedLedgersIndexes
+        notProcessedLedgersIndexes
       )
     )
   }

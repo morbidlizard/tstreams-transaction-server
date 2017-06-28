@@ -40,9 +40,7 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
                         authOpts: AuthenticationOptions,
                         storageOpts: StorageOptions,
                         rocksStorageOpts: RocksStorageOptions,
-                        streamCache: StreamCRUD,
-                        timer: Time = new Time{}
-                       )
+                        streamCache: StreamCRUD)
 {
   private val authService = new AuthServiceImpl(authOpts)
 

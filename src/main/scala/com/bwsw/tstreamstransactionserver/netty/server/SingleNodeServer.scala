@@ -97,8 +97,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     authenticationOpts,
     storageOpts,
     rocksStorageOpts,
-    zkStreamDatabase,
-    timer
+    zkStreamDatabase
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =

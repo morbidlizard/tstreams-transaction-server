@@ -2,7 +2,7 @@ package ut.multiNodeServer.ZkTreeListTest
 
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{Ledger, StorageManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{LedgerHandle, StorageManager}
 
 class StorageManagerInMemory
   extends StorageManager{
@@ -10,13 +10,13 @@ class StorageManagerInMemory
   private val ledgerIDGen = new AtomicLong(0L)
 
   private val storage =
-    new java.util.concurrent.ConcurrentHashMap[Long, Ledger]()
+    new java.util.concurrent.ConcurrentHashMap[Long, LedgerHandle]()
 
-  override def addLedger(): Ledger = {
+  override def addLedger(): LedgerHandle = {
     val id = ledgerIDGen.getAndIncrement()
 
     val previousLedger = storage.computeIfAbsent(id, {id =>
-      new LedgerInMemory(id)
+      new LedgerHandleInMemory(id)
     })
 
     if (previousLedger != null)
@@ -25,7 +25,7 @@ class StorageManagerInMemory
       throw new IllegalArgumentException()
   }
 
-  override def getLedger(id: Long): Option[Ledger] = {
+  override def getLedger(id: Long): Option[LedgerHandle] = {
     Option(storage.get(id))
   }
 

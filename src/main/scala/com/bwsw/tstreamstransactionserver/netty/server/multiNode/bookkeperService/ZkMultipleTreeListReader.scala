@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordType, RecordWithIndex}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import ZkMultipleTreeListReader.{NoLedgerExist, NoRecordRead}
 
@@ -32,30 +32,12 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     }
   }
 
-  private def ledgerLastRecord(ledger: Ledger): Record = {
-    Record.fromByteArray(ledger.readEntry(ledger.lastEntryID()))
+  private def getLastRecordID(records: Seq[RecordWithIndex]) = {
+    records.lastOption.map(_.index).getOrElse(NoRecordRead)
   }
 
-  private def getAllRecordsOrderedUntilTimestampMet(from: Long,
-                                                    ledger: Ledger,
-                                                    timestamp: Long) = {
-    val fromCorrected = from + 1L
-
-    val lastRecordID = ledger.lastEntryID()
-    val indexes = fromCorrected to lastRecordID
-
-    ledger.readRange(fromCorrected, lastRecordID)
-      .map(binaryEntry => Record.fromByteArray(binaryEntry))
-      .zip(indexes).sortBy(_._1.timestamp)
-      .takeWhile(_._1.timestamp <= timestamp)
-  }
-
-
-  private def getLastRecordIDEqOrLsTimestamp(records: Seq[(Record, Long)]) = {
-    records.lastOption.map(_._2).getOrElse(NoRecordRead)
-  }
-
-  private def determineTimestampProcessUntil(ledgersToProcess: Array[LedgerIDAndItsLastRecordID]): Option[Long] = {
+  @throws[Throwable]
+  private def findMaxAvailableLastRecordTimestamp(ledgersToProcess: Array[LedgerIDAndItsLastRecordID]): Option[Long] = {
     ledgersToProcess.foldLeft(Option.empty[Long])((timestampOpt, ledgerAndRecord) =>
       if (ledgerAndRecord.ledgerID == NoLedgerExist) {
         timestampOpt
@@ -63,7 +45,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
       else {
         val timestamp = storageManager
           .getLedger(ledgerAndRecord.ledgerID)
-          .map(ledgerID => ledgerLastRecord(ledgerID))
+          .map(ledgerHandle => ledgerHandle.lastEntry().get)
           .map{record =>
             require(
               record.recordType == RecordType.Timestamp,
@@ -73,7 +55,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
           }
           .getOrElse(throw new
               IllegalStateException(
-                s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledgerAndRecord.ledgerID}"
+                s"There is problem with storage - there is no such ledger ${ledgerAndRecord.ledgerID}"
               )
           )
 
@@ -84,8 +66,8 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     )
   }
 
-  private def getOrderedRecordsByLedgerAndItsLastRecordIDBeforeTimestamp(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID],
-                                                                         timestamp: Long) = {
+  private def getOrderedRecordsAcrossLedgersAndTheirLastRecordIDs(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID],
+                                                                  timestamp: Long) = {
     ledgersAndTheirLastRecordsToProcess
       .map(ledgerMetaInfo =>
         if (ledgerMetaInfo.ledgerID == NoLedgerExist)
@@ -94,23 +76,27 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
           storageManager
             .getLedger(ledgerMetaInfo.ledgerID)
             .map { ledger =>
-              val records = getAllRecordsOrderedUntilTimestampMet(ledgerMetaInfo.ledgerLastRecordID, ledger, timestamp)
-              val lastRecordIDProcessed = getLastRecordIDEqOrLsTimestamp(records)
-              val orderedRecords = records.map(_._1)
+              val recordsWithIndexes =
+                ledger.getAllRecordsOrderedUntilTimestampMet(ledgerMetaInfo.ledgerLastRecordID, timestamp)
+              val lastRecordIDProcessed =
+                getLastRecordID(recordsWithIndexes)
+              val orderedRecords =
+                recordsWithIndexes.map(_.record)
+
               (orderedRecords,
                 LedgerIDAndItsLastRecordID(ledgerMetaInfo.ledgerID, lastRecordIDProcessed)
               )
             }
             .getOrElse(throw new
                 IllegalStateException(
-                  s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledgerMetaInfo.ledgerID}"
+                  s"There is problem with storage - there is no such ledger ${ledgerMetaInfo.ledgerID}"
                 )
             )
         }
       )
   }
 
-  private def excludeProcessedLedgers(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID]): List[Int] = {
+  private def excludeProcessedLastLedgersIfTheyWere(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID]): List[Int] = {
     ledgersAndTheirLastRecordsToProcess.zip(zkTreeLists).zipWithIndex
       .foldRight(List.empty[Int]) { case (((ledgerMetaInfo, zkTreeList), index), acc) =>
         storageManager
@@ -128,9 +114,34 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
       }
   }
 
+  private def getNextLedgersIfNecessary(ledgersAndTheirLastRecords: Array[LedgerIDAndItsLastRecordID]) = {
+    (ledgersAndTheirLastRecords zip zkTreeLists).map {
+      case (ledgerAndItsLastRecord, zkTreeList) =>
+        storageManager
+          .getLedger(ledgerAndItsLastRecord.ledgerID)
+          .flatMap { ledger => zkTreeList.lastEntityID.map(lastEntityID =>
+              if (lastEntityID != ledgerAndItsLastRecord.ledgerID &&
+                ledger.lastEntryID() == ledgerAndItsLastRecord.ledgerLastRecordID
+              ) {
+                val newLedgerID = zkTreeList
+                  .getNextNode(ledgerAndItsLastRecord.ledgerID)
+                  .getOrElse(throw new
+                    IllegalStateException(
+                      s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledger.id}"
+                    )
+                  )
+                LedgerIDAndItsLastRecordID(newLedgerID, NoRecordRead)
+              } else {
+                ledgerAndItsLastRecord
+              }
+            )
+          }.getOrElse(ledgerAndItsLastRecord)
+    }
+  }
+
   private def orderLedgers(ledgersOutOfProcessing: Array[LedgerIDAndItsLastRecordID],
                            processedLedgers: Array[LedgerIDAndItsLastRecordID],
-                           processedLedgersIndexes: Seq[Int]) = {
+                           processedLedgersIndexes: Array[Int]) = {
     val indexToProcessedLedgerMap = (processedLedgersIndexes zip processedLedgers).toMap
     processedLedgersIndexes.foreach(index =>
       ledgersOutOfProcessing.update(index, indexToProcessedLedgerMap(index))
@@ -146,23 +157,26 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
       )
 
     val ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID] =
-      getRecordsToStartWith(ledgersAndTheirLastRecordIDsProcessedCopy)
+      getNextLedgersIfNecessary(
+        getRecordsToStartWith(ledgersAndTheirLastRecordIDsProcessedCopy)
+      )
 
     val processedLedgersIndexes =
-      excludeProcessedLedgers(ledgersAndTheirLastRecordsToProcess)
+      excludeProcessedLastLedgersIfTheyWere(ledgersAndTheirLastRecordsToProcess)
+        .toArray
 
     val ledgersToProcess =
       processedLedgersIndexes.map(index =>
         ledgersAndTheirLastRecordsToProcess(index)
-      ).toArray
+      )
 
     val timestampOpt: Option[Long] =
-      determineTimestampProcessUntil(ledgersToProcess)
+      findMaxAvailableLastRecordTimestamp(ledgersToProcess)
 
     val (records, processedLedgers) = timestampOpt
       .map { timestamp =>
         val (records, ledgersIDsAndItsRecordIDs) =
-          getOrderedRecordsByLedgerAndItsLastRecordIDBeforeTimestamp(
+          getOrderedRecordsAcrossLedgersAndTheirLastRecordIDs(
             ledgersToProcess,
             timestamp
           ).unzip
@@ -171,10 +185,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
 
         (orderedRecords, ledgersIDsAndItsRecordIDs)
       }
-      .orElse(
-        Some((Array.empty[Record], ledgersToProcess))
-      )
-      .get
+      .getOrElse((Array.empty[Record], ledgersToProcess))
 
     (records,
       orderLedgers(

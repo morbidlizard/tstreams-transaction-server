@@ -1,0 +1,67 @@
+package ut.multiNodeServer.ZkTreeListTest
+
+import java.util.concurrent.atomic.AtomicLong
+
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerHandle
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex}
+
+class LedgerHandleInMemory(id: Long)
+  extends LedgerHandle(id) {
+  @volatile private var isClosed = false
+  private val entryIDGen = new AtomicLong(0L)
+  private val storage =
+    new scala.collection.concurrent.TrieMap[Long, Record]()
+
+  override def addEntry(data: Record): Long = {
+    if (isClosed)
+      throw new IllegalAccessError()
+
+    val id = entryIDGen.getAndIncrement()
+    storage.put(id, data)
+    id
+  }
+
+  override def getEntry(id: Long): Record =
+    storage.get(id).orNull
+
+  override def lastEntryID(): Long =
+    entryIDGen.get() - 1L
+
+  override def lastEntry(): Option[Record] = {
+    storage.get(lastEntryID())
+  }
+
+  override def readEntries(from: Long, to: Long): Array[Record] = {
+    val dataNumber = scala.math.abs(to - from + 1)
+    val data = new Array[Record](dataNumber.toInt)
+
+    var index = 0
+    var toReadIndex = from
+    while (index < dataNumber) {
+      data(index) = storage(toReadIndex)
+      index = index + 1
+      toReadIndex = toReadIndex + 1
+    }
+    data
+  }
+
+  override def getAllRecordsOrderedUntilTimestampMet(from: Long,
+                                                     timestamp: Long): Array[RecordWithIndex] = {
+    val fromCorrected = from + 1L
+
+    val lastRecordID = lastEntryID()
+    val indexes = fromCorrected to lastRecordID
+
+    readEntries(fromCorrected, lastRecordID)
+      .zip(indexes).sortBy(_._1.timestamp)
+      .view
+      .takeWhile(_._1.timestamp <= timestamp)
+      .map {case (record, index) =>
+        RecordWithIndex(index, record)
+      }.toArray
+  }
+
+  override def close(): Unit = {
+    isClosed = true
+  }
+}

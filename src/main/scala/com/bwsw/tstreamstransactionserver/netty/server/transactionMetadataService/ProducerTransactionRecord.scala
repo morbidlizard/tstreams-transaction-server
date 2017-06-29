@@ -21,8 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 
 case class ProducerTransactionRecord(key: ProducerTransactionKey,
-                                     producerTransaction: ProducerTransactionValue
-                                    )
+                                     producerTransaction: ProducerTransactionValue)
   extends ProducerTransaction
     with Ordered[ProducerTransactionRecord] {
   override def stream: Int = key.stream
@@ -38,6 +37,19 @@ case class ProducerTransactionRecord(key: ProducerTransactionKey,
   override def ttl: Long = producerTransaction.ttl
 
   def timestamp: Long = producerTransaction.timestamp
+
+  def this(stream: Int,
+           partition: Int,
+           transactionID: Long,
+           state: TransactionStates,
+           quantity: Int,
+           ttl: Long,
+           timestamp: Long) = {
+    this(
+      ProducerTransactionKey(stream, partition, transactionID),
+      ProducerTransactionValue(state, quantity, ttl, timestamp)
+    )
+  }
 
   override def compare(that: ProducerTransactionRecord): Int = {
     if (this.stream < that.stream) -1
@@ -60,6 +72,24 @@ object ProducerTransactionRecord {
     val key = ProducerTransactionKey(txn.stream, txn.partition, txn.transactionID)
     val producerTransaction = ProducerTransactionValue(txn.state, txn.quantity, txn.ttl, timestamp)
     ProducerTransactionRecord(key, producerTransaction)
+  }
+
+  def apply(stream: Int,
+            partition: Int,
+            transactionID: Long,
+            state: TransactionStates,
+            quantity: Int,
+            ttl: Long,
+            timestamp: Long): ProducerTransactionRecord = {
+    new ProducerTransactionRecord(
+      stream,
+      partition,
+      transactionID,
+      state,
+      quantity,
+      ttl,
+      timestamp
+    )
   }
 }
 

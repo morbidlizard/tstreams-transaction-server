@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutProducerStateWithDataHandler._
@@ -43,7 +43,7 @@ class PutProducerStateWithDataHandler(server: TransactionServer,
     )
 
     scheduledCommitLog.putData(
-      CommitLogToBerkeleyWriter.putTransactionType,
+      CommitLogToRocksWriter.putTransactionType,
       binaryTransaction
     )
   }

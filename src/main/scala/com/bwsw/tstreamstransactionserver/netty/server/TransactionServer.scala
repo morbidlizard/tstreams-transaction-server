@@ -23,16 +23,18 @@ import java.nio.ByteBuffer
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue, TransactionMetaServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord, ProducerTransactionValue, TransactionMetaServiceImpl}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc
 import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.collection.Set
+import scala.collection.mutable.ListBuffer
 
 
 
@@ -44,7 +46,7 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
 {
   private val authService = new AuthServiceImpl(authOpts)
 
-  private val rocksStorage = new RocksStorage(
+  private[server] val rocksStorage = new RocksStorage(
     storageOpts,
     rocksStorageOpts
   )
@@ -109,6 +111,11 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
   final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean =
     transactionDataServiceImpl.putTransactionData(streamID, partition, transaction, data, from)
 
+  final def putTransactions(transactions: Seq[ProducerTransactionRecord],
+                            batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
+    transactionMetaServiceImpl.putTransactions(transactions, batch)
+  }
+
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): TransactionInfo =
     transactionMetaServiceImpl.getTransaction(streamID, partition, transaction)
 
@@ -129,6 +136,11 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
     transactionDataServiceImpl.getTransactionData(streamID, partition, transaction, from, to)
   }
 
+  final def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
+                                    batch: KeyValueDatabaseBatch): ListBuffer[(Unit) => Unit] = {
+    consumerServiceImpl.putConsumersCheckpoints(consumerTransactions, batch)
+  }
+
   final def getConsumerState(name: String, streamID: Int, partition: Int): Long = {
     consumerServiceImpl.getConsumerState(name, streamID, partition)
   }
@@ -140,8 +152,8 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
     authService.authenticate(authKey)
   }
 
-  final def getBigCommit(flieID: Long): transactionMetaServiceImpl.BigCommit =
-    transactionMetaServiceImpl.getBigCommit(flieID)
+  final def getBigCommit(fileID: Long) =
+    new BigCommit(this, fileID)
 
   final def createAndExecuteTransactionsToDeleteTask(timestamp: Long): Unit =
     transactionMetaServiceImpl.createAndExecuteTransactionsToDeleteTask(timestamp)

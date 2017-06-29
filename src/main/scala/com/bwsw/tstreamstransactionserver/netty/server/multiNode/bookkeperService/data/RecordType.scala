@@ -3,5 +3,5 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 object RecordType
   extends Enumeration
 {
-  val ProducerTransaction, ConsumerTransaction, Transaction, TransactionSeq, TransactionData, Timestamp = Value
+  val Timestamp, TransactionData, ProducerTransaction, ConsumerTransaction, Transaction, TransactionSeq = Value
 }

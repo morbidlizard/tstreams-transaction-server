@@ -132,7 +132,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   /**
     * this variable is public for testing purposes only
     */
-  val berkeleyWriter = new CommitLogToBerkeleyWriter(
+  val berkeleyWriter = new CommitLogToRocksWriter(
     rocksDBCommitLog,
     commitLogQueue,
     transactionServer,

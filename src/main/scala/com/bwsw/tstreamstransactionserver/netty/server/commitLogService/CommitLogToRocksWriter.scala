@@ -25,7 +25,9 @@ import java.util.concurrent.PriorityBlockingQueue
 import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
@@ -34,10 +36,10 @@ import org.slf4j.LoggerFactory
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
-                                pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
-                                transactionServer: TransactionServer,
-                                incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
+class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
+                             pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
+                             transactionServer: TransactionServer,
+                             incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
   extends Runnable
     with Time
 {
@@ -120,7 +122,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
       val record = iter.next()
       record.right.foreach { record =>
         scala.util.Try {
-          CommitLogToBerkeleyWriter.retrieveTransactions(record)
+          CommitLogToRocksWriter.retrieveTransactions(record)
         } match {
           case scala.util.Success(transactions) => buffer ++= transactions
           case _ =>
@@ -138,11 +140,27 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
 
     @tailrec
     def helper(iterator: CommitLogIterator, lastTransationTimestamp: Option[Long]): Option[Long] = {
-      val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
-      bigCommit.putSomeTransactions(records)
+      val (recordsWithTimestamps, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
+
+      val producerTransactionsRecords = new ArrayBuffer[ProducerTransactionRecord]()
+      val consumerTransactionsRecords = new ArrayBuffer[ConsumerTransactionRecord]()
+      recordsWithTimestamps.foreach { case (transaction, timestamp) =>
+
+        transaction.producerTransaction.foreach(producerTransaction =>
+          producerTransactionsRecords += ProducerTransactionRecord(producerTransaction, timestamp)
+        )
+
+        transaction.consumerTransaction.foreach(consumerTransaction =>
+          consumerTransactionsRecords += ConsumerTransactionRecord(consumerTransaction, timestamp)
+        )
+      }
+
+      bigCommit.putProducerTransactions(producerTransactionsRecords)
+      bigCommit.putConsumerTransactions(consumerTransactionsRecords)
+
       val isAnyElements = iter.hasNext()
       if (isAnyElements) {
-        val lastTransactionTimestampInRecord = records.lastOption.map(_._2)
+        val lastTransactionTimestampInRecord = recordsWithTimestamps.lastOption.map(_._2)
         helper(iter, if (lastTransactionTimestampInRecord.isDefined) lastTransactionTimestampInRecord else lastTransationTimestamp)
       }
       else
@@ -173,7 +191,7 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
   final def closeRocksDB(): Unit = rocksDb.close()
 }
 
-object CommitLogToBerkeleyWriter {
+object CommitLogToRocksWriter {
   val putTransactionType: Byte = 1
   val putTransactionsType: Byte = 2
   val setConsumerStateType: Byte = 3

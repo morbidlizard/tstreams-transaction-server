@@ -22,7 +22,7 @@ package com.bwsw.tstreamstransactionserver
 import java.io.File
 
 import com.bwsw.commitlog.filesystem.CommitLogBinary
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, FileKey, FileValue}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, FileKey, FileValue}
 import org.apache.commons.io.FileUtils
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -78,7 +78,7 @@ object DumpProcessedCommitLogUtility {
     val iterator = binaryFile.getIterator
     while (iterator.hasNext()) {
       iterator.next().right.foreach{record =>
-        val transactions = CommitLogToBerkeleyWriter.retrieveTransactions(record)
+        val transactions = CommitLogToRocksWriter.retrieveTransactions(record)
         val transactionsJson = transactions.map { transaction =>
           val txn = transaction._1
           val transactionJson: Transaction = if (txn._1.isDefined) {

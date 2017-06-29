@@ -20,7 +20,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
 
@@ -66,7 +66,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
     )
 
     scheduledCommitLog.putData(
-      CommitLogToBerkeleyWriter.putTransactionsType,
+      CommitLogToRocksWriter.putTransactionsType,
       messageForPutTransactions
     )
     transactionID

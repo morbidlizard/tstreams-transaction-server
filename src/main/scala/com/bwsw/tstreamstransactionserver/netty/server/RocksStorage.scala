@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDatabaseDescriptor}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 
@@ -44,6 +44,7 @@ class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions, 
     ),
     readOnly
   )
+  def newBatch: KeyValueDatabaseBatch = rocksMetaServiceDB.newBatch
 }
 
 object RocksStorage {

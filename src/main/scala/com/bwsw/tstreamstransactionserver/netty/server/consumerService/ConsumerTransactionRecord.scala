@@ -20,19 +20,48 @@ package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction
 
-case class ConsumerTransactionRecord(key: ConsumerTransactionKey, consumerTransaction: ConsumerTransactionValue) extends ConsumerTransaction
-{
-  override def transactionID: Long = consumerTransaction.transactionId
-  override def name: String = key.name
-  override def stream: Int = key.streamID
-  override def partition: Int = key.partition
-  def timestamp: Long = Long2long(consumerTransaction.timestamp)
-}
 
 object ConsumerTransactionRecord {
   def apply(txn: ConsumerTransaction, timestamp: Long): ConsumerTransactionRecord = {
     val key = ConsumerTransactionKey(txn.name, txn.stream, txn.partition)
     val producerTransaction = ConsumerTransactionValue(txn.transactionID, timestamp)
     ConsumerTransactionRecord(key, producerTransaction)
+  }
+}
+
+case class ConsumerTransactionRecord(key: ConsumerTransactionKey,
+                                     consumerTransaction: ConsumerTransactionValue)
+  extends ConsumerTransaction
+    with Ordered[ConsumerTransactionRecord]
+{
+  override def transactionID: Long = consumerTransaction.transactionId
+  override def name: String = key.name
+  override def stream: Int = key.streamID
+  override def partition: Int = key.partition
+  def timestamp: Long = Long2long(consumerTransaction.timestamp)
+
+  def this(name: String,
+           streamID: Int,
+           partition: Int,
+           transactionID: Long,
+           timestamp:Long) = {
+    this(
+      ConsumerTransactionKey(name, streamID, partition),
+      ConsumerTransactionValue(transactionID, timestamp)
+    )
+  }
+
+  override def compare(that: ConsumerTransactionRecord): Int = {
+    if (this.name < that.name) -1
+    else if (this.name > that.name) 1
+    else if (this.stream < that.stream) -1
+    else if (this.stream > that.stream) 1
+    else if (this.partition < that.partition) -1
+    else if (this.partition > that.partition) 1
+    else if (this.transactionID < that.transactionID) -1
+    else if (this.transactionID > that.transactionID) 1
+    else if (this.timestamp < that.timestamp) -1
+    else if (this.timestamp > that.timestamp) 1
+    else 0
   }
 }

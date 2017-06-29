@@ -56,11 +56,14 @@ object Record {
   def fromByteArray(bytes: Array[Byte]): Record = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
 
-    val recordType = buffer.get
+    val recordType = RecordType(buffer.get)
     val timestamp  = buffer.getLong
     val body = new Array[Byte](buffer.remaining())
     buffer.get(body)
 
-    new Record(RecordType(recordType), timestamp, body)
+    recordType match {
+      case RecordType.Timestamp => new TimestampRecord(timestamp)
+      case _ => new Record(recordType, timestamp, body)
+    }
   }
 }

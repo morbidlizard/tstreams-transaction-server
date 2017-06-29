@@ -27,6 +27,20 @@ object ConsumerTransactionRecord {
     val producerTransaction = ConsumerTransactionValue(txn.transactionID, timestamp)
     ConsumerTransactionRecord(key, producerTransaction)
   }
+
+  def apply(name: String,
+            streamID: Int,
+            partition: Int,
+            transactionID: Long,
+            timestamp: Long): ConsumerTransactionRecord = {
+    new ConsumerTransactionRecord(
+      name,
+      streamID,
+      partition,
+      transactionID,
+      timestamp
+    )
+  }
 }
 
 case class ConsumerTransactionRecord(key: ConsumerTransactionKey,

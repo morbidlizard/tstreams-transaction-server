@@ -2,6 +2,8 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 import java.util
 
+import com.bwsw.tstreamstransactionserver.netty.server.RecordType
+
 class Record(val recordType: RecordType.Value,
              val timestamp: Long,
              val body: Array[Byte])

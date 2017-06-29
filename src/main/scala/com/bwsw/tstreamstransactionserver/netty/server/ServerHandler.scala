@@ -237,7 +237,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter, logger: Logger)
             )
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              CommitLogToRocksWriter.putTransactionType,
+              RecordType.PutTransactionType.id.toByte,
               binaryTransaction
             )
 
@@ -314,7 +314,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter, logger: Logger)
 
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              CommitLogToRocksWriter.putTransactionsType,
+              RecordType.PutTransactionsType.id.toByte,
               messageForPutTransactions
             )
 
@@ -448,7 +448,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter, logger: Logger)
               )
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              CommitLogToRocksWriter.putTransactionsType,
+              RecordType.PutTransactionsType.id.toByte,
               messageForPutTransactions
             )
 

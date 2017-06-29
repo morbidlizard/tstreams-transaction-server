@@ -25,6 +25,8 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.BkBigCommit
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
@@ -42,16 +44,16 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
                         authOpts: AuthenticationOptions,
                         storageOpts: StorageOptions,
                         rocksStorageOpts: RocksStorageOptions,
-                        streamCache: StreamCRUD)
+                        streamZkDatabase: StreamCRUD)
 {
   private val authService = new AuthServiceImpl(authOpts)
 
-  private[server] val rocksStorage = new RocksStorage(
+  private val rocksStorage = new RocksStorage(
     storageOpts,
     rocksStorageOpts
   )
   private val streamServiceImpl = new StreamServiceImpl(
-    streamCache
+    streamZkDatabase
   )
 
   private val transactionIDService =
@@ -71,7 +73,7 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
   private val transactionDataServiceImpl = new TransactionDataServiceImpl(
     storageOpts,
     rocksStorageOpts,
-    streamCache
+    streamZkDatabase
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
@@ -154,6 +156,12 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
 
   final def getBigCommit(fileID: Long) =
     new BigCommit(this, fileID)
+
+  final def getBkBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]) =
+    new BkBigCommit(this, processedLastRecordIDsAcrossLedgers)
+
+  final def getNewBatch: KeyValueDatabaseBatch =
+    rocksStorage.newBatch
 
   final def createAndExecuteTransactionsToDeleteTask(timestamp: Long): Unit =
     transactionMetaServiceImpl.createAndExecuteTransactionsToDeleteTask(timestamp)

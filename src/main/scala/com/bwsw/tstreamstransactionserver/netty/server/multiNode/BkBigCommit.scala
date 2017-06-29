@@ -1,12 +1,29 @@
-package com.bwsw.tstreamstransactionserver.netty.server
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode
+
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{CommitLogKey, ProducerTransactionRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
+import com.bwsw.tstreamstransactionserver.netty.server.{Commitable, RocksStorage, TransactionServer}
 import org.slf4j.{Logger, LoggerFactory}
 
-class BigCommit(transactionServer: TransactionServer,
-                fileID: Long)
+private object BkBigCommit {
+  val databaseKey: Array[Byte] = {
+    val size = java.lang.Integer.BYTES
+    val buffer = java.nio.ByteBuffer
+      .allocate(size)
+      .putLong(-1L)
+    buffer.flip()
+
+    val bytes = new Array[Byte](size)
+    buffer.get(bytes)
+    bytes
+  }
+}
+
+class BkBigCommit(transactionServer: TransactionServer,
+                  processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID])
   extends Commitable {
 
   private val logger: Logger =
@@ -68,8 +85,9 @@ class BigCommit(transactionServer: TransactionServer,
   }
 
   override def commit(): Boolean = {
-    val key = CommitLogKey(fileID).toByteArray
-    val value = Array[Byte]()
+    val key   = BkBigCommit.databaseKey
+    val value = MetadataRecord(processedLastRecordIDsAcrossLedgers)
+      .toByteArray
 
     batch.put(RocksStorage.COMMIT_LOG_STORE, key, value)
     if (batch.write()) {

@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.OpenTransactionHandler._
@@ -50,7 +50,7 @@ class OpenTransactionHandler(server: TransactionServer,
     )
 
     scheduledCommitLog.putData(
-      CommitLogToRocksWriter.putTransactionType,
+      RecordType.PutTransactionType.id.toByte,
       binaryTransaction
     )
 

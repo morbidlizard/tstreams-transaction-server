@@ -88,8 +88,6 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
       }
   }
 
-  private type Timestamp = Long
-
   private final def selectInOrderProducerTransactions(transactions: Seq[ProducerTransactionRecord],
                                                                        batch: KeyValueDatabaseBatch) = {
     val producerTransactions = ArrayBuffer[ProducerTransactionRecord]()
@@ -122,18 +120,8 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
     producerTransactions
   }
 
-  private final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[ProducerTransactionRecord]): Map[StreamKey, Seq[ProducerTransactionRecord]] = {
-    if (logger.isDebugEnabled)
-      logger.debug("Mapping all producer transactions streams attrbute to long representation(ID), " +
-        "grouping them by stream and partition, " +
-        "checking that the stream isn't deleted in order to process producer transactions."
-      )
 
-    txns.groupBy(txn => StreamKey(txn.stream))
-  }
-
-
-  private final def groupProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]) =
+  private final def groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions: Seq[ProducerTransactionRecord]) =
     producerTransactions.groupBy(txn => txn.key)
 
   private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
@@ -200,48 +188,46 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
   def putTransactions(transactions: Seq[ProducerTransactionRecord],
                       batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
 
+    val notifications = new scala.collection.mutable.ListBuffer[Unit => Unit]()
+
     val producerTransactions =
       selectInOrderProducerTransactions(transactions, batch)
 
-    val groupedProducerTransactionsWithTimestamp =
-      groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions)
+    val groupedProducerTransactions =
+      groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions)
 
-    val notifications = new scala.collection.mutable.ListBuffer[Unit => Unit]()
-    groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
-      val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
-      groupedProducerTransactions foreach { case (key, txns) =>
-        //retrieving an opened transaction from opened transaction database if it exist
-        val openedTransactionOpt = getOpenedTransaction(key)
+    groupedProducerTransactions foreach { case (key, txns) =>
+      //retrieving an opened transaction from opened transaction database if it exist
+      val openedTransactionOpt = getOpenedTransaction(key)
 
-        openedTransactionOpt match {
-          case Some(data) =>
-            val persistedProducerTransactionRocks = ProducerTransactionRecord(key, data)
-            if (logger.isDebugEnabled)
-              logger.debug(
-                s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
-                  s"partition ${persistedProducerTransactionRocks.partition}, " +
-                  s"transaction ${persistedProducerTransactionRocks.transactionID} " +
-                  s"with state ${persistedProducerTransactionRocks.state} to new state"
-              )
+      openedTransactionOpt match {
+        case Some(data) =>
+          val persistedProducerTransactionRocks = ProducerTransactionRecord(key, data)
+          if (logger.isDebugEnabled)
+            logger.debug(
+              s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
+                s"partition ${persistedProducerTransactionRocks.partition}, " +
+                s"transaction ${persistedProducerTransactionRocks.transactionID} " +
+                s"with state ${persistedProducerTransactionRocks.state} to new state"
+            )
 
 
-            val producerTransaction =
-              transitProducerTransactionToNewState(persistedProducerTransactionRocks, txns)
+          val producerTransaction =
+            transitProducerTransactionToNewState(persistedProducerTransactionRocks, txns)
 
-            producerTransaction.foreach { transaction =>
-              putTransactionToAllAndOpenedTables(transaction, notifications, batch)
-            }
+          producerTransaction.foreach { transaction =>
+            putTransactionToAllAndOpenedTables(transaction, notifications, batch)
+          }
 
-          case None =>
-            if (logger.isDebugEnabled)
-              logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
+        case None =>
+          if (logger.isDebugEnabled)
+            logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
 
-            val producerTransaction = transitProducerTransactionToNewState(txns)
+          val producerTransaction = transitProducerTransactionToNewState(txns)
 
-            producerTransaction.foreach { transaction =>
-              putTransactionToAllAndOpenedTables(transaction, notifications, batch)
-            }
-        }
+          producerTransaction.foreach { transaction =>
+            putTransactionToAllAndOpenedTables(transaction, notifications, batch)
+          }
       }
     }
 

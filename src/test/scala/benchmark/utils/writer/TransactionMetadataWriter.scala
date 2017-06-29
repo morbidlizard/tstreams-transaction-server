@@ -11,7 +11,10 @@ import scala.concurrent.duration._
 class TransactionMetadataWriter(streamID: Int, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, filename: String) {
     val client = new ClientBuilder()
-        .withConnectionOptions(ConnectionOptions(requestTimeoutMs = 100))
+      .withAuthOptions(
+        com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions(key = "pingstation")
+      )
+      .withConnectionOptions(ConnectionOptions(requestTimeoutMs = 100))
       .build()
 
     var globalProgress = 1

@@ -9,7 +9,10 @@ import scala.concurrent.duration._
 
 class TransactionDataWriter(streamID: Int, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, dataSize: Int, filename: String) {
-    val client = new ClientBuilder().build()
+    val client = new ClientBuilder()
+      .withAuthOptions(
+        com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions(key = "pingstation")
+      ).build()
 
     var producerTransaction = createTransaction(streamID, partition, TransactionStates.Opened)
     println("Open a txn: " + time(Await.result(client.putTransactions(Seq(producerTransaction), Seq()),10.seconds)) + " ms")

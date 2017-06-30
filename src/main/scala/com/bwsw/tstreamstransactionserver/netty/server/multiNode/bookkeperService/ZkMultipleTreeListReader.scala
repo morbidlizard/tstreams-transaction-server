@@ -159,42 +159,40 @@ class ZkMultipleTreeListReader(val zkTreeLists: Array[ZookeeperTreeListLong],
         processedLastRecordIDsAcrossLedgers.length
       )
 
-    val nextRecordsAcrossLedgersToProcess: Array[LedgerIDAndItsLastRecordID] =
+    val nextRecordsAndLedgersToProcess: Array[LedgerIDAndItsLastRecordID] =
       getNextLedgersIfNecessary(
         getRecordsToStartWith(processedLastRecordIDsAcrossLedgersCopy)
       )
 
-    val notProcessedLedgersIndexes =
-      excludeProcessedLastLedgersIfTheyWere(nextRecordsAcrossLedgersToProcess)
+    val ledgersForNextProcessingIndexes =
+      excludeProcessedLastLedgersIfTheyWere(nextRecordsAndLedgersToProcess)
         .toArray
 
-    val lastRecordsAcrossLedgersToProcess =
-      notProcessedLedgersIndexes.map(index =>
-        nextRecordsAcrossLedgersToProcess(index)
+    val ledgersToProcess =
+      ledgersForNextProcessingIndexes.map(index =>
+        nextRecordsAndLedgersToProcess(index)
       )
 
     val timestampOpt: Option[Long] =
-      findMaxAvailableLastRecordTimestamp(lastRecordsAcrossLedgersToProcess)
+      findMaxAvailableLastRecordTimestamp(ledgersToProcess)
 
-    val (records, processedLedgers) = timestampOpt
+    val (records, processedLedgersAndRecords) = timestampOpt
       .map { timestamp =>
         val (records, ledgersIDsAndTheirRecordIDs) =
           getOrderedRecordsAndLastRecordIDsAcrossLedgers(
-            lastRecordsAcrossLedgersToProcess,
+            ledgersToProcess,
             timestamp
           ).unzip
 
-        val orderedRecords = records.flatten
-
-        (orderedRecords, ledgersIDsAndTheirRecordIDs)
+        (records.flatten, ledgersIDsAndTheirRecordIDs)
       }
-      .getOrElse((Array.empty[Record], lastRecordsAcrossLedgersToProcess))
+      .getOrElse((Array.empty[Record], ledgersToProcess))
 
     (records,
       orderLedgers(
-        nextRecordsAcrossLedgersToProcess,
-        processedLedgers,
-        notProcessedLedgersIndexes
+        nextRecordsAndLedgersToProcess,
+        processedLedgersAndRecords,
+        ledgersForNextProcessingIndexes
       )
     )
   }

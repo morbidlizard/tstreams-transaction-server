@@ -19,7 +19,7 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
 
 
   private def putConsumerTransaction(consumerRecords: java.util.Map[ConsumerTransactionKey, ConsumerTransactionRecord],
-                                     consumerTransactionRecord: ConsumerTransactionRecord) = {
+                                     consumerTransactionRecord: ConsumerTransactionRecord): Unit = {
     Option(
       consumerRecords.computeIfPresent(
         consumerTransactionRecord.key,
@@ -96,5 +96,14 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
           putConsumerTransaction(consumerRecords, consumerTransactionRecord)
         })
 
+//    recordsByType.get(RecordType.PutProducerStateWithDataType)
+//      .foreach(records =>
+//        records.foreach { record =>
+//          val producerTransactionAndData =
+//            RecordType.deserializePutProducerStateWithData(record.body)
+//
+//          producerTransactionAndData.
+//
+//        })
   }
 }

@@ -298,16 +298,16 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
     }
   }
 
-  final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] = {
-    val result = getLastTransactionIDAndCheckpointedID(streamID, partition) match {
-      case Some(last) => last.checkpointed match {
-        case Some(checkpointed) => Some(checkpointed.id)
-        case None => None
-      }
-      case None => None
-    }
-    result
-  }
+//  final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] = {
+//    val result = getLastTransactionIDAndCheckpointedID(streamID, partition) match {
+//      case Some(last) => last.checkpointed match {
+//        case Some(checkpointed) => Some(checkpointed.id)
+//        case None => None
+//      }
+//      case None => None
+//    }
+//    result
+//  }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
   def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =

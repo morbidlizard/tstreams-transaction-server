@@ -2,15 +2,17 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
+import scala.collection.JavaConverters._
 
 import scala.collection.mutable
 
 class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTreeListReader,
-                                        transactionServer: TransactionServer) {
+                                        transactionServer: TransactionServer)
+  extends Runnable
+{
   private type Timestamp = Long
 
   private def putConsumerTransaction(consumerRecords: java.util.Map[ConsumerTransactionKey, ConsumerTransactionRecord],
@@ -54,7 +56,7 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
     }
   }
 
-  def test() = {
+  def processAndPersistRecords(): Boolean = {
     val ledgerRecordIDs = transactionServer
       .getLastProcessedLedgersAndRecordIDs
       .getOrElse(Array.empty[LedgerIDAndItsLastRecordID])
@@ -62,10 +64,28 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
     val (records, ledgerIDsAndTheirLastRecordIDs) =
       zkMultipleTreeListReader.process(ledgerRecordIDs)
 
+    val bigCommit = transactionServer
+      .getBigCommit(ledgerIDsAndTheirLastRecordIDs)
+
     val recordsByType = records.groupBy(record => record.recordType)
 
     val producerRecords = new mutable.PriorityQueue[ProducerTransactionRecord]()
     val consumerRecords = new java.util.HashMap[ConsumerTransactionKey, ConsumerTransactionRecord]()
+
+    recordsByType.get(RecordType.PutTransactionDataType)
+      .foreach(records =>
+        records.foreach { record =>
+          val producerData =
+            RecordType.deserializePutTransactionData(record.body)
+
+          bigCommit.putProducerData(
+            producerData.streamID,
+            producerData.partition,
+            producerData.transaction,
+            producerData.data,
+            producerData.from
+          )
+        })
 
     recordsByType.get(RecordType.PutProducerStateWithDataType)
       .foreach(records =>
@@ -79,9 +99,15 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
               record.timestamp
             )
 
-          putProducerTransaction(producerRecords, producerTransactionRecord)
+          bigCommit.putProducerData(
+            producerTransactionRecord.stream,
+            producerTransactionRecord.partition,
+            producerTransactionRecord.transactionID,
+            producerTransactionAndData.data,
+            producerTransactionAndData.from
+          )
 
-          ???
+          putProducerTransaction(producerRecords, producerTransactionRecord)
         })
 
     recordsByType.get(RecordType.PutConsumerCheckpointType)
@@ -120,5 +146,18 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
             decomposeTransaction(producerRecords, consumerRecords, transaction, record.timestamp)
           )
         })
+
+    bigCommit.putProducerTransactions(
+      producerRecords.dequeueAll
+    )
+
+    bigCommit.putConsumerTransactions(
+      consumerRecords.values().asScala.toSeq
+    )
+
+    bigCommit.commit()
   }
+
+  override def run(): Unit =
+    processAndPersistRecords()
 }

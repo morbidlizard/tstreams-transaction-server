@@ -169,10 +169,13 @@ class ZkMultipleTreeListReader(val zkTreeLists: Array[ZookeeperTreeListLong],
         .toArray
 
 
-    if (nextRecordsAndLedgersToProcess.contains(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)) ||
-      nextRecordsAndLedgersToProcess.length != ledgersForNextProcessingIndexes.length) {
+    if (
+      nextRecordsAndLedgersToProcess.contains(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)) ||
+        nextRecordsAndLedgersToProcess.length != ledgersForNextProcessingIndexes.length
+    ) {
       (Array.empty[Record], processedLastRecordIDsAcrossLedgersCopy)
-    } else {
+    }
+    else {
 
       val ledgersToProcess =
         ledgersForNextProcessingIndexes.map(index =>

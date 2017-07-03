@@ -345,29 +345,7 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndIncrement()
     )
 
-    val thirdLedgerIntialTimestamp =
-      atomicLong.getAndSet(initialTime + 50) - 30
-
-    val thirdLedgerRecords = {
-      (0 until producerTransactionsNumber)
-        .map(txnID => getRandomProducerTransaction(
-          stream.id,
-          1,
-          Checkpointed,
-          txnID,
-          50000L
-        ))
-        .map { txn =>
-          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
-            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
-          )
-          new Record(
-            RecordType.PutTransactionType,
-            atomicLong.getAndIncrement(),
-            binaryTransaction
-          )
-        }
-    }
+    val firstBarrier = atomicLong.getAndSet(initialTime + 50)
 
     val secondLedgerRecords = {
       (0 until producerTransactionsNumber)
@@ -394,6 +372,34 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndIncrement()
     )
 
+    atomicLong.set(firstBarrier + 20)
+
+    val thirdLedgerRecords = {
+      (0 until producerTransactionsNumber)
+        .map(txnID => getRandomProducerTransaction(
+          stream.id,
+          1,
+          Checkpointed,
+          txnID,
+          50000L
+        ))
+        .map { txn =>
+          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
+            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
+          )
+          new Record(
+            RecordType.PutTransactionType,
+            atomicLong.getAndIncrement(),
+            binaryTransaction
+          )
+        }
+    }
+
+    val thirdTimestampRecord = new TimestampRecord(
+      atomicLong.getAndIncrement()
+    )
+
+
     val storage = new StorageManagerInMemory
 
     val firstLedger = storage.addLedger()
@@ -411,6 +417,9 @@ class ZkMultipleTreeListReaderTest
     zkTreeList2.createNode(secondLedger.id)
 
     val thirdLedger = storage.addLedger()
+    thirdLedgerRecords.foreach(record => thirdLedger.addEntry(record))
+    thirdLedger.addEntry(thirdTimestampRecord)
+
     zkTreeList1.createNode(thirdLedger.id)
 
     val trees = Array(zkTreeList1, zkTreeList2)
@@ -427,7 +436,7 @@ class ZkMultipleTreeListReaderTest
 
 
     records1.length shouldBe 150
-    records2.length shouldBe 0
+    records2.length shouldBe 80
 
     updatedLedgersWithTheirLastRecords1.head shouldBe
       LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
@@ -439,7 +448,15 @@ class ZkMultipleTreeListReaderTest
         ledgerLastRecordID = 49
       )
 
-    updatedLedgersWithTheirLastRecords1 should contain theSameElementsInOrderAs updatedLedgersWithTheirLastRecords2
+    updatedLedgersWithTheirLastRecords2.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = thirdLedger.id,
+        ledgerLastRecordID = 29
+      )
+
+    updatedLedgersWithTheirLastRecords2.tail.head shouldBe
+      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+        ledgerLastRecordID = producerTransactionsNumber
+      )
   }
 
   it should "retrieve records from database because ZkTreeListLong objects called 'treeList1' and 'treeList2' have ledgers ids and a storage contains records within the ledgers," +

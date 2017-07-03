@@ -27,8 +27,7 @@ class ZkMultipleTreeListReader(val zkTreeLists: Array[ZookeeperTreeListLong],
       zkTreeLists.map(zkTreeList =>
         zkTreeList.firstEntityID
           .map(id => LedgerIDAndItsLastRecordID(id, NoRecordRead))
-          .orElse(Some(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)))
-          .get
+          .getOrElse(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead))
       )
     }
   }
@@ -49,7 +48,7 @@ class ZkMultipleTreeListReader(val zkTreeLists: Array[ZookeeperTreeListLong],
         val timestamp = storageManager
           .getLedgerHandle(ledgerAndRecord.ledgerID)
           .map(ledgerHandle => ledgerHandle.lastEntry().get)
-          .map{record =>
+          .map { record =>
             require(
               record.recordType == RecordType.Timestamp,
               "All ledgers must have their last record as type of 'Timestamp'"
@@ -122,16 +121,17 @@ class ZkMultipleTreeListReader(val zkTreeLists: Array[ZookeeperTreeListLong],
       case (ledgerAndItsLastRecord, zkTreeList) =>
         storageManager
           .getLedgerHandle(ledgerAndItsLastRecord.ledgerID)
-          .flatMap { ledgerHandle => zkTreeList.lastEntityID.map(lastEntityID =>
-              if (lastEntityID != ledgerAndItsLastRecord.ledgerID &&
+          .flatMap { ledgerHandle =>
+            zkTreeList.lastEntityID.map(ledgerID =>
+              if (ledgerID != ledgerAndItsLastRecord.ledgerID &&
                 ledgerHandle.lastEntryID() == ledgerAndItsLastRecord.ledgerLastRecordID
               ) {
                 val newLedgerID = zkTreeList
                   .getNextNode(ledgerAndItsLastRecord.ledgerID)
                   .getOrElse(throw new
-                    IllegalStateException(
-                      s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledgerHandle.id}"
-                    )
+                      IllegalStateException(
+                        s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledgerHandle.id}"
+                      )
                   )
                 LedgerIDAndItsLastRecordID(newLedgerID, NoRecordRead)
               } else {
@@ -168,32 +168,39 @@ class ZkMultipleTreeListReader(val zkTreeLists: Array[ZookeeperTreeListLong],
       excludeProcessedLastLedgersIfTheyWere(nextRecordsAndLedgersToProcess)
         .toArray
 
-    val ledgersToProcess =
-      ledgersForNextProcessingIndexes.map(index =>
-        nextRecordsAndLedgersToProcess(index)
+
+    if (nextRecordsAndLedgersToProcess.contains(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)) ||
+      nextRecordsAndLedgersToProcess.length != ledgersForNextProcessingIndexes.length) {
+      (Array.empty[Record], processedLastRecordIDsAcrossLedgersCopy)
+    } else {
+
+      val ledgersToProcess =
+        ledgersForNextProcessingIndexes.map(index =>
+          nextRecordsAndLedgersToProcess(index)
+        )
+
+      val timestampOpt: Option[Long] =
+        findMaxAvailableLastRecordTimestamp(ledgersToProcess)
+
+      val (records, processedLedgersAndRecords) = timestampOpt
+        .map { timestamp =>
+          val (records, ledgersIDsAndTheirRecordIDs) =
+            getOrderedRecordsAndLastRecordIDsAcrossLedgers(
+              ledgersToProcess,
+              timestamp
+            ).unzip
+
+          (records.flatten, ledgersIDsAndTheirRecordIDs)
+        }
+        .getOrElse((Array.empty[Record], ledgersToProcess))
+
+      (records,
+        orderLedgers(
+          nextRecordsAndLedgersToProcess,
+          processedLedgersAndRecords,
+          ledgersForNextProcessingIndexes
+        )
       )
-
-    val timestampOpt: Option[Long] =
-      findMaxAvailableLastRecordTimestamp(ledgersToProcess)
-
-    val (records, processedLedgersAndRecords) = timestampOpt
-      .map { timestamp =>
-        val (records, ledgersIDsAndTheirRecordIDs) =
-          getOrderedRecordsAndLastRecordIDsAcrossLedgers(
-            ledgersToProcess,
-            timestamp
-          ).unzip
-
-        (records.flatten, ledgersIDsAndTheirRecordIDs)
-      }
-      .getOrElse((Array.empty[Record], ledgersToProcess))
-
-    (records,
-      orderLedgers(
-        nextRecordsAndLedgersToProcess,
-        processedLedgersAndRecords,
-        ledgersForNextProcessingIndexes
-      )
-    )
+    }
   }
 }

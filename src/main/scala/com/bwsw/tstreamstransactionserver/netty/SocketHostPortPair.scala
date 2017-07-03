@@ -21,7 +21,7 @@
 package com.bwsw.tstreamstransactionserver.netty
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
-import com.google.common.net.InetAddresses
+import org.apache.commons.validator.routines.{DomainValidator, InetAddressValidator}
 
 import scala.util.{Failure, Success, Try}
 
@@ -31,6 +31,8 @@ case class SocketHostPortPair(address: String, port: Int){
 }
 
 object SocketHostPortPair {
+  private val domainValidator = DomainValidator.getInstance()
+  private val inetAddressValidator = InetAddressValidator.getInstance()
 
   def fromString(hostPortPair: String): Option[SocketHostPortPair] = {
     val splitIndex = hostPortPair.lastIndexOf(':')
@@ -50,9 +52,9 @@ object SocketHostPortPair {
   }
 
   def isValid(inetAddress: String, port: Int): Boolean = {
-    val validHostname = scala.util.Try(java.net.InetAddress.getByName(inetAddress))
+    val validHostname = domainValidator.isValid(inetAddress)
     if (port > 0 && port < 65536 && inetAddress != null &&
-        (InetAddresses.isInetAddress(inetAddress) || validHostname.isSuccess)
+        (inetAddressValidator.isValid(inetAddress) || validHostname)
     ) true
     else false
   }

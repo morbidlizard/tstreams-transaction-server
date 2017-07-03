@@ -67,54 +67,18 @@ class ZkMultipleTreeListReaderTest
       storage
     )
 
+    val ledgerRecordIDs = Array.empty[LedgerIDAndItsLastRecordID]
     val (records, updatedLedgersWithTheirLastRecords) =
-      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.process(ledgerRecordIDs)
 
     records shouldBe empty
-    updatedLedgersWithTheirLastRecords.length shouldBe trees.length
-    updatedLedgersWithTheirLastRecords.foreach(ledgerIDAndItsLastRecordID =>
-      ledgerIDAndItsLastRecordID shouldBe
-        LedgerIDAndItsLastRecordID(ledgerID = -1L, ledgerLastRecordID = -1L)
-    )
+    ledgerRecordIDs should contain theSameElementsAs updatedLedgersWithTheirLastRecords
   }
 
-  it should "retrieve records even if one of ZkTreeListLong objects doesn't have entities" in {
+  it should "not retrieve records as one of ZkTreeListLong objects doesn't have entities" in {
     val storage = new StorageManagerInMemory
 
-    val producerTransactionsNumber = 99
-
-    val initialTime = 0L
-    val atomicLong = new AtomicLong(initialTime)
-    val stream = generateStream
-
-    val firstTreeRecords = {
-      (0 until producerTransactionsNumber)
-        .map(txnID => getRandomProducerTransaction(
-          stream.id,
-          1,
-          Opened,
-          txnID,
-          50000L
-        ))
-        .map { txn =>
-          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
-            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
-          )
-          new Record(
-            RecordType.PutTransactionType,
-            atomicLong.getAndIncrement(),
-            binaryTransaction
-          )
-        }
-    }
-
-    val firstTimestampRecord = new TimestampRecord(
-      atomicLong.getAndIncrement()
-    )
-
     val firstLedger = storage.addLedger()
-    firstTreeRecords.foreach(binaryRecord => firstLedger.addEntry(binaryRecord))
-    firstLedger.addEntry(firstTimestampRecord)
 
     val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
     val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
@@ -127,13 +91,12 @@ class ZkMultipleTreeListReaderTest
       storage
     )
 
+    val ledgerRecordIDs = Array.empty[LedgerIDAndItsLastRecordID]
     val (records, updatedLedgersWithTheirLastRecords) =
-      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.process(ledgerRecordIDs)
 
-    records.length shouldBe 100
-    updatedLedgersWithTheirLastRecords.length shouldBe trees.length
-    updatedLedgersWithTheirLastRecords.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(firstLedger.id, producerTransactionsNumber)
+    records shouldBe empty
+    ledgerRecordIDs should contain theSameElementsAs ledgerRecordIDs
   }
 
 
@@ -239,15 +202,7 @@ class ZkMultipleTreeListReaderTest
         ledgerLastRecordID = producerTransactionsNumber
       )
 
-    updatedLedgersWithTheirLastRecords2.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
-        ledgerLastRecordID = producerTransactionsNumber
-      )
-
-    updatedLedgersWithTheirLastRecords2.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
-        ledgerLastRecordID = producerTransactionsNumber
-      )
+    updatedLedgersWithTheirLastRecords1 should contain theSameElementsInOrderAs updatedLedgersWithTheirLastRecords2
   }
 
   it should "retrieve records from database ZkTreeListLong objects called 'treeList1' and 'treeList2' have ledgers ids and a storage contains records within the ledgers," +
@@ -340,7 +295,7 @@ class ZkMultipleTreeListReaderTest
       testReader.process(updatedLedgersWithTheirLastRecords1)
 
     records1.length shouldBe 150
-    records2.length shouldBe 50
+    records2.length shouldBe 0
 
     updatedLedgersWithTheirLastRecords1.head shouldBe
       LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
@@ -353,15 +308,7 @@ class ZkMultipleTreeListReaderTest
       )
 
 
-    updatedLedgersWithTheirLastRecords2.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
-        ledgerLastRecordID = producerTransactionsNumber
-      )
-
-    updatedLedgersWithTheirLastRecords2.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
-        ledgerLastRecordID = producerTransactionsNumber
-      )
+    updatedLedgersWithTheirLastRecords1 should contain theSameElementsInOrderAs updatedLedgersWithTheirLastRecords2
   }
 
   it should "retrieve records from database because ZkTreeListLong objects called 'treeList1' and 'treeList2' have ledgers ids and a storage contains records within the ledgers," +
@@ -373,7 +320,7 @@ class ZkMultipleTreeListReaderTest
     val initialTime = 0L
     val atomicLong = new AtomicLong(initialTime)
 
-    val firstTreeRecords = {
+    val firstLedgerRecords = {
       (0 until producerTransactionsNumber)
         .map(txnID => getRandomProducerTransaction(
           stream.id,
@@ -398,9 +345,31 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndIncrement()
     )
 
-    atomicLong.set(initialTime + 50)
+    val thirdLedgerIntialTimestamp =
+      atomicLong.getAndSet(initialTime + 50) - 30
 
-    val secondTreeRecords = {
+    val thirdLedgerRecords = {
+      (0 until producerTransactionsNumber)
+        .map(txnID => getRandomProducerTransaction(
+          stream.id,
+          1,
+          Checkpointed,
+          txnID,
+          50000L
+        ))
+        .map { txn =>
+          val binaryTransaction = Protocol.PutTransaction.encodeRequest(
+            TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
+          )
+          new Record(
+            RecordType.PutTransactionType,
+            atomicLong.getAndIncrement(),
+            binaryTransaction
+          )
+        }
+    }
+
+    val secondLedgerRecords = {
       (0 until producerTransactionsNumber)
         .map(txnID => getRandomProducerTransaction(
           stream.id,
@@ -428,11 +397,11 @@ class ZkMultipleTreeListReaderTest
     val storage = new StorageManagerInMemory
 
     val firstLedger = storage.addLedger()
-    firstTreeRecords.foreach(record => firstLedger.addEntry(record))
+    firstLedgerRecords.foreach(record => firstLedger.addEntry(record))
     firstLedger.addEntry(firstTimestampRecord)
 
     val secondLedger = storage.addLedger()
-    secondTreeRecords.foreach(record => secondLedger.addEntry(record))
+    secondLedgerRecords.foreach(record => secondLedger.addEntry(record))
     secondLedger.addEntry(secondTimestampRecord)
 
     val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
@@ -456,8 +425,9 @@ class ZkMultipleTreeListReaderTest
     val (records2, updatedLedgersWithTheirLastRecords2) =
       testReader.process(updatedLedgersWithTheirLastRecords1)
 
+
     records1.length shouldBe 150
-    records2.length shouldBe 50
+    records2.length shouldBe 0
 
     updatedLedgersWithTheirLastRecords1.head shouldBe
       LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
@@ -469,16 +439,7 @@ class ZkMultipleTreeListReaderTest
         ledgerLastRecordID = 49
       )
 
-
-    updatedLedgersWithTheirLastRecords2.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = thirdLedger.id,
-        ledgerLastRecordID = -1L
-      )
-
-    updatedLedgersWithTheirLastRecords2.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
-        ledgerLastRecordID = producerTransactionsNumber
-      )
+    updatedLedgersWithTheirLastRecords1 should contain theSameElementsInOrderAs updatedLedgersWithTheirLastRecords2
   }
 
   it should "retrieve records from database because ZkTreeListLong objects called 'treeList1' and 'treeList2' have ledgers ids and a storage contains records within the ledgers," +
@@ -571,7 +532,7 @@ class ZkMultipleTreeListReaderTest
       testReader.process(updatedLedgersWithTheirLastRecords1)
 
     records1.length shouldBe 150
-    records2.length shouldBe 50
+    records2.length shouldBe 0
 
     updatedLedgersWithTheirLastRecords1.head shouldBe
       LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
@@ -583,16 +544,7 @@ class ZkMultipleTreeListReaderTest
         ledgerLastRecordID = producerTransactionsNumber
       )
 
-
-    updatedLedgersWithTheirLastRecords2.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
-        ledgerLastRecordID = producerTransactionsNumber
-      )
-
-    updatedLedgersWithTheirLastRecords2.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
-        ledgerLastRecordID = producerTransactionsNumber
-      )
+    updatedLedgersWithTheirLastRecords1 should contain theSameElementsInOrderAs updatedLedgersWithTheirLastRecords2
   }
 
 }

@@ -5,9 +5,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerT
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{CommitLogKey, ProducerTransactionRecord}
 import org.slf4j.{Logger, LoggerFactory}
 
+object BigCommit {
+  val bookkeeperKey = "key".getBytes()
+}
+
+
 class BigCommit(transactionServer: TransactionServer,
-                fileID: Long)
-  extends Commitable {
+                databaseIndex: Int,
+                key: Array[Byte],
+                value: Array[Byte]) {
 
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
@@ -19,7 +25,7 @@ class BigCommit(transactionServer: TransactionServer,
     new scala.collection.mutable.ListBuffer[Unit => Unit]
 
 
-  override def putProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]): Unit = {
+  def putProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]): Unit = {
     if (logger.isDebugEnabled) {
       logger.debug(s"[batch ${batch.id}] " +
         s"Adding producer transactions to commit.")
@@ -32,7 +38,7 @@ class BigCommit(transactionServer: TransactionServer,
       )
   }
 
-  override def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord]): Unit = {
+  def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord]): Unit = {
     if (logger.isDebugEnabled) {
       logger.debug(s"[batch ${batch.id}] " +
         s"Adding consumer transactions to commit.")
@@ -45,11 +51,11 @@ class BigCommit(transactionServer: TransactionServer,
       )
   }
 
-  override def putProducerData(streamID: Int,
-                               partition: Int,
-                               transaction: Long,
-                               data: Seq[ByteBuffer],
-                               from: Int): Boolean = {
+  def putProducerData(streamID: Int,
+                      partition: Int,
+                      transaction: Long,
+                      data: Seq[ByteBuffer],
+                      from: Int): Boolean = {
     val isDataPersisted = transactionServer.putTransactionData(
       streamID,
       partition,
@@ -67,11 +73,8 @@ class BigCommit(transactionServer: TransactionServer,
     isDataPersisted
   }
 
-  override def commit(): Boolean = {
-    val key = CommitLogKey(fileID).toByteArray
-    val value = Array[Byte]()
-
-    batch.put(RocksStorage.COMMIT_LOG_STORE, key, value)
+  def commit(): Boolean = {
+    batch.put(databaseIndex, key, value)
     if (batch.write()) {
       if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
       notifications foreach (notification => notification(()))

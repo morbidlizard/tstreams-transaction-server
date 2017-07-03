@@ -20,9 +20,10 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.{BigCommit, RocksStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamKey
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
 import com.bwsw.tstreamstransactionserver.rpc._
@@ -236,7 +237,6 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
 
 
   private val commitLogDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.COMMIT_LOG_STORE)
-
   private[server] final def getLastProcessedCommitLogFileID: Option[Long] = {
     val iterator = commitLogDatabase.iterator
     iterator.seekToLast()
@@ -250,19 +250,33 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
     id
   }
 
-  private[server] final def getProcessedCommitLogFiles: ArrayBuffer[Long] = {
-    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
+//  private[server] final def getProcessedCommitLogFiles: ArrayBuffer[Long] = {
+//    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
+//
+//    val iterator = commitLogDatabase.iterator
+//    iterator.seekToFirst()
+//
+//    while (iterator.isValid) {
+//      processedCommitLogFiles += CommitLogKey.fromByteArray(iterator.key()).id
+//      iterator.next()
+//    }
+//    iterator.close()
+//
+//    processedCommitLogFiles
+//  }
 
-    val iterator = commitLogDatabase.iterator
-    iterator.seekToFirst()
+  private val bookkeeperLogDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.BOOKKEEPER_LOG_STORE)
+  private[server] final def getLastProcessedLedgerAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] = {
+    val iterator = bookkeeperLogDatabase.iterator
+    iterator.seek(BigCommit.bookkeeperKey)
 
-    while (iterator.isValid) {
-      processedCommitLogFiles += CommitLogKey.fromByteArray(iterator.key()).id
-      iterator.next()
-    }
+    val records = if (iterator.isValid)
+      Some(MetadataRecord.fromByteArray(iterator.value()).records)
+    else
+      None
+
     iterator.close()
-
-    processedCommitLogFiles
+    records
   }
 
 

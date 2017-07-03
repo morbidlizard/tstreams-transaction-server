@@ -40,7 +40,8 @@ class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions, 
         columnFamilyOptions,
         TimeUnit.MINUTES.toSeconds(rocksOpts.transactionExpungeDelayMin).toInt
       ),
-      RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions)
+      RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions),
+      RocksDatabaseDescriptor("BookkeeperLogStore".getBytes(),                 columnFamilyOptions)
     ),
     readOnly
   )
@@ -54,4 +55,5 @@ object RocksStorage {
   val COMMIT_LOG_STORE = 4
   val TRANSACTION_ALL_STORE = 5
   val TRANSACTION_OPEN_STORE = 6
+  val BOOKKEEPER_LOG_STORE = 7
 }

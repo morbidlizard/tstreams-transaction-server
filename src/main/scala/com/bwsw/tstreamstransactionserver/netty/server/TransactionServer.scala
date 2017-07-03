@@ -25,12 +25,11 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.BkBigCommit
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord, ProducerTransactionValue, TransactionMetaServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc
 import com.bwsw.tstreamstransactionserver.rpc._
@@ -90,6 +89,9 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
 
   final def getLastProcessedCommitLogFileID: Long =
     transactionMetaServiceImpl.getLastProcessedCommitLogFileID.getOrElse(-1L)
+
+  final def getLastProcessedLedgersAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] =
+    transactionMetaServiceImpl.getLastProcessedLedgerAndRecordIDs
 
   final def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Int =
     streamServiceImpl.putStream(stream, partitions, description, ttl)
@@ -154,11 +156,15 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
     authService.authenticate(authKey)
   }
 
-  final def getBigCommit(fileID: Long) =
-    new BigCommit(this, fileID)
+  final def getBigCommit(fileID: Long): BigCommit = {
+    val key = CommitLogKey(fileID).toByteArray
+    new BigCommit(this, RocksStorage.COMMIT_LOG_STORE, key, Array.emptyByteArray)
+  }
 
-  final def getBkBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]) =
-    new BkBigCommit(this, processedLastRecordIDsAcrossLedgers)
+  final def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit = {
+    val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
+    new BigCommit(this, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
+  }
 
   final def getNewBatch: KeyValueDatabaseBatch =
     rocksStorage.newBatch

@@ -6,7 +6,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.{CacheLRU, TransactionDataServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue, TransactionMetaServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
@@ -34,6 +34,10 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   private val streamServiceImpl = new StreamServiceImpl(
     streamCache
   )
+
+  private val transactionIDService =
+    com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
+
   private val consumerServiceImpl = new ConsumerServiceImpl(
     rocksStorage.rocksMetaServiceDB
   )
@@ -48,8 +52,7 @@ class TransactionServer(val executionContext: ServerExecutionContext,
   private val transactionDataServiceImpl = new TransactionDataServiceImpl(
     storageOpts,
     rocksStorageOpts,
-    streamCache,
-    new CacheLRU(rocksStorageOpts.transactionCacheSize)
+    streamCache
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
@@ -78,6 +81,12 @@ class TransactionServer(val executionContext: ServerExecutionContext,
 
   final def delStream(name: String): Boolean =
     streamServiceImpl.delStream(name)
+
+  final def getTransactionID: Long =
+    transactionIDService.getTransaction()
+
+  final def getTransactionIDByTimestamp(timestamp: Long): Long =
+    transactionIDService.getTransaction(timestamp)
 
   final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean =
     transactionDataServiceImpl.putTransactionData(streamID, partition, transaction, data, from)

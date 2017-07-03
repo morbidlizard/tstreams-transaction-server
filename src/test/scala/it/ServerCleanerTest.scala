@@ -18,7 +18,9 @@ import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey,
 
 import scala.language.reflectiveCalls
 
-class ServerCleanerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class ServerCleanerTest extends FlatSpec
+  with Matchers
+  with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 

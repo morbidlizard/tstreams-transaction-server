@@ -42,7 +42,9 @@ final class StreamDatabaseZK(client: CuratorFramework, path: String)
       .map(steamValue => streamService.StreamRecord(streamKey, steamValue))
       .orElse{
         val streamRecordOpt = streamIDPath.get(streamKey)
-        streamRecordOpt.foreach(streamRecord => streamCache.put(streamRecord.key, streamRecord.stream))
+        streamRecordOpt.foreach(streamRecord =>
+          streamCache.put(streamRecord.key, streamRecord.stream)
+        )
         streamRecordOpt
       }
   }

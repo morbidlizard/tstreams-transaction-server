@@ -2,6 +2,10 @@
 *.log.*
 
 # sbt specific
+
+src/main/protobuf/gen
+src/main/thrift/gen
+
 .cache
 .lib/
 dist/*
@@ -16,3 +20,4 @@ project/plugins/project/
 .worksheet
 .idea
 *.csv
+Будет удалено project/project/

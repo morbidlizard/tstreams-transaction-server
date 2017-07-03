@@ -1,15 +1,25 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 
-class CommitLogKey(val id: Long) extends AnyVal{
+class CommitLogKey(val id: Long)
+  extends AnyVal
+{
   def toByteArray: Array[Byte] = {
-    java.nio.ByteBuffer.allocate(java.lang.Long.BYTES)
+    val size = CommitLogKey.sizeInBytes
+
+    val buffer = java.nio.ByteBuffer.allocate(size)
       .putLong(id)
-      .array()
+    buffer.flip()
+
+    val bytes = new Array[Byte](size)
+    buffer.get(bytes)
+    bytes
   }
 }
 
 object CommitLogKey {
+  private val sizeInBytes = java.lang.Long.BYTES
+
   def apply(id: Long): CommitLogKey = new CommitLogKey(id)
 
   def fromByteArray(bytes: Array[Byte]): CommitLogKey = {

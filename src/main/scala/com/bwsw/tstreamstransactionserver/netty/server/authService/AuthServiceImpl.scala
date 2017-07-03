@@ -11,7 +11,7 @@ class AuthServiceImpl(authOpts: AuthOptions) {
   private val random = scala.util.Random
   private val usersToken = CacheBuilder.newBuilder()
     .maximumSize(authOpts.activeTokensNumber)
-    .expireAfterAccess(authOpts.tokenTtl, java.util.concurrent.TimeUnit.SECONDS)
+    .expireAfterAccess(authOpts.tokenTTL, java.util.concurrent.TimeUnit.SECONDS)
     .build[java.lang.Integer, String]()
 
   private[server] final def authenticate(authKey: String): Int = {

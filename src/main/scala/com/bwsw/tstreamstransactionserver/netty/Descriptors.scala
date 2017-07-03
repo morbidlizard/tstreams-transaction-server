@@ -57,13 +57,33 @@ object Descriptors {
 
     /** A method for serializing request and adding an id to id. */
     @inline
-    final def encodeRequest(entity: Request)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
+    final def encodeRequestToMessage(entity: Request)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
       encode(entity, protocolReq, messageId, token, isFireAndForgetMethod)
 
 
+    @inline
+    final def encodeRequest(entity: Request): Array[Byte] = {
+      val buffer = new TMemoryBuffer(128)
+      val oprot =  protocolReq.getProtocol(buffer)
+
+      entity.write(oprot)
+
+      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
+    }
+
+    @inline
+    final def encodeResponse(entity: Response): Array[Byte] = {
+      val buffer = new TMemoryBuffer(128)
+      val oprot =  protocolRep.getProtocol(buffer)
+
+      entity.write(oprot)
+
+      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
+    }
+
     /** A method for serializing response and adding an id to id. */
     @inline
-    final def encodeResponse(entity: Response)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
+    final def encodeResponseToMessage(entity: Response)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): Message =
     encode(entity, protocolRep, messageId, token, isFireAndForgetMethod)
 
 
@@ -78,6 +98,20 @@ object Descriptors {
       codecReq.decode(iprot)
     }
 
+
+    @inline
+    final def decodeRequest(body: Array[Byte]): Request = {
+      val iprot = protocolReq.getProtocol(new TMemoryInputTransport(body))
+      codecReq.decode(iprot)
+    }
+
+    @inline
+    final def decodeResponse(body: Array[Byte]): Response = {
+      val iprot = protocolRep.getProtocol(new TMemoryInputTransport(body))
+      codecRep.decode(iprot)
+    }
+
+
     /** A method for deserialization response.
       *
       * @param message a structure that contains a binary body of response.
@@ -87,26 +121,6 @@ object Descriptors {
     final def decodeResponse(message: Message): Response = {
       val iprot = protocolRep.getProtocol(new TMemoryInputTransport(message.body))
       codecRep.decode(iprot)
-    }
-
-    @inline
-    final def responseToByteArray(entity: Response, protocol: TProtocolFactory): Array[Byte] = {
-      val buffer = new TMemoryBuffer(128)
-
-      val oprot = protocol.getProtocol(buffer)
-      entity.write(oprot)
-
-      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-    }
-
-    @inline
-    final def requestToByteArray(entity: Response, protocol: TProtocolFactory): Array[Byte] = {
-      val buffer = new TMemoryBuffer(128)
-
-      val oprot = protocol.getProtocol(buffer)
-      entity.write(oprot)
-
-      util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
     }
 
     @inline
@@ -148,8 +162,10 @@ object Descriptors {
   val getStreamMethod = "getStream"
   val delStreamMethod = "delStream"
   val putTransactionMethod = "putTransaction"
+  val putProducerStateWithData = "putProducerStateWithData"
   val putSimpleTransactionAndDataMethod = "putSimpleTransactionAndData"
   val putTransactionsMethod = "putTransactions"
+  val openTransactionMethod = "openTransaction"
   val getTransactionMethod = "getTransaction"
   val getLastCheckpointedTransactionMethod = "getLastCheckpointedTransaction"
   val scanTransactionsMethod = "scanTransactions"
@@ -159,6 +175,8 @@ object Descriptors {
   val getConsumerStateMethod = "getConsumerState"
   val authenticateMethod = "authenticate"
   val isValidMethod = "isValid"
+  val getTransactionID = "getTransactionID"
+  val getTransactionIDByTimestamp = "getTransactionIDByTimestamp"
 
   final def methodWithArgsToString(id: Long, struct: ThriftStruct): String = {
     def toString(methodName: String, arguments: Iterator[Any], fields: List[String]) = {
@@ -178,10 +196,14 @@ object Descriptors {
         toString(DelStream.name, struct.productIterator, TransactionService.DelStream.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutTransaction.Args    =>
         toString(PutTransaction.name, struct.productIterator, TransactionService.PutTransaction.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.PutProducerStateWithData.Args =>
+        toString(PutProducerStateWithData.name, struct.productIterator, TransactionService.PutProducerStateWithData.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.PutSimpleTransactionAndData.Args =>
         toString(PutSimpleTransactionAndData.name, struct.productIterator, TransactionService.PutSimpleTransactionAndData.Args.fieldInfos.map(_.tfield.name))
-      case struct: TransactionService.PutTransactions.Args   =>
+      case struct: TransactionService.PutTransactions.Args =>
         toString(PutTransactions.name, struct.productIterator, TransactionService.PutTransactions.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.OpenTransaction.Args =>
+        toString(OpenTransaction.name, struct.productIterator, TransactionService.OpenTransaction.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetTransaction.Args    =>
         toString(GetTransaction.name, struct.productIterator, TransactionService.GetTransaction.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetLastCheckpointedTransaction.Args =>
@@ -200,7 +222,12 @@ object Descriptors {
         toString(Authenticate.name, struct.productIterator, TransactionService.Authenticate.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.IsValid.Args   =>
         toString(IsValid.name, struct.productIterator, TransactionService.IsValid.Args.fieldInfos.map(_.tfield.name))
-      case struct => throw new NotImplementedError(s"$struct is not implemeted for debug information")
+      case struct: TransactionService.GetTransactionID.Args   =>
+        toString(GetTransactionID.name, struct.productIterator, TransactionService.GetTransactionID.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetTransactionIDByTimestamp.Args   =>
+        toString(GetTransactionIDByTimestamp.name, struct.productIterator, TransactionService.GetTransactionIDByTimestamp.Args.fieldInfos.map(_.tfield.name))
+      case _ =>
+        throw new NotImplementedError(s"$struct is not implemeted for debug information")
     }
   }
 
@@ -255,23 +282,15 @@ object Descriptors {
   case object IsValid extends
     Descriptor(isValidMethod, 16:Byte, TransactionService.IsValid.Args, TransactionService.IsValid.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 
-  lazy val methods = Array(
-    GetCommitLogOffsets,
-    PutStream,
-    CheckStreamExists,
-    GetStream,
-    DelStream,
-    PutTransaction,
-    PutTransactions,
-    PutSimpleTransactionAndData,
-    GetTransaction,
-    GetLastCheckpointedTransaction,
-    ScanTransactions,
-    PutTransactionData,
-    GetTransactionData,
-    PutConsumerCheckpoint,
-    GetConsumerState,
-    Authenticate,
-    IsValid
-  )
+  case object GetTransactionID extends
+    Descriptor(getTransactionID, 17:Byte, TransactionService.GetTransactionID.Args, TransactionService.GetTransactionID.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  case object GetTransactionIDByTimestamp extends
+    Descriptor(getTransactionIDByTimestamp, 18:Byte, TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  case object OpenTransaction extends
+    Descriptor(openTransactionMethod, 19:Byte, TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  case object PutProducerStateWithData extends
+    Descriptor(putProducerStateWithData, 20:Byte, TransactionService.PutProducerStateWithData.Args, TransactionService.PutProducerStateWithData.Result, protocolTCompactFactory, protocolTBinaryFactory)
 }

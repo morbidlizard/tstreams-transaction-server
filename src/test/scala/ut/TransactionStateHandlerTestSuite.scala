@@ -16,67 +16,61 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
   val streamPartitions = 1
 
   it should "not put producerTransaction with state: Checkpointed. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Checkpointed, ts)
 
     //act and assert
-    assertThrows[IllegalArgumentException] {
-      transactionStateHandler.transitProducerTransactionToNewState(Seq(producerTransaction))
-    }
+    transactionStateHandler
+      .transitProducerTransactionToNewState(Seq(producerTransaction)) shouldBe None
   }
 
   it should "not put producerTransaction with state: Invalid. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Invalid, ts)
 
     //act and assert
-    assertThrows[IllegalArgumentException] {
-      transactionStateHandler.transitProducerTransactionToNewState(Seq(producerTransaction))
-    }
+    transactionStateHandler
+      .transitProducerTransactionToNewState(Seq(producerTransaction)) shouldBe None
   }
 
   it should "not put producerTransaction with state: Cancel. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Cancel, ts)
 
     //act and assert
-    assertThrows[IllegalArgumentException] {
-      transactionStateHandler.transitProducerTransactionToNewState(Seq(producerTransaction))
-    }
+    transactionStateHandler
+      .transitProducerTransactionToNewState(Seq(producerTransaction)) shouldBe None
   }
 
   it should "not put producerTransaction with state: Updated. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Updated, ts)
 
     //act and assert
-    assertThrows[IllegalArgumentException] {
-      transactionStateHandler.transitProducerTransactionToNewState(Seq(producerTransaction))
-    }
+    transactionStateHandler
+      .transitProducerTransactionToNewState(Seq(producerTransaction)) shouldBe None
   }
 
   it should "not process the following chain of states of producer transactions: Opened -> Invalid. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val openedProducerTransaction = createProducerTransaction(Opened, ts)
     val invalidProducerTransaction = createProducerTransaction(Invalid, ts + 1)
 
     //act and assert
-    assertThrows[IllegalArgumentException] {
-      transactionStateHandler.transitProducerTransactionToNewState(
-        Seq(
-          openedProducerTransaction,
-          invalidProducerTransaction
-        ))
-    }
+    transactionStateHandler.transitProducerTransactionToNewState(
+      Seq(
+        openedProducerTransaction,
+        invalidProducerTransaction
+      )) shouldBe None
   }
 
   it should "not process the following chain of states of producer transactions: Opened -> Updated -> Updated -> Invalid. " +
-    "It should throw an exception (due an invalid transition of state machine)" in {
+    "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val openedProducerTransaction = createProducerTransaction(Opened, ts)
     val updatedProducerTransaction1 = createProducerTransaction(Updated, ts + 1)
@@ -84,15 +78,13 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     val invalidProducerTransaction = createProducerTransaction(Invalid, ts + 3)
 
     //act and assert
-    assertThrows[IllegalArgumentException] {
-      transactionStateHandler.transitProducerTransactionToNewState(
-        Seq(
-          openedProducerTransaction,
-          updatedProducerTransaction1,
-          updatedProducerTransaction2,
-          invalidProducerTransaction
-        ))
-    }
+    transactionStateHandler.transitProducerTransactionToNewState(
+      Seq(
+        openedProducerTransaction,
+        updatedProducerTransaction1,
+        updatedProducerTransaction2,
+        invalidProducerTransaction
+      )) shouldBe None
   }
 
   it should "process the following chain of states of producer transactions: Opened -> Checkpointed. " +
@@ -105,7 +97,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     val finalState = transactionStateHandler.transitProducerTransactionToNewState(
       Seq(openedProducerTransaction,
         checkpointedProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Checkpointed
@@ -125,7 +117,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
         updatedProducerTransaction1,
         updatedProducerTransaction2,
         checkpointedProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Checkpointed
@@ -145,7 +137,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
         updatedProducerTransaction,
         checkpointedProducerTransaction,
         cancelProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Checkpointed
@@ -165,7 +157,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
         updatedProducerTransaction,
         checkpointedProducerTransaction,
         cancelProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Checkpointed
@@ -187,7 +179,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
         checkpointedProducerTransaction,
         openedProducerTransaction2,
         cancelProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Checkpointed
@@ -203,7 +195,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     val finalState = transactionStateHandler.transitProducerTransactionToNewState(
       Seq(openedProducerTransaction,
         cancelProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Invalid
@@ -223,7 +215,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
         updatedProducerTransaction1,
         updatedProducerTransaction2,
         cancelProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Invalid
@@ -243,7 +235,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
         updatedProducerTransaction1,
         cancelProducerTransaction,
         checkpointedProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Invalid
@@ -265,7 +257,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
         cancelProducerTransaction,
         openedProducerTransaction2,
         checkpointedProducerTransaction
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Invalid
@@ -276,7 +268,10 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     val openedProducerTransaction = createProducerTransaction(Opened, ts)
 
     //act
-    val finalState = transactionStateHandler.transitProducerTransactionToNewState(Seq(openedProducerTransaction))
+    val finalState = transactionStateHandler
+      .transitProducerTransactionToNewState(
+        Seq(openedProducerTransaction)
+      ).get
 
     //assert
     finalState.state shouldBe Opened
@@ -294,7 +289,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
       Seq(openedProducerTransaction,
         updatedProducerTransaction1,
         updatedProducerTransaction2
-      ))
+      )).get
 
     //assert
     finalState.state shouldBe Opened

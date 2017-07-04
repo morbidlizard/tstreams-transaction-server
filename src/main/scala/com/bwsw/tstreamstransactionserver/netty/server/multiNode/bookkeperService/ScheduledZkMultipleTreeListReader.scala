@@ -13,8 +13,6 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
                                         transactionServer: TransactionServer)
   extends Runnable
 {
-  private type Timestamp = Long
-
   private def putConsumerTransaction(consumerRecords: java.util.Map[ConsumerTransactionKey, ConsumerTransactionRecord],
                                      consumerTransactionRecord: ConsumerTransactionRecord): Unit = {
     Option(

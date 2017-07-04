@@ -22,7 +22,9 @@ package com.bwsw.tstreamstransactionserver
 import java.io.File
 
 import com.bwsw.commitlog.filesystem.CommitLogBinary
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, FileKey, FileValue}
+import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.server.RecordType
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{FileKey, FileValue}
 import org.apache.commons.io.FileUtils
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -68,6 +70,28 @@ object DumpProcessedCommitLogUtility {
     client.close()
   }
 
+  private def deserializePutTransaction(message: Array[Byte]) =
+    Protocol.PutTransaction.decodeRequest(message)
+  private def deserializePutTransactions(message: Array[Byte]) =
+    Protocol.PutTransactions.decodeRequest(message)
+  private def deserializeSetConsumerState(message: Array[Byte]) =
+    Protocol.PutConsumerCheckpoint.decodeRequest(message)
+
+  private def retrieveTransactions(record: com.bwsw.commitlog.CommitLogRecord): Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)] =
+    RecordType(record.messageType) match {
+      case RecordType.PutTransactionType =>
+        val txn = deserializePutTransaction(record.message)
+        Seq((txn.transaction, record.timestamp))
+      case RecordType.PutTransactionsType =>
+        val txns = deserializePutTransactions(record.message)
+        txns.transactions.map(txn => (txn, record.timestamp))
+      case RecordType.PutConsumerCheckpointType =>
+        val args = deserializeSetConsumerState(record.message)
+        val consumerTransaction = com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction(args.streamID, args.partition, args.transaction, args.name)
+        Seq((com.bwsw.tstreamstransactionserver.rpc.Transaction(None, Some(consumerTransaction)), record.timestamp))
+      case _ => throw new IllegalArgumentException("Undefined method type for retrieving message from commit log record")
+    }
+
 
   def RecordToProducerOrConsumerTransaction(key: Array[Byte], value:Array[Byte]): CommitLogFile = {
     val fileKey = FileKey.fromByteArray(key)
@@ -78,7 +102,7 @@ object DumpProcessedCommitLogUtility {
     val iterator = binaryFile.getIterator
     while (iterator.hasNext()) {
       iterator.next().right.foreach{record =>
-        val transactions = CommitLogToBerkeleyWriter.retrieveTransactions(record)
+        val transactions = retrieveTransactions(record)
         val transactionsJson = transactions.map { transaction =>
           val txn = transaction._1
           val transactionJson: Transaction = if (txn._1.isDefined) {

@@ -23,7 +23,10 @@ import java.nio.ByteBuffer
 import com.bwsw.commitlog.CommitLogRecord._
 
 /** look at [[com.bwsw.commitlog.CommitLogRecordHeader]] when change attributes of this class  */
-final class CommitLogRecord(val id: Long, val messageType: Byte, val message: Array[Byte], val timestamp: Long = System.currentTimeMillis())
+final class CommitLogRecord(val id: Long,
+                            val messageType: Byte,
+                            val message: Array[Byte],
+                            val timestamp: Long = System.currentTimeMillis())
 {
   @inline
   def toByteArray: Array[Byte] = {

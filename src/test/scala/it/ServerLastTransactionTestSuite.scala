@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastOpenedAndCheckpointedTransaction
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
@@ -90,13 +91,15 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
         (producerTransaction, System.currentTimeMillis())
       }.toArray
 
-      val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
+      val maxTransactionID =
+        producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionServer.getLastTransactionIDWrapper(streamId, stream.partitions).get
@@ -154,11 +157,11 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
 
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionServer.getLastTransactionIDWrapper(streamId, stream.partitions).get
@@ -214,11 +217,12 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
           (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionServer.getLastTransactionIDWrapper(streamID, stream.partitions).get
@@ -285,11 +289,12 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       }
 
       val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2).toList
-      val transactionsWithTimestamp = producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
+      val transactionsWithTimestamp =
+        producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       transactionServer.getLastTransactionIDWrapper(streamID, stream.partitions).get.opened.id shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get

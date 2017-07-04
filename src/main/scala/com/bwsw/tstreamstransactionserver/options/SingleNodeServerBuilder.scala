@@ -45,9 +45,13 @@ class SingleNodeServerBuilder private(authenticationOpts: AuthenticationOptions,
   private val subscribersUpdateOptions = subscriberUpdateOpts
 
   def this() = this(
-    AuthenticationOptions(), CommonOptions.ZookeeperOptions(),
-    BootstrapOptions(), ServerReplicationOptions(),
-    StorageOptions(), RocksStorageOptions(), CommitLogOptions(),
+    AuthenticationOptions(),
+    CommonOptions.ZookeeperOptions(),
+    BootstrapOptions(),
+    ServerReplicationOptions(),
+    StorageOptions(),
+    RocksStorageOptions(),
+    CommitLogOptions(),
     TransportOptions(),
     SubscriberUpdateOptions()
   )

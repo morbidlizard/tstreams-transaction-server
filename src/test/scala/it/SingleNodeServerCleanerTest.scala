@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
@@ -61,7 +61,6 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
-    val secondsAwait = 5
     val maxTTLForProducerTransactionSec = 5
 
     val producerTxnNumber = 100
@@ -97,10 +96,10 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
     val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-    val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
+    val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
     val bigCommit = transactionService.getBigCommit(1L)
-    bigCommit.putSomeTransactions(transactionsWithTimestamp)
+    bigCommit.putProducerTransactions(transactionsWithTimestamp)
     bigCommit.commit()
 
     transactionService.createAndExecuteTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec))

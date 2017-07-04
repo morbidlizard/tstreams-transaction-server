@@ -150,14 +150,14 @@ trait TransactionStateHandler {
 //  }
 
 
-  final def transitProducerTransactionToNewState(transactionPersistedInBerkeleyDB: ProducerTransactionRecord,
+  final def transitProducerTransactionToNewState(transactionPersistedInDB: ProducerTransactionRecord,
                                                  commitLogTransactions: Seq[ProducerTransactionRecord]): Option[ProducerTransactionRecord] = {
 
 
-    if (isTransactionCanBeRootOfChain(transactionPersistedInBerkeleyDB)) {
+    if (isTransactionCanBeRootOfChain(transactionPersistedInDB)) {
       val orderedCommitLogTransactions = commitLogTransactions.sorted
 
-      process(transactionPersistedInBerkeleyDB +: orderedCommitLogTransactions)
+      process(transactionPersistedInDB +: orderedCommitLogTransactions)
     } else {
       None
     }

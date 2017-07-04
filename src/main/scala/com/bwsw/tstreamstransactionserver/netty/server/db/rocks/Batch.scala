@@ -20,10 +20,14 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
 import java.util.concurrent.atomic.AtomicLong
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import org.rocksdb.{ColumnFamilyHandle, TtlDB, WriteBatch, WriteOptions}
 
-class Batch(client: TtlDB, databaseHandlers: Seq[ColumnFamilyHandle], idGenerator: AtomicLong) {
-  val id: Long = idGenerator.getAndIncrement()
+class Batch(client: TtlDB,
+            databaseHandlers: Seq[ColumnFamilyHandle],
+            idGenerator: AtomicLong)
+  extends KeyValueDatabaseBatch(idGenerator)
+{
 
   private val batch  = new WriteBatch()
   def put(index: Int, key: Array[Byte], data: Array[Byte]): Boolean = {

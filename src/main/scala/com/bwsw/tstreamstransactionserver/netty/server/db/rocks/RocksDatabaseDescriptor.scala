@@ -21,7 +21,9 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDatabaseDescriptor._
 import org.rocksdb._
 
-case class RocksDatabaseDescriptor(name: Array[Byte], options: ColumnFamilyOptions, ttl: Integer = NoTTL)
+case class RocksDatabaseDescriptor(name: Array[Byte],
+                                   options: ColumnFamilyOptions,
+                                   ttl: Integer = NoTTL)
 
 
 object RocksDatabaseDescriptor {

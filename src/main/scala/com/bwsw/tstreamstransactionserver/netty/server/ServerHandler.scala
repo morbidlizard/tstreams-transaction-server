@@ -20,7 +20,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToBerkeleyWriter
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToRocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestHandlerRouter}
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
@@ -237,7 +237,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter, logger: Logger)
             )
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              CommitLogToBerkeleyWriter.putTransactionType,
+              RecordType.PutTransactionType.id.toByte,
               binaryTransaction
             )
 
@@ -314,7 +314,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter, logger: Logger)
 
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              CommitLogToBerkeleyWriter.putTransactionsType,
+              RecordType.PutTransactionsType.id.toByte,
               messageForPutTransactions
             )
 
@@ -448,7 +448,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter, logger: Logger)
               )
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              CommitLogToBerkeleyWriter.putTransactionsType,
+              RecordType.PutTransactionsType.id.toByte,
               messageForPutTransactions
             )
 

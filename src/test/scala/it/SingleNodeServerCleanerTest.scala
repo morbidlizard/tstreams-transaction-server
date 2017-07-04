@@ -61,7 +61,6 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
-    val secondsAwait = 5
     val maxTTLForProducerTransactionSec = 5
 
     val producerTxnNumber = 100

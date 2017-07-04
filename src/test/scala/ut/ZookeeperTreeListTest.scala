@@ -1,30 +1,34 @@
 package ut
 
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
 
 class ZookeeperTreeListTest
   extends FlatSpec
+    with BeforeAndAfterAll
     with Matchers
 {
 
-  "ZookeeperTreeListLong" should "return first entry id and last entry id as Nones" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
+  private def uuid = java.util.UUID.randomUUID.toString
 
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+  private lazy val (zkServer, zkClient) = Utils.startZkServerAndGetIt
 
-    treeListLong.lastEntityID shouldBe None
-    treeListLong.firstEntityID shouldBe None
-
+  override def afterAll(): Unit = {
     zkClient.close()
     zkServer.close()
   }
 
-  it should "return first entry id and last entry id the same as only one entity id was persisted" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
 
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+  "ZookeeperTreeListLong" should "return first entry id and last entry id as Nones" in {
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+
+    treeListLong.lastEntityID shouldBe None
+    treeListLong.firstEntityID shouldBe None
+  }
+
+  it should "return first entry id and last entry id the same as only one entity id was persisted" in {
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val value = 1L
     treeListLong.createNode(value)
@@ -33,15 +37,10 @@ class ZookeeperTreeListTest
     treeListLong.firstEntityID.get == value
 
     treeListLong.firstEntityID shouldBe treeListLong.lastEntityID
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "return first entry id and last entry id properly" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -51,15 +50,10 @@ class ZookeeperTreeListTest
 
     treeListLong.firstEntityID shouldBe Some(startNumber)
     treeListLong.lastEntityID  shouldBe Some(maxNumbers)
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "return a next node of some node properly" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -69,16 +63,10 @@ class ZookeeperTreeListTest
 
     val id = scala.util.Random.nextInt(maxNumbers)
     treeListLong.getNextNode(id) shouldBe Some(id + 1)
-
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "not return a next node of last node" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -88,16 +76,10 @@ class ZookeeperTreeListTest
 
     val id = maxNumbers
     treeListLong.getNextNode(id) shouldBe None
-
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "return a previous node of some node correctly" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -107,15 +89,10 @@ class ZookeeperTreeListTest
 
     val id = scala.util.Random.nextInt(maxNumbers + 1)
     treeListLong.getPreviousNode(id) shouldBe Some(id - 1)
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "not return a previous node that doesn't exit" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -125,15 +102,10 @@ class ZookeeperTreeListTest
 
     val id = -1
     treeListLong.getPreviousNode(id) shouldBe None
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "delete the one node tree list correctly" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 0
@@ -149,15 +121,10 @@ class ZookeeperTreeListTest
 
     treeListLong.firstEntityID shouldBe None
     treeListLong.lastEntityID  shouldBe None
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "delete the first node correctly" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 7
@@ -174,16 +141,10 @@ class ZookeeperTreeListTest
 
     treeListLong.firstEntityID shouldBe Some(nextID)
     treeListLong.lastEntityID  shouldBe Some(maxNumbers)
-
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "delete the last node correctly" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 7
@@ -201,16 +162,11 @@ class ZookeeperTreeListTest
 
     treeListLong.firstEntityID shouldBe Some(startNumber)
     treeListLong.lastEntityID  shouldBe Some(previousID)
-
-    zkClient.close()
-    zkServer.close()
   }
 
 
   it should "delete a node between first entity id and last entity id" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -234,15 +190,10 @@ class ZookeeperTreeListTest
 
     treeListLong.firstEntityID shouldBe Some(startNumber)
     treeListLong.lastEntityID  shouldBe Some(maxNumbers)
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "delete nodes from [head, n], n - some positive number" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 30
@@ -258,15 +209,10 @@ class ZookeeperTreeListTest
 
     treeListLong.firstEntityID shouldBe Some(number)
     treeListLong.lastEntityID  shouldBe Some(maxNumbers)
-
-    zkClient.close()
-    zkServer.close()
   }
 
   it should "delete nodes from [head, n], n - some positive number, which is greater than number of nodes list contains" in {
-    val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-
-    val treeListLong = new ZookeeperTreeListLong(zkClient, "/test")
+    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 15
@@ -282,8 +228,5 @@ class ZookeeperTreeListTest
 
     treeListLong.firstEntityID shouldBe None
     treeListLong.lastEntityID  shouldBe None
-
-    zkClient.close()
-    zkServer.close()
   }
 }

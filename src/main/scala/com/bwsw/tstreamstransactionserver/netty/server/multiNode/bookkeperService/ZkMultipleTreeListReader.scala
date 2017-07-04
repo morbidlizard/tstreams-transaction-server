@@ -11,7 +11,7 @@ private object ZkMultipleTreeListReader {
   private val NoRecordRead: Long = -1L
 }
 
-class ZkMultipleTreeListReader(val zkTreeLists: Array[ZookeeperTreeListLong],
+class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
                                storageManager: StorageManager) {
 
   @throws[IllegalArgumentException]

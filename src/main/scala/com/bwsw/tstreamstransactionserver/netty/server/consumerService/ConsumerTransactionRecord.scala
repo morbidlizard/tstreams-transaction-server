@@ -66,7 +66,9 @@ case class ConsumerTransactionRecord(key: ConsumerTransactionKey,
   }
 
   override def compare(that: ConsumerTransactionRecord): Int = {
-    if (this.name < that.name) -1
+    if (this.timestamp < that.timestamp) -1
+    else if (this.timestamp > that.timestamp) 1
+    else if (this.name < that.name) -1
     else if (this.name > that.name) 1
     else if (this.stream < that.stream) -1
     else if (this.stream > that.stream) 1
@@ -74,8 +76,6 @@ case class ConsumerTransactionRecord(key: ConsumerTransactionKey,
     else if (this.partition > that.partition) 1
     else if (this.transactionID < that.transactionID) -1
     else if (this.transactionID > that.transactionID) 1
-    else if (this.timestamp < that.timestamp) -1
-    else if (this.timestamp > that.timestamp) 1
     else 0
   }
 }

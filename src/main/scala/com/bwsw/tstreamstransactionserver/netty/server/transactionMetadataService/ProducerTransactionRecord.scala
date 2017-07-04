@@ -52,14 +52,14 @@ case class ProducerTransactionRecord(key: ProducerTransactionKey,
   }
 
   override def compare(that: ProducerTransactionRecord): Int = {
-    if (this.stream < that.stream) -1
+    if (this.timestamp < that.timestamp) -1
+    else if (this.timestamp > that.timestamp) 1
+    else if (this.stream < that.stream) -1
     else if (this.stream > that.stream) 1
     else if (this.partition < that.partition) -1
     else if (this.partition > that.partition) 1
     else if (this.transactionID < that.transactionID) -1
     else if (this.transactionID > that.transactionID) 1
-    else if (this.timestamp < that.timestamp) -1
-    else if (this.timestamp > that.timestamp) 1
     else if (this.state.value < that.state.value) -1
     else if (this.state.value > that.state.value) 1
     else 0

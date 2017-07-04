@@ -14,7 +14,7 @@ import org.apache.curator.framework.CuratorFramework
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContextExecutorService
 
-final class BookkeeperGateway(zkClient: CuratorFramework,
+final class BookKeeperGateway(zkClient: CuratorFramework,
                               selector: Electable,
                               replicationConfig: ReplicationConfig,
                               ledgerLogPath: String,
@@ -57,7 +57,7 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     bookKeeper,
     selector,
     replicationConfig,
-    ledgerLogPath,
+    ???,
     bookKeeperPathPassword,
     timeBetweenCreationOfLedgers,
     ledgersToWriteTo
@@ -67,10 +67,10 @@ final class BookkeeperGateway(zkClient: CuratorFramework,
     zkClient,
     bookKeeper,
     selector,
-    ledgerLogPath,
     bookKeeperPathPassword,
     timeBetweenCreationOfLedgers,
     ledgersToReadFrom
+
   )
 
   private val addNewLedgersIfMasterAndReadNewLedgersIfSlaveTask =

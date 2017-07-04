@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metada
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.BookkeeperGateway
+import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
@@ -28,7 +28,7 @@ private object PutTransactionHandler {
 }
 
 class PutTransactionHandler(server: TransactionServer,
-                            gateway: BookkeeperGateway)
+                            gateway: BookKeeperGateway)
   extends RequestHandler
 {
 

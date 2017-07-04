@@ -12,7 +12,7 @@ class LedgerHandleInMemory(id: Long)
   private val storage =
     new scala.collection.concurrent.TrieMap[Long, Record]()
 
-  override def addEntry(data: Record): Long = {
+  override def addRecord(data: Record): Long = {
     if (isClosed)
       throw new IllegalAccessError()
 
@@ -21,17 +21,17 @@ class LedgerHandleInMemory(id: Long)
     id
   }
 
-  override def getEntry(id: Long): Record =
+  override def getRecord(id: Long): Record =
     storage.get(id).orNull
 
-  override def lastEntryID(): Long =
+  override def lastRecordID(): Long =
     entryIDGen.get() - 1L
 
-  override def lastEntry(): Option[Record] = {
-    storage.get(lastEntryID())
+  override def lastRecord(): Option[Record] = {
+    storage.get(lastRecordID())
   }
 
-  override def readEntries(from: Long, to: Long): Array[Record] = {
+  override def readRecords(from: Long, to: Long): Array[Record] = {
     val dataNumber = scala.math.abs(to - from + 1)
     val data = new Array[Record](dataNumber.toInt)
 
@@ -45,20 +45,17 @@ class LedgerHandleInMemory(id: Long)
     data
   }
 
-  override def getAllRecordsOrderedUntilTimestampMet(from: Long,
-                                                     timestamp: Long): Array[RecordWithIndex] = {
+  override def getOrderedRecords(from: Long): Array[RecordWithIndex] = {
     val fromCorrected = from + 1L
 
-    val lastRecordID = lastEntryID()
-    val indexes = fromCorrected to lastRecordID
+    val lastRecord = lastRecordID()
+    val indexes = fromCorrected to lastRecord
 
-    readEntries(fromCorrected, lastRecordID)
+    readRecords(fromCorrected, lastRecord)
       .zip(indexes).sortBy(_._1.timestamp)
-      .view
-      .takeWhile(_._1.timestamp <= timestamp)
       .map {case (record, index) =>
         RecordWithIndex(index, record)
-      }.toArray
+      }
   }
 
   override def close(): Unit = {

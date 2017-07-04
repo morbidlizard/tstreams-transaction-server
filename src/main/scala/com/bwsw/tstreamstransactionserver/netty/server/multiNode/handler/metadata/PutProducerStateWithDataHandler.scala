@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metada
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.BookkeeperGateway
+import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
 import io.netty.channel.ChannelHandlerContext
 import com.bwsw.tstreamstransactionserver.rpc._
@@ -23,7 +23,7 @@ private object PutSimpleTransactionAndDataHandler {
 
 
 class PutSimpleTransactionAndData(server: TransactionServer,
-                                  gateway: BookkeeperGateway)
+                                  gateway: BookKeeperGateway)
   extends RequestHandler
 {
   private def process(requestBody: Array[Byte],

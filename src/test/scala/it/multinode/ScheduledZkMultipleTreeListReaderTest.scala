@@ -220,13 +220,13 @@ class ScheduledZkMultipleTreeListReaderTest
 
     val storage = new StorageManagerInMemory
 
-    val firstLedger = storage.addLedger()
-    firstTreeRecords.foreach(record => firstLedger.addEntry(record))
-    firstLedger.addEntry(firstTimestampRecord)
+    val firstLedger = storage.createLedger()
+    firstTreeRecords.foreach(record => firstLedger.addRecord(record))
+    firstLedger.addRecord(firstTimestampRecord)
 
-    val secondLedger = storage.addLedger()
-    secondTreeRecords.foreach(record => secondLedger.addEntry(record))
-    secondLedger.addEntry(secondTimestampRecord)
+    val secondLedger = storage.createLedger()
+    secondTreeRecords.foreach(record => secondLedger.addRecord(record))
+    secondLedger.addRecord(secondTimestampRecord)
 
     val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
     val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
@@ -323,13 +323,13 @@ class ScheduledZkMultipleTreeListReaderTest
 
     val storage = new StorageManagerInMemory
 
-    val firstLedger = storage.addLedger()
-    firstTreeRecords.foreach(record => firstLedger.addEntry(record))
-    firstLedger.addEntry(firstTimestampRecord)
+    val firstLedger = storage.createLedger()
+    firstTreeRecords.foreach(record => firstLedger.addRecord(record))
+    firstLedger.addRecord(firstTimestampRecord)
 
-    val secondLedger = storage.addLedger()
-    secondTreeRecords.foreach(record => secondLedger.addEntry(record))
-    secondLedger.addEntry(secondTimestampRecord)
+    val secondLedger = storage.createLedger()
+    secondTreeRecords.foreach(record => secondLedger.addRecord(record))
+    secondLedger.addRecord(secondTimestampRecord)
 
     val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
     val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
@@ -433,13 +433,13 @@ class ScheduledZkMultipleTreeListReaderTest
 
     val storage = new StorageManagerInMemory
 
-    val firstLedger = storage.addLedger()
-    firstTreeRecords.foreach(record => firstLedger.addEntry(record))
-    firstLedger.addEntry(firstTimestampRecord)
+    val firstLedger = storage.createLedger()
+    firstTreeRecords.foreach(record => firstLedger.addRecord(record))
+    firstLedger.addRecord(firstTimestampRecord)
 
-    val secondLedger = storage.addLedger()
-    secondTreeRecords.foreach(record => secondLedger.addEntry(record))
-    secondLedger.addEntry(secondTimestampRecord)
+    val secondLedger = storage.createLedger()
+    secondTreeRecords.foreach(record => secondLedger.addRecord(record))
+    secondLedger.addRecord(secondTimestampRecord)
 
     val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
     val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")

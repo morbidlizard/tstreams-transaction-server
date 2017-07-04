@@ -12,7 +12,7 @@ class StorageManagerInMemory
   private val storage =
     new java.util.concurrent.ConcurrentHashMap[Long, LedgerHandle]()
 
-  override def addLedger(): LedgerHandle = {
+  override def createLedger(): LedgerHandle = {
     val id = ledgerIDGen.getAndIncrement()
 
     val previousLedger = storage.computeIfAbsent(id, {id =>
@@ -25,11 +25,13 @@ class StorageManagerInMemory
       throw new IllegalArgumentException()
   }
 
-  override def getLedgerHandle(id: Long): Option[LedgerHandle] = {
+  override def openLedger(id: Long): Option[LedgerHandle] = {
     Option(storage.get(id))
   }
 
   override def deleteLedger(id: Long): Boolean = {
     Option(storage.remove(id)).isDefined
   }
+
+  override def isClosed(id: Long): Boolean = true
 }

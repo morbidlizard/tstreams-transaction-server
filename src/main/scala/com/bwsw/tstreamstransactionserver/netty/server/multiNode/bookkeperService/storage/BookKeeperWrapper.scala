@@ -1,6 +1,6 @@
-package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{LedgerHandle, StorageManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{LedgerHandle, ReplicationConfig, StorageManager}
 import org.apache.bookkeeper.client.BookKeeper
 
 import scala.util.Try

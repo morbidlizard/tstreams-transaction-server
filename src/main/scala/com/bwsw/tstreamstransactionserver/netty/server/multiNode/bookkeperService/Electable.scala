@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
 trait Electable {
   def hasLeadership: Boolean

@@ -1,10 +1,9 @@
-package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.StorageManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZkMultipleTreeListReader.{NoLedgerExist, NoRecordRead}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
-import ZkMultipleTreeListReader.{NoLedgerExist, NoRecordRead}
-import com.bwsw.tstreamstransactionserver.netty.server.RecordType
 
 private object ZkMultipleTreeListReader {
   private val NoLedgerExist: Long = -1L

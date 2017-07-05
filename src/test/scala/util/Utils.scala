@@ -2,6 +2,7 @@ package util
 
 import java.io.File
 import java.net.ServerSocket
+import java.nio.file.Files
 import java.util
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
@@ -47,21 +48,19 @@ object Utils {
   private val zkBookiesAvailablePath = s"$zkLedgersRootPath/available"
   def startBookieServer(zkEndpoints: String, bookieNumber: Int): BookieServer = {
 
-    def createBookieFolder(prefix: String) = {
-      val bookieFolder =
-        new File(s"/tmp/bookie$uuid", "current")
+    def createBookieFolder() = {
+      val path = Files.createTempDirectory(s"bookie")
 
-      val bookieCurrent =
-        new File(bookieFolder.getPath, "current")
+      val bookieFolder =
+        new File(path.toFile.getPath, "current")
 
       bookieFolder.mkdir()
-      bookieCurrent.mkdir()
 
       bookieFolder.getPath
     }
 
-    def startBookie(bookieNumber: Int): BookieServer = {
-      val bookieFolder = createBookieFolder(Integer.toString(bookieNumber))
+    def startBookie(): BookieServer = {
+      val bookieFolder = createBookieFolder()
 
       val serverConfig = new ServerConfiguration()
         .setBookiePort(Utils.getRandomPort)
@@ -81,7 +80,7 @@ object Utils {
       server.start()
       server
     }
-    startBookie(bookieNumber)
+    startBookie()
   }
 
   def startZkServerBookieServerZkClient(serverNumber: Int): (TestingServer, CuratorFramework, Array[BookieServer]) = {

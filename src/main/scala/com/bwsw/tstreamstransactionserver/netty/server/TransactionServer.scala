@@ -177,7 +177,7 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
     closeAllDatabases()
   }
 
-  final def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted(): Unit = {
+  private[server] final def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted(): Unit = {
     executionContext.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
   }
 

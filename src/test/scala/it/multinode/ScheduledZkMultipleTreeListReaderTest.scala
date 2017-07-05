@@ -5,10 +5,9 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ScheduledZkMultipleTreeListReader, ZkMultipleTreeListReader, ZookeeperTreeListLong}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ScheduledZkMultipleTreeListReader, ZkMultipleTreeListReader}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
@@ -247,7 +246,7 @@ class ScheduledZkMultipleTreeListReaderTest
         transactionServer
       )
 
-    scheduledZkMultipleTreeListReader.run()
+    scheduledZkMultipleTreeListReader.processAndPersistRecords()
 
     val result = transactionServer.scanTransactions(
       stream.id,
@@ -265,7 +264,7 @@ class ScheduledZkMultipleTreeListReaderTest
     result.producerTransactions.forall(_.state == TransactionStates.Checkpointed) shouldBe true
     result.producerTransactions.last.transactionID shouldBe producerTransactionsNumber - 1L
 
-    scheduledZkMultipleTreeListReader.run()
+    scheduledZkMultipleTreeListReader.processAndPersistRecords()
 
     val processedLedgerAndRecord2 = transactionServer.getLastProcessedLedgersAndRecordIDs
     processedLedgerAndRecord2 shouldBe defined
@@ -350,7 +349,7 @@ class ScheduledZkMultipleTreeListReaderTest
         transactionServer
       )
 
-    scheduledZkMultipleTreeListReader.run()
+    scheduledZkMultipleTreeListReader.processAndPersistRecords()
 
     val result = transactionServer.scanTransactions(
       stream.id,
@@ -369,7 +368,7 @@ class ScheduledZkMultipleTreeListReaderTest
     result.producerTransactions.takeRight(offset-1).forall(_.state == TransactionStates.Opened)  shouldBe true
     result.producerTransactions.last.transactionID shouldBe producerTransactionsNumber - 1L
 
-    scheduledZkMultipleTreeListReader.run()
+    scheduledZkMultipleTreeListReader.processAndPersistRecords()
 
     val processedLedgerAndRecord2 = transactionServer.getLastProcessedLedgersAndRecordIDs
     processedLedgerAndRecord2 shouldBe defined
@@ -460,7 +459,7 @@ class ScheduledZkMultipleTreeListReaderTest
         transactionServer
       )
 
-    scheduledZkMultipleTreeListReader.run()
+    scheduledZkMultipleTreeListReader.processAndPersistRecords()
 
     val processedLedgerAndRecord1 = transactionServer.getLastProcessedLedgersAndRecordIDs
     processedLedgerAndRecord1 shouldBe defined
@@ -474,7 +473,7 @@ class ScheduledZkMultipleTreeListReaderTest
         ) shouldBe consumerValue.transactionID
     }
 
-    scheduledZkMultipleTreeListReader.run()
+    scheduledZkMultipleTreeListReader.processAndPersistRecords()
 
     val processedLedgerAndRecord2 = transactionServer.getLastProcessedLedgersAndRecordIDs
     processedLedgerAndRecord2 shouldBe defined

@@ -1,23 +1,22 @@
-package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
 import java.util.concurrent.BlockingQueue
 
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.TimestampRecord
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import org.apache.bookkeeper.client.BookKeeper.DigestType
-import org.apache.bookkeeper.client.{BKException, BookKeeper, LedgerHandle}
-import org.apache.curator.framework.CuratorFramework
+import org.apache.bookkeeper.client.{BKException, BookKeeper}
 
 import scala.annotation.tailrec
 
-class Master(client: CuratorFramework,
-             bookKeeper: BookKeeper,
+class Master(bookKeeper: BookKeeper,
              master: Electable,
              replicationConfig: ReplicationConfig,
              zkTreeListLedger: ZookeeperTreeListLong,
              password: Array[Byte],
              timeBetweenCreationOfLedgers: Int,
-             openedLedgers: BlockingQueue[LedgerHandle])
+             openedLedgers: BlockingQueue[org.apache.bookkeeper.client.LedgerHandle])
+  extends Runnable
 {
 
   def lead(): Unit = {
@@ -28,9 +27,9 @@ class Master(client: CuratorFramework,
   private def closeLastLedger(): Unit = {
     zkTreeListLedger
       .lastEntityID
-      .foreach(id =>
+      .foreach { id =>
         closeLedger(id)
-      )
+      }
   }
 
   private def closeLedger(id: Long): Unit = {
@@ -73,26 +72,36 @@ class Master(client: CuratorFramework,
         }
         else {
           lastAccessTimes = System.currentTimeMillis()
-          val ledgerHandle = ledgerHandleToWrite(
+          scala.util.Try{
+            ledgerHandleToWrite(
             replicationConfig.ensembleNumber,
             replicationConfig.writeQuorumNumber,
             replicationConfig.ackQuorumNumber,
             BookKeeper.DigestType.MAC
           )
+          }.map { ledgerHandle =>
+            ledgerHandle.addEntry(
+              new TimestampRecord(System.currentTimeMillis())
+                .toByteArray
+            )
 
-          ledgerHandle.addEntry(
-            new TimestampRecord(System.currentTimeMillis())
-              .toByteArray
-          )
+            zkTreeListLedger.createNode(
+              ledgerHandle.getId
+            )
 
-          zkTreeListLedger.createNode(
-            ledgerHandle.getId
-          )
-          openedLedgers.add(ledgerHandle)
+            openedLedgers.add(ledgerHandle)
+          }
           onBeingLeaderDo()
         }
       }
     }
     onBeingLeaderDo()
+  }
+
+  override def run(): Unit = {
+    while (true) {
+      if (master.hasLeadership)
+        lead()
+    }
   }
 }

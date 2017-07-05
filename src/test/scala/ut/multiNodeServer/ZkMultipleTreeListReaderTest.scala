@@ -4,11 +4,11 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.RecordType
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.{BookKeeperWrapper, ReplicationConfig}
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{StorageManager, ZkMultipleTreeListReader}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ZkMultipleTreeListReader, ZookeeperTreeListLong}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ReplicationConfig, StorageManager}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookKeeperWrapper
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.apache.bookkeeper.client.BookKeeper

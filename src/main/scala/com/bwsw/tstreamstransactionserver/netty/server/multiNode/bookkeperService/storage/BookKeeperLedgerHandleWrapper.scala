@@ -1,11 +1,9 @@
-package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage
 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerHandle
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex}
 import org.apache.bookkeeper.client
 import org.apache.bookkeeper.client.{AsyncCallback, BKException}
-
-import scala.collection.mutable.ArrayBuffer
 
 
 class BookKeeperLedgerHandleWrapper(ledgerHandler: org.apache.bookkeeper.client.LedgerHandle)
@@ -41,44 +39,31 @@ class BookKeeperLedgerHandleWrapper(ledgerHandler: org.apache.bookkeeper.client.
   }
 
   override def readRecords(from: Long, to: Long): Array[Record] = {
-    val fromCorrected =
-      if (from < 0L)
-        0L
-      else
-        from
+    val lo = math.max(from, 0)
+    val hi = math.min(math.max(to, 0), lastRecordID())
+    val size = math.max(hi - lo + 1, 0).toInt
 
-    val rightBound = lastRecordID()
-
-    val toBound =
-      if (rightBound > to)
-        to
-      else
-        rightBound
-
-    if (toBound < fromCorrected)
+    if (hi < lo)
       Array.empty[Record]
     else {
-      val records = new ArrayBuffer[Record]((toBound - fromCorrected).toInt)
+      val records = new Array[Record](size)
 
-      val entries = ledgerHandler.readEntries(fromCorrected, toBound)
-      while (entries.hasMoreElements)
-        records += Record.fromByteArray(entries.nextElement().getEntry)
-
-      records.toArray
+      val entries = ledgerHandler.readEntries(lo, hi)
+      var index = 0
+      while (entries.hasMoreElements) {
+        records(index) = Record.fromByteArray(entries.nextElement().getEntry)
+        index = index + 1
+      }
+      records
     }
   }
 
   override def getOrderedRecords(from: Long): Array[RecordWithIndex] = {
-    val toBound = lastRecordID()
+    val lo = math.max(from, 0)
+    val hi = lastRecordID()
 
-    val fromCorrected =
-      if (from < 0L)
-        0L
-      else
-        from
-
-    val indexes = fromCorrected to toBound
-    readRecords(fromCorrected, toBound)
+    val indexes = lo to hi
+    readRecords(lo, hi)
       .zip(indexes).sortBy(_._1.timestamp)
       .map { case (record, index) =>
         RecordWithIndex(index, record)

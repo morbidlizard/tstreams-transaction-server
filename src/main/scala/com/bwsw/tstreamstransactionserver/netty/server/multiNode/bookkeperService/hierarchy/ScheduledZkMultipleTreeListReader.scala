@@ -1,9 +1,9 @@
-package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
 
 import scala.collection.JavaConverters._
@@ -54,7 +54,7 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
     }
   }
 
-  def processAndPersistRecords(): Boolean = {
+  def processAndPersistRecords(): PersistedCommitAndMoveToNextRecordsInfo = {
     val ledgerRecordIDs = transactionServer
       .getLastProcessedLedgersAndRecordIDs
       .getOrElse(Array.empty[LedgerIDAndItsLastRecordID])
@@ -64,7 +64,10 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
       zkMultipleTreeListReader.process(ledgerRecordIDs)
 
     if (records.isEmpty)
-      true
+      PersistedCommitAndMoveToNextRecordsInfo(
+        isCommitted = true,
+        doReadNextRecords = false
+      )
     else
     {
       val bigCommit = transactionServer
@@ -158,11 +161,18 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
       bigCommit.putConsumerTransactions(
         consumerRecords.values().asScala.toSeq
       )
-
-      bigCommit.commit()
+      PersistedCommitAndMoveToNextRecordsInfo(
+        isCommitted = bigCommit.commit(),
+        doReadNextRecords = true
+      )
     }
   }
 
-  override def run(): Unit =
-    processAndPersistRecords()
+  override def run(): Unit = {
+    var doReadNextRecords = true
+    while (doReadNextRecords) {
+      val info = processAndPersistRecords()
+      doReadNextRecords = info.doReadNextRecords
+    }
+  }
 }

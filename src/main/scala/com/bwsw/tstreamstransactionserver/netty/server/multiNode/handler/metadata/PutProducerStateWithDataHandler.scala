@@ -2,11 +2,11 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metada
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
 import io.netty.channel.ChannelHandlerContext
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutSimpleTransactionAndDataHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 

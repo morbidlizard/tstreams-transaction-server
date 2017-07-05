@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
 import org.apache.curator.framework.CuratorFramework
 import org.apache.zookeeper.KeeperException

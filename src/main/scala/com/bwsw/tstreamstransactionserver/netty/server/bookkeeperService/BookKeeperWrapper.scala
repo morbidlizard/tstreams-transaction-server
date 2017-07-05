@@ -37,6 +37,6 @@ class BookKeeperWrapper(bookKeeper: BookKeeper,
   }
 
   override def isClosed(id: Long): Boolean = {
-    bookKeeper.isClosed(id)
+    Try(bookKeeper.isClosed(id)).getOrElse(false)
   }
 }

@@ -32,11 +32,17 @@ class LedgerHandleInMemory(id: Long)
   }
 
   override def readRecords(from: Long, to: Long): Array[Record] = {
-    val dataNumber = scala.math.abs(to - from + 1)
+    val fromCorrected =
+      if (from < 0L)
+        0L
+      else
+        from
+
+    val dataNumber = scala.math.abs(to - fromCorrected + 1)
     val data = new Array[Record](dataNumber.toInt)
 
     var index = 0
-    var toReadIndex = from
+    var toReadIndex = fromCorrected
     while (index < dataNumber) {
       data(index) = storage(toReadIndex)
       index = index + 1
@@ -46,7 +52,11 @@ class LedgerHandleInMemory(id: Long)
   }
 
   override def getOrderedRecords(from: Long): Array[RecordWithIndex] = {
-    val fromCorrected = from + 1L
+    val fromCorrected =
+      if (from < 0L)
+        0L
+      else
+        from
 
     val lastRecord = lastRecordID()
     val indexes = fromCorrected to lastRecord
@@ -60,5 +70,15 @@ class LedgerHandleInMemory(id: Long)
 
   override def close(): Unit = {
     isClosed = true
+  }
+
+  override def addRecordAsync(data: Record)(onSuccessDo: => Unit,
+                                            onFailureDo: => Unit): Unit = {
+    if (isClosed)
+      throw new IllegalAccessError()
+
+    val id = entryIDGen.getAndIncrement()
+    storage.put(id, data)
+    onSuccessDo
   }
 }

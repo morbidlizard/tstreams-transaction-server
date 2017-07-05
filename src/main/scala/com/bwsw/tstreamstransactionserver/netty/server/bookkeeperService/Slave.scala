@@ -70,29 +70,4 @@ class Slave(client: CuratorFramework,
       )
     )
   }
-
-//  @tailrec
-  private final def retrieveUpcomingLedgers(ledgers: Array[Long],
-                                            lastReadEntry: LedgerID): Unit = {
-//    if (!slave.hasLeadership) {
-//      val lastLedgerSeen =
-//        readUntilWeAreSlave(ledgers, lastReadEntry)
-//
-//      val ledgersIDsBinary = client.getData
-//        .forPath(ledgerLogPath)
-//
-//      val newLedgers = bytesToLongsArray(ledgersIDsBinary)
-//
-//      val upcomingLedgers = {
-//        val index = newLedgers.indexWhere(id =>
-//          id > lastLedgerSeen.ledgerId)
-//        newLedgers.slice(index, newLedgers.length)
-//      }
-//
-//      retrieveUpcomingLedgers(
-//        upcomingLedgers,
-//        lastLedgerSeen
-//      )
-//    }
-  }
 }

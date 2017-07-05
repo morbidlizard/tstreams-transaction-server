@@ -53,15 +53,15 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     ledgersAndTheirLastRecordsToProcess
       .map(ledgerMetaInfo =>
         if (ledgerMetaInfo.ledgerID == NoLedgerExist)
-          (Array.empty[RecordWithIndex], ledgerMetaInfo.ledgerID)
+          (Array.empty[RecordWithIndex], ledgerMetaInfo)
         else {
           storageManager
             .openLedger(ledgerMetaInfo.ledgerID)
             .map { ledgerHandle =>
               val recordsWithIndexes =
-                ledgerHandle.getOrderedRecords(ledgerMetaInfo.ledgerLastRecordID)
+                ledgerHandle.getOrderedRecords(ledgerMetaInfo.ledgerLastRecordID + 1)
 
-              (recordsWithIndexes, ledgerMetaInfo.ledgerID)
+              (recordsWithIndexes, ledgerMetaInfo)
             }
             .getOrElse(throw new
                 IllegalStateException(
@@ -163,7 +163,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
           nextRecordsAndLedgersToProcess(index)
         )
 
-      val (ledgersRecords, ledgersIDs) =
+      val (ledgersRecords, ledgersAndTheirLastRecordIDs) =
         getLedgerIDAndItsOrderedRecords(
           ledgersToProcess
         ).unzip
@@ -173,15 +173,17 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
 
       val (records, processedLedgersAndRecords) = timestampOpt
         .map { timestamp =>
+
           val (records, ledgersIDsAndTheirRecordIDs) =
-            (ledgersRecords zip ledgersIDs).map { case (ledgerRecords, ledgerID) =>
+            (ledgersRecords zip ledgersAndTheirLastRecordIDs).map { case (ledgerRecords, ledgerIDRecordID) =>
               val recordsWithIndexes =
                 ledgerRecords.takeWhile(_.record.timestamp <= timestamp)
 
-              val lastRecordID = recordsWithIndexes.last.index
+              val lastRecordID = recordsWithIndexes.lastOption
+                .map(_.index).getOrElse(ledgerIDRecordID.ledgerLastRecordID)
 
               (recordsWithIndexes.map(_.record),
-                LedgerIDAndItsLastRecordID(ledgerID, lastRecordID))
+                LedgerIDAndItsLastRecordID(ledgerIDRecordID.ledgerID, lastRecordID))
             }.unzip
 
           (records.flatten, ledgersIDsAndTheirRecordIDs)

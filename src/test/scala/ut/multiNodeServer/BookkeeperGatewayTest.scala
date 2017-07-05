@@ -39,7 +39,7 @@
 //
 //  private val createNewLedgerEveryTimeMs =
 //    250
-//
+
 //
 //  "Bookkeeper gateway" should "return ledger the first created ledger." in {
 //    val (zkServer, zkClient, bookies) =

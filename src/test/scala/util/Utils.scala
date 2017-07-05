@@ -20,6 +20,8 @@ import org.apache.zookeeper.data.ACL
 import scala.collection.immutable
 
 object Utils {
+  private def uuid = java.util.UUID.randomUUID.toString
+
   private val sessionTimeoutMillis = 1000
   private val connectionTimeoutMillis = 1000
 
@@ -47,7 +49,7 @@ object Utils {
 
     def createBookieFolder(prefix: String) = {
       val bookieFolder =
-        new File(s"/tmp/bookie${System.currentTimeMillis()}", "current")
+        new File(s"/tmp/bookie$uuid", "current")
 
       val bookieCurrent =
         new File(bookieFolder.getPath, "current")

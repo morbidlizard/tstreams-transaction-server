@@ -3,4 +3,5 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 import com.bwsw.tstreamstransactionserver.netty.server.RecordType
 
 class TimestampRecord(override val timestamp: Long)
-  extends Record(RecordType.Timestamp, timestamp, Array.emptyByteArray)
+  extends Record(RecordType.Timestamp, timestamp, Array.emptyByteArray) {
+}

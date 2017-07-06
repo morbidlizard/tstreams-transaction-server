@@ -158,7 +158,7 @@ class BookkeeperGatewayTest
 
     Thread.sleep(createNewLedgerEveryTimeMs)
 
-    bookKeeperGateway.doOperationWithCurrentWriteLedger { (currentLedger, _) =>
+    bookKeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
       currentLedger.getId shouldBe 0
     }
 
@@ -190,8 +190,8 @@ class BookkeeperGatewayTest
     bookKeeperGateway.init()
     Thread.sleep(createNewLedgerEveryTimeMs*2)
 
-    bookKeeperGateway.doOperationWithCurrentWriteLedger { (currentLedger, _) =>
-      currentLedger.getId shouldBe 3
+    bookKeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
+      assert(currentLedger.getId > 1)
     }
 
     bookKeeperGateway.shutdown()
@@ -227,8 +227,8 @@ class BookkeeperGatewayTest
     bookKeeperGateway.init()
 
     var currentLedgerOuterRef1: Long = -1L
-    bookKeeperGateway.doOperationWithCurrentWriteLedger { (currentLedger, timestamp) =>
-      transactionIDGen.set(timestamp)
+    bookKeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
+      transactionIDGen.set(System.currentTimeMillis())
       currentLedgerOuterRef1 = currentLedger.getId
       val records = genProducerTransactionsWrappedInRecords(
         transactionIDGen,
@@ -241,10 +241,10 @@ class BookkeeperGatewayTest
       records.foreach(record => currentLedger.addEntry(record.toByteArray))
     }
 
-    Thread.sleep(createNewLedgerEveryTimeMs)
+    Thread.sleep(createNewLedgerEveryTimeMs*2)
 
     var currentLedgerOuterRef2: Long = -1L
-    bookKeeperGateway.doOperationWithCurrentWriteLedger { (currentLedger, _) =>
+    bookKeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
       currentLedgerOuterRef2 = currentLedger.getId
     }
 

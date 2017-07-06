@@ -63,14 +63,14 @@ class PutSimpleTransactionAndData(server: TransactionServer,
         TransactionService.PutTransactions.Args(transactions)
       )
 
-    gateway.doOperationWithCurrentWriteLedger { (ledger, timestamp) =>
+    gateway.doOperationWithCurrentWriteLedger { currentLedger =>
       val record = new Record(
         RecordType.PutTransactionsType,
-        timestamp,
+        System.currentTimeMillis(),
         messageForPutTransactions
       )
 
-      ledger.asyncAddEntry(
+      currentLedger.asyncAddEntry(
         record.toByteArray,
         callback,
         transactionID

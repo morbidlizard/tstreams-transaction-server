@@ -94,7 +94,7 @@ final class BookKeeperGateway(transactionServer: TransactionServer,
 
   private type Timestamp = Long
   @throws[Exception]
-  def doOperationWithCurrentWriteLedger(operate: (org.apache.bookkeeper.client.LedgerHandle, Timestamp) => Unit): Unit = {
+  def doOperationWithCurrentWriteLedger(operate: org.apache.bookkeeper.client.LedgerHandle => Unit): Unit = {
 
     @tailrec
     def retryToGetLedger: org.apache.bookkeeper.client.LedgerHandle = {
@@ -112,7 +112,7 @@ final class BookKeeperGateway(transactionServer: TransactionServer,
       scala.util.Try {
         lock.readLock().lock()
         val currentLedgerHandle = retryToGetLedger
-        operate(currentLedgerHandle, System.currentTimeMillis())
+        operate(currentLedgerHandle)
       } match {
         case scala.util.Success(_) =>
           lock.readLock().unlock()

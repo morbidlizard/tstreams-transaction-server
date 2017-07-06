@@ -63,10 +63,10 @@ class PutSimpleTransactionAndData(server: TransactionServer,
         TransactionService.PutTransactions.Args(transactions)
       )
 
-    gateway.doOperationWithCurrentWriteLedger { ledger =>
+    gateway.doOperationWithCurrentWriteLedger { (ledger, timestamp) =>
       val record = new Record(
         RecordType.PutTransactionsType,
-        System.currentTimeMillis(),
+        timestamp,
         messageForPutTransactions
       )
 

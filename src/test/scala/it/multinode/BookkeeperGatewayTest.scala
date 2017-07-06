@@ -1,13 +1,18 @@
 package it.multinode
 
 import java.io.File
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{BookKeeperGateway, Electable, ReplicationConfig}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionService, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFramework
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpec, Matchers}
@@ -68,6 +73,47 @@ class BookkeeperGatewayTest
     )
   }
 
+  private def buildProducerTransaction(streamID: Int,
+                                       partition: Int,
+                                       state: TransactionStates,
+                                       txnID: Long,
+                                       ttlTxn: Long) =
+    ProducerTransaction(
+      stream = streamID,
+      partition = partition,
+      transactionID = txnID,
+      state = state,
+      quantity = -1,
+      ttl = ttlTxn
+    )
+
+
+  private def genProducerTransactionsWrappedInRecords(transactionIDGen: AtomicLong,
+                                                      transactionNumber: Int,
+                                                      streamID: Int,
+                                                      partition: Int,
+                                                      state: TransactionStates,
+                                                      ttlTxn: Long) = {
+    (0 until transactionNumber)
+      .map(txnID => buildProducerTransaction(
+        streamID,
+        partition,
+        state,
+        txnID,
+        ttlTxn
+      ))
+      .map { txn =>
+        val binaryTransaction = Protocol.PutTransaction.encodeRequest(
+          TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
+        )
+        new Record(
+          RecordType.PutTransactionType,
+          transactionIDGen.getAndIncrement(),
+          binaryTransaction
+        )
+      }
+  }
+
   val (zkServer, zkClient, bookies) =
     Utils.startZkServerBookieServerZkClient(bookiesNumber)
 
@@ -89,7 +135,7 @@ class BookkeeperGatewayTest
 
 
 
-  "Bookkeeper gateway" should "return ledger the first created ledger." in {
+  "Bookkeeper gateway" should "return the first created ledger." in {
     val transactionServer =
       startTransactionServer(zkClient)
 
@@ -112,7 +158,7 @@ class BookkeeperGatewayTest
 
     Thread.sleep(createNewLedgerEveryTimeMs)
 
-    bookKeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
+    bookKeeperGateway.doOperationWithCurrentWriteLedger { (currentLedger, _) =>
       currentLedger.getId shouldBe 0
     }
 
@@ -121,8 +167,7 @@ class BookkeeperGatewayTest
       .stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
   }
 
-  it should "return the second created ledger for write operations as first is closed " +
-    "and the first should be ready for retrieving data." in {
+  it should "return the second created ledger for write operations as first is closed" in {
     val transactionServer =
       startTransactionServer(zkClient)
 
@@ -145,9 +190,78 @@ class BookkeeperGatewayTest
     bookKeeperGateway.init()
     Thread.sleep(createNewLedgerEveryTimeMs*2)
 
-    bookKeeperGateway.doOperationWithCurrentWriteLedger { currentLedger =>
+    bookKeeperGateway.doOperationWithCurrentWriteLedger { (currentLedger, _) =>
       currentLedger.getId shouldBe 3
     }
+
+    bookKeeperGateway.shutdown()
+    transactionServer
+      .stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+  }
+
+  it should "create ledger, put producer records and through the while read them" in {
+    val transactionServer =
+      startTransactionServer(zkClient)
+
+    val zkTree1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTree2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val trees = Array(zkTree1, zkTree2)
+
+
+    val bookKeeperGateway = new BookKeeperGateway(
+      transactionServer,
+      zkClient,
+      masterSelector,
+      trees,
+      replicationConfig,
+      bkLedgerPassword,
+      createNewLedgerEveryTimeMs
+    )
+
+    val initialTxnID = 0L
+    val transactionIDGen = new AtomicLong(initialTxnID)
+    val streamID = transactionServer.putStream(uuid, 100, None, 1000L)
+    val partition = 1
+    val transactionNumber = 30
+
+    bookKeeperGateway.init()
+
+    var currentLedgerOuterRef1: Long = -1L
+    bookKeeperGateway.doOperationWithCurrentWriteLedger { (currentLedger, timestamp) =>
+      transactionIDGen.set(timestamp)
+      currentLedgerOuterRef1 = currentLedger.getId
+      val records = genProducerTransactionsWrappedInRecords(
+        transactionIDGen,
+        transactionNumber,
+        streamID,
+        partition,
+        TransactionStates.Opened,
+        10000L
+      )
+      records.foreach(record => currentLedger.addEntry(record.toByteArray))
+    }
+
+    Thread.sleep(createNewLedgerEveryTimeMs)
+
+    var currentLedgerOuterRef2: Long = -1L
+    bookKeeperGateway.doOperationWithCurrentWriteLedger { (currentLedger, _) =>
+      currentLedgerOuterRef2 = currentLedger.getId
+    }
+
+    zkTree2.createNode(currentLedgerOuterRef2)
+
+    val latch = new CountDownLatch(transactionNumber)
+    (0 until transactionNumber).foreach { id =>
+      transactionServer.notifyProducerTransactionCompleted(
+        txn => {
+          txn.transactionID == id && txn.state == TransactionStates.Opened
+        }, {
+          latch.countDown()
+        }
+      )
+    }
+
+    latch.await(5000, TimeUnit.MILLISECONDS) shouldBe true
 
     bookKeeperGateway.shutdown()
     transactionServer

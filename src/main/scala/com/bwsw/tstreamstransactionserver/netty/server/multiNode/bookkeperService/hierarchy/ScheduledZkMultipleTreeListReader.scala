@@ -63,11 +63,12 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
     val (records, ledgerIDsAndTheirLastRecordIDs) =
       zkMultipleTreeListReader.process(ledgerRecordIDs)
 
-    if (records.isEmpty)
+    if (records.isEmpty) {
       PersistedCommitAndMoveToNextRecordsInfo(
         isCommitted = true,
         doReadNextRecords = false
       )
+    }
     else
     {
       val bigCommit = transactionServer

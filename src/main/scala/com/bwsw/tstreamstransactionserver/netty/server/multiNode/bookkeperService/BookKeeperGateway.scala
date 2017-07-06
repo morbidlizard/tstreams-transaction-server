@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
 import java.util.concurrent._
-import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
@@ -90,10 +90,11 @@ final class BookKeeperGateway(transactionServer: TransactionServer,
     )
   }
 
-  private val lock = new ReentrantLock()
+  private val lock = new ReentrantReadWriteLock()
 
+  private type Timestamp = Long
   @throws[Exception]
-  def doOperationWithCurrentWriteLedger(operate: org.apache.bookkeeper.client.LedgerHandle => Unit): Unit = {
+  def doOperationWithCurrentWriteLedger(operate: (org.apache.bookkeeper.client.LedgerHandle, Timestamp) => Unit): Unit = {
 
     @tailrec
     def retryToGetLedger: org.apache.bookkeeper.client.LedgerHandle = {
@@ -109,13 +110,14 @@ final class BookKeeperGateway(transactionServer: TransactionServer,
 
     if (selector.hasLeadership) {
       scala.util.Try {
-        lock.lock()
-        operate(retryToGetLedger)
+        lock.readLock().lock()
+        val currentLedgerHandle = retryToGetLedger
+        operate(currentLedgerHandle, System.currentTimeMillis())
       } match {
         case scala.util.Success(_) =>
-          lock.unlock()
+          lock.readLock().unlock()
         case scala.util.Failure(throwable) =>
-          lock.unlock()
+          lock.readLock().unlock()
           throw throwable
       }
     } else {
@@ -124,14 +126,14 @@ final class BookKeeperGateway(transactionServer: TransactionServer,
   }
 
   override def run(): Unit = {
-    lock.lock()
+    lock.writeLock().lock()
     val ledgerNumber = ledgersToWriteTo.size()
     if (ledgerNumber > 1) {
       val ledger = ledgersToWriteTo.poll()
-      lock.unlock()
+      lock.writeLock().unlock()
       ledger.close()
     } else {
-      lock.unlock()
+      lock.writeLock().unlock()
     }
   }
 
@@ -159,7 +161,7 @@ final class BookKeeperGateway(transactionServer: TransactionServer,
   bookKeeperExecutor.scheduleWithFixedDelay(
     this,
     0L,
-    timeBetweenCreationOfLedgersMs*2/3,
+    timeBetweenCreationOfLedgersMs,
     TimeUnit.MILLISECONDS
   )
 }

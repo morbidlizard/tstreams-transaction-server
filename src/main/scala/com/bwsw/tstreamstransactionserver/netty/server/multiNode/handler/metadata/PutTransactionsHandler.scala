@@ -34,11 +34,11 @@ class PutTransactionsHandler(server: TransactionServer,
 
   private def process(requestBody: Array[Byte],
                       callback: AsyncCallback.AddCallback) = {
-    gateway.doOperationWithCurrentWriteLedger { ledger =>
+    gateway.doOperationWithCurrentWriteLedger { (ledger, timestamp) =>
 
       val record = new Record(
         RecordType.PutTransactionsType,
-        System.currentTimeMillis(),
+        timestamp,
         requestBody
       )
 

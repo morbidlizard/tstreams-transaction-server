@@ -80,10 +80,10 @@ class Master(bookKeeper: BookKeeper,
             BookKeeper.DigestType.MAC
           )
           }.map { ledgerHandle =>
-            ledgerHandle.addEntry(
+            val timestampRecord =
               new TimestampRecord(System.currentTimeMillis())
-                .toByteArray
-            )
+
+            ledgerHandle.addEntry(timestampRecord.toByteArray)
 
             zkTreeListLedger.createNode(
               ledgerHandle.getId

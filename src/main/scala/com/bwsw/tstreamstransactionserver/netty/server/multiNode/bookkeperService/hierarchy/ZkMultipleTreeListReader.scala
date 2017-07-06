@@ -145,10 +145,10 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
         getRecordsToStartWith(processedLastRecordIDsAcrossLedgersCopy)
       )
 
+
     val ledgersForNextProcessingIndexes =
       excludeProcessedLastLedgersIfTheyWere(nextRecordsAndLedgersToProcess)
         .toArray
-
 
     if (
       nextRecordsAndLedgersToProcess.contains(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)) ||
@@ -157,22 +157,24 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
       (Array.empty[Record], processedLastRecordIDsAcrossLedgersCopy)
     }
     else {
+
       val ledgersToProcess =
         ledgersForNextProcessingIndexes.map(index =>
           nextRecordsAndLedgersToProcess(index)
         )
+
 
       val (ledgersRecords, ledgersAndTheirLastRecordIDs) =
         getLedgerIDAndItsOrderedRecords(
           ledgersToProcess
         ).unzip
 
+
       val timestampOpt: Option[Long] =
         findMaxAvailableLastRecordTimestamp(ledgersRecords)
 
       val (records, processedLedgersAndRecords) = timestampOpt
         .map { timestamp =>
-
           val (records, ledgersIDsAndTheirRecordIDs) =
             (ledgersRecords zip ledgersAndTheirLastRecordIDs).map { case (ledgerRecords, ledgerIDRecordID) =>
               val recordsWithIndexes =

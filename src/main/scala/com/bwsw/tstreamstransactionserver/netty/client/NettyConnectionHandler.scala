@@ -69,19 +69,20 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
     }
   }
 
-  private def reconnectOnConnectionLostListener(newChannel: Channel,
+  private def reconnectOnConnectionLostListener(oldChannel: Channel,
                                                 bootstrap: Bootstrap) = {
-    newChannel.closeFuture.addListener { (_: ChannelFuture) =>
+    oldChannel.closeFuture.addListener { (_: ChannelFuture) =>
       isChannelActive = false
-      newChannel.eventLoop().execute { () =>
-        newChannel.close()
+      oldChannel.eventLoop().execute { () =>
+        oldChannel.close()
+        onConnectionLostDo
         channel = connect(bootstrap)
         isChannelActive = true
       }
     }
   }
 
-  //While loop may be good idea if one pleasures to handle requests without checking if channel is usable
+  //While loop may be a good idea if one pleasures to handle requests without checking if channel is usable
   def getChannel(): Channel = {
     while (!isChannelActive) {}
     channel

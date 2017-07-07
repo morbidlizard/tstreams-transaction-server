@@ -71,23 +71,27 @@ class NettyConnectionHandlerTest
     }
   }
 
-  it should "reconnect to server multiple times" in {
+
+  private def buildSocket = {
     val host = "127.0.0.1"
     val port = Utils.getRandomPort
-    val socket = SocketHostPortPair(
+    SocketHostPortPair(
       host,
       port
     )
+  }
 
+  it should "tries to reconnect to server multiple times." in {
     val reconnectAttemptsNumber = 10
     val timePerReconnect = 100
 
-    val (bossGroup, eventLoopGroup) = startServer(socket)
+    val socket = buildSocket
 
-    val latch = new CountDownLatch(reconnectAttemptsNumber)
+    val (bossGroup, eventLoopGroup) = startServer(socket)
 
     val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
 
+    val latch = new CountDownLatch(reconnectAttemptsNumber)
     getClient(workerGroup, socket, {
       latch.countDown()
     })
@@ -99,6 +103,42 @@ class NettyConnectionHandlerTest
       reconnectAttemptsNumber*timePerReconnect,
       TimeUnit.MILLISECONDS
     ) shouldBe true
+
+    workerGroup.shutdownGracefully().getNow
+  }
+
+  it should "reconnect to server after the while." in {
+    val socket = buildSocket
+
+    val (bossGroup1, eventLoopGroup1) = startServer(socket)
+
+    val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
+
+    val reconnectAttemptsNumber = new AtomicInteger(0)
+    getClient(workerGroup, socket, {
+      reconnectAttemptsNumber.getAndIncrement()
+    })
+
+    bossGroup1.shutdownGracefully().getNow
+    eventLoopGroup1.shutdownGracefully().getNow
+    Thread.sleep(10)
+
+    val reconnectAttemptsNumber1 =
+      reconnectAttemptsNumber.get()
+
+    val (bossGroup2, eventLoopGroup2) = startServer(socket)
+
+    bossGroup2.shutdownGracefully().getNow
+    eventLoopGroup2.shutdownGracefully().getNow
+
+    while (reconnectAttemptsNumber.get <= reconnectAttemptsNumber1) {}
+
+    val reconnectAttemptsNumber2 =
+      reconnectAttemptsNumber.get
+
+    workerGroup.shutdownGracefully().getNow
+
+    assert(reconnectAttemptsNumber2 > reconnectAttemptsNumber1)
   }
 
 }

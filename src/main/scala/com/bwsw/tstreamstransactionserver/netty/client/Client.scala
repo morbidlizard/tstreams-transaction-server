@@ -28,6 +28,7 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
 import com.bwsw.tstreamstransactionserver.netty._
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
+import com.bwsw.tstreamstransactionserver.netty.client.zk.{ZKClient, ZKMiddleware}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, _}
@@ -36,8 +37,7 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import org.apache.curator.framework.CuratorFramework
-import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
-import org.apache.curator.retry.RetryForever
+import org.apache.curator.framework.state.ConnectionState
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -76,53 +76,26 @@ class Client(clientOpts: ConnectionOptions,
   private final val context = executionContext.context
   private final val contextForProducerTransactions = processTransactionsPutOperationPool.getContext
 
-  private final val zkListener = new ConnectionStateListener {
-    override def stateChanged(client: CuratorFramework, newState: ConnectionState): Unit = {
-      onZKConnectionStateChangedDefaultBehaviour(newState)
+
+
+  val zkInteractor = new ZKMiddleware(
+    curatorConnection,
+    zookeeperOptions,
+    newMaster => {
+      ()
+    },
+    newMaster => {
+      connectionState =>
+//        connectionState match {
+//          case ConnectionState.LOST =>
+//            newMaster
+//            master = Right(None)
+//          case _ =>
+//            ()
+//        }
+        onZKConnectionStateChanged(connectionState)
     }
-  }
-
-  val (zookeeperOpts, zKLeaderClient) = curatorConnection match {
-    case Some(connection) =>
-      val zkClient = connection.getZookeeperClient
-      val options = zookeeperOptions.copy(
-        endpoints = zkClient.getCurrentConnectionString,
-        connectionTimeoutMs = zkClient.getConnectionTimeoutMs
-      )
-      val zKLeaderClient = new ZKLeaderClientToGetMaster(
-        connection,
-        options.prefix,
-        isConnectionCloseable = false,
-        connectionStateListener = zkListener
-      )
-      (options, zKLeaderClient)
-
-    case None =>
-      val zKLeaderClient = new ZKLeaderClientToGetMaster(
-        zookeeperOptions.endpoints,
-        zookeeperOptions.sessionTimeoutMs,
-        zookeeperOptions.connectionTimeoutMs,
-        new RetryForever(zookeeperOptions.retryDelayMs),
-        zookeeperOptions.prefix,
-        isConnectionCloseable = true,
-        zkListener
-      )
-      (zookeeperOptions, zKLeaderClient)
-  }
-
-  zKLeaderClient.start()
-
-
-
-  private final def onZKConnectionStateChangedDefaultBehaviour(newState: ConnectionState): Unit = {
-    newState match {
-      case ConnectionState.LOST =>
-        zKLeaderClient.master = Right(None)
-      case _ =>
-        ()
-    }
-    onZKConnectionStateChanged(newState)
-  }
+  )
 
   private final val reqIdToRep = new ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]](15000, 1.0f, clientOpts.threadPool)
 
@@ -154,7 +127,8 @@ class Client(clientOpts: ConnectionOptions,
   }
 
 
-  final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] = zKLeaderClient.master
+  final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] =
+    zkInteractor.getCurrentMaster
   private[client] def reconnect(): Unit = {
     val isConnected = isReconnected.getAndSet(true)
     if (!isConnected) {
@@ -170,7 +144,7 @@ class Client(clientOpts: ConnectionOptions,
   @tailrec
   @throws[ZkGetMasterException]
   private def getInetAddressFromZookeeper: (String, Int) = {
-    zKLeaderClient.master match {
+    zkInteractor.getCurrentMaster match {
       case Left(zkThrowable) =>
         if (logger.isWarnEnabled())
           logger.warn(zkThrowable.getMessage)
@@ -181,9 +155,9 @@ class Client(clientOpts: ConnectionOptions,
           case Some(master) =>
             (master.address, master.port)
           case None =>
-            TimeUnit.MILLISECONDS.sleep(zookeeperOpts.retryDelayMs)
+            TimeUnit.MILLISECONDS.sleep(zookeeperOptions.retryDelayMs)
             if (logger.isInfoEnabled)
-              logger.info(s"Retrying to get master server from zookeeper servers: ${zookeeperOpts.endpoints}.")
+              logger.info(s"Retrying to get master server from zookeeper servers: ${zookeeperOptions.endpoints}.")
             getInetAddressFromZookeeper
         }
     }
@@ -1001,7 +975,7 @@ class Client(clientOpts: ConnectionOptions,
         workerGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS)
       }
       if (channel != null) channel.closeFuture().sync()
-      zKLeaderClient.close()
+      zkInteractor.close()
       processTransactionsPutOperationPool.stopAccessNewTasks()
       processTransactionsPutOperationPool.awaitAllCurrentTasksAreCompleted()
       executionContext.stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()

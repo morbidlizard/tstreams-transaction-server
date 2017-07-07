@@ -23,7 +23,8 @@ import util.Utils
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class BadBehaviourSingleNodeServerTest
+  extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
 
   private val rand = scala.util.Random

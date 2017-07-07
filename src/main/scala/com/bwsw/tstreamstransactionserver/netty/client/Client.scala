@@ -27,6 +27,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContex
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
 import com.bwsw.tstreamstransactionserver.netty._
+import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, _}
@@ -51,8 +52,8 @@ import scala.concurrent.{Await, Future => ScalaFuture, Promise => ScalaPromise}
 class Client(clientOpts: ConnectionOptions,
              authOpts: AuthOptions,
              zookeeperOptions: ZookeeperOptions,
-             curatorConnection: Option[CuratorFramework] = None
-            )
+             curatorConnection: Option[CuratorFramework] = None)
+  extends TTSClient
 {
   @volatile private[client] var isShutdown = false
 

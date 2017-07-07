@@ -20,48 +20,48 @@
 
 package com.bwsw.tstreamstransactionserver.netty
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
-import com.google.common.net.InetAddresses
-
-import scala.util.{Failure, Success, Try}
+import org.apache.commons.validator.routines.{DomainValidator, InetAddressValidator}
+import scala.util.Try
 
 case class SocketHostPortPair(address: String, port: Int){
-  override def toString: String = s"/$address:$port"
+  override def toString: String = s"$address:$port"
   def get = s"$address:$port"
 }
 
 object SocketHostPortPair {
+  private val domainValidator = DomainValidator.getInstance()
+  private val inetAddressValidator = InetAddressValidator.getInstance()
 
   def fromString(hostPortPair: String): Option[SocketHostPortPair] = {
-    val splitIndex = hostPortPair.lastIndexOf(':')
-    if (splitIndex == -1)
-      None
-    else {
-      val (address, port) = hostPortPair.splitAt(splitIndex)
-      scala.util.Try(port.tail.toInt) match {
-        case Success(port) =>
-          Try(create(address, port)) match {
-          case Success(socketHostPortPair) => Some(socketHostPortPair)
-          case Failure(_) => None
-        }
-        case Failure(_) => None
+    Option(hostPortPair.lastIndexOf(':'))
+      .filter(_ != -1)
+      .flatMap { splitIndex =>
+        val (address, portAsString) =
+          hostPortPair.splitAt(splitIndex)
+        Try(portAsString.tail.toInt)
+          .toOption
+          .flatMap(port =>
+            validateAndCreate(address, port)
+          )
       }
-    }
   }
 
   def isValid(inetAddress: String, port: Int): Boolean = {
-    val validHostname = scala.util.Try(java.net.InetAddress.getByName(inetAddress))
-    if (port > 0 && port < 65536 && inetAddress != null &&
-        (InetAddresses.isInetAddress(inetAddress) || validHostname.isSuccess)
-    ) true
-    else false
+    val isHostname = domainValidator.isValid(inetAddress)
+    val isIPAddress = inetAddressValidator.isValid(inetAddress)
+
+    val isPortOkay = port > 0 && port < 65536
+
+    if (isPortOkay && (isIPAddress || isHostname))
+      true
+    else
+      false
   }
 
-  def create(inetAddress: String, port: Int) = {
-    if(!isValid(inetAddress, port))
-      throw new InvalidSocketAddress(s"Address $inetAddress:$port is not a correct socket address pair.")
-    SocketHostPortPair(inetAddress, port)
+  def validateAndCreate(ipAddress: String, port: Int): Option[SocketHostPortPair] = {
+    if (isValid(ipAddress, port))
+      Some(SocketHostPortPair(ipAddress, port))
+    else
+      None
   }
-
-  def validate(inetAddress: String, port: Int) = create(inetAddress: String, port: Int)
 }

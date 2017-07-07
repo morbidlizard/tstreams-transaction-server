@@ -234,7 +234,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     }
   }
 
-  it should "not throw an exception when the server isn't available for time less than in config" in {
+  "abc" should "not throw an exception when the server isn't available for time less than in config" in {
     val stream = getRandomStream
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 

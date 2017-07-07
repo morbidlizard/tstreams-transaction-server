@@ -80,6 +80,8 @@ libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",
   "org.slf4j" % "slf4j-log4j12" % "1.7.24" % "provided",
 
+  "commons-validator" % "commons-validator" % "1.6",
+
   ("org.apache.curator" % "curator-framework" % "2.12.0")
     .exclude("org.slf4j", "slf4j-api"),
   ("org.apache.curator" % "curator-test" % "2.12.0")

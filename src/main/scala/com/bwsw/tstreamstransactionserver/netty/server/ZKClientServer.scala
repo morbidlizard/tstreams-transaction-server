@@ -28,6 +28,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
+import org.apache.curator.framework.recipes.leader.LeaderLatch
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
 import org.apache.zookeeper.data.ACL
@@ -36,18 +37,14 @@ import org.slf4j.LoggerFactory
 import scala.annotation.tailrec
 import scala.util.Try
 
-class ZKClientServer(serverAddress: String,
-                     serverPort: Int,
+class ZKClientServer(socketAddress: SocketHostPortPair,
                      endpoints: String,
                      sessionTimeoutMillis: Int,
                      connectionTimeoutMillis: Int,
-                     policy: RetryPolicy
-                    ) extends Closeable
-{
+                     policy: RetryPolicy)
+  extends Closeable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-
-  private val socketAddress = SocketHostPortPair.create(serverAddress, serverPort).get
 
   private[server] val client = {
     val connection = CuratorFrameworkFactory.builder()
@@ -83,41 +80,14 @@ class ZKClientServer(serverAddress: String,
         val newID = operation.postValue()
         newID
       }
-      else throw new Exception(s"Can't increment counter by 1: previous was ${operation.preValue()} but now it's ${operation.postValue()} ")
+      else
+        throw new Exception(
+          s"Can't increment counter by 1: previous was ${operation.preValue()} but now it's ${operation.postValue()}."
+      )
     }
   }
 
   def streamDatabase(path: String) = new StreamDatabaseZK(client, path)
-
-
-//  final def replicationGroup(path: String) = new ReplicationGroup(path)
-//  final class ReplicationGroup(path: String) {
-//    import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheListener}
-//    import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
-//    import scala.collection.JavaConverters._
-//
-//    final class Listener(listener: PathChildrenCacheListener) {
-//      private val cache = new PathChildrenCache(client, path, true)
-//      cache.getListenable.addListener(listener)
-//      cache.start()
-//
-//      def close(): Unit = cache.close()
-//    }
-//
-//    final class Election(listener: LeaderLatchListener) {
-//      private val leaderLatch = new LeaderLatch(client, path, socketAddress, LeaderLatch.CloseMode.NOTIFY_LEADER)
-//      leaderLatch.addListener(listener)
-//
-//      def participants: Iterable[Participant] = leaderLatch.getParticipants.asScala
-//
-//      def join(): Unit = leaderLatch.start()
-//      def leave(): Unit = leaderLatch.close(LeaderLatch.CloseMode.NOTIFY_LEADER)
-//    }
-//
-//    def election(listener: LeaderLatchListener) = new Election(listener)
-//    def listener(listener: PathChildrenCacheListener) = new Listener(listener)
-//  }
-
 
   final def putSocketAddress(path: String): Try[String] = {
     scala.util.Try(client.delete().forPath(path))
@@ -127,7 +97,7 @@ class ZKClientServer(serverAddress: String,
       client.create().creatingParentsIfNeeded()
         .withMode(CreateMode.EPHEMERAL)
         .withACL(permissions)
-        .forPath(path, socketAddress.getBytes())
+        .forPath(path, socketAddress.toString.getBytes())
     }
   }
 

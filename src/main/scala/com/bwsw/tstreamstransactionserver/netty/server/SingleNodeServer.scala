@@ -23,7 +23,7 @@ import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.exception.Throwable.ZkNoConnectionException
+import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
@@ -39,6 +39,7 @@ import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.curator.framework.recipes.leader.LeaderLatch
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -59,20 +60,45 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   @volatile private var isShutdown = false
-  private val transactionServerSocketAddress = createTransactionServerAddress()
-  private def createTransactionServerAddress() = {
-    (System.getenv("HOST"), System.getenv("PORT0")) match {
-      case (host, port) if host != null && port != null && scala.util.Try(port.toInt).isSuccess => (host, port.toInt)
-      case _ => (serverOpts.bindHost, serverOpts.bindPort)
-    }
+
+  private def createTransactionServerExternalSocket() = {
+    val externalHost = System.getenv("HOST")
+    val externalPort = System.getenv("PORT0")
+
+    SocketHostPortPair
+      .fromString(s"$externalHost:$externalPort")
+      .orElse(
+        SocketHostPortPair.validateAndCreate(
+          serverOpts.bindHost,
+          serverOpts.bindPort
+        )
+      )
+      .getOrElse {
+        if (externalHost == null || externalPort == null)
+          throw new InvalidSocketAddress(
+            s"Socket ${serverOpts.bindHost}:${serverOpts.bindPort} is not valid for external access."
+          )
+        else
+          throw new InvalidSocketAddress(
+            s"Environment parameters 'HOST':'PORT0' " +
+              s"${serverOpts.bindHost}:${serverOpts.bindPort} are not valid for a socket."
+          )
+      }
   }
 
-  SocketHostPortPair.validate(serverOpts.bindHost, serverOpts.bindPort)
+  if (!SocketHostPortPair.isValid(serverOpts.bindHost, serverOpts.bindPort))
+  {
+    throw new InvalidSocketAddress(
+      s"Address ${serverOpts.bindHost}:${serverOpts.bindPort} is not a correct socket address pair."
+    )
+  }
+
+  private val transactionServerSocketAddress =
+    createTransactionServerExternalSocket()
 
   private val zk = scala.util.Try(
     new ZKClientServer(
-      transactionServerSocketAddress._1,
-      transactionServerSocketAddress._2,
+      transactionServerSocketAddress,
       zookeeperOpts.endpoints,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,
@@ -249,6 +275,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       if (workerGroup != null) {
         workerGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS).sync()
       }
+
       if (zk != null)
         zk.close()
 

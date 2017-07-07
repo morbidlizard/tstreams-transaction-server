@@ -73,6 +73,7 @@ object Utils {
   def startTransactionServerAndClient(serverBuilder: SingleNodeServerBuilder,
                                       clientBuilder: ClientBuilder): ZkSeverTxnServerTxnClient = {
     val zkTestServer = new TestingServer(true)
+
     val transactionServer = serverBuilder
       .withZookeeperOptions(
         serverBuilder.getZookeeperOptions.copy(endpoints = zkTestServer.getConnectString)
@@ -84,6 +85,7 @@ object Utils {
         serverBuilder.getBootstrapOptions.copy(bindPort = getRandomPort)
       )
       .build()
+
 
     val latch = new CountDownLatch(1)
     new Thread(() => {

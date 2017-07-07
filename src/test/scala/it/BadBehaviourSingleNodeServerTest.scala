@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.netty.{Message, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
 import com.bwsw.tstreamstransactionserver.netty.server.{ServerHandler, SingleNodeServer, ZKClientServer}
@@ -18,6 +18,7 @@ import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import org.slf4j.Logger
+import util.Utils
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -177,16 +178,20 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
     val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(connectionTimeoutMs = 100)
 
+    val port = Utils.getRandomPort
+    val socket = SocketHostPortPair
+      .validateAndCreate("127.0.0.1", port)
+      .get
+
     val zKLeaderClientToPutMaster = new ZKClientServer(
-      "127.0.0.1",
-      1000,
+      socket,
       endpoints = zkTestServer.getConnectString,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )
 
-    zKLeaderClientToPutMaster.putSocketAddress( zookeeperOpts.prefix)
+    zKLeaderClientToPutMaster.putSocketAddress(zookeeperOpts.prefix)
 
     class MyThrowable extends Exception("My exception")
     assertThrows[MyThrowable] {

@@ -5,7 +5,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.client.NettyConnectionHandler
-import com.bwsw.tstreamstransactionserver.netty.server.ServerInitializer
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
@@ -96,15 +95,18 @@ class NettyConnectionHandlerTest
       latch.countDown()
     })
 
-    bossGroup.shutdownGracefully().getNow
-    eventLoopGroup.shutdownGracefully().getNow
+    bossGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+      .awaitUninterruptibly
+    eventLoopGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+      .awaitUninterruptibly
 
     latch.await(
       reconnectAttemptsNumber*timePerReconnect,
       TimeUnit.MILLISECONDS
     ) shouldBe true
 
-    workerGroup.shutdownGracefully().getNow
+    workerGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+      .awaitUninterruptibly
   }
 
   it should "reconnect to server after the while." in {
@@ -119,17 +121,20 @@ class NettyConnectionHandlerTest
       reconnectAttemptsNumber.getAndIncrement()
     })
 
-    bossGroup1.shutdownGracefully().getNow
-    eventLoopGroup1.shutdownGracefully().getNow
-    Thread.sleep(10)
+    bossGroup1.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+      .awaitUninterruptibly
+    eventLoopGroup1.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+      .awaitUninterruptibly
 
     val reconnectAttemptsNumber1 =
       reconnectAttemptsNumber.get()
 
     val (bossGroup2, eventLoopGroup2) = startServer(socket)
 
-    bossGroup2.shutdownGracefully().getNow
-    eventLoopGroup2.shutdownGracefully().getNow
+    bossGroup2.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+      .awaitUninterruptibly
+    eventLoopGroup2.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+      .awaitUninterruptibly
 
     while (reconnectAttemptsNumber.get <= reconnectAttemptsNumber1) {}
 

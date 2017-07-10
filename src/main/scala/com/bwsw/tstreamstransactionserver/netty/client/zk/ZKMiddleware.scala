@@ -11,7 +11,7 @@ import org.apache.curator.retry.RetryForever
 class ZKMiddleware(externalZkClient: Option[CuratorFramework],
                    zookeeperOptions: ZookeeperOptions,
                    onMasterChangeDo: Either[Throwable, Option[SocketHostPortPair]] => Unit,
-                   onConnectionStateChangeDo: => Either[Throwable, Option[SocketHostPortPair]] => ConnectionState => Unit)
+                   onConnectionStateChangeDo: ConnectionState => Unit)
   extends ZKInteractor(onMasterChangeDo)
     with Closeable {
   @volatile private var master: Either[Throwable, Option[SocketHostPortPair]] =
@@ -24,7 +24,7 @@ class ZKMiddleware(externalZkClient: Option[CuratorFramework],
       val listener =
         ZKClient.addConnectionListener(
           connection,
-          onConnectionStateChangeDo(master)
+          onConnectionStateChangeDo
         )
 
       val monitor =
@@ -49,7 +49,7 @@ class ZKMiddleware(externalZkClient: Option[CuratorFramework],
         zookeeperOptions.connectionTimeoutMs,
         new RetryForever(zookeeperOptions.retryDelayMs),
         zookeeperOptions.prefix,
-        onConnectionStateChangeDo(master)
+        onConnectionStateChangeDo
       )
 
       val monitor =
@@ -70,11 +70,6 @@ class ZKMiddleware(externalZkClient: Option[CuratorFramework],
 
   def getCurrentMaster: Either[Throwable, Option[SocketHostPortPair]] = {
     master
-  }
-
-  def setCurrentMaster(master: Either[Throwable, Option[SocketHostPortPair]]): Unit = {
-    this.master = master
-    onMasterChangeDo(this.master)
   }
 
   override def close(): Unit = {

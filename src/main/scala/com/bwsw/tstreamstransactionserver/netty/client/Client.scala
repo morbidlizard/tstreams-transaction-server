@@ -77,27 +77,50 @@ class Client(clientOpts: ConnectionOptions,
   private final val contextForProducerTransactions = processTransactionsPutOperationPool.getContext
 
 
-
-  val zkInteractor = new ZKMiddleware(
+  private val zkInteractor = new ZKMiddleware(
     curatorConnection,
     zookeeperOptions,
-    newMaster => {
-      ()
-    },
-    newMaster => {
-      connectionState =>
-//        connectionState match {
-//          case ConnectionState.LOST =>
-//            newMaster
-//            master = Right(None)
-//          case _ =>
-//            ()
-//        }
-        onZKConnectionStateChanged(connectionState)
-    }
+    _ => {},
+    onZKConnectionStateChanged
   )
 
-  private final val reqIdToRep = new ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]](15000, 1.0f, clientOpts.threadPool)
+  private final def retrieveCurrentMaster(): SocketHostPortPair = {
+    @tailrec
+    def go(timestamp: Long): SocketHostPortPair = {
+      val master = zkInteractor.getCurrentMaster
+      master match {
+        case Left(throwable) =>
+          if (logger.isWarnEnabled())
+            logger.warn(throwable.getMessage)
+          shutdown()
+          throw throwable
+        case Right(masterOpt) =>
+          if (masterOpt.isEmpty) {
+            val currentTime = System.currentTimeMillis()
+            val timeDiff = scala.math.abs(currentTime - timestamp)
+            if (logger.isInfoEnabled && timeDiff >= zookeeperOptions.retryDelayMs) {
+              logger.info(s"Retrying to get master server from zookeeper servers: ${zookeeperOptions.endpoints}.")
+              go(currentTime)
+            }
+            else
+              go(timestamp)
+          }
+          else
+            masterOpt.get
+      }
+    }
+    go(System.currentTimeMillis())
+  }
+
+
+  final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] =
+    zkInteractor.getCurrentMaster
+
+  private final val reqIdToRep = new ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]](
+    20000,
+    1.0f,
+    clientOpts.threadPool
+  )
 
   private val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
   private val bootstrap = new Bootstrap()
@@ -111,7 +134,8 @@ class Client(clientOpts: ConnectionOptions,
 
   @tailrec
   final private def connect(): Channel = {
-    val (listen, port) = getInetAddressFromZookeeper
+    val master = retrieveCurrentMaster()
+    val (listen, port) = (master.address, master.port)
     val newConnection = bootstrap.connect(listen, port)
     scala.util.Try(newConnection.sync().channel()) match {
       case scala.util.Success(channelToUse) =>
@@ -127,8 +151,6 @@ class Client(clientOpts: ConnectionOptions,
   }
 
 
-  final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] =
-    zkInteractor.getCurrentMaster
   private[client] def reconnect(): Unit = {
     val isConnected = isReconnected.getAndSet(true)
     if (!isConnected) {
@@ -137,29 +159,6 @@ class Client(clientOpts: ConnectionOptions,
       isReconnected.set(false)
     } else {
       TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
-    }
-  }
-
-  /** Retries to get ipAddres:port from zooKeeper server. */
-  @tailrec
-  @throws[ZkGetMasterException]
-  private def getInetAddressFromZookeeper: (String, Int) = {
-    zkInteractor.getCurrentMaster match {
-      case Left(zkThrowable) =>
-        if (logger.isWarnEnabled())
-          logger.warn(zkThrowable.getMessage)
-        shutdown()
-        throw zkThrowable
-      case Right(masterOpt) =>
-        masterOpt match {
-          case Some(master) =>
-            (master.address, master.port)
-          case None =>
-            TimeUnit.MILLISECONDS.sleep(zookeeperOptions.retryDelayMs)
-            if (logger.isInfoEnabled)
-              logger.info(s"Retrying to get master server from zookeeper servers: ${zookeeperOptions.endpoints}.")
-            getInetAddressFromZookeeper
-        }
     }
   }
 
@@ -972,10 +971,10 @@ class Client(clientOpts: ConnectionOptions,
     if (!isShutdown) {
       isShutdown = true
       if (workerGroup != null) {
-        workerGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS)
+        workerGroup.shutdownGracefully(0, 0, TimeUnit.NANOSECONDS)
       }
       if (channel != null) channel.closeFuture().sync()
-      zkInteractor.close()
+      if (zkInteractor != null) zkInteractor.close()
       processTransactionsPutOperationPool.stopAccessNewTasks()
       processTransactionsPutOperationPool.awaitAllCurrentTasksAreCompleted()
       executionContext.stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()

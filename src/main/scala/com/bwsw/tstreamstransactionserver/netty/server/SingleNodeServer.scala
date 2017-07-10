@@ -247,7 +247,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
-        .handler(new LoggingHandler(LogLevel.INFO))
+        .handler(new LoggingHandler(LogLevel.DEBUG))
         .childHandler(new ServerInitializer(serverHandler(requestHandlerChooser, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
@@ -270,10 +270,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     if (!isShutdown) {
       isShutdown = true
       if (bossGroup != null) {
-        bossGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS).sync()
+        bossGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+          .awaitUninterruptibly()
       }
       if (workerGroup != null) {
-        workerGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS).sync()
+        workerGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+          .awaitUninterruptibly()
       }
 
       if (zk != null)

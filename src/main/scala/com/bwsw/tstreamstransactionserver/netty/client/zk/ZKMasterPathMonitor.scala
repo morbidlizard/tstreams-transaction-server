@@ -5,7 +5,9 @@ import java.io.File
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{MasterDataIsIllegalException, MasterIsPersistentZnodeException, MasterPathIsAbsent}
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import org.apache.curator.framework.CuratorFramework
+import org.apache.curator.framework.api.{CuratorEvent, CuratorListener}
 import org.apache.curator.framework.recipes.cache.{ChildData, NodeCache, NodeCacheListener}
+import org.apache.curator.framework.state.ConnectionState
 import org.slf4j.LoggerFactory
 
 private object ZKMasterPathMonitor{
@@ -16,18 +18,26 @@ class ZKMasterPathMonitor(connection: CuratorFramework,
                           prefix: String,
                           setMaster: Either[Throwable, Option[SocketHostPortPair]] => Unit)
   extends NodeCacheListener
+    with CuratorListener
 {
-
   private val logger = LoggerFactory.getLogger(this.getClass)
+  @volatile private var isClosed = true
+
+  private def checkOnPathToMasterDoesExist() = {
+    val pathToMaster = new File(prefix).getParent
+    val isExist =
+      Option(connection.checkExists().forPath(pathToMaster)).isDefined
+    if (!isExist)
+      throw new MasterPathIsAbsent(pathToMaster)
+  }
+  checkOnPathToMasterDoesExist()
+
+
   private val nodeToWatch = new NodeCache(
     connection,
     prefix,
     false
   )
-
-  nodeToWatch.getListenable.addListener(this)
-  checkOnPathToMasterDoesExist()
-
 
   private def validateMaster(node: ChildData) = {
     val hostPort = new String(node.getData)
@@ -43,14 +53,6 @@ class ZKMasterPathMonitor(connection: CuratorFramework,
     }
   }
 
-  private def checkOnPathToMasterDoesExist() = {
-    val pathToMaster = new File(prefix).getParent
-    val isExist =
-      Option(connection.checkExists().forPath(pathToMaster)).isDefined
-    if (!isExist)
-      throw new MasterPathIsAbsent(pathToMaster)
-  }
-
   override def nodeChanged(): Unit = {
     Option(nodeToWatch.getCurrentData) match {
       case Some(node) =>
@@ -59,16 +61,42 @@ class ZKMasterPathMonitor(connection: CuratorFramework,
         else
           setMaster(validateMaster(node))
       case None =>
-        scala.util.Try(checkOnPathToMasterDoesExist()) match {
-          case scala.util.Success(_) =>
-            setMaster(Right(None))
-          case scala.util.Failure(throwable) =>
-            setMaster(Left(throwable))
-        }
+        val pathToMaster = new File(prefix).getParent
+        setMaster(
+          Left(
+            throw new MasterPathIsAbsent(pathToMaster)
+          )
+        )
     }
   }
 
+  override def eventReceived(client: CuratorFramework,
+                             event: CuratorEvent): Unit = {
+    event match {
+      case ConnectionState.LOST =>
+        setMaster(Right(None))
+      case _ =>
+        ()
+    }
+  }
 
-  def startMonitoringMasterServerPath(): Unit = nodeToWatch.start()
-  def stopMonitoringMasterServerPath():  Unit = nodeToWatch.close()
+  def startMonitoringMasterServerPath(): Unit =
+    this.synchronized {
+      if (isClosed) {
+        isClosed = false
+        nodeToWatch.getListenable.addListener(this)
+        connection.getCuratorListenable.addListener(this)
+        nodeToWatch.start()
+      }
+    }
+
+  def stopMonitoringMasterServerPath():  Unit =
+    this.synchronized {
+      if (!isClosed) {
+        isClosed = true
+        nodeToWatch.getListenable.removeListener(this)
+        connection.getCuratorListenable.removeListener(this)
+        nodeToWatch.close()
+      }
+    }
 }

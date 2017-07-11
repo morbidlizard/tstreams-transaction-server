@@ -32,7 +32,7 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
       .handler(handlersChain)
   }
 
-  @volatile private var isChannelActive = false
+  @volatile private var isStopped = false
   @volatile private var channel: Channel = connect(bootstrap)
 
 
@@ -48,7 +48,6 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
 
   @tailrec
   final private def connect(bootstrap: Bootstrap): Channel = {
-    isChannelActive = false
     val socket = getConnectionAddress
     val newConnection = bootstrap.connect(socket.address, socket.port)
     scala.util.Try {
@@ -59,7 +58,6 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
           channelToUse,
           bootstrap
         )
-        isChannelActive = true
         channelToUse
       case scala.util.Failure(throwable) =>
         if (throwable.isInstanceOf[java.util.concurrent.RejectedExecutionException])
@@ -78,17 +76,23 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
   private def reconnectOnConnectionLostListener(oldChannel: Channel,
                                                 bootstrap: Bootstrap) = {
     oldChannel.closeFuture.addListener { (_: ChannelFuture) =>
-      oldChannel.eventLoop().execute { () =>
-        oldChannel.close()
-        onConnectionLostDo
-        channel = connect(bootstrap)
+      if (!isStopped) {
+        oldChannel.eventLoop().execute { () =>
+          oldChannel.close()
+          onConnectionLostDo
+          channel = connect(bootstrap)
+        }
       }
     }
   }
 
-  //While loop may be a good idea if one pleasures to handle requests without checking if channel is usable
   def getChannel(): Channel = {
-    while (!(isChannelActive && channel.isActive)) {}
     channel
   }
+
+  def stop(): Unit =
+    this.synchronized {
+      isStopped = true
+      reconnect()
+    }
 }

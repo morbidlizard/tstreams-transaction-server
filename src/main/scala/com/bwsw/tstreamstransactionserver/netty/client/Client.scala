@@ -21,28 +21,29 @@ package com.bwsw.tstreamstransactionserver.netty.client
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{RequestTimeoutException, _}
 import com.bwsw.tstreamstransactionserver.netty._
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
-import com.bwsw.tstreamstransactionserver.netty.client.zk.{ZKClient, ZKMiddleware}
+import com.bwsw.tstreamstransactionserver.netty.client.zk.{ZKClient, ZKMasterInteractor}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, _}
 import com.twitter.scrooge.ThriftStruct
-import io.netty.bootstrap.Bootstrap
 import io.netty.channel._
-import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
+import io.netty.channel.epoll.EpollEventLoopGroup
+import io.netty.channel.nio.NioEventLoopGroup
+import org.apache.commons.lang.SystemUtils
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.ConnectionState
+import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future => ScalaFuture, Promise => ScalaPromise}
+import scala.concurrent.{Await, ExecutionContextExecutorService, Future => ScalaFuture, Promise => ScalaPromise}
 
 
 /** A client who connects to a server.
@@ -55,7 +56,9 @@ class Client(clientOpts: ConnectionOptions,
              curatorConnection: Option[CuratorFramework] = None)
   extends TTSClient
 {
-  @volatile private[client] var isShutdown = false
+  private val isZKClientExternal =
+    curatorConnection.isDefined
+  @volatile private var isShutdown = false
 
   private def onShutdownThrowException(): Unit =
     if (isShutdown) throw ClientIllegalOperationAfterShutdown
@@ -64,22 +67,27 @@ class Client(clientOpts: ConnectionOptions,
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val isAuthenticated  = new java.util.concurrent.atomic.AtomicBoolean(false)
-  private val isReconnected    = new java.util.concurrent.atomic.AtomicBoolean(false)
 
-  /** A special context for making requests asynchronously, although they are processed sequentially;
-    * If's for: putTransaction, putTransactions, setConsumerState.
-    */
-  private[client] final val processTransactionsPutOperationPool = ExecutionContextGrid("ClientTransactionPool-%d")
 
   private final val executionContext = new ClientExecutionContextGrid(clientOpts.threadPool)
 
-  private final val context = executionContext.context
-  private final val contextForProducerTransactions = processTransactionsPutOperationPool.getContext
+  private final val context: ExecutionContextExecutorService = executionContext.context
+
+  private val zkConnection =
+    curatorConnection.getOrElse {
+      new ZKClient(
+        zookeeperOptions.endpoints,
+        zookeeperOptions.sessionTimeoutMs,
+        zookeeperOptions.connectionTimeoutMs,
+        new RetryForever(zookeeperOptions.retryDelayMs),
+        zookeeperOptions.prefix
+      ).client
+    }
 
 
-  private val zkInteractor = new ZKMiddleware(
-    curatorConnection,
-    zookeeperOptions,
+  private val zkInteractor = new ZKMasterInteractor(
+    zkConnection,
+    zookeeperOptions.prefix,
     _ => {},
     onZKConnectionStateChanged
   )
@@ -122,47 +130,30 @@ class Client(clientOpts: ConnectionOptions,
     clientOpts.threadPool
   )
 
-  private val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
-  private val bootstrap = new Bootstrap()
-    .group(workerGroup)
-    .channel(classOf[EpollSocketChannel])
-    .option[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
-    .option[java.lang.Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, int2Integer(clientOpts.connectionTimeoutMs))
-    .handler(new ClientInitializer(reqIdToRep, this, context))
+  private val workerGroup: EventLoopGroup =
+    if (SystemUtils.IS_OS_LINUX)
+      new EpollEventLoopGroup()
+    else
+      new NioEventLoopGroup()
 
-  @volatile private var channel: Channel = connect()
-
-  @tailrec
-  final private def connect(): Channel = {
-    val master = retrieveCurrentMaster()
-    val (listen, port) = (master.address, master.port)
-    val newConnection = bootstrap.connect(listen, port)
-    scala.util.Try(newConnection.sync().channel()) match {
-      case scala.util.Success(channelToUse) =>
-        channelToUse
-      case scala.util.Failure(throwable) =>
-        if (throwable.isInstanceOf[java.util.concurrent.RejectedExecutionException])
-          throw ClientIllegalOperationAfterShutdown
-        else {
-          onServerConnectionLostDefaultBehaviour("")
-          connect()
-        }
+  private val nettyClient = new NettyConnectionHandler(
+    workerGroup,
+    new ClientInitializer(reqIdToRep, context),
+    clientOpts.connectionTimeoutMs,
+    retrieveCurrentMaster(),
+    {
+      onServerConnectionLostDefaultBehaviour("")
+      reqIdToRep.forEach((t: Long, promise: ScalaPromise[ThriftStruct]) => {
+        promise.tryFailure(new ServerUnreachableException(
+          zkInteractor.getCurrentMaster
+            .right.map(_.map(_.toString).getOrElse("NO_CONNECTION_SOCKET"))
+            .right.getOrElse("NO_CONNECTION_SOCKET"))
+        )
+      })
     }
-  }
+  )
 
-
-  private[client] def reconnect(): Unit = {
-    val isConnected = isReconnected.getAndSet(true)
-    if (!isConnected) {
-      channel.closeFuture().sync()
-      channel = connect()
-      isReconnected.set(false)
-    } else {
-      TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
-    }
-  }
-
-  private final val nextSeqId = new AtomicLong(1L)
+  private final val requestIDGen = new AtomicLong(1L)
 
   /** A general method for sending requests to a server and getting a response back.
     *
@@ -176,44 +167,43 @@ class Client(clientOpts: ConnectionOptions,
                                                                         f: Rep => A
                                                                        )(implicit methodContext: concurrent.ExecutionContext): ScalaFuture[A] = {
 
-    val messageId = nextSeqId.getAndIncrement()
+    val messageId = requestIDGen.getAndIncrement()
     val message = descriptor.encodeRequestToMessage(request)(messageId, token, isFireAndForgetMethod = false)
     validateMessageSize(message)
 
     def go(message: Message,
-           previousException: Option[Throwable] = None, retryCount: Int = Int.MaxValue): ScalaFuture[A] = {
-      if (!channel.isActive) {
-        val error = new ServerUnreachableException(currentConnectionSocketAddress.toString)
-        val (currentException, _, counter) = checkError(error, previousException, retryCount)
-        go(message, Some(currentException), counter)
-      }
-      else {
-        val promise = ScalaPromise[ThriftStruct]
-        reqIdToRep.put(message.id, promise)
-        channel.write(message.toByteArray)
+           previousException: Option[Throwable] = None,
+           retryCount: Int = Int.MaxValue): ScalaFuture[A] = {
+      val promise = ScalaPromise[ThriftStruct]
+      reqIdToRep.put(message.id, promise)
 
-        val responseFuture = TimeoutScheduler.withTimeout(promise.future.map { response =>
+      val channel = nettyClient.getChannel()
+      channel.write(message.toByteArray)
+
+      val responseFuture = TimeoutScheduler.withTimeout(
+        promise.future.map { response =>
           reqIdToRep.remove(message.id)
           f(response.asInstanceOf[Rep])
-        })(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
-          .recoverWith { case error =>
-            reqIdToRep.remove(message.id)
-            val (currentException, _, counter) = checkError(error, previousException, retryCount)
-            if (counter == 0) {
-              ScalaFuture.failed(error)
-            }
-            else {
-              val messageId = nextSeqId.getAndIncrement()
-              val newMessage = message.copy(
-                id = messageId,
-                token = token)
-              go(newMessage, Some(currentException), counter)
-            }
-          }(methodContext)
+        }
+      )(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
 
-        channel.flush()
-        responseFuture
-      }
+      channel.flush()
+
+      responseFuture.recoverWith { case error =>
+        reqIdToRep.remove(message.id)
+        val (currentException, _, counter) =
+          checkError(error, previousException, retryCount)
+        if (counter == 0) {
+          ScalaFuture.failed(error)
+        }
+        else {
+          val messageId = requestIDGen.getAndIncrement()
+          val newMessage = message.copy(
+            id = messageId,
+            token = token)
+          go(newMessage, Some(currentException), counter)
+        }
+      }(methodContext)
     }
 
     go(message)
@@ -232,26 +222,27 @@ class Client(clientOpts: ConnectionOptions,
         case _ => // do nothing.
       }
 
-    val messageId = nextSeqId.getAndIncrement()
+    val messageId = requestIDGen.getAndIncrement()
     val message = descriptor.encodeRequestToMessage(request)(messageId, token, isFireAndForgetMethod = true)
 
     if (logger.isDebugEnabled) logger.debug(Protocol.methodWithArgsToString(messageId, request))
     validateMessageSize(message)
 
-    @tailrec
-    def fire(): Unit = {
-      if (channel.isActive)
-        channel.writeAndFlush(message.toByteArray, channel.voidPromise())
-      else {
-        reconnect()
-        fire()
-      }
-    }
-    fire()
+    val channel = nettyClient.getChannel()
+    channel.writeAndFlush(message.toByteArray, channel.voidPromise())
   }
 
+  private lazy val (maxMetadataPackageSize, maxDataPackageSize) = {
+    val packageSizes = Await.result(
+      getMaxPackagesSizes(),
+      1000.milliseconds
+    )
+    (packageSizes.maxMetadataPackageSize, packageSizes.maxDataPackageSize)
+  }
   private def validateMessageSize(message: Message): Unit = {
     message.method match {
+      case Protocol.GetMaxPackagesSizes.methodID =>
+
       case Protocol.PutTransactionData.methodID if maxDataPackageSize != -1 =>
         if (message.length > maxDataPackageSize)
           throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
@@ -265,7 +256,9 @@ class Client(clientOpts: ConnectionOptions,
     }
   }
 
-  private final def checkError(currentException: Throwable, previousException: Option[Throwable], retryCount: Int): (Throwable, Throwable, Int) = {
+  private final def checkError(currentException: Throwable,
+                               previousException: Option[Throwable],
+                               retryCount: Int): (Throwable, Throwable, Int) = {
     currentException match {
       case tokenException: TokenInvalidException =>
         authenticate()
@@ -300,7 +293,7 @@ class Client(clientOpts: ConnectionOptions,
             previousException match {
               case Some(exception: RequestTimeoutException) =>
                 if (retryCount == 0) {
-                  reconnect()
+                  nettyClient.reconnect()
                   (exception, concreteThrowable, Int.MaxValue)
                 }
                 else if (retryCount == Int.MaxValue)
@@ -341,8 +334,6 @@ class Client(clientOpts: ConnectionOptions,
 
 
   @volatile private var token: Int = -1
-  @volatile private var maxMetadataPackageSize: Int = -1
-  @volatile private var maxDataPackageSize: Int = -1
 
   /** Retrieving an offset between last processed commit log file and current commit log file where a server writes data.
     *
@@ -565,7 +556,7 @@ class Client(clientOpts: ConnectionOptions,
       Protocol.PutTransactions,
       TransactionService.PutTransactions.Args(transactions),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Puts producer transaction on a server.
@@ -590,7 +581,7 @@ class Client(clientOpts: ConnectionOptions,
       Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(producerTransactionToTransaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Puts consumer transaction on a server.
@@ -613,7 +604,7 @@ class Client(clientOpts: ConnectionOptions,
       Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(Transaction(None, Some(transaction))),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Puts 'simplified' producer transaction that already has Chekpointed state with it's data
@@ -639,7 +630,7 @@ class Client(clientOpts: ConnectionOptions,
       Protocol.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
 
@@ -683,7 +674,7 @@ class Client(clientOpts: ConnectionOptions,
       Protocol.OpenTransaction,
       TransactionService.OpenTransaction.Args(streamID, partitionID, transactionTTLMs),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Retrieves a producer transaction by id
@@ -825,7 +816,7 @@ class Client(clientOpts: ConnectionOptions,
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
     *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
-  def putProducerStateWithData(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = ScalaFuture {
+  def putProducerStateWithData(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
     import producerTransaction._
     if (logger.isDebugEnabled)
       logger.debug(
@@ -841,7 +832,7 @@ class Client(clientOpts: ConnectionOptions,
       TransactionService.PutProducerStateWithData.Args(producerTransaction, data, from),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
-  }(contextForProducerTransactions).flatten
+  }
 
 
   /** Retrieves all producer transactions binary data in a specific range [from, to]; it's assumed that "from" and "to" are both positive.
@@ -902,7 +893,7 @@ class Client(clientOpts: ConnectionOptions,
       Protocol.PutConsumerCheckpoint,
       TransactionService.PutConsumerCheckpoint.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Retrieves a consumer state on a specific consumer transaction name, stream, partition from a server; If the result is -1 it will mean there is no checkpoint at all.
@@ -953,10 +944,8 @@ class Client(clientOpts: ConnectionOptions,
         Protocol.Authenticate,
         TransactionService.Authenticate.Args(authKey),
         x => {
-          val authInfo = x.success.get
-          token = authInfo.token
-          maxDataPackageSize = authInfo.maxDataPackageSize
-          maxMetadataPackageSize = authInfo.maxMetadataPackageSize
+          val tokenFromServer = x.success.get
+          token = tokenFromServer
           isAuthenticated.set(false)
         }
       )(context)
@@ -966,17 +955,29 @@ class Client(clientOpts: ConnectionOptions,
     }
   }
 
+  private def getMaxPackagesSizes(): ScalaFuture[TransportOptionsInfo] = {
+    if (logger.isInfoEnabled) logger.info("getMaxPackagesSizes method is invoked.")
+    onShutdownThrowException()
+
+
+    method[TransactionService.GetMaxPackagesSizes.Args, TransactionService.GetMaxPackagesSizes.Result, TransportOptionsInfo](
+      Protocol.GetMaxPackagesSizes,
+      TransactionService.GetMaxPackagesSizes.Args(),
+      x => x.success.get
+    )(context)
+  }
+
   /** It Disconnects client from server slightly */
   def shutdown(): Unit = {
     if (!isShutdown) {
       isShutdown = true
       if (workerGroup != null) {
         workerGroup.shutdownGracefully(0, 0, TimeUnit.NANOSECONDS)
+        workerGroup.terminationFuture()
       }
-      if (channel != null) channel.closeFuture().sync()
-      if (zkInteractor != null) zkInteractor.close()
-      processTransactionsPutOperationPool.stopAccessNewTasks()
-      processTransactionsPutOperationPool.awaitAllCurrentTasksAreCompleted()
+      if (nettyClient != null) nettyClient.stop()
+      if (zkInteractor != null) zkInteractor.stop()
+      if (isZKClientExternal && zkConnection != null) zkConnection.close()
       executionContext.stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()
     }
   }

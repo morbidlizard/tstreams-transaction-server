@@ -38,8 +38,10 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter, logger: Logger)
     s"than maxMetadataPackageSize (${requestHandlerChooser.packageTransmissionOpts.maxMetadataPackageSize}) " +
     s"or maxDataPackageSize (${requestHandlerChooser.packageTransmissionOpts.maxDataPackageSize}).")
 
-  private val serverWriteContext: ExecutionContext = requestHandlerChooser.server.executionContext.serverWriteContext
-  private val serverReadContext: ExecutionContext = requestHandlerChooser.server.executionContext.serverReadContext
+  private val serverWriteContext: ExecutionContext =
+    requestHandlerChooser.server.executionContext.serverWriteContext
+  private val serverReadContext: ExecutionContext =
+    requestHandlerChooser.server.executionContext.serverReadContext
 
   private def isTooBigMetadataMessage(message: Message) = {
     message.length > requestHandlerChooser.packageTransmissionOpts.maxMetadataPackageSize
@@ -378,6 +380,12 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter, logger: Logger)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.IsValid.methodID =>
+        val response = handler.handleAndGetResponse(message.body)
+        val responseMessage = message.copy(length = response.length, body = response)
+        logSuccessfulProcession(handler.getName, message, ctx)
+        sendResponseToClient(responseMessage, ctx)
+
+      case Protocol.GetMaxPackagesSizes.methodID =>
         val response = handler.handleAndGetResponse(message.body)
         val responseMessage = message.copy(length = response.length, body = response)
         logSuccessfulProcession(handler.getName, message, ctx)

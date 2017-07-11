@@ -61,10 +61,9 @@ class ZKMasterPathMonitor(connection: CuratorFramework,
         else
           setMaster(validateMaster(node))
       case None =>
-        val pathToMaster = new File(prefix).getParent
         setMaster(
           Left(
-            throw new MasterPathIsAbsent(pathToMaster)
+            throw new MasterPathIsAbsent(prefix)
           )
         )
     }

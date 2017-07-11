@@ -20,10 +20,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
+import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.{AuthenticateHandler, IsValidHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateHandler, PutConsumerCheckpointHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutProducerStateWithDataHandler, PutTransactionDataHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesHandler
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, TransportOptions}
@@ -33,8 +35,7 @@ final class RequestHandlerRouter(val server: TransactionServer,
                                  val packageTransmissionOpts: TransportOptions,
                                  val authOptions: AuthenticationOptions,
                                  val orderedExecutionPool: OrderedExecutionContextPool,
-                                 val openTransactionStateNotifier: OpenTransactionStateNotifier
-                                 ) {
+                                 val openTransactionStateNotifier: OpenTransactionStateNotifier) {
 
   private val commitLogOffsetsHandler =
     new GetCommitLogOffsetsHandler(server, scheduledCommitLog)
@@ -84,6 +85,8 @@ final class RequestHandlerRouter(val server: TransactionServer,
   private val isValidHandler =
     new IsValidHandler(server)
 
+  private val getMaxPackagesSizesHandler =
+    new GetMaxPackagesSizesHandler(packageTransmissionOpts)
 
   def handler(id: Byte): RequestHandler = id match {
     case GetCommitLogOffsets.methodID =>
@@ -133,6 +136,9 @@ final class RequestHandlerRouter(val server: TransactionServer,
       authenticateHandler
     case IsValid.methodID =>
       isValidHandler
+
+    case GetMaxPackagesSizes.methodID =>
+      getMaxPackagesSizesHandler
 
     case methodID =>
       throw new IllegalArgumentException(s"Not implemented method that has id: $methodID")

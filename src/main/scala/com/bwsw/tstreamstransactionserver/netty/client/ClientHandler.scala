@@ -30,11 +30,11 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => ScalaPromise}
 
 @Sharable
-class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]], val client: Client,
+class ClientHandler(reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]],
                     implicit val context: ExecutionContext)
   extends SimpleChannelInboundHandler[ByteBuf] {
 
-  private def retryCompletePromise(messageSeqId: Long, response: ThriftStruct): Unit = {
+  private def tryCompleteResponse(messageSeqId: Long, response: ThriftStruct): Unit = {
     val request = reqIdToRep.get(messageSeqId)
     if (request != null) request.trySuccess(response)
   }
@@ -43,67 +43,70 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
     def invokeMethod(message: Message)(implicit context: ExecutionContext):Unit =  {
       message.method match {
         case Protocol.GetCommitLogOffsets.methodID =>
-          ScalaFuture(retryCompletePromise(message.id, Protocol.GetCommitLogOffsets.decodeResponse(message)))
+          ScalaFuture(tryCompleteResponse(message.id, Protocol.GetCommitLogOffsets.decodeResponse(message)))
 
         case Protocol.PutStream.methodID =>
-          retryCompletePromise(message.id, Protocol.PutStream.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.PutStream.decodeResponse(message))
 
         case Protocol.CheckStreamExists.methodID =>
-          retryCompletePromise(message.id, Protocol.CheckStreamExists.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.CheckStreamExists.decodeResponse(message))
 
         case Protocol.GetStream.methodID =>
-          ScalaFuture(retryCompletePromise(message.id, Protocol.GetStream.decodeResponse(message)))(context)
+          ScalaFuture(tryCompleteResponse(message.id, Protocol.GetStream.decodeResponse(message)))(context)
 
         case Protocol.DelStream.methodID =>
-          retryCompletePromise(message.id, Protocol.DelStream.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.DelStream.decodeResponse(message))
 
         case Protocol.GetTransactionID.methodID =>
-          retryCompletePromise(message.id, Protocol.GetTransactionID.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.GetTransactionID.decodeResponse(message))
 
         case Protocol.GetTransactionIDByTimestamp.methodID =>
-          retryCompletePromise(message.id, Protocol.GetTransactionIDByTimestamp.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.GetTransactionIDByTimestamp.decodeResponse(message))
 
         case Protocol.PutTransaction.methodID =>
-          retryCompletePromise(message.id, Protocol.PutTransaction.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.PutTransaction.decodeResponse(message))
 
         case Protocol.PutTransactions.methodID =>
-          retryCompletePromise(message.id, Protocol.PutTransactions.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.PutTransactions.decodeResponse(message))
 
         case Protocol.PutProducerStateWithData.methodID =>
-          retryCompletePromise(message.id, Protocol.PutProducerStateWithData.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.PutProducerStateWithData.decodeResponse(message))
 
         case Protocol.PutSimpleTransactionAndData.methodID =>
-          retryCompletePromise(message.id, Protocol.PutSimpleTransactionAndData.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.PutSimpleTransactionAndData.decodeResponse(message))
 
         case Protocol.OpenTransaction.methodID =>
-          retryCompletePromise(message.id, Protocol.OpenTransaction.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.OpenTransaction.decodeResponse(message))
 
         case Protocol.GetTransaction.methodID =>
-          retryCompletePromise(message.id, Protocol.GetTransaction.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.GetTransaction.decodeResponse(message))
 
         case Protocol.GetLastCheckpointedTransaction.methodID =>
-          ScalaFuture(retryCompletePromise(message.id, Protocol.GetLastCheckpointedTransaction.decodeResponse(message)))
+          ScalaFuture(tryCompleteResponse(message.id, Protocol.GetLastCheckpointedTransaction.decodeResponse(message)))
 
         case Protocol.ScanTransactions.methodID =>
-          ScalaFuture(retryCompletePromise(message.id, Protocol.ScanTransactions.decodeResponse(message)))(context)
+          ScalaFuture(tryCompleteResponse(message.id, Protocol.ScanTransactions.decodeResponse(message)))(context)
 
         case Protocol.PutTransactionData.methodID =>
-          retryCompletePromise(message.id, Protocol.PutTransactionData.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.PutTransactionData.decodeResponse(message))
 
         case Protocol.GetTransactionData.methodID =>
-          ScalaFuture(retryCompletePromise(message.id, Protocol.GetTransactionData.decodeResponse(message)))(context)
+          ScalaFuture(tryCompleteResponse(message.id, Protocol.GetTransactionData.decodeResponse(message)))(context)
 
         case Protocol.PutConsumerCheckpoint.methodID =>
-          retryCompletePromise(message.id, Protocol.PutConsumerCheckpoint.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.PutConsumerCheckpoint.decodeResponse(message))
 
         case Protocol.GetConsumerState.methodID =>
-          retryCompletePromise(message.id, Protocol.GetConsumerState.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.GetConsumerState.decodeResponse(message))
 
         case Protocol.Authenticate.methodID =>
-          retryCompletePromise(message.id, Protocol.Authenticate.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.Authenticate.decodeResponse(message))
 
         case Protocol.IsValid.methodID =>
-          retryCompletePromise(message.id, Protocol.IsValid.decodeResponse(message))
+          tryCompleteResponse(message.id, Protocol.IsValid.decodeResponse(message))
+
+        case Protocol.GetMaxPackagesSizes.methodID =>
+          tryCompleteResponse(message.id, Protocol.GetMaxPackagesSizes.decodeResponse(message))
 
         case methodByte =>
           val throwable = new MethodDoesNotFoundException(methodByte.toString)
@@ -117,15 +120,6 @@ class ClientHandler(private val reqIdToRep: ConcurrentHashMap[Long, ScalaPromise
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
     ctx.fireChannelInactive()
-
-    val remoteAddress = ctx.channel().remoteAddress().toString
-    reqIdToRep.forEach((t: Long, promise: ScalaPromise[ThriftStruct]) => {
-      promise.tryFailure(new ServerUnreachableException(remoteAddress))
-    })
-
-    if (!client.isShutdown) {
-      ScalaFuture(ctx.channel().eventLoop().execute(() => client.reconnect()))
-    }
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {

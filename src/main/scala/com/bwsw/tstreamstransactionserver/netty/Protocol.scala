@@ -196,6 +196,8 @@ object Protocol {
   val isValidMethod = "isValid"
   val getTransactionID = "getTransactionID"
   val getTransactionIDByTimestamp = "getTransactionIDByTimestamp"
+  val getMaxPackagesSizes = "getMaxPackagesSizes"
+
 
   final def methodWithArgsToString(id: Long, struct: ThriftStruct): String = {
     def toString(methodName: String, arguments: Iterator[Any], fields: List[String]) = {
@@ -245,6 +247,8 @@ object Protocol {
         toString(GetTransactionID.name, struct.productIterator, TransactionService.GetTransactionID.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetTransactionIDByTimestamp.Args   =>
         toString(GetTransactionIDByTimestamp.name, struct.productIterator, TransactionService.GetTransactionIDByTimestamp.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetMaxPackagesSizes.Args   =>
+        toString(GetMaxPackagesSizes.name, struct.productIterator, TransactionService.GetMaxPackagesSizes.Args.fieldInfos.map(_.tfield.name))
       case _ =>
         throw new NotImplementedError(s"$struct is not implemeted for debug information")
     }
@@ -312,4 +316,7 @@ object Protocol {
 
   case object PutProducerStateWithData extends
     Descriptor(putProducerStateWithData, 20:Byte, TransactionService.PutProducerStateWithData.Args, TransactionService.PutProducerStateWithData.Result, protocolTCompactFactory, protocolTBinaryFactory)
+
+  case object GetMaxPackagesSizes extends
+    Descriptor(getMaxPackagesSizes, 21:Byte, TransactionService.GetMaxPackagesSizes.Args, TransactionService.GetMaxPackagesSizes.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 }

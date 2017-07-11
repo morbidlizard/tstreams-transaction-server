@@ -15,7 +15,10 @@ import org.scalatest.{FlatSpec, Matchers}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class ClientPackageTooBigTest extends FlatSpec with Matchers {
+class ClientPackageTooBigTest
+  extends FlatSpec
+    with Matchers {
+
    private val serverStorageOptions = StorageOptions(path = "/tmp")
    private val packageTransmissionOptions = TransportOptions(maxMetadataPackageSize = 1000000)
 

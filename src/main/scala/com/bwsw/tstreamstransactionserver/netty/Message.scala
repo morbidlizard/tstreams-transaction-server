@@ -31,27 +31,32 @@ import io.netty.buffer.ByteBuf
   *  @param body a binary representation of information.
   *
   */
-case class Message(id: Long, length: Int, protocol: Byte, body: Array[Byte], token: Int, method: Byte, isFireAndForgetMethod: Byte)
+case class Message(id: Long,
+                   length: Int,
+                   protocol: Byte,
+                   body: Array[Byte],
+                   token: Int,
+                   method: Byte,
+                   isFireAndForgetMethod: Byte)
 {
   /** Serializes a message. */
   def toByteArray: Array[Byte] = {
     val size = Message.headerFieldSize + Message.lengthFieldSize + body.length
     val buffer = java.nio.ByteBuffer
       .allocate(size)
-      .putLong(id)
-      .put(protocol)
-      .putInt(token)
-      .put(method)
-      .put(isFireAndForgetMethod)
-      .putInt(length)
-      .put(body)
+      .putLong(id)    //0-8
+      .put(protocol)  //8-9
+      .putInt(token)  //9-13
+      .put(method)    //13-14
+      .put(isFireAndForgetMethod) //14-15
+      .putInt(length)             //15-19
+      .put(body)                  //20-size
     buffer.flip()
 
     val binaryMessage = new Array[Byte](size)
     buffer.get(binaryMessage)
     binaryMessage
   }
-
 }
 object Message {
   val headerFieldSize: Byte = (
@@ -66,8 +71,10 @@ object Message {
   /** Deserializes a binary to message. */
   def fromByteArray(bytes: Array[Byte]): Message = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
+    println(buffer.position())
     val id     = buffer.getLong
     val protocol = buffer.get
+    println(buffer.position())
     val token = buffer.getInt
     val method = buffer.get()
     val isFireAndForgetMethod = buffer.get()

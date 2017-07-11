@@ -36,8 +36,7 @@ object ServerOptions {
     */
   case class BootstrapOptions(bindHost: String = "127.0.0.1",
                               bindPort: Int = 8071,
-                              openOperationsPoolSize: Int = Runtime.getRuntime.availableProcessors()
-                             )
+                              openOperationsPoolSize: Int = Runtime.getRuntime.availableProcessors())
 
   /** The options are used to provide notification service for subscribers.
     *
@@ -45,8 +44,7 @@ object ServerOptions {
     * @param monitoringZkEndpoints The ZooKeeper server(s) connect to.
     */
   case class SubscriberUpdateOptions(updatePeriodMs: Int = 1000,
-                                     monitoringZkEndpoints: Option[String] = None
-                                    )
+                                     monitoringZkEndpoints: Option[String] = None)
 
   /** The options are used to validate client requests by a server.
     *
@@ -56,8 +54,7 @@ object ServerOptions {
     */
   case class AuthenticationOptions(key: String = "",
                                    keyCacheSize: Int = 10000,
-                                   keyCacheExpirationTimeSec: Int = 600
-                        )
+                                   keyCacheExpirationTimeSec: Int = 600)
 
   /** The options are used to define folders for databases.
     *
@@ -77,8 +74,7 @@ object ServerOptions {
                             commitLogRocksDirectory: String = "commit_log_rocks" //,
                             /** streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
                               * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
-                              * berkeleyReadThreadPool: Int = 2 */
-                           )
+                              * berkeleyReadThreadPool: Int = 2 */)
 
   /** The options are used for replication environment.
     *
@@ -90,8 +86,7 @@ object ServerOptions {
   case class ServerReplicationOptions(authKey: String = "server_group",
                                       endpoints: String = "127.0.0.1:8071",
                                       name: String = "server",
-                                      group: String = "group"
-                                     )
+                                      group: String = "group")
 
   /** The options are applied on creation Rocksdb database.
     * For all rocksDB options look: https: //github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h
@@ -117,8 +112,7 @@ object ServerOptions {
                                  transactionExpungeDelayMin: Int = TimeUnit.DAYS.toMinutes(180).toInt,
                                  maxBackgroundCompactions: Int = 1,
                                  compression: CompressionType = CompressionType.LZ4_COMPRESSION,
-                                 isFsync: Boolean = true
-                                ) {
+                                 isFsync: Boolean = true) {
 
 
 
@@ -162,8 +156,7 @@ object ServerOptions {
     *                           If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset.
     */
   case class TransportOptions(maxMetadataPackageSize: Int = 10000000,
-                              maxDataPackageSize: Int = 10000000
-                             )
+                              maxDataPackageSize: Int = 10000000)
 
   /** The options are applied when processing commit log files.
     *
@@ -186,7 +179,6 @@ object ServerOptions {
                               incompleteReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
                               closeDelayMs: Int = 200,
                               expungeDelaySec: Int = 86400,
-                              zkFileIdGeneratorPath: String = "/tts/file_id_gen"
-                             )
+                              zkFileIdGeneratorPath: String = "/tts/file_id_gen")
 }
 

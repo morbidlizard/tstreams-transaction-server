@@ -63,10 +63,7 @@ class ZKClient(endpoints: String,
                sessionTimeoutMillis: Int,
                connectionTimeoutMillis: Int,
                policy: RetryPolicy,
-               prefix: String,
-               onConnectionStateChangeDo: ConnectionState => Unit)
-
-  extends Closeable {
+               prefix: String) {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -93,13 +90,7 @@ class ZKClient(endpoints: String,
       throw new ZkNoConnectionException(endpoints)
   }
 
-  val listener: ConnectionStateListener =
-    ZKClient.addConnectionListener(
-      client,
-      onConnectionStateChangeDo
-    )
-
-  override def close(): Unit = {
+  def close(): Unit = {
     client.close()
   }
 }

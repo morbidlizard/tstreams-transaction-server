@@ -29,7 +29,10 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder
 
 import scala.concurrent.{ExecutionContext, Promise => ScalaPromise}
 
-class ClientInitializer(reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]], client: Client, context: ExecutionContext) extends ChannelInitializer[SocketChannel] {
+class ClientInitializer(reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]],
+                        context: ExecutionContext)
+  extends ChannelInitializer[SocketChannel] {
+
   override def initChannel(ch: SocketChannel): Unit = {
     ch.pipeline()
       .addLast(new ByteArrayEncoder())
@@ -38,7 +41,7 @@ class ClientInitializer(reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftS
         Message.headerFieldSize,
         Message.lengthFieldSize)
       )
-      .addLast(new ClientHandler(reqIdToRep, client, context))
+      .addLast(new ClientHandler(reqIdToRep, context))
   }
 }
 

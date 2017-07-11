@@ -16,12 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler
+package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
-import com.bwsw.tstreamstransactionserver.rpc.{AuthInfo, TransactionService}
+import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
 class AuthenticateHandler(server: TransactionServer,
                           packageTransmissionOpts: TransportOptions)
@@ -31,11 +32,7 @@ class AuthenticateHandler(server: TransactionServer,
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.authenticate(args.authKey)
-    AuthInfo(result,
-      packageTransmissionOpts.maxMetadataPackageSize,
-      packageTransmissionOpts.maxDataPackageSize
-    )
+    server.authenticate(args.authKey)
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {

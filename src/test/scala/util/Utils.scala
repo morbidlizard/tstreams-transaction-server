@@ -3,6 +3,8 @@ package util
 import java.net.ServerSocket
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.netty.client.{InetClient, InetClientProxy}
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
@@ -93,11 +95,20 @@ object Utils {
     }).start()
     latch.await(3000, TimeUnit.SECONDS)
 
-    val client = new ClientBuilder()
-      .withZookeeperOptions(
-        ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-      )
-      .build()
+
+
+    val client = new InetClientProxy(
+      ConnectionOptions(),
+      AuthOptions(),
+      ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+    )
+
+
+//    val client = new ClientBuilder()
+//      .withZookeeperOptions(
+//        ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+//      )
+//      .build()
 
     ZkSeverTxnServerTxnClient(zkTestServer, transactionServer, client)
   }

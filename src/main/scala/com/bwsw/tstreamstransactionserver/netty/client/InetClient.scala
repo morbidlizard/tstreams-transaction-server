@@ -2,7 +2,6 @@ package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.{ConcurrentHashMap, CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.StampedLock
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol, SocketHostPortPair}
@@ -17,7 +16,7 @@ import org.apache.curator.framework.state.ConnectionState
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import scala.concurrent.{Await, ExecutionContextExecutorService, Future, Promise}
+import scala.concurrent.{ExecutionContextExecutorService, Future, Promise}
 import scala.concurrent.duration._
 
 class InetClient(zookeeperOptions: ZookeeperOptions,
@@ -35,6 +34,8 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
 
   private val logger =
     LoggerFactory.getLogger(this.getClass)
+
+  @volatile private var currentToken: Int = -1
 
   private final def onServerConnectionLostDefaultBehaviour(connectionSocket: String): Unit = {
     if (logger.isWarnEnabled) {
@@ -60,16 +61,19 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     workerGroup,
     new ClientInitializer(requestIdToResponseMap, context),
     clientOpts.connectionTimeoutMs,
-    retrieveCurrentMaster(),
-    {
+    retrieveCurrentMaster(), {
       onServerConnectionLostDefaultBehaviour("")
-      requestIdToResponseMap.forEach((t: Long, promise: Promise[ThriftStruct]) => {
-        promise.tryFailure(new ServerUnreachableException(
-          zkInteractor.getCurrentMaster
-            .right.map(_.map(_.toString).getOrElse("NO_CONNECTION_SOCKET"))
-            .right.getOrElse("NO_CONNECTION_SOCKET"))
-        )
-      })
+      val requests = requestIdToResponseMap.elements()
+      Future {
+        while (requests.hasMoreElements) {
+          val request = requests.nextElement()
+          request.tryFailure(new ServerUnreachableException(
+            zkInteractor.getCurrentMaster
+              .right.map(_.map(_.toString).getOrElse("NO_CONNECTION_SOCKET"))
+              .right.getOrElse("NO_CONNECTION_SOCKET"))
+          )
+        }
+      }(context)
     }
   )
 
@@ -104,28 +108,82 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     go(System.currentTimeMillis())
   }
 
-  private lazy val (maxMetadataPackageSize, maxDataPackageSize) = {
-    val packageSizes = Await.result(
-      getMaxPackagesSizes(),
-      1000.milliseconds
+  private lazy val messageSizeValidator = {
+    val packageSizes = getMaxPackagesSizes()
+    new MessageSizeValidator(
+      packageSizes.maxMetadataPackageSize,
+      packageSizes.maxDataPackageSize
     )
-    (packageSizes.maxMetadataPackageSize, packageSizes.maxDataPackageSize)
   }
-  private def validateMessageSize(message: Message): Unit = {
-    message.method match {
-      case Protocol.GetMaxPackagesSizes.methodID =>
 
-      case Protocol.PutTransactionData.methodID if maxDataPackageSize != -1 =>
-        if (message.length > maxDataPackageSize)
-          throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
-            s"than maxDataPackageSize ($maxDataPackageSize).")
-      case _ if maxMetadataPackageSize != -1 =>
-        if (message.length > maxMetadataPackageSize)  {
-          throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
-            s"than maxMetadataPackageSize ($maxMetadataPackageSize).")
-        }
-      case _ =>
-    }
+  private def sendRequest[Req <: ThriftStruct, Rep <: ThriftStruct, A](message: Message,
+                                                                       f: Rep => A,
+                                                                       previousException: Option[Throwable] = None,
+                                                                       retryCount: Int = Int.MaxValue)
+                                                                      (implicit methodContext: concurrent.ExecutionContext): Future[A] = {
+    val promise = Promise[ThriftStruct]
+    requestIdToResponseMap.put(message.id, promise)
+
+    val channel = nettyClient.getChannel()
+    channel.write(message.toByteArray)
+
+    val responseFuture = TimeoutScheduler.withTimeout(
+      promise.future.map { response =>
+        requestIdToResponseMap.remove(message.id)
+        f(response.asInstanceOf[Rep])
+      }
+    )(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
+
+    channel.flush()
+
+    responseFuture.recoverWith { case error =>
+      requestIdToResponseMap.remove(message.id)
+      val (currentException, _, counter) =
+        checkError(error, previousException, retryCount)
+      if (counter == 0) {
+        Future.failed(error)
+      }
+      else {
+        val messageId = requestIDGen.getAndIncrement()
+        val newMessage = message.copy(
+          id = messageId,
+          token = getToken)
+        sendRequest(newMessage, f, Some(currentException), counter)
+      }
+    }(methodContext)
+  }
+
+  private def methodWithMessageSizeValidation[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Protocol.Descriptor[Req, Rep],
+                                                                                           request: Req,
+                                                                                           f: Rep => A)
+                                                                                          (implicit methodContext: concurrent.ExecutionContext): Future[A] = {
+    val messageId = requestIDGen.getAndIncrement()
+
+    val message = descriptor.encodeRequestToMessage(request)(
+      messageId,
+      getToken,
+      isFireAndForgetMethod = false
+    )
+
+    messageSizeValidator.validateMessageSize(message)
+
+    sendRequest(message, f)
+  }
+
+
+  private def methodWithoutMessageSizeValidation[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Protocol.Descriptor[Req, Rep],
+                                                                                              request: Req,
+                                                                                              f: Rep => A)
+                                                                                             (implicit methodContext: concurrent.ExecutionContext): Future[A] = {
+    val messageId = requestIDGen.getAndIncrement()
+
+    val message = descriptor.encodeRequestToMessage(request)(
+      messageId,
+      getToken,
+      isFireAndForgetMethod = false
+    )
+
+    sendRequest(message, f)
   }
 
 
@@ -136,56 +194,33 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     * @return a response from server(however, it may return an exception from server).
     *
     */
-  private final def method[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Protocol.Descriptor[Req, Rep],
-                                                                        request: Req,
-                                                                        f: Rep => A
-                                                                       )(implicit methodContext: concurrent.ExecutionContext): Future[A] = {
-    val messageId = requestIDGen.getAndIncrement()
-
-    val message = descriptor.encodeRequestToMessage(request)(
-      messageId,
-      getToken,
-      isFireAndForgetMethod = false
+  final def method[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Protocol.Descriptor[Req, Rep],
+                                                                request: Req,
+                                                                f: Rep => A
+                                                               )(implicit methodContext: concurrent.ExecutionContext): Future[A] = {
+    methodWithMessageSizeValidation(
+      descriptor,
+      request,
+      f
     )
+  }
 
-    validateMessageSize(message)
+  @throws[TokenInvalidException]
+  @throws[PackageTooBigException]
+  final def methodFireAndForget[Req <: ThriftStruct](descriptor: Protocol.Descriptor[Req, _],
+                                                     request: Req): Unit = {
 
-    def go(message: Message,
-           previousException: Option[Throwable] = None,
-           retryCount: Int = Int.MaxValue): Future[A] = {
-      val promise = Promise[ThriftStruct]
-      requestIdToResponseMap.put(message.id, promise)
+    if (getToken == -1)
+      authenticate()
 
-      val channel = nettyClient.getChannel()
-      channel.write(message.toByteArray)
+    val messageId = requestIDGen.getAndIncrement()
+    val message = descriptor.encodeRequestToMessage(request)(messageId, getToken, isFireAndForgetMethod = true)
 
-      val responseFuture = TimeoutScheduler.withTimeout(
-        promise.future.map { response =>
-          requestIdToResponseMap.remove(message.id)
-          f(response.asInstanceOf[Rep])
-        }
-      )(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
+    if (logger.isDebugEnabled) logger.debug(Protocol.methodWithArgsToString(messageId, request))
+    messageSizeValidator.validateMessageSize(message)
 
-      channel.flush()
-
-      responseFuture.recoverWith { case error =>
-        requestIdToResponseMap.remove(message.id)
-        val (currentException, _, counter) =
-          checkError(error, previousException, retryCount)
-        if (counter == 0) {
-          Future.failed(error)
-        }
-        else {
-          val messageId = requestIDGen.getAndIncrement()
-          val newMessage = message.copy(
-            id = messageId,
-            token = getToken)
-          go(newMessage, Some(currentException), counter)
-        }
-      }(methodContext)
-    }
-
-    go(message)
+    val channel = nettyClient.getChannel()
+    channel.writeAndFlush(message.toByteArray, channel.voidPromise())
   }
 
   private final def checkError(currentException: Throwable,
@@ -251,21 +286,12 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     zkInteractor.getCurrentMaster
 
 
-  private val isAuthenticatedLock  =
-    new StampedLock()
+  private val isAuthenticating  =
+    new java.util.concurrent.atomic.AtomicBoolean(false)
 
-  @volatile private var currentToken: Int = -1
 
-  @tailrec
   private final def getToken: Int = {
-    val stamp = isAuthenticatedLock.tryOptimisticRead()
-    val token = currentToken
-    val isValid = isAuthenticatedLock.validate(stamp)
-    isAuthenticatedLock.unlockRead(stamp)
-    if (isValid)
-      token
-    else
-      getToken
+    currentToken
   }
 
   /** Retrieves a token for that allow a client send requests to server.
@@ -285,17 +311,19 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
 
     onShutdownThrowException()
 
-    if (!isAuthenticatedLock.isWriteLocked) {
-      val stamp = isAuthenticatedLock.tryWriteLock()
+    val needToAuthenticate =
+      isAuthenticating.compareAndSet(false, true)
+
+    if (needToAuthenticate) {
       val authKey = authOpts.key
       val latch = new CountDownLatch(1)
-      method[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, Unit](
+      methodWithoutMessageSizeValidation[TransactionService.Authenticate.Args, TransactionService.Authenticate.Result, Unit](
         Protocol.Authenticate,
         TransactionService.Authenticate.Args(authKey),
         x => {
           val tokenFromServer = x.success.get
           currentToken = tokenFromServer
-          isAuthenticatedLock.unlockWrite(stamp)
+          isAuthenticating.set(false)
           latch.countDown()
         }
       )(context)
@@ -304,21 +332,32 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         TimeUnit.MILLISECONDS
       )
     } else {
-      while (isAuthenticatedLock.isWriteLocked){}
+      while (isAuthenticating.get()) {}
     }
   }
 
-  private def getMaxPackagesSizes(): Future[TransportOptionsInfo] = {
+  private def getMaxPackagesSizes(): TransportOptionsInfo = {
     if (logger.isInfoEnabled)
       logger.info("getMaxPackagesSizes method is invoked.")
 
     onShutdownThrowException()
 
-    method[TransactionService.GetMaxPackagesSizes.Args, TransactionService.GetMaxPackagesSizes.Result, TransportOptionsInfo](
+    val latch = new CountDownLatch(1)
+    var transportOptionsInfo: TransportOptionsInfo = null
+    methodWithoutMessageSizeValidation[TransactionService.GetMaxPackagesSizes.Args, TransactionService.GetMaxPackagesSizes.Result, Unit](
       Protocol.GetMaxPackagesSizes,
       TransactionService.GetMaxPackagesSizes.Args(),
-      x => x.success.get
+      x => {
+        transportOptionsInfo = x.success.get
+        latch.countDown()
+      }
     )(context)
+
+    latch.await(
+      clientOpts.requestTimeoutMs,
+      TimeUnit.MILLISECONDS
+    )
+    transportOptionsInfo
   }
 
   /** It Disconnects client from server slightly */

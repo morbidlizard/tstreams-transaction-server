@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.subscriber
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamValue
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import org.scalatest.{FlatSpec, Matchers}
@@ -13,20 +13,20 @@ class OpenTransactionStateNotifierTest
 
   "Open transaction state notifier" should "transmit message to its subscriber" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, "/tts")
     val timeToUpdateMs = 200
 
     val observer = new SubscribersObserver(
       zkClient,
-      streamDatabaseZK,
+      zookeeperStreamRepository,
       timeToUpdateMs
     )
     val subscriberNotifier = new SubscriberNotifier
     val notifier = new OpenTransactionStateNotifier(observer, subscriberNotifier)
 
     val streamBody = StreamValue(0.toString, 100, None, 1000L, None)
-    val streamKey   = streamDatabaseZK.putStream(streamBody)
-    val streamRecord = streamDatabaseZK.getStream(streamKey).get
+    val streamKey   = zookeeperStreamRepository.put(streamBody)
+    val streamRecord = zookeeperStreamRepository.get(streamKey).get
     val partition  = 1
 
     val subscriber = new UdpServer
@@ -74,20 +74,20 @@ class OpenTransactionStateNotifierTest
 
   it should "not transmit message to its subscriber as stream doesn't exist" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, "/tts")
     val timeToUpdateMs = 200
 
     val observer = new SubscribersObserver(
       zkClient,
-      streamDatabaseZK,
+      zookeeperStreamRepository,
       timeToUpdateMs
     )
     val subscriberNotifier = new SubscriberNotifier
     val notifier = new OpenTransactionStateNotifier(observer, subscriberNotifier)
 
     val streamBody = StreamValue(0.toString, 100, None, 1000L, None)
-    val streamKey   = streamDatabaseZK.putStream(streamBody)
-    val streamRecord = streamDatabaseZK.getStream(streamKey).get
+    val streamKey   = zookeeperStreamRepository.put(streamBody)
+    val streamRecord = zookeeperStreamRepository.get(streamKey).get
     val partition  = 1
 
     val subscriber = new UdpServer
@@ -132,20 +132,20 @@ class OpenTransactionStateNotifierTest
 
   it should "transmit message to its subscribers and they will get the same message" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, "/tts")
     val timeToUpdateMs = 200
 
     val observer = new SubscribersObserver(
       zkClient,
-      streamDatabaseZK,
+      zookeeperStreamRepository,
       timeToUpdateMs
     )
     val subscriberNotifier = new SubscriberNotifier
     val notifier = new OpenTransactionStateNotifier(observer, subscriberNotifier)
 
     val streamBody = StreamValue(0.toString, 100, None, 1000L, None)
-    val streamKey   = streamDatabaseZK.putStream(streamBody)
-    val streamRecord = streamDatabaseZK.getStream(streamKey).get
+    val streamKey   = zookeeperStreamRepository.put(streamBody)
+    val streamRecord = zookeeperStreamRepository.get(streamKey).get
     val partition  = 1
 
     val subscribersNum = 10

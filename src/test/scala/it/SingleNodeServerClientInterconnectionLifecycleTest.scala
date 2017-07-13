@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
@@ -29,6 +29,7 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
   }
 
   override def afterEach(): Unit = beforeEach()
+
   private val path = "/tts/test_path"
 
   it should "put stream, then delete this stream, and put it again and return correct result" in {
@@ -38,13 +39,13 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
     transactionServer.delStream(stream.name)
@@ -72,6 +73,7 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
   }
 
   private lazy val fileIDGen = new AtomicLong(0L)
+
   private final def transitOneTransactionToAnotherState(transactionServiceServer: TransactionServer, in: ProducerTransaction, toUpdateIn: ProducerTransaction, out: ProducerTransaction, timeBetweenTransactionMs: Long) = {
     val firstCommitTime = System.currentTimeMillis()
     val inAggregated = ProducerTransactionRecord(
@@ -101,13 +103,13 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
@@ -143,13 +145,13 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
@@ -165,7 +167,7 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
       producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID,
       TransactionStates.Checkpointed, -1, checkpointedTTL
     )
-    
+
     transitOneTransactionToAnotherState(
       transactionServer,
       producerTransaction,
@@ -181,13 +183,13 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
@@ -222,13 +224,13 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
@@ -265,16 +267,16 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val rocksStorageOptions = RocksStorageOptions()
     val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
-    val streamID =transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 
     val openedTTL = TimeUnit.SECONDS.toMillis(7L)
@@ -291,7 +293,7 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
 
     val updatedTTL3 = TimeUnit.SECONDS.toMillis(7L)
     val wait3 = updatedTTL3 - TimeUnit.SECONDS.toMillis(2)
-    val producerTxnUpdated3 =com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
+    val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
     transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
 
     val checkpointedTTL = TimeUnit.SECONDS.toMillis(2L)

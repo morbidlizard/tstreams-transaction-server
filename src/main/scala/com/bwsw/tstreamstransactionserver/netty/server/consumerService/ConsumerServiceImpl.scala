@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
 
-
 class ConsumerServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager)
   extends ConsumerTransactionStateNotifier
 {
@@ -43,7 +42,6 @@ class ConsumerServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager)
       -1L
     }
   }
-
 
   private final def transitConsumerTransactionToNewState(commitLogTransactions: Seq[ConsumerTransactionRecord]): ConsumerTransactionRecord = {
     commitLogTransactions.maxBy(_.timestamp)

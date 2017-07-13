@@ -26,7 +26,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceIm
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
@@ -43,7 +43,9 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
                         authOpts: AuthenticationOptions,
                         storageOpts: StorageOptions,
                         rocksStorageOpts: RocksStorageOptions,
-                        streamZkDatabase: StreamCRUD)
+                        streamCache: StreamRepository,
+                        timer: Time = new Time{}
+                       )
 {
   private val authService = new AuthServiceImpl(authOpts)
 
@@ -52,11 +54,11 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
     rocksStorageOpts
   )
   private val streamServiceImpl = new StreamServiceImpl(
-    streamZkDatabase
+    streamCache
   )
 
   private val transactionIDService =
-    com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
+    com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
   private val consumerServiceImpl = new ConsumerServiceImpl(
     rocksStorage.rocksMetaServiceDB
@@ -72,7 +74,7 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
   private val transactionDataServiceImpl = new TransactionDataServiceImpl(
     storageOpts,
     rocksStorageOpts,
-    streamZkDatabase
+    streamCache
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =

@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.subscriber
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamValue}
 import org.scalatest.{FlatSpec, Matchers}
 import util.{SubscriberUtils, Utils}
@@ -17,12 +17,12 @@ class SubscribersObserverTest
 
   "Subscribers observer" should "throws exception if it is shutdown more than once" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, "/tts")
     val timeToUpdateMs = 200
 
     val observer = new SubscribersObserver(
       zkClient,
-      streamDatabaseZK,
+      zookeeperStreamRepository,
       timeToUpdateMs
     )
 
@@ -40,12 +40,12 @@ class SubscribersObserverTest
 
   it should "return none subscribers" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, "/tts")
     val timeToUpdateMs = 200
 
     val observer = new SubscribersObserver(
       zkClient,
-      streamDatabaseZK,
+      zookeeperStreamRepository,
       timeToUpdateMs
     )
 
@@ -53,7 +53,7 @@ class SubscribersObserverTest
     val streamKeys  = new ArrayBuffer[StreamKey]()
     (0 to 10).foreach{index =>
       val streamBody = StreamValue(index.toString, 100, None, 1000L, None)
-      streamKeys += streamDatabaseZK.putStream(streamBody)
+      streamKeys += zookeeperStreamRepository.put(streamBody)
 
       observer.addSteamPartition(index, rand.nextInt(100))
     }
@@ -71,7 +71,7 @@ class SubscribersObserverTest
 
   it should "return all subscribers" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, "/tts")
     val timeToUpdateMs = 200
 
     val maxStreams = 10
@@ -80,7 +80,7 @@ class SubscribersObserverTest
 
     val observer = new SubscribersObserver(
       zkClient,
-      streamDatabaseZK,
+      zookeeperStreamRepository,
       timeToUpdateMs
     )
 
@@ -91,10 +91,10 @@ class SubscribersObserverTest
     val streamPartitionSubscribersNumber = mutable.Map[(Int, Int), Int]()
     (0 to maxStreams).foreach{streamID =>
       val streamBody = StreamValue(streamID.toString, partitionMax, None, 1000L, None)
-      val streamKey  = streamDatabaseZK.putStream(streamBody)
+      val streamKey  = zookeeperStreamRepository.put(streamBody)
       streamKeys += streamKey
 
-      val streamRecord = streamDatabaseZK.getStream(streamKey)
+      val streamRecord = zookeeperStreamRepository.get(streamKey)
       val pathToStream = streamRecord.get.zkPath
 
       (0 to rand.nextInt(partitionMax)) foreach { partition =>
@@ -132,18 +132,18 @@ class SubscribersObserverTest
 
   it should "return a subscriber before removing it on zk path and return None after removing the subscriber" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, "/tts")
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, "/tts")
     val timeToUpdateMs = 200
 
     val observer = new SubscribersObserver(
       zkClient,
-      streamDatabaseZK,
+      zookeeperStreamRepository,
       timeToUpdateMs
     )
 
     val streamBody = StreamValue(0.toString, 100, None, 1000L, None)
-    val streamKey   = streamDatabaseZK.putStream(streamBody)
-    val streamRecord = streamDatabaseZK.getStream(streamKey).get
+    val streamKey   = zookeeperStreamRepository.put(streamBody)
+    val streamRecord = zookeeperStreamRepository.get(streamKey).get
     val partition  = 1
 
     observer.addSteamPartition(streamKey.id, partition)

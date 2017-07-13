@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.bookkeeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ScheduledZkMultipleTreeListReader, ZkMultipleTreeListReader}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
@@ -37,7 +37,7 @@ class ScheduledZkMultipleTreeListReaderTest
 
   private def startTransactionServer(zkClient: CuratorFramework): TransactionServer = {
     val path = s"/tts/$uuid"
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val streamDatabaseZK = new ZookeeperStreamRepository(zkClient, path)
 
     new TransactionServer(
       executionContext = serverExecutionContext,

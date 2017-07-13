@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
@@ -60,13 +60,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val streamsNumber = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
@@ -123,13 +123,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val streamsNumber = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
@@ -160,13 +160,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val streamsNumber = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
@@ -219,13 +219,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val streamsNumber = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
@@ -275,13 +275,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val streamsNumber = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
@@ -338,13 +338,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val streamsNumber = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
@@ -400,13 +400,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val streamsNumber = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
@@ -460,13 +460,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val stream = getRandomStream
@@ -515,13 +515,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val streamsNumber = 1
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val streams = Array.fill(streamsNumber)(getRandomStream)
@@ -591,13 +591,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val stream = getRandomStream
@@ -629,13 +629,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
 
     val stream = getRandomStream

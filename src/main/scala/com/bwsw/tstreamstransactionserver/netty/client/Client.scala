@@ -381,7 +381,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path.
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def getCommitLogOffsets(): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo] = {
     if (logger.isDebugEnabled()) logger.debug(s"Calling method 'getCommitLogOffsets' to get offsets.")
@@ -405,7 +405,7 @@ class Client(clientOpts: ConnectionOptions,
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path.
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         5) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     *
     */
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): ScalaFuture[Int] = {
@@ -428,7 +428,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def putStream(stream: com.bwsw.tstreamstransactionserver.rpc.StreamValue): ScalaFuture[Int] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream ${stream.name} with ${stream.partitions} partitions, ttl ${stream.ttl} and description.")
@@ -451,7 +451,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def delStream(name: String): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled) logger.debug(s"Deleting stream $name.")
@@ -475,7 +475,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream object has size in bytes more than defined by a server;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def getStream(name: String): ScalaFuture[Option[com.bwsw.tstreamstransactionserver.rpc.Stream]] = {
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $name.")
@@ -498,7 +498,7 @@ class Client(clientOpts: ConnectionOptions,
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException]], if, i.e. stream name has size in bytes more than defined by a server;
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
-    *         5) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         5) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def checkStreamExists(name: String): ScalaFuture[Boolean] = {
     if (logger.isInfoEnabled) logger.info(s"Checking stream $name on existence...")
@@ -520,7 +520,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     *
     */
   def getTransaction(): ScalaFuture[Long] = {
@@ -546,7 +546,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdown,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     *
     */
   def getTransaction(timestamp: Long): ScalaFuture[Long] = {
@@ -573,7 +573,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     *
     */
   def putTransactions(producerTransactions: Seq[com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction],
@@ -604,7 +604,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def putProducerState(transaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled)
@@ -629,7 +629,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def putTransaction(transaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
@@ -655,7 +655,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def putSimpleTransactionAndData(streamID: Int, partition: Int, data: Seq[Array[Byte]]): ScalaFuture[Long] = {
     if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partition with data: $data")
@@ -698,7 +698,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def openTransaction(streamID: Int, partitionID: Int, transactionTTLMs: Long): ScalaFuture[Long] = {
     if (logger.isDebugEnabled)
@@ -725,7 +725,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def getTransaction(streamID: Int, partition: Int, transaction: Long): ScalaFuture[TransactionInfo] = {
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving a producer transaction on partition '$partition' of stream '$streamID' by id '$transaction'")
@@ -751,7 +751,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def getLastCheckpointedTransaction(streamID: Int, partition: Int): ScalaFuture[Long] = {
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving a last checkpointed transaction on partition '$partition' of stream '$streamID")
@@ -784,7 +784,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   @throws[Exception]
   def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: Set[TransactionStates]): ScalaFuture[ScanTransactionsInfo] = {
@@ -822,7 +822,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = {
     if (logger.isDebugEnabled)
@@ -849,7 +849,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def putProducerStateWithData(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean] = ScalaFuture {
     import producerTransaction._
@@ -886,7 +886,7 @@ class Client(clientOpts: ConnectionOptions,
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         6) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         7) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         7) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def getTransactionData(streamID: Int, partition: Int, transaction: Long, from: Int, to: Int): ScalaFuture[Seq[Array[Byte]]] = {
     require(from >= 0 && to >= 0, s"Calling method getTransactionData requires that bounds: 'from' and 'to' are both positive(actually from and to are: [$from, $to])")
@@ -917,7 +917,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def putConsumerCheckpoint(consumerTransaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): ScalaFuture[Boolean] = {
     onShutdownThrowException()
@@ -943,7 +943,7 @@ class Client(clientOpts: ConnectionOptions,
     *         4) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         5) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         6) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   def getConsumerState(name: String, streamID: Int, partition: Int): ScalaFuture[Long] = {
     if (logger.isDebugEnabled) logger.debug(s"Retrieving a transaction by consumer $name on stream $streamID, partition $partition.")
@@ -966,7 +966,7 @@ class Client(clientOpts: ConnectionOptions,
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ZkGetMasterException]], if, i.e. client had sent this request to a server, but suddenly server would have been shutdowned,
     *         and, as a result, request din't reach the server, and client tried to get the new server from zooKeeper but there wasn't one on coordination path;
     *         3) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown]] if client try to call this function after shutdown.
-    *         4) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
+    *         4) other kind of exceptions that mean there is a bug on a server, and it should be reported the issue.
     */
   private def authenticate(): ScalaFuture[Unit] = {
     val isAuth = isAuthenticated.getAndSet(true)

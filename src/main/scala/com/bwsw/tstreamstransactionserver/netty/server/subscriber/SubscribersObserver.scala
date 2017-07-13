@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.subscriber
 import java.util
 import java.util.concurrent.{Executors, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamKey}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamKey}
 import org.apache.curator.framework.CuratorFramework
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -32,7 +32,7 @@ private object SubscribersObserver {
 
 
 private[server] final class SubscribersObserver(curatorClient: CuratorFramework,
-                                                streamInteractor: StreamCRUD,
+                                                streamInteractor: StreamRepository,
                                                 updatePeriodMs: Int
                                                )
 {
@@ -88,7 +88,7 @@ private[server] final class SubscribersObserver(curatorClient: CuratorFramework,
     */
   private def updateSubscribers(stream: Int, partition: Int): Unit = {
     val streamPartition = StreamPartitionUnit(stream, partition)
-    streamInteractor.getStream(StreamKey(streamPartition.streamID)).foreach {
+    streamInteractor.get(StreamKey(streamPartition.streamID)).foreach {
       stream =>
         scala.util.Try(
           curatorClient.getChildren

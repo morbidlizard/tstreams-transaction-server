@@ -4,7 +4,7 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
+import com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.apache.commons.io.FileUtils
@@ -263,7 +263,7 @@ class SingleNodeServerProducerTransactionNotificationTest
     val partition = 1
     val data = Array.fill(10)(rand.nextInt(100000).toString.getBytes)
 
-    val from = TransactionIDService.getTransaction()
+    val from = TransactionIdService.getTransaction()
 
     (0 until ALL).map { _ =>
       Await.result(bundle.client.putSimpleTransactionAndData(streamID, partition, data), 5.seconds)
@@ -271,7 +271,7 @@ class SingleNodeServerProducerTransactionNotificationTest
 
     Thread.sleep(2000)
 
-    val to = TransactionIDService.getTransaction()
+    val to = TransactionIdService.getTransaction()
 
     val res = Await.result(bundle.client.scanTransactions(
       streamID, partition, from, to, Int.MaxValue, Set(TransactionStates.Opened)
@@ -297,14 +297,14 @@ class SingleNodeServerProducerTransactionNotificationTest
     val ALL = 80
 
     val partition = 1
-    val from = TransactionIDService.getTransaction()
+    val from = TransactionIdService.getTransaction()
     val data = Array.fill(10)(rand.nextInt(100000).toString.getBytes)
     (0 until ALL).foreach { _ =>
       bundle.client.putSimpleTransactionAndDataWithoutResponse(streamID, partition, data)
     }
 
     Thread.sleep(5000)
-    val to = TransactionIDService.getTransaction()
+    val to = TransactionIdService.getTransaction()
 
     val res = Await.result(
       bundle.client.scanTransactions(

@@ -4,7 +4,7 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
+import com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.apache.commons.io.FileUtils
@@ -73,7 +73,7 @@ class OpenTransactionTest extends FlatSpec
 
     val partition = 1
 
-    val from = TransactionIDService.getTransaction()
+    val from = TransactionIdService.getTransaction()
 
     val transactions = (0 until ALL).map { _ =>
       bundle.client.openTransaction(streamID, partition, 24000L)
@@ -81,7 +81,7 @@ class OpenTransactionTest extends FlatSpec
 
 
     Thread.sleep(2000)
-    val to = TransactionIDService.getTransaction()
+    val to = TransactionIdService.getTransaction()
 
     val res = Await.result(bundle.client.scanTransactions(
       streamID, partition, from, to, Int.MaxValue, Set()

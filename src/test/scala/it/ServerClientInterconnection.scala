@@ -63,8 +63,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     )
     val l = new CountDownLatch(1)
     new Thread(() => {
-      l.countDown()
-      transactionServer.start()
+      transactionServer.start(l.countDown())
     }).start()
     l.await()
     transactionServer
@@ -248,7 +247,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     TimeUnit.MILLISECONDS.sleep(clientBuilder.getConnectionOptions.connectionTimeoutMs * 3 / 5)
     startTransactionServer()
 
-    Await.result(resultInFuture, secondsWait.seconds) shouldBe true
+    Await.result(resultInFuture,
+      secondsWait.seconds) shouldBe true
   }
 
   it should "put any kind of binary data and get it back" in {

@@ -37,13 +37,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
 
   @volatile private var currentToken: Int = -1
 
-  private final def onServerConnectionLostDefaultBehaviour(connectionSocket: String): Unit = {
-    if (logger.isWarnEnabled) {
-      logger.warn(s"Server is unreachable. Retrying to reconnect server $connectionSocket.")
-    }
-    TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
-    onServerConnectionLost
-  }
 
   private final def onRequestTimeoutDefaultBehaviour(): Unit = {
     TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
@@ -57,22 +50,40 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     onZKConnectionStateChanged
   )
 
+  private final def onServerConnectionLostDefaultBehaviour(): Unit = {
+    val before = System.currentTimeMillis()
+
+    val connectionSocket = zkInteractor.getCurrentMaster
+      .right.map(_.map(_.toString).getOrElse("NO_CONNECTION_SOCKET"))
+      .right.getOrElse("NO_CONNECTION_SOCKET")
+
+    val requests = requestIdToResponseMap.elements()
+    while (requests.hasMoreElements) {
+      val request = requests.nextElement()
+      request.tryFailure(new ServerUnreachableException(
+        connectionSocket
+      ))
+    }
+
+    onServerConnectionLost
+
+    if (logger.isWarnEnabled) {
+      logger.warn(s"Server is unreachable. Retrying to reconnect server $connectionSocket.")
+    }
+
+    val now = System.currentTimeMillis()
+    val diff = now - before
+    if (diff < clientOpts.connectionTimeoutMs)
+      TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs - diff)
+  }
+
   private val nettyClient = new NettyConnectionHandler(
     workerGroup,
     new ClientInitializer(requestIdToResponseMap, context),
     clientOpts.connectionTimeoutMs,
     retrieveCurrentMaster(), {
-      onServerConnectionLostDefaultBehaviour("")
-      val requests = requestIdToResponseMap.elements()
       Future {
-        while (requests.hasMoreElements) {
-          val request = requests.nextElement()
-          request.tryFailure(new ServerUnreachableException(
-            zkInteractor.getCurrentMaster
-              .right.map(_.map(_.toString).getOrElse("NO_CONNECTION_SOCKET"))
-              .right.getOrElse("NO_CONNECTION_SOCKET"))
-          )
-        }
+        onServerConnectionLostDefaultBehaviour()
       }(context)
     }
   )
@@ -237,17 +248,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         }
 
       case concreteThrowable: ServerUnreachableException =>
-        val addressOptOrZkException = currentConnectionSocketAddress
-          .map(addressOpt => addressOpt.map(_.toString))
-
-        scala.util.Try(onServerConnectionLostDefaultBehaviour(addressOptOrZkException
-        match {
-          case Right(connectionString) =>
-            connectionString.getOrElse("")
-          case Left(throwable) =>
-            throw throwable
-        }))
-        match {
+        scala.util.Try(onServerConnectionLostDefaultBehaviour()) match {
           case scala.util.Success(_) =>
             (concreteThrowable, concreteThrowable, Int.MaxValue)
           case scala.util.Failure(throwable) =>

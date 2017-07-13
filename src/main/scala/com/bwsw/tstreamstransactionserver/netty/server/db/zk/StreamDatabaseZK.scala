@@ -40,7 +40,8 @@ final class StreamDatabaseZK(client: CuratorFramework, path: String)
       streamNamePath.put(streamRecord)
       streamCache.put(streamRecord.key, streamRecord.stream)
       streamRecord.key
-    } else streamService.StreamKey(-1)
+    } else
+      streamService.StreamKey(-1)
   }
 
   override def checkStreamExists(name: String): Boolean =

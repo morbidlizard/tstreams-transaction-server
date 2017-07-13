@@ -81,7 +81,7 @@ class NettyConnectionHandlerTest
   }
 
   it should "tries to reconnect to server multiple times." in {
-    val reconnectAttemptsNumber = 10
+    val reconnectAttemptsNumber = 5
     val timePerReconnect = 100
 
     val socket = buildSocket

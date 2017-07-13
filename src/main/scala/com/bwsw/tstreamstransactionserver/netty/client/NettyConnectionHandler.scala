@@ -1,5 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import io.netty.bootstrap.Bootstrap
@@ -31,10 +33,10 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
       )
       .handler(handlersChain)
   }
+  private val isReconnecting = new AtomicBoolean(false)
 
   @volatile private var isStopped = false
-  @volatile private var channel: Channel = connect(bootstrap)
-
+  @volatile private var channel: Channel = connect()
 
   private def determineChannelType(): Class[_ <: SocketChannel] =
     workerGroup match {
@@ -45,42 +47,76 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
       )
     }
 
-
   @tailrec
-  final private def connect(bootstrap: Bootstrap): Channel = {
+  final private def connect(): Channel = {
     val socket = getConnectionAddress
     val newConnection = bootstrap.connect(socket.address, socket.port)
     scala.util.Try {
-      newConnection.sync().channel()
+      newConnection.syncUninterruptibly()
+      newConnection.channel()
     } match {
       case scala.util.Success(channelToUse) =>
-        reconnectOnConnectionLostListener(
-          channelToUse,
-          bootstrap
-        )
-        channelToUse
+        if (channelToUse.isActive) {
+          connectionLostListener(channelToUse)
+          channelToUse
+        } else {
+          channelToUse.close().awaitUninterruptibly()
+          onConnectionLostDo
+          connect()
+        }
       case scala.util.Failure(throwable) =>
         if (throwable.isInstanceOf[java.util.concurrent.RejectedExecutionException])
           throw ClientIllegalOperationAfterShutdown
         else {
           onConnectionLostDo
-          connect(bootstrap)
+          connect()
         }
     }
   }
 
   final def reconnect(): Unit = {
-    channel.close().awaitUninterruptibly()
+    def go() {
+      val socket = getConnectionAddress
+      val newConnection = bootstrap.connect(socket.address, socket.port)
+      newConnection.addListener { (futureChannel: ChannelFuture) =>
+        val channel = futureChannel.channel()
+        if (!isStopped && futureChannel.isSuccess) {
+          if (channel.isActive && channel.isOpen) {
+            this.channel = channel
+            isReconnecting.set(false)
+            connectionLostListener(channel)
+          } else {
+            channel.close()
+            onConnectionLostDo
+            go()
+          }
+        }
+        else {
+          onConnectionLostDo
+          val eventLoop = channel.eventLoop()
+          if (!isStopped && !eventLoop.isShuttingDown) {
+            go()
+          }
+        }
+      }
+    }
+
+    val needToReconnect =
+      isReconnecting.compareAndSet(false, true)
+
+    if (needToReconnect)
+      go()
+    else while (isReconnecting.get()) {}
   }
 
-  private def reconnectOnConnectionLostListener(oldChannel: Channel,
-                                                bootstrap: Bootstrap) = {
-    oldChannel.closeFuture.addListener { (_: ChannelFuture) =>
-      if (!isStopped) {
-        oldChannel.eventLoop().execute { () =>
-          oldChannel.close()
+
+  private def connectionLostListener(oldChannel: Channel) = {
+    oldChannel.closeFuture.addListener { (f: ChannelFuture) =>
+      val eventLoop = f.channel().eventLoop()
+      if (!isStopped && !eventLoop.isShuttingDown) {
+        eventLoop.execute { () =>
           onConnectionLostDo
-          channel = connect(bootstrap)
+          reconnect()
         }
       }
     }
@@ -93,6 +129,6 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
   def stop(): Unit =
     this.synchronized {
       isStopped = true
-      reconnect()
+      channel.close().awaitUninterruptibly()
     }
 }

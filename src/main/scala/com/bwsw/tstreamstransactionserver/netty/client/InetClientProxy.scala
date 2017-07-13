@@ -25,6 +25,11 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Future, Promise}
 
+private object InetClientProxy{
+  val threadNumber: Int =
+    Runtime.getRuntime.availableProcessors()
+}
+
 class InetClientProxy(clientOpts: ConnectionOptions,
                       authOpts: AuthOptions,
                       zookeeperOptions: ZookeeperOptions,
@@ -44,10 +49,12 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     false
 
   private val workerGroup: EventLoopGroup =
-    if (SystemUtils.IS_OS_LINUX)
-      new EpollEventLoopGroup()
-    else
-      new NioEventLoopGroup()
+    if (SystemUtils.IS_OS_LINUX) {
+      new EpollEventLoopGroup(InetClientProxy.threadNumber)
+    }
+    else {
+      new NioEventLoopGroup(InetClientProxy.threadNumber)
+    }
 
 
   private final val executionContext =

@@ -81,27 +81,41 @@ class SingleNodeServerBuilder private(authenticationOpts: AuthenticationOptions,
 
 
   def build() = new SingleNodeServer(
-    authenticationOptions, zookeeperOptions, bootstrapOptions, serverReplicationOptions,
-    storageOptions, rocksStorageOptions, commitLogOptions,
+    authenticationOptions,
+    zookeeperOptions,
+    bootstrapOptions,
+    serverReplicationOptions,
+    storageOptions,
+    rocksStorageOptions,
+    commitLogOptions,
     packageTransmissionOptions,
     subscribersUpdateOptions
   )
 
-  def getZookeeperOptions = zookeeperOptions.copy()
+  def getZookeeperOptions =
+    zookeeperOptions.copy()
 
-  def getAuthenticationOptions = authenticationOptions.copy()
+  def getAuthenticationOptions =
+    authenticationOptions.copy()
 
-  def getBootstrapOptions = bootstrapOptions.copy()
+  def getBootstrapOptions =
+    bootstrapOptions.copy()
 
-  def getServerReplicationOptions = serverReplicationOptions.copy()
+  def getServerReplicationOptions =
+    serverReplicationOptions.copy()
 
-  def getStorageOptions = storageOptions.copy()
+  def getStorageOptions =
+    storageOptions.copy()
 
-  def getRocksStorageOptions = rocksStorageOptions.copy()
+  def getRocksStorageOptions =
+    rocksStorageOptions.copy()
 
-  def getPackageTransmissionOptions = packageTransmissionOptions.copy()
+  def getPackageTransmissionOptions =
+    packageTransmissionOptions.copy()
 
-  def getCommitLogOptions = commitLogOptions.copy()
+  def getCommitLogOptions =
+    commitLogOptions.copy()
 
-  def getSubscribersUpdateOptions = subscribersUpdateOptions.copy()
+  def getSubscribersUpdateOptions =
+    subscribersUpdateOptions.copy()
 }

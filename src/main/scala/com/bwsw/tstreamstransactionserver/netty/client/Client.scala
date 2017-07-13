@@ -174,36 +174,42 @@ class Client(clientOpts: ConnectionOptions,
     def go(message: Message,
            previousException: Option[Throwable] = None,
            retryCount: Int = Int.MaxValue): ScalaFuture[A] = {
-      val promise = ScalaPromise[ThriftStruct]
-      reqIdToRep.put(message.id, promise)
-
       val channel = nettyClient.getChannel()
-      channel.write(message.toByteArray)
+      if (!channel.isActive) {
+        go(message, previousException, retryCount)
+      }
+      else {
+        val promise = ScalaPromise[ThriftStruct]
+        reqIdToRep.put(message.id, promise)
 
-      val responseFuture = TimeoutScheduler.withTimeout(
-        promise.future.map { response =>
+        channel.write(message.toByteArray)
+
+        val responseFuture = TimeoutScheduler.withTimeout(
+          promise.future.map { response =>
+            reqIdToRep.remove(message.id)
+            f(response.asInstanceOf[Rep])
+          }
+        )(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
+
+        channel.flush()
+
+
+        responseFuture.recoverWith { case error =>
           reqIdToRep.remove(message.id)
-          f(response.asInstanceOf[Rep])
-        }
-      )(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
-
-      channel.flush()
-
-      responseFuture.recoverWith { case error =>
-        reqIdToRep.remove(message.id)
-        val (currentException, _, counter) =
-          checkError(error, previousException, retryCount)
-        if (counter == 0) {
-          ScalaFuture.failed(error)
-        }
-        else {
-          val messageId = requestIDGen.getAndIncrement()
-          val newMessage = message.copy(
-            id = messageId,
-            token = token)
-          go(newMessage, Some(currentException), counter)
-        }
-      }(methodContext)
+          val (currentException, _, counter) =
+            checkError(error, previousException, retryCount)
+          if (counter == 0) {
+            ScalaFuture.failed(error)
+          }
+          else {
+            val messageId = requestIDGen.getAndIncrement()
+            val newMessage = message.copy(
+              id = messageId,
+              token = token)
+            go(newMessage, Some(currentException), counter)
+          }
+        }(methodContext)
+      }
     }
 
     go(message)
@@ -972,8 +978,8 @@ class Client(clientOpts: ConnectionOptions,
     if (!isShutdown) {
       isShutdown = true
       if (workerGroup != null) {
-        workerGroup.shutdownGracefully(0, 0, TimeUnit.NANOSECONDS)
-        workerGroup.terminationFuture()
+        workerGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+          .awaitUninterruptibly()
       }
       if (nettyClient != null) nettyClient.stop()
       if (zkInteractor != null) zkInteractor.stop()

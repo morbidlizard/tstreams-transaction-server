@@ -35,36 +35,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     }
   }
 
-  it should "not connect to server if coordination path doesn't exist" in {
-    val zkPrefix = "/tts/master"
-    val zkTestServer = new TestingServer(true)
-
-    val zkClient = CuratorFrameworkFactory.builder()
-      .sessionTimeoutMs(1000)
-      .connectionTimeoutMs(1000)
-      .retryPolicy(new RetryForever(100))
-      .connectString(zkTestServer.getConnectString)
-      .build()
-    zkClient.start()
-    zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
-
-    val clientBuilder = new ClientBuilder()
-      .withZookeeperOptions(
-        ZookeeperOptions(
-          endpoints = zkTestServer.getConnectString,
-          prefix = zkPrefix
-        )
-      )
-
-    assertThrows[MasterPathIsAbsent] {
-      clientBuilder.build()
-    }
-
-    zkClient.close()
-    zkTestServer.close()
-  }
-
-
+  
   it should "not connect to server which socket address(retrieved from zooKeeper server) is wrong" in {
     val zkPrefix = "/tts"
     val zkTestServer = new TestingServer(true)

@@ -54,7 +54,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -64,7 +63,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -102,7 +100,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       val lastTransactionIDAndCheckpointedID = transactionServer.getLastTransactionIDWrapper(streamId, stream.partitions).get
       lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -111,7 +109,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -121,7 +118,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -167,7 +163,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe maxTransactionID
 
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -176,7 +172,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
     val streamsNumber = 1
@@ -184,7 +179,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -227,7 +221,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe 1L
 
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -236,7 +230,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -246,7 +239,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -294,7 +286,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
 
       transactionServer.getLastTransactionIDWrapper(streamID, stream.partitions).get.opened.id shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }

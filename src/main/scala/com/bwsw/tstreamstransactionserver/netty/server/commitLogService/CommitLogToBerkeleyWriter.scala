@@ -26,7 +26,7 @@ import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.{Time, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
 import org.slf4j.LoggerFactory
@@ -39,7 +39,6 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
                                 transactionServer: TransactionServer,
                                 incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
   extends Runnable
-    with Time
 {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val processAccordingToPolicy = createProcessingFunction()

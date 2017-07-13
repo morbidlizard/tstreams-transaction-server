@@ -23,16 +23,6 @@ class ZKMasterPathMonitor(connection: CuratorFramework,
   private val logger = LoggerFactory.getLogger(this.getClass)
   @volatile private var isClosed = true
 
-  private def checkOnPathToMasterDoesExist() = {
-    val pathToMaster = new File(prefix).getParent
-    val isExist =
-      Option(connection.checkExists().forPath(pathToMaster)).isDefined
-    if (!isExist)
-      throw new MasterPathIsAbsent(pathToMaster)
-  }
-  checkOnPathToMasterDoesExist()
-
-
   private val nodeToWatch = new NodeCache(
     connection,
     prefix,
@@ -61,11 +51,11 @@ class ZKMasterPathMonitor(connection: CuratorFramework,
         else
           setMaster(validateMaster(node))
       case None =>
-        setMaster(
-          Left(
-            throw new MasterPathIsAbsent(prefix)
-          )
-        )
+//        setMaster(
+//          Left(
+//            throw new MasterPathIsAbsent(prefix)
+//          )
+//        )
     }
   }
 

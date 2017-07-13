@@ -60,8 +60,7 @@ class SingleNodeServerLastCheckpointedTransactionTest extends FlatSpec with Matc
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      subscriberUpdateOptions,
-      timer = TestTimer
+      subscriberUpdateOptions
     )
 
     val latch = new CountDownLatch(1)

@@ -53,7 +53,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -62,7 +61,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -105,7 +103,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe 3L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -116,7 +114,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -125,7 +122,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -143,7 +139,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe -1L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -153,7 +149,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -162,7 +157,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -202,7 +196,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result.lastOpenedTransactionID shouldBe 3L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -221,7 +215,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -258,7 +251,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1)
       result.lastOpenedTransactionID shouldBe 5L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -268,7 +261,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -277,7 +269,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -321,7 +312,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result2.lastOpenedTransactionID shouldBe 5L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -331,7 +322,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -340,7 +330,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -383,7 +372,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       result2.producerTransactions shouldBe empty
       result2.lastOpenedTransactionID  shouldBe 5L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -393,7 +382,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -402,7 +390,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -446,7 +433,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result2.lastOpenedTransactionID  shouldBe 5L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -455,14 +442,12 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -498,7 +483,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
 
     res.producerTransactions.size shouldBe transactions.size
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -508,7 +493,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -517,7 +501,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -577,7 +560,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       val res = transactionServer.scanTransactions(streamId, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
       res.producerTransactions.size shouldBe transactions1.size
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -586,14 +569,12 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -615,7 +596,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val res = transactionServer.scanTransactions(streamID, 1, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
     res.producerTransactions.size shouldBe 0
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -624,14 +605,12 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -662,7 +641,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val res = transactionServer.scanTransactions(streamID, 1, lastTransaction, firstTransaction, Int.MaxValue, Set(TransactionStates.Opened))
     res.producerTransactions.size shouldBe 0
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }

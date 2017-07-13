@@ -54,8 +54,7 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      subscriberUpdateOptions,
-      timer = TestTimer
+      subscriberUpdateOptions
     )
     val latch = new CountDownLatch(1)
     new Thread(() => {

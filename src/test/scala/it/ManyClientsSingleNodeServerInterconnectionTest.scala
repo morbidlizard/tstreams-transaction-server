@@ -58,8 +58,7 @@ class ManyClientsSingleNodeServerInterconnectionTest extends FlatSpec with Match
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      subscriberUpdateOptions,
-      timer = TestTimer
+      subscriberUpdateOptions
     )
     val latch = new CountDownLatch(1)
     new Thread(() => {

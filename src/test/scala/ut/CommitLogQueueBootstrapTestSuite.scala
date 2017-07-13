@@ -18,7 +18,6 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   //arrange
   val authOptions = AuthenticationOptions()
   val rocksStorageOptions = RocksStorageOptions()
-  val executionContext = new ServerExecutionContextGrids(2, 2)
   val storageOptions = StorageOptions(new StringBuffer().append("target").append(File.separatorChar).append("clqb").toString)
 
 
@@ -26,7 +25,6 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   private lazy val (zkServer, zkClient) = startZkServerAndGetIt
   private lazy val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
   private lazy val transactionServer = new TransactionServer(
-    executionContext = executionContext,
     authOpts = authOptions,
     storageOpts = storageOptions,
     rocksStorageOpts = rocksStorageOptions,
@@ -74,7 +72,7 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
   }
 
   override def afterAll = {
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     FileUtils.deleteDirectory(new File(storageOptions.path))
     zkClient.close()
     zkServer.close()

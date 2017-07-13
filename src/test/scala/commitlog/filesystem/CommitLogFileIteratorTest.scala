@@ -7,19 +7,20 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.commitlog.CommitLog
 import com.bwsw.commitlog.filesystem.CommitLogFileIterator
+import commitlog.Util
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 
 class CommitLogFileIteratorTest extends FlatSpec with Matchers with BeforeAndAfterAll {
   val dir = "target/clfi"
-  private val fileIDGenerator = new AtomicLong(0L)
+  private val fileIDGenerator = Util.createIDGenerator
 
   override def beforeAll() = {
     new File(dir).mkdirs()
   }
 
   it should "read record from file" in {
-    val commitLog = new CommitLog(1, dir, nextFileID = fileIDGenerator.getAndIncrement)
+    val commitLog = new CommitLog(1, dir, iDGenerator = fileIDGenerator)
     val fileName = commitLog.putRec(Array[Byte](2, 3, 4), 1, startNew = false)
     commitLog.close()
     val commitLogFileIterator = new CommitLogFileIterator(fileName)
@@ -32,7 +33,7 @@ class CommitLogFileIteratorTest extends FlatSpec with Matchers with BeforeAndAft
   }
 
   it should "read several records from file correctly" in {
-    val commitLog = new CommitLog(10, dir, nextFileID = fileIDGenerator.getAndIncrement)
+    val commitLog = new CommitLog(10, dir, iDGenerator = fileIDGenerator)
     commitLog.putRec(Array[Byte](6, 7, 8), 5, startNew = false)
     commitLog.putRec(Array[Byte](7, 8, 9), 6, startNew = false)
     val fileName = commitLog.putRec(Array[Byte](2, 3, 4), 1, startNew = false)
@@ -60,7 +61,7 @@ class CommitLogFileIteratorTest extends FlatSpec with Matchers with BeforeAndAft
   }
 
   it should "read as much records from corrupted file as it can" in {
-    val commitLog = new CommitLog(10, dir, nextFileID = fileIDGenerator.getAndIncrement)
+    val commitLog = new CommitLog(10, dir, iDGenerator = fileIDGenerator)
     commitLog.putRec(Array[Byte](6, 7, 8), 5, startNew = false)
     commitLog.putRec(Array[Byte](7, 8, 9), 6, startNew = false)
     val fileName = commitLog.putRec(Array[Byte](2, 3, 4), 1, startNew = false)

@@ -19,6 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToBerkeleyWriter
 import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestHandlerRouter}
@@ -31,7 +32,9 @@ import org.slf4j.Logger
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
-class ServerHandler(requestHandlerChooser: RequestHandlerRouter, logger: Logger)
+class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
+                    executionContext:ServerExecutionContextGrids,
+                    logger: Logger)
   extends SimpleChannelInboundHandler[ByteBuf]
 {
   private lazy val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
@@ -39,9 +42,9 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter, logger: Logger)
     s"or maxDataPackageSize (${requestHandlerChooser.packageTransmissionOpts.maxDataPackageSize}).")
 
   private val serverWriteContext: ExecutionContext =
-    requestHandlerChooser.server.executionContext.serverWriteContext
+    executionContext.serverWriteContext
   private val serverReadContext: ExecutionContext =
-    requestHandlerChooser.server.executionContext.serverReadContext
+    executionContext.serverReadContext
 
   private def isTooBigMetadataMessage(message: Message) = {
     message.length > requestHandlerChooser.packageTransmissionOpts.maxMetadataPackageSize
@@ -65,7 +68,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter, logger: Logger)
       ctx.writeAndFlush(binaryResponse)
   }
 
-  private val commitLogContext = requestHandlerChooser.server.executionContext.commitLogContext
+  private val commitLogContext = executionContext.commitLogContext
 
 
   private def logSuccessfulProcession(method: String, message: Message, ctx: ChannelHandlerContext): Unit =

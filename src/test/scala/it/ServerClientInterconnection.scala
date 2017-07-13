@@ -58,9 +58,8 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      subscriberUpdateOptions,
-      timer = TestTimer
-    )
+      subscriberUpdateOptions)
+
     val l = new CountDownLatch(1)
     new Thread(() => {
       transactionServer.start(l.countDown())

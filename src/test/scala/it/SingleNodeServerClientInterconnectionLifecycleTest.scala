@@ -35,11 +35,9 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val streamAfterDelete = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, Some("Previous one was deleted"), 538L)
 
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -60,7 +58,7 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
       s"$path/ids/id0000000001"
     ) shouldBe retrievedStream
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -90,11 +88,9 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -125,18 +121,16 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
       openedTTL - TimeUnit.SECONDS.toMillis(1)
     )
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -163,18 +157,16 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
       producerTransactionCheckpointed,
       producerTransaction.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), openedTTL + TimeUnit.SECONDS.toMillis(1))
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -203,7 +195,7 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
 
     transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTransactionCheckpointed, checkpointedTTL - TimeUnit.SECONDS.toMillis(2))
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -211,11 +203,9 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -247,18 +237,16 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
     transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Cancel->Updated->Checkpointed. Should return Invalid Transaction(due to transaction with Cancel state)" in {
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
     val (zkServer, zkClient) = startZkServerAndGetIt
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -290,7 +278,7 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
     val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
     transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }

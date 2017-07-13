@@ -11,18 +11,24 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 
 
-class CommitLogTest extends FlatSpec with Matchers with BeforeAndAfterAll {
-  val dir = new StringBuffer().append("target").append(File.separatorChar).append("clt").toString
-  val rec = "sample record".map(_.toByte).toArray
-  val recordSize = rec.length + CommitLogRecord.headerSize
-  private val fileIDGen = new AtomicLong(0L)
+class CommitLogTest
+  extends FlatSpec
+    with Matchers
+    with BeforeAndAfterAll {
+
+  private val dir = new StringBuffer().append("target").append(File.separatorChar).append("clt").toString
+  private val rec = "sample record".map(_.toByte).toArray
+  private val recordSize = rec.length + CommitLogRecord.headerSize
+
+
+  private val fileIDGen = Util.createIDGenerator
 
   override def beforeAll() = {
     new File(dir).mkdirs()
   }
 
   it should "write correctly (OnRotation policy)" in {
-    val cl = new CommitLog(1, dir, OnRotation, fileIDGen.getAndIncrement)
+    val cl = new CommitLog(1, dir, OnRotation, fileIDGen)
     val f1 = cl.putRec(rec, 0)
     val fileF1 = new File(f1)
     fileF1.exists() shouldBe true
@@ -52,7 +58,7 @@ class CommitLogTest extends FlatSpec with Matchers with BeforeAndAfterAll {
   }
 
   it should "write correctly (OnTimeInterval policy) when startNewFileSeconds > policy seconds" in {
-    val cl = new CommitLog(4, dir, OnTimeInterval(2), fileIDGen.getAndIncrement)
+    val cl = new CommitLog(4, dir, OnTimeInterval(2), fileIDGen)
     val f11 = cl.putRec(rec, 0)
     val fileF1 = new File(f11)
     fileF1.exists() shouldBe true
@@ -100,7 +106,7 @@ class CommitLogTest extends FlatSpec with Matchers with BeforeAndAfterAll {
   }
 
   it should "write correctly (OnTimeInterval policy) when startNewFileSeconds < policy seconds" in {
-    val cl = new CommitLog(2, dir, OnTimeInterval(4), fileIDGen.getAndIncrement)
+    val cl = new CommitLog(2, dir, OnTimeInterval(4), fileIDGen)
     val f11 = cl.putRec(rec, 0)
     val fileF1 = new File(f11)
     fileF1.exists() shouldBe true
@@ -117,7 +123,7 @@ class CommitLogTest extends FlatSpec with Matchers with BeforeAndAfterAll {
   }
 
   it should "write correctly (OnCountInterval policy)" in {
-    val cl = new CommitLog(2, dir, OnCountInterval(2), fileIDGen.getAndIncrement)
+    val cl = new CommitLog(2, dir, OnCountInterval(2), fileIDGen)
     val f11 = cl.putRec(rec, 0)
     val f12 = cl.putRec(rec, 0)
     f11 == f12 shouldBe true

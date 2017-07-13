@@ -23,12 +23,13 @@ import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.exception.Throwable.{InvalidSocketAddress, ZkNoConnectionException}
+import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
@@ -38,8 +39,6 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
-import org.apache.curator.framework.CuratorFrameworkFactory
-import org.apache.curator.framework.recipes.leader.LeaderLatch
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -53,10 +52,9 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                        commitLogOptions: CommitLogOptions,
                        packageTransmissionOpts: TransportOptions,
                        subscribersUpdateOptions: SubscriberUpdateOptions,
-                       serverHandler: (RequestHandlerRouter, Logger) =>
-               SimpleChannelInboundHandler[ByteBuf] = (handler, logger) => new ServerHandler(handler, logger),
-                       timer: Time = new Time{}
-            ) {
+                       serverHandler: (RequestHandlerRouter, ServerExecutionContextGrids, Logger) =>
+               SimpleChannelInboundHandler[ByteBuf] = (handler, executionContext, logger) =>
+                         new ServerHandler(handler, executionContext, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   @volatile private var isShutdown = false
@@ -96,35 +94,39 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   private val transactionServerSocketAddress =
     createTransactionServerExternalSocket()
 
-  private val zk = scala.util.Try(
-    new ZKClientServer(
-      transactionServerSocketAddress,
+
+  private val zk =
+    new ZKClient(
       zookeeperOpts.endpoints,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,
       new RetryForever(zookeeperOpts.retryDelayMs)
-    )) match {
-    case scala.util.Success(client) =>
-      client
-    case scala.util.Failure(throwable) =>
-      shutdown()
-      throw throwable
-  }
+    )
 
-  private val executionContext = new ServerExecutionContextGrids(
-    rocksStorageOpts.readThreadPool,
-    rocksStorageOpts.writeThreadPool
-  )
+  private val curatorSubscriberClient =
+    subscribersUpdateOptions.monitoringZkEndpoints.map {
+      monitoringZkEndpoints =>
+        if (monitoringZkEndpoints == zookeeperOpts.endpoints) {
+          zk
+        }
+        else {
+          new ZKClient(
+            monitoringZkEndpoints,
+            zookeeperOpts.sessionTimeoutMs,
+            zookeeperOpts.connectionTimeoutMs,
+            new RetryForever(zookeeperOpts.retryDelayMs)
+          )
+        }
+    }.getOrElse(zk)
+
 
   private val zkStreamDatabase =
     zk.streamDatabase(s"${storageOpts.streamZookeeperDirectory}")
   private val transactionServer = new TransactionServer(
-    executionContext,
     authenticationOpts,
     storageOpts,
     rocksStorageOpts,
-    zkStreamDatabase,
-    timer
+    zkStreamDatabase
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
@@ -164,24 +166,18 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     commitLogQueue,
     transactionServer,
     commitLogOptions.incompleteReadPolicy
-  ) {
-    override def getCurrentTime: Long = timer.getCurrentTime
-  }
-
-
-
-  private val fileIDGenerator = new zk.FileIDGenerator(
-    commitLogOptions.zkFileIdGeneratorPath
   )
 
-  val scheduledCommitLogImpl = new ScheduledCommitLog(commitLogQueue,
+  private val fileIDGenerator =
+    zk.idGenerator(commitLogOptions.zkFileIdGeneratorPath)
+
+
+  val scheduledCommitLogImpl = new ScheduledCommitLog(
+    commitLogQueue,
     storageOpts,
     commitLogOptions,
-    fileIDGenerator.increment
-  ) {
-    override def getCurrentTime: Long = timer.getCurrentTime
-  }
-
+    fileIDGenerator
+  )
 
   private val berkeleyWriterExecutor =
     Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
@@ -198,34 +194,10 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     new OrderedExecutionContextPool(serverOpts.openOperationsPoolSize)
 
 
-
-  private val curatorSubscriberClient =
-    if (subscribersUpdateOptions.monitoringZkEndpoints.isEmpty) {
-      zk.client
-    }
-    else {
-      val connection = CuratorFrameworkFactory.builder()
-        .sessionTimeoutMs(zookeeperOpts.sessionTimeoutMs)
-        .connectionTimeoutMs(zookeeperOpts.connectionTimeoutMs)
-        .retryPolicy(new RetryForever(zookeeperOpts.retryDelayMs))
-        .connectString(subscribersUpdateOptions.monitoringZkEndpoints.get)
-        .build()
-
-      connection.start()
-      val isConnected = connection.blockUntilConnected(
-        zookeeperOpts.connectionTimeoutMs,
-        TimeUnit.MILLISECONDS
-      )
-      if (isConnected)
-        connection
-      else
-        throw new ZkNoConnectionException(subscribersUpdateOptions.monitoringZkEndpoints.get)
-    }
-
   private val openTransactionStateNotifier =
     new OpenTransactionStateNotifier(
       new SubscribersObserver(
-        curatorSubscriberClient,
+        curatorSubscriberClient.client,
         zkStreamDatabase,
         subscribersUpdateOptions.updatePeriodMs
       ),
@@ -242,13 +214,26 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       openTransactionStateNotifier
     )
 
+  private val masterElector =
+    zk.masterElector(
+      transactionServerSocketAddress,
+      zookeeperOpts.prefix,
+      "/tts/master_election"
+    )
+
+  private val executionContext =
+    new ServerExecutionContextGrids(
+      rocksStorageOpts.readThreadPool,
+      rocksStorageOpts.writeThreadPool
+    )
+
   def start(function: => Unit = ()): Unit = {
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
         .channel(classOf[EpollServerSocketChannel])
         .handler(new LoggingHandler(LogLevel.DEBUG))
-        .childHandler(new ServerInitializer(serverHandler(requestHandlerChooser, logger)))
+        .childHandler(new ServerInitializer(serverHandler(requestHandlerChooser, executionContext, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
@@ -256,7 +241,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.closeDelayMs, commitLogOptions.closeDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
 
-      zk.putSocketAddress(zookeeperOpts.prefix)
+      masterElector.start()
 
       val channel = f.channel().closeFuture()
       function
@@ -278,8 +263,18 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
           .awaitUninterruptibly()
       }
 
-      if (zk != null)
-        zk.close()
+      if (masterElector != null)
+        masterElector.stop()
+
+      if (zk != null && curatorSubscriberClient != null) {
+        if (zk == curatorSubscriberClient) {
+          zk.close()
+        }
+        else {
+          zk.close()
+          curatorSubscriberClient.close()
+        }
+      }
 
       if (berkeleyWriterExecutor != null) {
         berkeleyWriterExecutor.shutdown()
@@ -309,8 +304,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         orderedExecutionPool.close()
       }
 
+      if (executionContext != null) {
+        executionContext
+          .stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
+      }
+
       if (transactionServer != null) {
-        transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
         transactionServer.closeAllDatabases()
       }
     }

@@ -35,13 +35,10 @@ import scala.collection.Set
 
 
 
-class TransactionServer(val executionContext: ServerExecutionContextGrids,
-                        authOpts: AuthenticationOptions,
+class TransactionServer(authOpts: AuthenticationOptions,
                         storageOpts: StorageOptions,
                         rocksStorageOpts: RocksStorageOptions,
-                        streamCache: StreamCRUD,
-                        timer: Time = new Time{}
-                       )
+                        streamCache: StreamCRUD)
 {
   private val authService = new AuthServiceImpl(authOpts)
 
@@ -145,15 +142,6 @@ class TransactionServer(val executionContext: ServerExecutionContextGrids,
 
   final def createAndExecuteTransactionsToDeleteTask(timestamp: Long): Unit =
     transactionMetaServiceImpl.createAndExecuteTransactionsToDeleteTask(timestamp)
-
-  final def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases(): Unit = {
-    stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
-    closeAllDatabases()
-  }
-
-  final def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted(): Unit = {
-    executionContext.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
-  }
 
   final def closeAllDatabases(): Unit = {
     rocksStorage.rocksMetaServiceDB.close()

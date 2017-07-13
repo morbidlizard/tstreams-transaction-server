@@ -59,7 +59,6 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
     val maxTTLForProducerTransactionSec = 5
@@ -71,23 +70,18 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
 
 
-    val transactionService = new TransactionServer(
-      executionContext = serverExecutionContext,
+    val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
       streamDatabaseZK
-    ) {
-      def checkTransactionExistInOpenedTable(stream: Int, partition: Int, transactionId: Long): Boolean = {
-        val txn = getOpenedTransaction(ProducerTransactionKey(stream, partition, transactionId))
-        txn.isDefined
-      }
-    }
+    )
+
     def ttlSec = TimeUnit.SECONDS.toMillis(rand.nextInt(maxTTLForProducerTransactionSec))
 
     val stream = getRandomStream
 
-    val streamID = transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val currentTime = System.currentTimeMillis()
     val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] = Array.fill(producerTxnNumber) {
@@ -99,22 +93,22 @@ class SingleNodeServerCleanerTest extends FlatSpec
 
     val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
 
-    val bigCommit = transactionService.getBigCommit(1L)
+    val bigCommit = transactionServer.getBigCommit(1L)
     bigCommit.putSomeTransactions(transactionsWithTimestamp)
     bigCommit.commit()
 
-    transactionService.createAndExecuteTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec))
+    transactionServer.createAndExecuteTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec))
     val expiredTransactions = producerTransactionsWithTimestamp.map { case (producerTxn, _) =>
       ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
     }
 
-    transactionService.scanTransactions(streamID, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)).producerTransactions should contain theSameElementsAs expiredTransactions
+    transactionServer.scanTransactions(streamID, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)).producerTransactions should contain theSameElementsAs expiredTransactions
 
     (minTransactionID to maxTransactionID) foreach { transactionID =>
-      transactionService.checkTransactionExistInOpenedTable(streamID, stream.partitions, transactionID) shouldBe false
+      transactionServer.getOpenedTransaction(ProducerTransactionKey(streamID, stream.partitions, transactionID)).isDefined shouldBe false
     }
 
-    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }

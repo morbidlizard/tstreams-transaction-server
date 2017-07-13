@@ -4,10 +4,12 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.{Message, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
-import com.bwsw.tstreamstransactionserver.netty.server.{ServerHandler, SingleNodeServer, ZKClientServer}
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
+import com.bwsw.tstreamstransactionserver.netty.server.{ServerHandler, SingleNodeServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
@@ -46,8 +48,9 @@ class BadBehaviourSingleNodeServerTest
   private val serverGotRequest = new AtomicInteger(0)
 
   private def serverHandler(requestHandlerChooser: RequestHandlerRouter,
+                            executionContext: ServerExecutionContextGrids,
                             logger: Logger) =
-    new ServerHandler(requestHandlerChooser, logger)
+    new ServerHandler(requestHandlerChooser, executionContext, logger)
     {
       override def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
         serverGotRequest.getAndIncrement()
@@ -87,6 +90,8 @@ class BadBehaviourSingleNodeServerTest
 
 
   private val secondsWait = 5
+
+  private val masterElectionPrefix = "/tts/master_election"
 
 
   override def beforeEach(): Unit = {
@@ -183,15 +188,23 @@ class BadBehaviourSingleNodeServerTest
       .validateAndCreate("127.0.0.1", port)
       .get
 
-    val zKLeaderClientToPutMaster = new ZKClientServer(
-      socket,
+    val zKLeaderClientToPutMaster = new ZKClient(
       endpoints = zkTestServer.getConnectString,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )
 
-    zKLeaderClientToPutMaster.putSocketAddress(zookeeperOpts.prefix)
+    val masterElector =
+      zKLeaderClientToPutMaster
+        .masterElector(
+          socket,
+          zookeeperOpts.prefix,
+          masterElectionPrefix
+        )
+
+
+    masterElector.start()
 
     class MyThrowable extends Exception("My exception")
     assertThrows[MyThrowable] {
@@ -199,7 +212,7 @@ class BadBehaviourSingleNodeServerTest
         override def onServerConnectionLost(): Unit = throw new MyThrowable
       }
     }
-
+    masterElector.stop()
     zKLeaderClientToPutMaster.close()
   }
 }

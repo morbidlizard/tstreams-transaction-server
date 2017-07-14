@@ -36,9 +36,11 @@ trait Installer {
 
 
     val streamID = if (Await.result(client.checkStreamExists(name), 5.seconds)) {
-      Await.result(client.getStream(name), 5.seconds).get.id
+      Await.result(client.getStream(name), 5.seconds).map(_.id).getOrElse(
+        throw new IllegalArgumentException("Something wrong with stream")
+      )
     } else {
-      Await.result(client.delStream(name), 10.seconds)
+      assert(Await.result(client.delStream(name), 10.seconds))
       Await.result(client.putStream(name, partitions, None, 5), 5.seconds)
     }
     client.shutdown()

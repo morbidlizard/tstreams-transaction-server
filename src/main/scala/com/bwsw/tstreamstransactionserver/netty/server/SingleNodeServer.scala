@@ -46,6 +46,7 @@ import org.slf4j.{Logger, LoggerFactory}
 class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                        zookeeperOpts: CommonOptions.ZookeeperOptions,
                        serverOpts: BootstrapOptions,
+                       serverRoleOptions: ServerRoleOptions,
                        serverReplicationOpts: ServerReplicationOptions,
                        storageOpts: StorageOptions,
                        rocksStorageOpts: RocksStorageOptions,
@@ -211,14 +212,15 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       packageTransmissionOpts,
       authenticationOpts,
       orderedExecutionPool,
-      openTransactionStateNotifier
+      openTransactionStateNotifier,
+      serverRoleOptions
     )
 
   private val masterElector =
     zk.masterElector(
       transactionServerSocketAddress,
       zookeeperOpts.prefix,
-      "/tts/master_election"
+      serverRoleOptions.commonMasterElectionPrefix
     )
 
   private val executionContext =

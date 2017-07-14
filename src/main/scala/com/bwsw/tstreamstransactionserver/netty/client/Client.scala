@@ -32,6 +32,7 @@ import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, Co
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, _}
 import com.twitter.scrooge.ThriftStruct
+import io.netty.buffer.ByteBuf
 import io.netty.channel._
 import io.netty.channel.epoll.EpollEventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
@@ -124,7 +125,7 @@ class Client(clientOpts: ConnectionOptions,
   final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] =
     zkInteractor.getCurrentMaster
 
-  private final val reqIdToRep = new ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]](
+  private final val reqIdToRep = new ConcurrentHashMap[Long, ScalaPromise[ByteBuf]](
     20000,
     1.0f,
     clientOpts.threadPool
@@ -138,12 +139,12 @@ class Client(clientOpts: ConnectionOptions,
 
   private val nettyClient = new NettyConnectionHandler(
     workerGroup,
-    new ClientInitializer(reqIdToRep, context),
+    new ClientInitializer(reqIdToRep),
     clientOpts.connectionTimeoutMs,
     retrieveCurrentMaster(),
     {
       onServerConnectionLostDefaultBehaviour("")
-      reqIdToRep.forEach((t: Long, promise: ScalaPromise[ThriftStruct]) => {
+      reqIdToRep.forEach((t: Long, promise: ScalaPromise[_]) => {
         promise.tryFailure(new ServerUnreachableException(
           zkInteractor.getCurrentMaster
             .right.map(_.map(_.toString).getOrElse("NO_CONNECTION_SOCKET"))
@@ -179,7 +180,7 @@ class Client(clientOpts: ConnectionOptions,
         go(message, previousException, retryCount)
       }
       else {
-        val promise = ScalaPromise[ThriftStruct]
+        val promise = ScalaPromise[ByteBuf]
         reqIdToRep.put(message.id, promise)
 
         channel.write(message.toByteArray)
@@ -187,7 +188,7 @@ class Client(clientOpts: ConnectionOptions,
         val responseFuture = TimeoutScheduler.withTimeout(
           promise.future.map { response =>
             reqIdToRep.remove(message.id)
-            f(response.asInstanceOf[Rep])
+            f(descriptor.decodeResponse(response))
           }
         )(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
 

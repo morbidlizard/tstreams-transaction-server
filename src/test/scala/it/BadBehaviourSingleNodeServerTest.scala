@@ -62,6 +62,7 @@ class BadBehaviourSingleNodeServerTest
 
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
   private val bootstrapOptions = BootstrapOptions()
+  private val serverRoleOptions = ServerRoleOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
   private val storageOptions = StorageOptions()
   private val rocksStorageOptions = RocksStorageOptions()
@@ -73,8 +74,12 @@ class BadBehaviourSingleNodeServerTest
     val zookeeperOptions = ZookeeperOptions(endpoints = address)
     server = new SingleNodeServer(
       authOptions, zookeeperOptions,
-      bootstrapOptions, serverReplicationOptions,
-      storageOptions, rocksStorageOptions, commitLogOptions,
+      bootstrapOptions,
+      serverRoleOptions,
+      serverReplicationOptions,
+      storageOptions,
+      rocksStorageOptions,
+      commitLogOptions,
       packageTransmissionOptions,
       subscriberUpdateOptions,
       serverHandler

@@ -24,7 +24,11 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitL
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.OpenTransactionHandler._
 import com.bwsw.tstreamstransactionserver.rpc._
+import OpenTransactionHandler.descriptor
 
+private object OpenTransactionHandler {
+  val descriptor = Protocol.OpenTransaction
+}
 
 class OpenTransactionHandler(server: TransactionServer,
                              scheduledCommitLog: ScheduledCommitLog)
@@ -78,10 +82,7 @@ class OpenTransactionHandler(server: TransactionServer,
     )
   }
 
-  override def getName: String = descriptor.name
-}
+  override def name: String = descriptor.name
 
-private object OpenTransactionHandler {
-  val descriptor = Protocol.OpenTransaction
+  override def id: Byte = descriptor.methodID
 }
-

@@ -89,7 +89,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
       processRequest(handler, isTooBigMessage, ctx)(message)
     }(context)
     .recover { case error =>
-      logUnsuccessfulProcessing(handler.getName, error, message, ctx)
+      logUnsuccessfulProcessing(handler.name, error, message, ctx)
       val response = handler.createErrorResponse(error.getMessage)
       val responseMessage = message.copy(length = response.length, body = response)
       sendResponseToClient(responseMessage, ctx)
@@ -107,7 +107,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
       sendResponseToClient(responseMessage, ctx)
     }
     else if (isTooBigMessage(message)) {
-      logUnsuccessfulProcessing(handler.getName, packageTooBigException, message, ctx)
+      logUnsuccessfulProcessing(handler.name, packageTooBigException, message, ctx)
       val response = handler.createErrorResponse(
         packageTooBigException.getMessage
       )
@@ -118,7 +118,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
       val response = handler.handleAndGetResponse(message.body)
       val responseMessage  = message.copy(length = response.length, body = response)
 
-      logSuccessfulProcession(handler.getName, message, ctx)
+      logSuccessfulProcession(handler.name, message, ctx)
       sendResponseToClient(responseMessage, ctx)
     }
   }
@@ -136,7 +136,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
       sendResponseToClient(responseMessage, ctx)
     }
     else if (isTooBigMessage(message)) {
-      logUnsuccessfulProcessing(handler.getName, packageTooBigException, message, ctx)
+      logUnsuccessfulProcessing(handler.name, packageTooBigException, message, ctx)
       val response = handler.createErrorResponse(
         packageTooBigException.getMessage
       )
@@ -155,10 +155,10 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
                                                )(message: Message) =
 
       if (!requestHandlerChooser.server.isValid(message.token)) {
-        logUnsuccessfulProcessing(handler.getName, new TokenInvalidException(), message, ctx)
+        logUnsuccessfulProcessing(handler.name, new TokenInvalidException(), message, ctx)
       }
       else if (isTooBigMessage(message)) {
-        logUnsuccessfulProcessing(handler.getName, packageTooBigException, message, ctx)
+        logUnsuccessfulProcessing(handler.name, packageTooBigException, message, ctx)
       }
       else
         f
@@ -171,10 +171,10 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
                                               )(message: Message) =
     ScalaFuture {
       if (!requestHandlerChooser.server.isValid(message.token)) {
-        logUnsuccessfulProcessing(handler.getName, new TokenInvalidException(), message, ctx)
+        logUnsuccessfulProcessing(handler.name, new TokenInvalidException(), message, ctx)
       }
       else if (isTooBigMessage(message)) {
-        logUnsuccessfulProcessing(handler.getName, packageTooBigException, message, ctx)
+        logUnsuccessfulProcessing(handler.name, packageTooBigException, message, ctx)
       }
       else
         handler.handle(message.body)
@@ -254,7 +254,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
 
             val responseMessage = message.copy(length = response.length, body = response)
 
-            logSuccessfulProcession(handler.getName, message, ctx)
+            logSuccessfulProcession(handler.name, message, ctx)
             sendResponseToClient(responseMessage, ctx)
 
             subscriberNotifier.notifySubscribers(
@@ -269,7 +269,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
             )
           }(context)
             .recover { case error =>
-              logUnsuccessfulProcessing(handler.getName, error, message, ctx)
+              logUnsuccessfulProcessing(handler.name, error, message, ctx)
               val response = handler.createErrorResponse(error.getMessage)
               val responseMessage = message.copy(length = response.length, body = response)
               sendResponseToClient(responseMessage, ctx)
@@ -331,7 +331,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
 
             val responseMessage  = message.copy(length = response.length, body = response)
 
-            logSuccessfulProcession(handler.getName, message, ctx)
+            logSuccessfulProcession(handler.name, message, ctx)
             sendResponseToClient(responseMessage, ctx)
 
             subscriberNotifier.notifySubscribers(
@@ -347,7 +347,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
 
           }(context)
             .recover { case error =>
-              logUnsuccessfulProcessing(handler.getName, error, message, ctx)
+              logUnsuccessfulProcessing(handler.name, error, message, ctx)
               val response = handler.createErrorResponse(error.getMessage)
               val responseMessage = message.copy(length = response.length, body = response)
               sendResponseToClient(responseMessage, ctx)
@@ -378,19 +378,19 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
       case Protocol.Authenticate.methodID =>
         val response = handler.handleAndGetResponse(message.body)
         val responseMessage = message.copy(length = response.length, body = response)
-        logSuccessfulProcession(handler.getName, message, ctx)
+        logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.IsValid.methodID =>
         val response = handler.handleAndGetResponse(message.body)
         val responseMessage = message.copy(length = response.length, body = response)
-        logSuccessfulProcession(handler.getName, message, ctx)
+        logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.GetMaxPackagesSizes.methodID =>
         val response = handler.handleAndGetResponse(message.body)
         val responseMessage = message.copy(length = response.length, body = response)
-        logSuccessfulProcession(handler.getName, message, ctx)
+        logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
     }
   }
@@ -463,7 +463,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
               messageForPutTransactions
             )
 
-            logSuccessfulProcession(handler.getName, message, ctx)
+            logSuccessfulProcession(handler.name, message, ctx)
 
             subscriberNotifier.notifySubscribers(
               txn.streamID,

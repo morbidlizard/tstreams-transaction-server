@@ -23,13 +23,17 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
+import GetCommitLogOffsetsHandler.descriptor
+
+private object GetCommitLogOffsetsHandler {
+  val descriptor = Protocol.GetCommitLogOffsets
+}
 
 class GetCommitLogOffsetsHandler(server: TransactionServer,
                                  scheduledCommitLog: ScheduledCommitLog
                                 )
   extends RequestHandler {
 
-  private val descriptor = Protocol.GetCommitLogOffsets
 
   private def process(requestBody: Array[Byte]) = {
     TransactionService.GetCommitLogOffsets.Result(
@@ -60,5 +64,7 @@ class GetCommitLogOffsetsHandler(server: TransactionServer,
     )
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

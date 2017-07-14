@@ -23,12 +23,22 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import PutTransactionsHandler._
+
+private object PutTransactionsHandler {
+  val descriptor = Protocol.PutTransactions
+  val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
+    TransactionService.PutTransactions.Result(Some(true))
+  )
+  val isNotPuttedResponse: Array[Byte] = descriptor.encodeResponse(
+    TransactionService.PutTransactions.Result(Some(false))
+  )
+}
+
 
 class PutTransactionsHandler(server: TransactionServer,
                              scheduledCommitLog: ScheduledCommitLog)
   extends RequestHandler {
-
-  private val descriptor = Protocol.PutTransactions
 
   private def process(requestBody: Array[Byte]) = {
     scheduledCommitLog.putData(
@@ -59,5 +69,7 @@ class PutTransactionsHandler(server: TransactionServer,
     )
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

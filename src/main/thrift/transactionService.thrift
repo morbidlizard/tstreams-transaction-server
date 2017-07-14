@@ -142,7 +142,10 @@ service authService {
 }
 
 service transportService {
-  TransportOptionsInfo getMaxPackagesSizes()
+
+  TransportOptionsInfo getMaxPackagesSizes(),
+
+  string getZKCheckpointGroupServerPrefix()
 }
 
 
@@ -190,5 +193,7 @@ service TransactionService {
 
   bool isValid(1: tokenType token),
 
-  TransportOptionsInfo getMaxPackagesSizes()
+  TransportOptionsInfo getMaxPackagesSizes(),
+
+  string getZKCheckpointGroupServerPrefix()
 }

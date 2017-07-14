@@ -24,11 +24,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
+import AuthenticateHandler.descriptor
+
+private object AuthenticateHandler {
+  val descriptor = Protocol.Authenticate
+}
+
 class AuthenticateHandler(server: TransactionServer,
                           packageTransmissionOpts: TransportOptions)
   extends RequestHandler{
-
-  private val descriptor = Protocol.Authenticate
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -55,5 +59,7 @@ class AuthenticateHandler(server: TransactionServer,
     )
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

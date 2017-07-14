@@ -14,6 +14,7 @@ import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, Co
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc._
 import com.twitter.scrooge.ThriftStruct
+import io.netty.buffer.ByteBuf
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.epoll.EpollEventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
@@ -76,7 +77,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
 
   private final val requestIdToResponseMap =
-    new ConcurrentHashMap[Long, Promise[ThriftStruct]](
+    new ConcurrentHashMap[Long, Promise[ByteBuf]](
       20000,
       1.0f,
       clientOpts.threadPool

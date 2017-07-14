@@ -41,6 +41,7 @@ class SingleNodeServerLastCheckpointedTransactionTest extends FlatSpec with Matc
 
   private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
+  private val serverRoleOptions = ServerOptions.ServerRoleOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
@@ -48,13 +49,13 @@ class SingleNodeServerLastCheckpointedTransactionTest extends FlatSpec with Matc
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
-
   def startTransactionServer(): SingleNodeServer = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     transactionServer = new SingleNodeServer(
       authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
+      serverRoleOptions = serverRoleOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,

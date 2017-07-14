@@ -38,6 +38,18 @@ object ServerOptions {
                               bindPort: Int = 8071,
                               openOperationsPoolSize: Int = Runtime.getRuntime.availableProcessors())
 
+
+  /** The options are used to provide zookeeper paths for leader election and to provide a client a prefix
+    * of 'checkpoint group' server where its address kept.
+    *
+    * @param commonMasterElectionPrefix
+    * @param checkpointMasterPrefix
+    * @param checkpointGroupMasterElectionPrefix
+    */
+  case class ServerRoleOptions(commonMasterElectionPrefix: String = "/tts/common/master_election",
+                               checkpointMasterPrefix: String = "/tts/cg/master",
+                               checkpointGroupMasterElectionPrefix: String = "/tts/cg/master_election")
+
   /** The options are used to provide notification service for subscribers.
     *
     * @param updatePeriodMs delay in milliseconds between updates of current subscribers online.

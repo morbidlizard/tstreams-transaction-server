@@ -23,10 +23,14 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
+import PutTransactionDataHandler.descriptor
+
+private object PutTransactionDataHandler {
+  val descriptor = Protocol.PutTransactionData
+}
+
 class PutTransactionDataHandler(server: TransactionServer)
   extends RequestHandler {
-
-  private val descriptor = Protocol.PutTransactionData
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -61,5 +65,7 @@ class PutTransactionDataHandler(server: TransactionServer)
     )
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

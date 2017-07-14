@@ -19,9 +19,15 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 trait RequestHandler
+  extends Ordered[RequestHandler]
 {
-  def getName: String
+  def id: Byte
+  def name: String
   def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte]
   def handle(requestBody: Array[Byte]): Unit
   def createErrorResponse(message: String): Array[Byte]
+
+  override final def compare(that: RequestHandler): Int = {
+    java.lang.Byte.compare(this.id, that.id)
+  }
 }

@@ -24,6 +24,7 @@ import java.util
 
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import com.twitter.scrooge.{ThriftStruct, ThriftStructCodec3}
+import io.netty.buffer.ByteBuf
 import org.apache.thrift.protocol._
 import org.apache.thrift.transport.{TMemoryBuffer, TMemoryInputTransport}
 
@@ -143,6 +144,13 @@ object Protocol {
     }
 
     @inline
+    final def decodeResponse(buf: ByteBuf): Response = {
+      val message = Message.fromByteBuf(buf)
+      decodeResponse(message)
+    }
+
+
+    @inline
     final def responseFromByteArray(bytes: Array[Byte], protocol: TProtocolFactory): Response = {
       val iprot = protocol.getProtocol(new TMemoryInputTransport(bytes))
       codecRep.decode(iprot)
@@ -197,6 +205,7 @@ object Protocol {
   val getTransactionID = "getTransactionID"
   val getTransactionIDByTimestamp = "getTransactionIDByTimestamp"
   val getMaxPackagesSizes = "getMaxPackagesSizes"
+  val getZKCheckpointGroupServerPrefix = "getZKCheckpointGroupServerPrefix"
 
 
   final def methodWithArgsToString(id: Long, struct: ThriftStruct): String = {
@@ -249,6 +258,8 @@ object Protocol {
         toString(GetTransactionIDByTimestamp.name, struct.productIterator, TransactionService.GetTransactionIDByTimestamp.Args.fieldInfos.map(_.tfield.name))
       case struct: TransactionService.GetMaxPackagesSizes.Args   =>
         toString(GetMaxPackagesSizes.name, struct.productIterator, TransactionService.GetMaxPackagesSizes.Args.fieldInfos.map(_.tfield.name))
+      case struct: TransactionService.GetZKCheckpointGroupServerPrefix.Args =>
+        toString(GetZKCheckpointGroupServerPrefix.name, struct.productIterator, TransactionService.GetZKCheckpointGroupServerPrefix.Args.fieldInfos.map(_.tfield.name))
       case _ =>
         throw new NotImplementedError(s"$struct is not implemeted for debug information")
     }
@@ -319,4 +330,7 @@ object Protocol {
 
   case object GetMaxPackagesSizes extends
     Descriptor(getMaxPackagesSizes, 21:Byte, TransactionService.GetMaxPackagesSizes.Args, TransactionService.GetMaxPackagesSizes.Result, protocolTBinaryFactory, protocolTBinaryFactory)
+
+  case object GetZKCheckpointGroupServerPrefix extends
+    Descriptor(getZKCheckpointGroupServerPrefix, 22:Byte, TransactionService.GetZKCheckpointGroupServerPrefix.Args, TransactionService.GetZKCheckpointGroupServerPrefix.Result, protocolTBinaryFactory, protocolTBinaryFactory)
 }

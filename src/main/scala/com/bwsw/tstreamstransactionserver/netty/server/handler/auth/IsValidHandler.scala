@@ -23,10 +23,14 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
+import IsValidHandler._
+
+private object IsValidHandler {
+  val descriptor = Protocol.IsValid
+}
+
 class IsValidHandler(server: TransactionServer)
   extends RequestHandler{
-
-  private val descriptor = Protocol.IsValid
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)
@@ -47,5 +51,7 @@ class IsValidHandler(server: TransactionServer)
     throw new UnsupportedOperationException("isValid method can't throw error at all!")
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

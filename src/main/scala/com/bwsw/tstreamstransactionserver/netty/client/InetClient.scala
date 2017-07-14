@@ -10,6 +10,7 @@ import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, Co
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
 import com.twitter.scrooge.ThriftStruct
+import io.netty.buffer.ByteBuf
 import io.netty.channel.EventLoopGroup
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.ConnectionState
@@ -29,7 +30,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
                  isShutdown: => Boolean,
                  zkConnection: CuratorFramework,
                  requestIDGen: AtomicLong,
-                 requestIdToResponseMap: ConcurrentHashMap[Long, Promise[ThriftStruct]],
+                 requestIdToResponseMap: ConcurrentHashMap[Long, Promise[ByteBuf]],
                  context: ExecutionContextExecutorService) {
 
   private val logger =
@@ -79,7 +80,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
 
   private val nettyClient = new NettyConnectionHandler(
     workerGroup,
-    new ClientInitializer(requestIdToResponseMap, context),
+    new ClientInitializer(requestIdToResponseMap),
     clientOpts.connectionTimeoutMs,
     retrieveCurrentMaster(), {
       Future {
@@ -128,11 +129,12 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
   }
 
   private def sendRequest[Req <: ThriftStruct, Rep <: ThriftStruct, A](message: Message,
+                                                                       descriptor: Protocol.Descriptor[Req, Rep],
                                                                        f: Rep => A,
                                                                        previousException: Option[Throwable] = None,
                                                                        retryCount: Int = Int.MaxValue)
                                                                       (implicit methodContext: concurrent.ExecutionContext): Future[A] = {
-    val promise = Promise[ThriftStruct]
+    val promise = Promise[ByteBuf]
     requestIdToResponseMap.put(message.id, promise)
 
     val channel = nettyClient.getChannel()
@@ -141,7 +143,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     val responseFuture = TimeoutScheduler.withTimeout(
       promise.future.map { response =>
         requestIdToResponseMap.remove(message.id)
-        f(response.asInstanceOf[Rep])
+        f(descriptor.decodeResponse(response))
       }
     )(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
 
@@ -159,7 +161,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         val newMessage = message.copy(
           id = messageId,
           token = getToken)
-        sendRequest(newMessage, f, Some(currentException), counter)
+        sendRequest(newMessage, descriptor, f, Some(currentException), counter)
       }
     }(methodContext)
   }
@@ -178,7 +180,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
 
     messageSizeValidator.validateMessageSize(message)
 
-    sendRequest(message, f)
+    sendRequest(message, descriptor, f)
   }
 
 
@@ -194,7 +196,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       isFireAndForgetMethod = false
     )
 
-    sendRequest(message, f)
+    sendRequest(message, descriptor, f)
   }
 
 

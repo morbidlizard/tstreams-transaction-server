@@ -23,12 +23,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
+import PutSimpleTransactionAndDataHandler.descriptor
+
+private object PutSimpleTransactionAndDataHandler {
+  val descriptor = Protocol.PutSimpleTransactionAndData
+}
 
 class PutSimpleTransactionAndDataHandler(server: TransactionServer,
                                          scheduledCommitLog: ScheduledCommitLog)
   extends RequestHandler {
-
-  private val descriptor = Protocol.PutSimpleTransactionAndData
 
   private def process(requestBody: Array[Byte]) = {
     val transactionID = server.getTransactionID
@@ -96,5 +99,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
     )
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

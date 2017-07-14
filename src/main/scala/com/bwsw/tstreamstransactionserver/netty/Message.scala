@@ -96,10 +96,15 @@ object Message {
     val length   = buf.readInt()
     val message = {
       val bytes = new Array[Byte](buf.readableBytes())
+      buf.slice()
       buf.readBytes(bytes)
       bytes
     }
     Message(id, length, protocol, message, token, method, isFireAndForgetMethod)
+  }
+
+  def getIdFromByteBuf(buf: ByteBuf): Long = {
+    buf.getLong(0)
   }
 
 }

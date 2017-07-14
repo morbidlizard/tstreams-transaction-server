@@ -23,10 +23,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
+import CheckStreamExistsHandler.descriptor
+
+private object CheckStreamExistsHandler {
+  val descriptor = Protocol.CheckStreamExists
+}
+
 class CheckStreamExistsHandler(server: TransactionServer)
   extends RequestHandler {
 
-  private val descriptor = Protocol.CheckStreamExists
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -56,5 +61,7 @@ class CheckStreamExistsHandler(server: TransactionServer)
     )
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

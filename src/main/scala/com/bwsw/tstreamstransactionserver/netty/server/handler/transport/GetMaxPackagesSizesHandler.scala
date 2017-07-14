@@ -21,8 +21,6 @@ class GetMaxPackagesSizesHandler(packageTransmissionOpts: TransportOptions)
     response
   }
 
-  override def getName: String = descriptor.name
-
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val transportInfo = process(requestBody)
     descriptor.encodeResponse(
@@ -34,7 +32,10 @@ class GetMaxPackagesSizesHandler(packageTransmissionOpts: TransportOptions)
 
   override def createErrorResponse(message: String): Array[Byte] = {
     throw new UnsupportedOperationException(
-      s"$getName method doesn't imply error at all!"
+      s"$name method doesn't imply error at all!"
     )
   }
+
+  override def name: String = descriptor.name
+  override def id: Byte = descriptor.methodID
 }

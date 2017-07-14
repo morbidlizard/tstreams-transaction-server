@@ -40,10 +40,11 @@ class ManyClientsSingleNodeServerInterconnectionTest extends FlatSpec with Match
 
   private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
+  private val serverRoleOptions = ServerOptions.ServerRoleOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions()
+  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(closeDelayMs = Int.MaxValue)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
@@ -53,6 +54,7 @@ class ManyClientsSingleNodeServerInterconnectionTest extends FlatSpec with Match
       authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
+      serverRoleOptions = serverRoleOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,

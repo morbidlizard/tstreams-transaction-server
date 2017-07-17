@@ -12,15 +12,16 @@ private object GetZKCheckpointGroupServerPrefixHandler {
 class GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions: ServerRoleOptions)
   extends RequestHandler {
 
-  private def process(requestBody: Array[Byte]) = {
-    serverRoleOptions.checkpointMasterPrefix
-  }
+  private val encodedResponse =  descriptor.encodeResponse(
+    TransactionService.GetZKCheckpointGroupServerPrefix.Result(
+      Some(
+        serverRoleOptions.checkpointMasterPrefix
+      ))
+
+  )
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val response = process(requestBody)
-    descriptor.encodeResponse(
-      TransactionService.GetZKCheckpointGroupServerPrefix.Result(Some(response))
-    )
+    encodedResponse
   }
 
   override def handle(requestBody: Array[Byte]): Unit = {}

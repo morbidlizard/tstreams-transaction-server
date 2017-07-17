@@ -214,7 +214,9 @@ class BadBehaviourSingleNodeServerTest
     class MyThrowable extends Exception("My exception")
     assertThrows[MyThrowable] {
       new Client(connectionOpts, authOpts, zookeeperOpts) {
-        override def onServerConnectionLost(): Unit = throw new MyThrowable
+        override def onServerConnectionLost(): Unit = {
+          throw new MyThrowable
+        }
       }
     }
     masterElector.stop()

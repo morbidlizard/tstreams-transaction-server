@@ -9,9 +9,9 @@ trait TTSClient
     with StreamClientApi
     with ConsumerClientApi
 {
-  protected def onZKConnectionStateChanged(newState: ConnectionState): Unit
-  protected def onServerConnectionLost(): Unit
-  protected def onRequestTimeout(): Unit
+  protected def onZKConnectionStateChanged(newState: ConnectionState): Unit = {}
+  protected def onServerConnectionLost(): Unit = {}
+  protected def onRequestTimeout(): Unit = {}
 
   def getCommitLogOffsets(): ScalaFuture[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo]
   def shutdown(): Unit

@@ -18,7 +18,7 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 import com.bwsw.tstreamstransactionserver.netty.Message
 import io.netty.buffer.ByteBuf
@@ -29,7 +29,7 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder
 
 import scala.concurrent.{Promise => ScalaPromise}
 
-class ClientInitializer(reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ByteBuf]])
+class ClientInitializer(reqIdToRep: ConcurrentMap[Long, ScalaPromise[ByteBuf]])
   extends ChannelInitializer[SocketChannel] {
 
   override def initChannel(ch: SocketChannel): Unit = {

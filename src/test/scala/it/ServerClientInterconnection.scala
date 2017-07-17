@@ -245,7 +245,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    TimeUnit.MILLISECONDS.sleep(clientBuilder.getConnectionOptions.connectionTimeoutMs * 3 / 5)
+    TimeUnit.MILLISECONDS.sleep(clientBuilder.getConnectionOptions.connectionTimeoutMs * 2 / 5)
     startTransactionServer()
 
     Await.result(resultInFuture,

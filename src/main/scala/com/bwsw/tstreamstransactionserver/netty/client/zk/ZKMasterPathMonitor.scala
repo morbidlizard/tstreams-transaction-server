@@ -51,6 +51,7 @@ class ZKMasterPathMonitor(connection: CuratorFramework,
         else
           setMaster(validateMaster(node))
       case None =>
+        setMaster(Right(None))
 //        setMaster(
 //          Left(
 //            throw new MasterPathIsAbsent(prefix)

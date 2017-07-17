@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.zk
 
 import java.util
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import org.apache.curator.framework.CuratorFramework
@@ -16,6 +17,8 @@ final class ZKMasterElector(curatorClient: CuratorFramework,
                             masterPrefix: String,
                             masterElectionPrefix: String)
   extends LeaderLatchListener {
+
+  private val isStarted = new AtomicBoolean(false)
 
   private val leaderLatch =
     new LeaderLatch(
@@ -40,13 +43,24 @@ final class ZKMasterElector(curatorClient: CuratorFramework,
   def leaderID: String =
     leaderLatch.getLeader.getId
 
-  def start(): Unit =
-    leaderLatch.start()
+  def start(): Unit = {
+    val isNotStarted =
+      isStarted.compareAndSet(false, true)
 
-  def stop(): Unit =
-    leaderLatch.close(
-      LeaderLatch.CloseMode.NOTIFY_LEADER
-    )
+    if (isNotStarted)
+      leaderLatch.start()
+  }
+
+  def stop(): Unit = {
+    val started =
+      isStarted.compareAndSet(true, false)
+
+    if (started) {
+      leaderLatch.close(
+        LeaderLatch.CloseMode.SILENT
+      )
+    }
+  }
 
   override def isLeader(): Unit = {
     putSocketAddress()

@@ -36,7 +36,13 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
   private val logger =
     LoggerFactory.getLogger(this.getClass)
 
+  private val isAuthenticating  =
+    new java.util.concurrent.atomic.AtomicBoolean(false)
+
   @volatile private var currentToken: Int = -1
+  @volatile private var messageSizeValidator: MessageSizeValidator =
+    new MessageSizeValidator(Int.MaxValue, Int.MaxValue)
+
 
 
   private final def onRequestTimeoutDefaultBehaviour(): Unit = {
@@ -47,7 +53,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
   private val zkInteractor = new ZKMasterInteractor(
     zkConnection,
     zookeeperOptions.prefix,
-    _ => {},
+    _ => {} /*reconnectToServer()*/,
     onZKConnectionStateChanged
   )
 
@@ -66,8 +72,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       ))
     }
 
-    onServerConnectionLost
-
     if (logger.isWarnEnabled) {
       logger.warn(s"Server is unreachable. Retrying to reconnect server $connectionSocket.")
     }
@@ -82,12 +86,19 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     workerGroup,
     new ClientInitializer(requestIdToResponseMap),
     clientOpts.connectionTimeoutMs,
-    retrieveCurrentMaster(), {
+    retrieveCurrentMaster(),
+    {
+      onServerConnectionLost
       Future {
         onServerConnectionLostDefaultBehaviour()
       }(context)
     }
   )
+
+  private def reconnectToServer() = {
+    if (nettyClient != null)
+      nettyClient.reconnect()
+  }
 
   private def onShutdownThrowException(): Unit =
     if (isShutdown) throw ClientIllegalOperationAfterShutdown
@@ -120,14 +131,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     go(System.currentTimeMillis())
   }
 
-  private lazy val messageSizeValidator = {
-    val packageSizes = getMaxPackagesSizes()
-    new MessageSizeValidator(
-      packageSizes.maxMetadataPackageSize,
-      packageSizes.maxDataPackageSize
-    )
-  }
-
   private def sendRequest[Req <: ThriftStruct, Rep <: ThriftStruct, A](message: Message,
                                                                        descriptor: Protocol.Descriptor[Req, Rep],
                                                                        f: Rep => A,
@@ -140,14 +143,16 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     val channel = nettyClient.getChannel()
     channel.write(message.toByteArray)
 
+
     val responseFuture = TimeoutScheduler.withTimeout(
       promise.future.map { response =>
         requestIdToResponseMap.remove(message.id)
         f(descriptor.decodeResponse(response))
       }
-    )(methodContext, after = clientOpts.requestTimeoutMs.millis, message.id)
+    )(after = clientOpts.requestTimeoutMs.millis, message.id)(methodContext)
 
     channel.flush()
+
 
     responseFuture.recoverWith { case error =>
       requestIdToResponseMap.remove(message.id)
@@ -160,7 +165,8 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         val messageId = requestIDGen.getAndIncrement()
         val newMessage = message.copy(
           id = messageId,
-          token = getToken)
+          token = getToken
+        )
         sendRequest(newMessage, descriptor, f, Some(currentException), counter)
       }
     }(methodContext)
@@ -177,6 +183,9 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       getToken,
       isFireAndForgetMethod = false
     )
+
+    if (getToken == -1)
+      authenticate()
 
     messageSizeValidator.validateMessageSize(message)
 
@@ -289,10 +298,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     zkInteractor.getCurrentMaster
 
 
-  private val isAuthenticating  =
-    new java.util.concurrent.atomic.AtomicBoolean(false)
-
-
   private final def getToken: Int = {
     currentToken
   }
@@ -326,10 +331,18 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         x => {
           val tokenFromServer = x.success.get
           currentToken = tokenFromServer
+
+          val packageSizes = getMaxPackagesSizes()
+          messageSizeValidator = new MessageSizeValidator(
+            packageSizes.maxMetadataPackageSize,
+            packageSizes.maxDataPackageSize
+          )
+
           isAuthenticating.set(false)
           latch.countDown()
         }
       )(context)
+
       latch.await(
         clientOpts.requestTimeoutMs,
         TimeUnit.MILLISECONDS
@@ -361,6 +374,31 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       TimeUnit.MILLISECONDS
     )
     transportOptionsInfo
+  }
+
+  final def getZKCheckpointGroupServerPrefix(): Option[String] = {
+    if (logger.isInfoEnabled)
+      logger.info("getMaxPackagesSizes method is invoked.")
+
+    onShutdownThrowException()
+
+    var prefix = Option.empty[String]
+
+    val latch = new CountDownLatch(1)
+    methodWithoutMessageSizeValidation[TransactionService.GetZKCheckpointGroupServerPrefix.Args, TransactionService.GetZKCheckpointGroupServerPrefix.Result, Unit](
+      Protocol.GetZKCheckpointGroupServerPrefix,
+      TransactionService.GetZKCheckpointGroupServerPrefix.Args(),
+      x => {
+        prefix = x.success
+        latch.countDown()
+      }
+    )(context)
+
+    latch.await(
+      clientOpts.requestTimeoutMs,
+      TimeUnit.MILLISECONDS
+    )
+    prefix
   }
 
   /** It Disconnects client from server slightly */

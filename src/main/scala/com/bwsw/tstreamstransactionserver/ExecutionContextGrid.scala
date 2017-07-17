@@ -53,7 +53,7 @@ class SinglePoolExecutionContextGrid(f: => java.util.concurrent.ExecutorService)
 
 object ExecutionContextGrid {
   /** The time to wait all tasks completed by thread pool */
-  private val TASK_TERMINATION_MAX_WAIT_MS = 10000
+  val TASK_TERMINATION_MAX_WAIT_MS = 10000
 
   /** Creates an 1 single-threaded context with name */
   def apply(nameFormat: String) = new SinglePoolExecutionContextGrid(

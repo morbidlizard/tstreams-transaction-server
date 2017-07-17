@@ -4,8 +4,9 @@ import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
+import com.bwsw.tstreamstransactionserver.netty.client.InetClientProxy
 import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
-import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions, TransportOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
@@ -48,10 +49,12 @@ class SingleNodeServerPackageTooBigTest extends FlatSpec with Matchers {
 
     val server = startTransactionServer(zkTestServer.getConnectString)
 
-    val client = new ClientBuilder()
-      .withConnectionOptions(ConnectionOptions(requestTimeoutMs = 3000))
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .build()
+    val client = new InetClientProxy(
+      ConnectionOptions(),
+      AuthOptions(),
+      ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+    )
+
 
     assertThrows[PackageTooBigException] {
       Await.result(client.putStream(

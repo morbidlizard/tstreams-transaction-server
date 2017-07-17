@@ -19,6 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.util
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
@@ -58,7 +59,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                          new ServerHandler(handler, executionContext, logger)) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-  @volatile private var isShutdown = false
+  private val isShutdown = new AtomicBoolean(false)
 
   private def createTransactionServerExternalSocket() = {
     val externalHost = System.getenv("HOST")
@@ -216,12 +217,20 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       serverRoleOptions
     )
 
-  private val masterElector =
+  private val commonMasterElector =
     zk.masterElector(
       transactionServerSocketAddress,
       zookeeperOpts.prefix,
       serverRoleOptions.commonMasterElectionPrefix
     )
+
+  private val checkpointGroupMasterElector =
+    zk.masterElector(
+      transactionServerSocketAddress,
+      serverRoleOptions.checkpointMasterPrefix,
+      serverRoleOptions.checkpointGroupMasterElectionPrefix
+    )
+
 
   private val executionContext =
     new ServerExecutionContextGrids(
@@ -239,13 +248,17 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
-      val f = b.bind(serverOpts.bindHost, serverOpts.bindPort).sync()
+      val binding = b
+        .bind(serverOpts.bindHost, serverOpts.bindPort)
+        .sync()
+
       berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.closeDelayMs, commitLogOptions.closeDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
       commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
 
-      masterElector.start()
+      commonMasterElector.start()
+      checkpointGroupMasterElector.start()
 
-      val channel = f.channel().closeFuture()
+      val channel = binding.channel().closeFuture()
       function
       channel.sync()
     } finally {
@@ -254,19 +267,34 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   }
 
   def shutdown(): Unit = {
-    if (!isShutdown) {
-      isShutdown = true
+    val isNotShutdown =
+      isShutdown.compareAndSet(false, true)
+
+    if (isNotShutdown) {
+      if (commonMasterElector != null)
+        commonMasterElector.stop()
+
+      if (checkpointGroupMasterElector != null)
+        checkpointGroupMasterElector.stop()
+
       if (bossGroup != null) {
-        bossGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-          .awaitUninterruptibly()
+        scala.util.Try {
+          bossGroup.shutdownGracefully(
+            0L,
+            0L,
+            TimeUnit.NANOSECONDS
+          ).awaitUninterruptibly(1000L)
+        }
       }
       if (workerGroup != null) {
-        workerGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-          .awaitUninterruptibly()
+        scala.util.Try {
+          workerGroup.shutdownGracefully(
+            0L,
+            0L,
+            TimeUnit.NANOSECONDS
+          ).awaitUninterruptibly(1000L)
+        }
       }
-
-      if (masterElector != null)
-        masterElector.stop()
 
       if (zk != null && curatorSubscriberClient != null) {
         if (zk == curatorSubscriberClient) {

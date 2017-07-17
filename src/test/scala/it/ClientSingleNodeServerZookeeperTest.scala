@@ -1,11 +1,12 @@
 package it
 
 import java.io.File
-import java.util
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
+import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterInteractor
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
@@ -16,10 +17,27 @@ import org.apache.curator.test.TestingServer
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.ZooDefs.{Ids, Perms}
 import org.apache.zookeeper.data.ACL
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 
-class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
+class ClientSingleNodeServerZookeeperTest
+  extends FlatSpec
+    with Matchers
+    with BeforeAndAfterAll
+{
+  private val zkTestServer = new TestingServer(false)
+  private def uuid = java.util.UUID.randomUUID.toString
+
+
+  override def beforeAll(): Unit = {
+    zkTestServer.start()
+  }
+
+  override def afterAll(): Unit = {
+    zkTestServer.stop()
+    zkTestServer.close()
+  }
+
 
   "Client" should "not connect to zookeeper server that isn't running" in {
     val clientBuilder = new ClientBuilder()
@@ -37,8 +55,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
 
   
   it should "not connect to server which socket address(retrieved from zooKeeper server) is wrong" in {
-    val zkPrefix = "/tts"
-    val zkTestServer = new TestingServer(true)
+    val zkPrefix = s"/$uuid"
 
     val zkClient = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(1000)
@@ -49,7 +66,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     zkClient.start()
     zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
 
-    val permissions = new util.ArrayList[ACL]()
+    val permissions = new java.util.ArrayList[ACL]()
     permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
     zkClient.create().creatingParentsIfNeeded()
       .withMode(CreateMode.EPHEMERAL)
@@ -69,12 +86,10 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     }
 
     zkClient.close()
-    zkTestServer.close()
   }
 
   it should "not connect to server which socket address(retrieved from zooKeeper server) is putted on persistent znode" in {
-    val zkPrefix = "/tts"
-    val zkTestServer = new TestingServer(true)
+    val zkPrefix = s"/$uuid"
 
     val zkClient = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(1000)
@@ -85,7 +100,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     zkClient.start()
     zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
 
-    val permissions = new util.ArrayList[ACL]()
+    val permissions = new java.util.ArrayList[ACL]()
     permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
     zkClient.create().creatingParentsIfNeeded()
       .withMode(CreateMode.PERSISTENT)
@@ -105,13 +120,11 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     }
 
     zkClient.close()
-    zkTestServer.close()
   }
 
 
   it should "not connect to server which inet address(retrieved from zooKeeper server) is wrong" in {
-    val zkPrefix = "/tts"
-    val zkTestServer = new TestingServer(true)
+    val zkPrefix = s"/$uuid"
 
     val zkClient = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(1000)
@@ -122,7 +135,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     zkClient.start()
     zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
 
-    val permissions = new util.ArrayList[ACL]()
+    val permissions = new java.util.ArrayList[ACL]()
     permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
     zkClient.create().creatingParentsIfNeeded()
       .withMode(CreateMode.EPHEMERAL)
@@ -142,12 +155,10 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     }
 
     zkClient.close()
-    zkTestServer.close()
   }
 
   it should "not connect to server which port value(retrieved from zooKeeper server) is negative" in {
-    val zkPrefix = "/tts"
-    val zkTestServer = new TestingServer(true)
+    val zkPrefix = s"/$uuid"
 
     val zkClient = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(1000)
@@ -158,7 +169,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     zkClient.start()
     zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
 
-    val permissions = new util.ArrayList[ACL]()
+    val permissions = new java.util.ArrayList[ACL]()
     permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
     zkClient.create().creatingParentsIfNeeded()
       .withMode(CreateMode.EPHEMERAL)
@@ -178,12 +189,10 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     }
 
     zkClient.close()
-    zkTestServer.close()
   }
 
   it should "not connect to server which port value(retrieved from zooKeeper server) exceeds 65535" in {
-    val zkPrefix = "/tts"
-    val zkTestServer = new TestingServer(true)
+    val zkPrefix = s"/$uuid"
 
     val zkClient = CuratorFrameworkFactory.builder()
       .sessionTimeoutMs(1000)
@@ -194,7 +203,7 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     zkClient.start()
     zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
 
-    val permissions = new util.ArrayList[ACL]()
+    val permissions = new java.util.ArrayList[ACL]()
     permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
     zkClient.create().creatingParentsIfNeeded()
       .withMode(CreateMode.EPHEMERAL)
@@ -214,73 +223,90 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     }
 
     zkClient.close()
-    zkTestServer.close()
   }
 
-  it should "connect to server, and when the server shutdown, starts on another port — client should reconnect properly" in {
-    val zkTestServer = new TestingServer(true)
-
-    val zkPrefix = "/tts/master"
+  it should "monitor master prefix changes, and when the server shutdown, starts on another port — client should reconnect properly" in {
+    val zkPrefix = s"/$uuid/master"
+    val masterElectionPrefix = s"/$uuid/master_election"
     val zkOptions = ZookeeperOptions(
       prefix = zkPrefix,
       endpoints = zkTestServer.getConnectString
     )
 
-    val serverBuilder = new SingleNodeServerBuilder()
-    val clientBuilder = new ClientBuilder()
-      .withZookeeperOptions(zkOptions)
-
-    val storageOptions = StorageOptions()
-
-    def startTransactionServer(newHost: String, newPort: Int) = {
-      val server = serverBuilder
-        .withServerStorageOptions(storageOptions)
-        .withZookeeperOptions(zkOptions)
-        .withBootstrapOptions(BootstrapOptions(bindHost = newHost, bindPort = newPort))
-        .build()
-      val latch = new CountDownLatch(1)
-      new Thread(() => {
-        server.start(latch.countDown())
-      }).start()
-
-      latch.await()
-      server
-    }
+    val zk = new ZKClient(
+      zkOptions.endpoints,
+      zkOptions.sessionTimeoutMs,
+      zkOptions.connectionTimeoutMs,
+      new RetryForever(zkOptions.retryDelayMs)
+    )
 
     val host = "127.0.0.1"
-    val initialPort = 8071
-    val newPort = 8073
+    val port1 = util.Utils.getRandomPort
+    val address1 = SocketHostPortPair
+      .fromString(s"$host:$port1")
+      .get
+    val port2 = util.Utils.getRandomPort
+    val address2 = SocketHostPortPair
+      .fromString(s"$host:$port2")
+      .get
 
-    val server1 = startTransactionServer(host, initialPort)
+    val elector1 = zk.masterElector(
+      address1,
+      zkPrefix,
+      masterElectionPrefix
+    )
 
-    val client = clientBuilder.build()
+    val elector2 = zk.masterElector(
+      address2,
+      zkPrefix,
+      masterElectionPrefix
+    )
 
-    val initialSocketAddress = client.currentConnectionSocketAddress.right.get.get
-    server1.shutdown()
-    val server2 = startTransactionServer(host, newPort)
+    val zkClient = CuratorFrameworkFactory.builder()
+      .sessionTimeoutMs(1000)
+      .connectionTimeoutMs(1000)
+      .retryPolicy(new RetryForever(100))
+      .connectString(zkTestServer.getConnectString)
+      .build()
+    zkClient.start()
+    zkClient.blockUntilConnected(1, TimeUnit.SECONDS)
 
-    Thread.sleep(200)
-    val newSocketAddress = client.currentConnectionSocketAddress.right.get.get
 
-    initialSocketAddress shouldBe SocketHostPortPair(host, initialPort)
-    newSocketAddress     shouldBe SocketHostPortPair(host, newPort)
+    val latch = new CountDownLatch(2)
+    val zKInteractor = new ZKMasterInteractor(
+      zkClient,
+      zkPrefix,
+      newMaster => {
+        if (latch.getCount == 2) {
+          newMaster.right.get.get shouldBe address1
+          elector1.stop()
+          latch.countDown()
+        }
+        else
+          newMaster.right.get.get shouldBe address2
+          latch.countDown()
+      },
+      _ => {}
+    )
 
-    client.shutdown()
-    zkTestServer.close()
-    server2.shutdown()
+    elector1.start()
+    Thread.sleep(100)
+    elector2.start()
 
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
+    latch.await(5000, TimeUnit.MILLISECONDS) shouldBe true
+
+    elector2.stop()
+    zKInteractor.stop()
+    zkClient.close()
   }
 
 
   "Server" should "not connect to zookeeper server that isn't running" in {
     val storageOptions = StorageOptions()
+    val port = util.Utils.getRandomPort
     val serverBuilder = new SingleNodeServerBuilder()
       .withServerStorageOptions(storageOptions)
-      .withZookeeperOptions(ZookeeperOptions(endpoints = "127.0.0.1:8888", connectionTimeoutMs = 2000))
+      .withZookeeperOptions(ZookeeperOptions(endpoints = s"127.0.0.1:$port", connectionTimeoutMs = 2000))
 
     assertThrows[ZkNoConnectionException] {
       serverBuilder.build()
@@ -293,7 +319,6 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
   }
 
   it should "not start on wrong inet address" in {
-    val zkTestServer = new TestingServer(true)
     val storageOptions = StorageOptions()
     val serverBuilder = new SingleNodeServerBuilder()
       .withServerStorageOptions(storageOptions)
@@ -303,7 +328,6 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()
     }
-    zkTestServer.close()
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
@@ -311,7 +335,6 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
   }
 
   it should "not start on negative port value" in {
-    val zkTestServer = new TestingServer(true)
     val storageOptions = StorageOptions()
     val serverBuilder = new SingleNodeServerBuilder()
       .withServerStorageOptions(storageOptions)
@@ -326,11 +349,9 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
-    zkTestServer.close()
   }
 
   it should "not start on port value exceeds 65535" in {
-    val zkTestServer = new TestingServer(true)
     val storageOptions = StorageOptions()
     val serverBuilder = new SingleNodeServerBuilder()
       .withServerStorageOptions(storageOptions)
@@ -340,7 +361,6 @@ class ClientSingleNodeServerZookeeperTest extends FlatSpec with Matchers {
     assertThrows[InvalidSocketAddress] {
       serverBuilder.build()
     }
-    zkTestServer.close()
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))

@@ -95,20 +95,11 @@ object Utils {
     }).start()
     latch.await(3000, TimeUnit.SECONDS)
 
-
-
-    val client = new InetClientProxy(
-      ConnectionOptions(),
-      AuthOptions(),
-      ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    )
-
-
-//    val client = new ClientBuilder()
-//      .withZookeeperOptions(
-//        ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-//      )
-//      .build()
+    val client = new ClientBuilder()
+      .withZookeeperOptions(
+        ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+      )
+      .build()
 
     ZkSeverTxnServerTxnClient(zkTestServer, transactionServer, client)
   }

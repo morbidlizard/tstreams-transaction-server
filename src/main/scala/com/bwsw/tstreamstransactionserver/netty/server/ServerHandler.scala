@@ -392,6 +392,12 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
         val responseMessage = message.copy(length = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
+
+      case Protocol.GetZKCheckpointGroupServerPrefix.methodID =>
+        val response = handler.handleAndGetResponse(message.body)
+        val responseMessage = message.copy(length = response.length, body = response)
+        logSuccessfulProcession(handler.name, message, ctx)
+        sendResponseToClient(responseMessage, ctx)
     }
   }
 

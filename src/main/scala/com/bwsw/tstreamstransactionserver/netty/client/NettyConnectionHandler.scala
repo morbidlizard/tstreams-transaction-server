@@ -33,9 +33,12 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
       )
       .handler(handlersChain)
   }
-  private val isReconnecting = new AtomicBoolean(false)
+  private val isReconnecting =
+    new AtomicBoolean(false)
 
-  @volatile private var isStopped = false
+  private val isStopped =
+    new AtomicBoolean(false)
+
   @volatile private var channel: Channel = connect()
 
   private def determineChannelType(): Class[_ <: SocketChannel] =
@@ -80,7 +83,7 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
       val newConnection = bootstrap.connect(socket.address, socket.port)
       newConnection.addListener { (futureChannel: ChannelFuture) =>
         val channel = futureChannel.channel()
-        if (!isStopped && futureChannel.isSuccess) {
+        if (!isStopped.get() && futureChannel.isSuccess) {
           if (channel.isActive && channel.isOpen) {
             this.channel = channel
             isReconnecting.set(false)
@@ -94,7 +97,7 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
         else {
           onConnectionLostDo
           val eventLoop = channel.eventLoop()
-          if (!isStopped && !eventLoop.isShuttingDown) {
+          if (!isStopped.get() && !eventLoop.isShuttingDown) {
             go()
           }
         }
@@ -113,7 +116,7 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
   private def connectionLostListener(oldChannel: Channel) = {
     oldChannel.closeFuture.addListener { (f: ChannelFuture) =>
       val eventLoop = f.channel().eventLoop()
-      if (!isStopped && !eventLoop.isShuttingDown) {
+      if (!isStopped.get() && !eventLoop.isShuttingDown) {
         eventLoop.execute { () =>
           onConnectionLostDo
           reconnect()
@@ -126,9 +129,11 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
     channel
   }
 
-  def stop(): Unit =
-    this.synchronized {
-      isStopped = true
+  def stop(): Unit = {
+    val isNotStopped =
+      isStopped.compareAndSet(false, true)
+    if (isNotStopped) {
       channel.close().awaitUninterruptibly()
     }
+  }
 }

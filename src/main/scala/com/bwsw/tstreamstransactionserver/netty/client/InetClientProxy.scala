@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits
@@ -13,7 +13,6 @@ import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc._
-import com.twitter.scrooge.ThriftStruct
 import io.netty.buffer.ByteBuf
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.epoll.EpollEventLoopGroup
@@ -24,12 +23,9 @@ import org.apache.curator.framework.state.ConnectionState
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 
+import scala.annotation.tailrec
 import scala.concurrent.{Future, Promise}
 
-private object InetClientProxy{
-  val threadNumber: Int =
-    Runtime.getRuntime.availableProcessors()
-}
 
 class InetClientProxy(clientOpts: ConnectionOptions,
                       authOpts: AuthOptions,
@@ -46,15 +42,15 @@ class InetClientProxy(clientOpts: ConnectionOptions,
   private val isZKClientExternal =
     externalCuratorClient.isDefined
 
-  @volatile private var isShutdown =
-    false
+  private val isShutdown =
+    new AtomicBoolean(false)
 
   private val workerGroup: EventLoopGroup =
     if (SystemUtils.IS_OS_LINUX) {
-      new EpollEventLoopGroup(InetClientProxy.threadNumber)
+      new EpollEventLoopGroup()
     }
     else {
-      new NioEventLoopGroup(InetClientProxy.threadNumber)
+      new NioEventLoopGroup()
     }
 
 
@@ -76,7 +72,14 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     }
 
 
-  private final val requestIdToResponseMap =
+  private final val requestIdToResponseCommonMap =
+    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+      20000,
+      1.0f,
+      clientOpts.threadPool
+    )
+
+  private final val requestIdToResponseCheckpointGroupMap =
     new ConcurrentHashMap[Long, Promise[ByteBuf]](
       20000,
       1.0f,
@@ -85,29 +88,76 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
   override protected def onZKConnectionStateChanged(newState: ConnectionState): Unit =
     onZKConnectionStateChangedFunc(newState)
+
   override protected def onServerConnectionLost(): Unit =
     onServerConnectionLostFunc
+
   override protected def onRequestTimeout(): Unit =
     onRequestTimeoutFunc
 
   private final val requestIDGen = new AtomicLong(1L)
-  private val inetClient = new InetClient(
-    zookeeperOptions,
-    clientOpts,
-    authOpts,
-    onServerConnectionLost(),
-    onRequestTimeout(),
-    onZKConnectionStateChangedFunc,
-    workerGroup,
-    isShutdown,
-    zkConnection,
-    requestIDGen,
-    requestIdToResponseMap,
-    context
-  )
+  private val commonInetClient =
+    new InetClient(
+      zookeeperOptions,
+      clientOpts,
+      authOpts,
+      onServerConnectionLost(),
+      onRequestTimeout(),
+      onZKConnectionStateChanged,
+      workerGroup,
+      isShutdown.get(),
+      zkConnection,
+      requestIDGen,
+      requestIdToResponseCommonMap,
+      context
+    )
+
+
+  private val isRetrievingCheckpointGroupServerPrefix =
+    new AtomicBoolean(false)
+
+  @volatile private var checkpointGroupInetClient: InetClient = _
+  private final def getCheckpointGroupInetClient: InetClient = {
+    def getClientIfPossible: Option[InetClient] =
+      commonInetClient
+        .getZKCheckpointGroupServerPrefix()
+        .map { prefix =>
+          val checkpointGroupZookeeperOptions =
+            zookeeperOptions.copy(prefix = prefix)
+
+          new InetClient(
+            checkpointGroupZookeeperOptions,
+            clientOpts,
+            authOpts,
+            onServerConnectionLost(),
+            onRequestTimeout(),
+            onZKConnectionStateChangedFunc,
+            workerGroup,
+            isShutdown.get(),
+            zkConnection,
+            requestIDGen,
+            requestIdToResponseCheckpointGroupMap,
+            context
+          )
+        }
+
+    val isNotRetrieving = isRetrievingCheckpointGroupServerPrefix
+      .compareAndSet(false, true)
+
+    if (isNotRetrieving) {
+      while (checkpointGroupInetClient == null) {
+        getClientIfPossible.foreach(checkpointGroupInetClient = _)
+      }
+      isRetrievingCheckpointGroupServerPrefix.set(false)
+      checkpointGroupInetClient
+    } else {
+      while (!isRetrievingCheckpointGroupServerPrefix.get()) {}
+      checkpointGroupInetClient
+    }
+  }
 
   private def onShutdownThrowException(): Unit =
-    if (isShutdown) throw ClientIllegalOperationAfterShutdown
+    if (isShutdown.get()) throw ClientIllegalOperationAfterShutdown
 
   /** Retrieving an offset between last processed commit log file and current commit log file where a server writes data.
     *
@@ -125,7 +175,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
   def getCommitLogOffsets(): Future[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo] = {
     if (logger.isDebugEnabled()) logger.debug(s"Calling method getCommitLogOffsets to get offsets.")
     onShutdownThrowException()
-    inetClient.method[TransactionService.GetCommitLogOffsets.Args, TransactionService.GetCommitLogOffsets.Result, com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo](
+    commonInetClient.method[TransactionService.GetCommitLogOffsets.Args, TransactionService.GetCommitLogOffsets.Result, com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo](
       Protocol.GetCommitLogOffsets,
       TransactionService.GetCommitLogOffsets.Args(),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -150,7 +200,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Future[Int] = {
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream $stream with $partitions partitions, ttl $ttl and description.")
     onShutdownThrowException()
-    inetClient.method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Int](
+    commonInetClient.method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Int](
       Protocol.PutStream,
       TransactionService.PutStream.Args(stream, partitions, description, ttl),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -173,7 +223,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled()) logger.debug(s"Putting stream ${stream.name} with ${stream.partitions} partitions, ttl ${stream.ttl} and description.")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Int](
+    commonInetClient.method[TransactionService.PutStream.Args, TransactionService.PutStream.Result, Int](
       Protocol.PutStream,
       TransactionService.PutStream.Args(stream.name, stream.partitions, stream.description, stream.ttl),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -196,7 +246,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled) logger.debug(s"Deleting stream $name.")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.DelStream.Args, TransactionService.DelStream.Result, Boolean](
+    commonInetClient.method[TransactionService.DelStream.Args, TransactionService.DelStream.Result, Boolean](
       Protocol.DelStream,
       TransactionService.DelStream.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -220,7 +270,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving stream $name.")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.GetStream.Args, TransactionService.GetStream.Result, Option[com.bwsw.tstreamstransactionserver.rpc.Stream]](
+    commonInetClient.method[TransactionService.GetStream.Args, TransactionService.GetStream.Result, Option[com.bwsw.tstreamstransactionserver.rpc.Stream]](
       Protocol.GetStream,
       TransactionService.GetStream.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success
@@ -243,7 +293,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isInfoEnabled) logger.info(s"Checking stream $name on existence...")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, Boolean](
+    commonInetClient.method[TransactionService.CheckStreamExists.Args, TransactionService.CheckStreamExists.Result, Boolean](
       Protocol.CheckStreamExists,
       TransactionService.CheckStreamExists.Args(name),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -267,7 +317,8 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       logger.debug(s"Retrieving transaction id ...")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.GetTransactionID.Args, TransactionService.GetTransactionID.Result, Long](
+
+    commonInetClient.method[TransactionService.GetTransactionID.Args, TransactionService.GetTransactionID.Result, Long](
       Protocol.GetTransactionID,
       TransactionService.GetTransactionID.Args(),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -293,7 +344,8 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       logger.debug(s"Retrieving transaction id by timestamp $timestamp ...")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, Long](
+
+    commonInetClient.method[TransactionService.GetTransactionIDByTimestamp.Args, TransactionService.GetTransactionIDByTimestamp.Result, Long](
       Protocol.GetTransactionIDByTimestamp,
       TransactionService.GetTransactionIDByTimestamp.Args(timestamp),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -326,7 +378,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
+    getCheckpointGroupInetClient.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
       Protocol.PutTransactions,
       TransactionService.PutTransactions.Args(transactions),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -351,7 +403,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     val producerTransactionToTransaction = Transaction(Some(transaction), None)
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, Boolean](
+    commonInetClient.method[TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, Boolean](
       Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(producerTransactionToTransaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -374,7 +426,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled()) logger.debug(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, Boolean](
+    commonInetClient.method[TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, Boolean](
       Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(Transaction(None, Some(transaction))),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -383,9 +435,9 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
   /** Puts 'simplified' producer transaction that already has Chekpointed state with it's data
     *
-    * @param streamID    an id of stream.
-    * @param partition   a partition of stream.
-    * @param data        a producer transaction data.
+    * @param streamID  an id of stream.
+    * @param partition a partition of stream.
+    * @param data      a producer transaction data.
     * @return Future of putSimpleTransactionAndData operation that can be completed or not. If it is completed it returns:
     *         1) Transaction ID if transaction is persisted in commit log file for next processing and it's data is persisted successfully.
     *         2) throwable [[com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException]], if token key isn't valid;
@@ -400,7 +452,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partition with data: $data")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Long](
+    commonInetClient.method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Long](
       Protocol.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data.map(java.nio.ByteBuffer.wrap)),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -410,15 +462,15 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
   /** Puts in fire and forget policy manner 'simplified' producer transaction that already has Chekpointed state with it's data.
     *
-    * @param streamID    an id of stream.
-    * @param partition   a partition of stream.
-    * @param data        a producer transaction data.
+    * @param streamID  an id of stream.
+    * @param partition a partition of stream.
+    * @param data      a producer transaction data.
     */
   def putSimpleTransactionAndDataWithoutResponse(streamID: Int, partition: Int, data: Seq[Array[Byte]]): Unit = {
     if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partition with data: $data")
     onShutdownThrowException()
 
-    inetClient.methodFireAndForget[TransactionService.PutSimpleTransactionAndData.Args](
+    commonInetClient.methodFireAndForget[TransactionService.PutSimpleTransactionAndData.Args](
       Protocol.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data.map(java.nio.ByteBuffer.wrap))
     )
@@ -427,8 +479,8 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
   /** Puts producer 'opened' transaction.
     *
-    * @param streamID an id of stream.
-    * @param partitionID  a partition of stream.
+    * @param streamID         an id of stream.
+    * @param partitionID      a partition of stream.
     * @param transactionTTLMs a lifetime of producer 'opened' transaction.
     * @return Future of openTransaction operation that can be completed or not. If it is completed it returns:
     *         1) Transaction ID if transaction is persisted in commit log file for next processing.
@@ -444,7 +496,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partitionID with TTL: $transactionTTLMs")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, Long](
+    commonInetClient.method[TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, Long](
       Protocol.OpenTransaction,
       TransactionService.OpenTransaction.Args(streamID, partitionID, transactionTTLMs),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -470,7 +522,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving a producer transaction on partition '$partition' of stream '$streamID' by id '$transaction'")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, TransactionInfo](
+    commonInetClient.method[TransactionService.GetTransaction.Args, TransactionService.GetTransaction.Result, TransactionInfo](
       Protocol.GetTransaction,
       TransactionService.GetTransaction.Args(streamID, partition, transaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -496,7 +548,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled()) logger.debug(s"Retrieving a last checkpointed transaction on partition '$partition' of stream '$streamID")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.GetLastCheckpointedTransaction.Args, TransactionService.GetLastCheckpointedTransaction.Result, Long](
+    commonInetClient.method[TransactionService.GetLastCheckpointedTransaction.Args, TransactionService.GetLastCheckpointedTransaction.Result, Long](
       Protocol.GetLastCheckpointedTransaction,
       TransactionService.GetLastCheckpointedTransaction.Args(streamID, partition),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -506,7 +558,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
   /** Retrieves all producer transactions in a specific range [from, to]; it's assumed that "from" and "to" are both positive.
     *
-    * @param streamID    an id of stream.
+    * @param streamID  an id of stream.
     * @param partition a partition of stream.
     * @param from      an inclusive bound to start with.
     * @param to        an inclusive bound to end with.
@@ -537,7 +589,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       if (logger.isDebugEnabled()) logger.debug(s"Retrieving producer transactions on stream $streamID in range [$from, $to]")
       onShutdownThrowException()
 
-      inetClient.method[TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, ScanTransactionsInfo](
+      commonInetClient.method[TransactionService.ScanTransactions.Args, TransactionService.ScanTransactions.Result, ScanTransactionsInfo](
         Protocol.ScanTransactions,
         TransactionService.ScanTransactions.Args(streamID, partition, from, to, count, states),
         x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -568,7 +620,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       logger.debug(s"Putting transaction data to stream $streamID, partition $partition, transaction $transaction.")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result, Boolean](
+    commonInetClient.method[TransactionService.PutTransactionData.Args, TransactionService.PutTransactionData.Result, Boolean](
       Protocol.PutTransactionData,
       TransactionService.PutTransactionData.Args(streamID, partition, transaction, data.map(java.nio.ByteBuffer.wrap), from),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -601,7 +653,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.PutProducerStateWithData.Args, TransactionService.PutProducerStateWithData.Result, Boolean](
+    commonInetClient.method[TransactionService.PutProducerStateWithData.Args, TransactionService.PutProducerStateWithData.Result, Boolean](
       Protocol.PutProducerStateWithData,
       TransactionService.PutProducerStateWithData.Args(producerTransaction, data.map(java.nio.ByteBuffer.wrap), from),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -637,7 +689,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       if (logger.isDebugEnabled) logger.debug(s"Retrieving producer transaction data from stream $streamID, partition $partition, transaction $transaction in range [$from, $to].")
       onShutdownThrowException()
 
-      inetClient.method[TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, Seq[Array[Byte]]](
+      commonInetClient.method[TransactionService.GetTransactionData.Args, TransactionService.GetTransactionData.Result, Seq[Array[Byte]]](
         Protocol.GetTransactionData,
         TransactionService.GetTransactionData.Args(streamID, partition, transaction, from, to),
         x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else Implicits.byteBuffersToSeqArrayByte(x.success.get)
@@ -663,7 +715,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled())
       logger.debug(s"Setting consumer state ${consumerTransaction.name} on stream ${consumerTransaction.stream}, partition ${consumerTransaction.partition}, transaction ${consumerTransaction.transactionID}.")
 
-    inetClient.method[TransactionService.PutConsumerCheckpoint.Args, TransactionService.PutConsumerCheckpoint.Result, Boolean](
+    commonInetClient.method[TransactionService.PutConsumerCheckpoint.Args, TransactionService.PutConsumerCheckpoint.Result, Boolean](
       Protocol.PutConsumerCheckpoint,
       TransactionService.PutConsumerCheckpoint.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -688,7 +740,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled) logger.debug(s"Retrieving a transaction by consumer $name on stream $streamID, partition $partition.")
     onShutdownThrowException()
 
-    inetClient.method[TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, Long](
+    commonInetClient.method[TransactionService.GetConsumerState.Args, TransactionService.GetConsumerState.Result, Long](
       Protocol.GetConsumerState,
       TransactionService.GetConsumerState.Args(name, streamID, partition),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
@@ -697,14 +749,27 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
   /** It Disconnects client from server slightly */
   def shutdown(): Unit = {
-    if (!isShutdown) {
-      isShutdown = true
+    val isNotShutdown =
+      isShutdown.compareAndSet(false, true)
+
+    if (isNotShutdown) {
       if (workerGroup != null) {
-        workerGroup.shutdownGracefully(0, 0, TimeUnit.NANOSECONDS)
+        scala.util.Try(workerGroup.shutdownGracefully(
+          0L,
+          0L,
+          TimeUnit.NANOSECONDS
+        ).awaitUninterruptibly(clientOpts.requestTimeoutRetryCount))
       }
-      inetClient.shutdown()
-      if (isZKClientExternal && zkConnection != null) zkConnection.close()
-      executionContext.stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()
+      if (commonInetClient != null)
+        commonInetClient.shutdown()
+
+      if (checkpointGroupInetClient != null)
+        checkpointGroupInetClient.shutdown()
+
+      if (isZKClientExternal && zkConnection != null)
+        zkConnection.close()
+      executionContext
+        .stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()
     }
   }
 }

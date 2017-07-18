@@ -19,20 +19,23 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import PutConsumerCheckpointHandler.descriptor
+
+private object PutConsumerCheckpointHandler {
+  val descriptor = Protocol.PutConsumerCheckpoint
+}
 
 class PutConsumerCheckpointHandler(server: TransactionServer,
                                    scheduledCommitLog: ScheduledCommitLog)
   extends RequestHandler {
 
-  private val descriptor = Protocol.PutConsumerCheckpoint
-
   private def process(requestBody: Array[Byte]) = {
     scheduledCommitLog.putData(
-      CommitLogToBerkeleyWriter.setConsumerStateType,
+      RecordType.PutConsumerCheckpointType.id.toByte,
       requestBody
     )
   }
@@ -59,5 +62,7 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
     )
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

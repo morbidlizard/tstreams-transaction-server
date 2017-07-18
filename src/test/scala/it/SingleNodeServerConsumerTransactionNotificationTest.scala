@@ -28,13 +28,13 @@ class SingleNodeServerConsumerTransactionNotificationTest extends FlatSpec with 
 
   private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
+  private val serverRoleOptions = ServerOptions.ServerRoleOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
   private val serverCommitLogOptions = ServerOptions.CommitLogOptions(closeDelayMs = commitLogToBerkeleyDBTaskDelayMs)
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
-  private val serverSubscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
-
+  private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
   def startTransactionServer(): SingleNodeServer = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
@@ -42,12 +42,13 @@ class SingleNodeServerConsumerTransactionNotificationTest extends FlatSpec with 
       authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
+      serverRoleOptions = serverRoleOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      subscribersUpdateOptions = serverSubscriberUpdateOptions
+      subscriberUpdateOptions
     )
 
     val latch = new CountDownLatch(1)

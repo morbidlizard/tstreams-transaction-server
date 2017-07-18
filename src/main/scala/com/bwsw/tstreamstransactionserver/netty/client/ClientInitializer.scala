@@ -18,18 +18,20 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 import com.bwsw.tstreamstransactionserver.netty.Message
-import com.twitter.scrooge.ThriftStruct
+import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.socket.SocketChannel
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder
 import io.netty.handler.codec.bytes.ByteArrayEncoder
 
-import scala.concurrent.{ExecutionContext, Promise => ScalaPromise}
+import scala.concurrent.{Promise => ScalaPromise}
 
-class ClientInitializer(reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftStruct]], client: Client, context: ExecutionContext) extends ChannelInitializer[SocketChannel] {
+class ClientInitializer(reqIdToRep: ConcurrentMap[Long, ScalaPromise[ByteBuf]])
+  extends ChannelInitializer[SocketChannel] {
+
   override def initChannel(ch: SocketChannel): Unit = {
     ch.pipeline()
       .addLast(new ByteArrayEncoder())
@@ -38,7 +40,7 @@ class ClientInitializer(reqIdToRep: ConcurrentHashMap[Long, ScalaPromise[ThriftS
         Message.headerFieldSize,
         Message.lengthFieldSize)
       )
-      .addLast(new ClientHandler(reqIdToRep, client, context))
+      .addLast(new ClientHandler(reqIdToRep))
   }
 }
 

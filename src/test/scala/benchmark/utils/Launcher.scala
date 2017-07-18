@@ -7,7 +7,6 @@ trait Launcher extends Installer {
   def launch() = {
     clearDB()
     startTransactionServer()
-    Thread.sleep(2000L)
     val streamID = createStream(streamName, clients)
     launchClients(streamID)
     deleteStream(streamName)

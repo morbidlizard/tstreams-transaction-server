@@ -19,15 +19,15 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
 
 
-class ConsumerServiceImpl(rocksMetaServiceDB: RocksDBALL)
-  extends ConsumerTransactionStateNotifier {
-
+class ConsumerServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager)
+  extends ConsumerTransactionStateNotifier
+{
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val consumerDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.CONSUMER_STORE)
 
@@ -37,7 +37,9 @@ class ConsumerServiceImpl(rocksMetaServiceDB: RocksDBALL)
     consumerTransactionValue.map(bytes =>
       ConsumerTransactionValue.fromByteArray(bytes).transactionId
     ).getOrElse {
-      if (logger.isDebugEnabled()) logger.debug(s"There is no checkpointed consumer transaction on stream $name, partition $partition with name: $name. Returning -1L")
+      if (logger.isDebugEnabled())
+        logger.debug(s"There is no checkpointed consumer transaction on stream $name, partition $partition with name: $name. " +
+          s"Returning -1L")
       -1L
     }
   }
@@ -50,7 +52,8 @@ class ConsumerServiceImpl(rocksMetaServiceDB: RocksDBALL)
     consumerTransactions.groupBy(txn => txn.key)
   }
 
-  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord], batch: Batch): ListBuffer[Unit => Unit] = {
+  def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
+                              batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
     if (logger.isDebugEnabled()) logger.debug(s"Trying to commit consumer transactions: $consumerTransactions")
     val notifications = new ListBuffer[Unit => Unit]()
     groupProducerTransactions(consumerTransactions) foreach { case (key, txns) =>

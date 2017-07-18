@@ -36,6 +36,7 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
 
   private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
+  private val serverRoleOptions = ServerOptions.ServerRoleOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
@@ -49,13 +50,13 @@ class CommitLogOffsetTest extends FlatSpec with Matchers with BeforeAndAfterEach
       authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
+      serverRoleOptions = serverRoleOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      subscriberUpdateOptions,
-      timer = TestTimer
+      subscriberUpdateOptions
     )
     val latch = new CountDownLatch(1)
     new Thread(() => {

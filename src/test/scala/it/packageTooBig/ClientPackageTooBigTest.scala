@@ -4,10 +4,12 @@ import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
+import com.bwsw.tstreamstransactionserver.netty.client.InetClientProxy
 import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions, TransportOptions}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import org.apache.commons.io.FileUtils
 import org.apache.curator.test.TestingServer
 import org.scalatest.{FlatSpec, Matchers}
@@ -15,7 +17,10 @@ import org.scalatest.{FlatSpec, Matchers}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class ClientPackageTooBigTest extends FlatSpec with Matchers {
+class ClientPackageTooBigTest
+  extends FlatSpec
+    with Matchers {
+
    private val serverStorageOptions = StorageOptions(path = "/tmp")
    private val packageTransmissionOptions = TransportOptions(maxMetadataPackageSize = 1000000)
 
@@ -46,9 +51,11 @@ class ClientPackageTooBigTest extends FlatSpec with Matchers {
 
     val server = startTransactionServer(zkTestServer.getConnectString)
 
-    val client = new ClientBuilder()
-      .withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString))
-      .build()
+    val client = new InetClientProxy(
+      ConnectionOptions(),
+      AuthOptions(),
+      ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+    )
 
     assertThrows[PackageTooBigException] {
       Await.result(client.putStream(

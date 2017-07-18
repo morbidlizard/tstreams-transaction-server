@@ -38,42 +38,69 @@ import com.bwsw.commitlog.filesystem.FilePathManager
   * @param path location to store files at
   * @param policy policy to flush data into file (OnRotation by default)
   */
-class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRotation, nextFileID: => Long) {
+class CommitLog(seconds: Int,
+                path: String,
+                policy: ICommitLogFlushPolicy = OnRotation,
+                iDGenerator: IDGenerator[Long]) {
   require(seconds > 0, "Seconds cannot be less than 1")
   private val millisInterval: Long = TimeUnit.SECONDS.toMillis(seconds)
 
   private val chunkWriteCount: AtomicInteger = new AtomicInteger(0)
   private val chunkOpenTime:   AtomicLong    = new AtomicLong(0L)
 
-  private val pathWithSeparator = s"$path${java.io.File.separatorChar}"
-  private class CommitLogFile(val id: Long) {
-    private[CommitLog] val absolutePath: String = new StringBuilder(pathWithSeparator)
-      .append(id).append(FilePathManager.DATAEXTENSION).toString
-    private val recordIDGen = new AtomicLong(0L)
+  private val pathWithSeparator =
+    s"$path${java.io.File.separatorChar}"
 
-    private val md5: MessageDigest = MessageDigest.getInstance("MD5")
+  private class CommitLogFile(val id: Long) {
+    private[CommitLog] val absolutePath: String =
+      new StringBuilder(pathWithSeparator)
+        .append(id)
+        .append(FilePathManager.DATAEXTENSION)
+        .toString
+
+    private val recordIDGen =
+      new AtomicLong(0L)
+
+    private val md5: MessageDigest =
+      MessageDigest.getInstance("MD5")
 
     private def writeMD5File() = {
-      val fileMD5 = DatatypeConverter.printHexBinary(md5.digest()).getBytes
-      new FileOutputStream(new StringBuilder(pathWithSeparator)
-        .append(id).append(FilePathManager.MD5EXTENSION).toString) {
+      val fileMD5 = DatatypeConverter
+        .printHexBinary(md5.digest())
+        .getBytes
+
+      val fileName = new StringBuilder(pathWithSeparator)
+        .append(id).append(FilePathManager.MD5EXTENSION).toString
+
+      new FileOutputStream(fileName) {
         write(fileMD5)
         close()
       }
     }
 
-    private val fileStream = new FileOutputStream(absolutePath)
-    private val outputStream = new BufferedOutputStream(fileStream)
-    private val digestOutputStream = new DigestOutputStream(outputStream, md5)
-    private[CommitLog] val creationTime: Long = System.currentTimeMillis()
+    private val fileStream =
+      new FileOutputStream(absolutePath)
+
+    private val outputStream =
+      new BufferedOutputStream(fileStream)
+
+    private val digestOutputStream =
+      new DigestOutputStream(outputStream, md5)
+
+    private[CommitLog] val creationTime: Long =
+      System.currentTimeMillis()
 
     private[CommitLog] def put(messageType: Byte, message: Array[Byte]): Unit = {
-      val commitLogRecord = CommitLogRecord(
-        recordIDGen.getAndIncrement(),
-        messageType, message,
-        System.currentTimeMillis()
-      )
-      val recordToBinary = commitLogRecord.toByteArray
+      val commitLogRecord =
+        CommitLogRecord(
+          recordIDGen.getAndIncrement(),
+          messageType, message,
+          System.currentTimeMillis()
+        )
+
+      val recordToBinary =
+        commitLogRecord.toByteArray
+
       digestOutputStream.write(recordToBinary)
     }
 
@@ -83,18 +110,22 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
       fileStream.flush()
     }
 
-    private[CommitLog] def close(withMD5: Boolean = true): Unit = this.synchronized {
-      digestOutputStream.on(false)
-      digestOutputStream.close()
-      outputStream.close()
-      fileStream.close()
-      if (withMD5) {
-        writeMD5File()
+    private[CommitLog] def close(withMD5: Boolean = true): Unit =
+      this.synchronized {
+        digestOutputStream.on(false)
+        digestOutputStream.close()
+        outputStream.close()
+        fileStream.close()
+        if (withMD5) {
+          writeMD5File()
+        }
       }
-    }
   }
 
-  private val currentCommitLogFileToPut = new AtomicReference[CommitLogFile](new CommitLogFile(nextFileID))
+  private val currentCommitLogFileToPut =
+    new AtomicReference[CommitLogFile](
+      new CommitLogFile(iDGenerator.nextID)
+    )
   /** Puts record and its type to an appropriate file.
     *
     * Writes data to file in format (delimiter)(BASE64-encoded type and message). When writing to one file finished,
@@ -130,9 +161,14 @@ class CommitLog(seconds: Int, path: String, policy: ICommitLogFlushPolicy = OnRo
   /** Finishes work with current file. */
   def close(createNewFile: Boolean = true, withMD5: Boolean = true): String = this.synchronized {
     val currentCommitLogFile = currentCommitLogFileToPut.get()
+
     val path = currentCommitLogFile.absolutePath
     if (createNewFile) {
-      currentCommitLogFileToPut.set(new CommitLogFile(nextFileID))
+      currentCommitLogFileToPut.set(
+        new CommitLogFile(
+          iDGenerator.nextID
+        )
+      )
     }
     currentCommitLogFile.close()
     resetCounters()

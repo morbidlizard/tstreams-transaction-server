@@ -23,10 +23,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
+import GetLastCheckpointedTransactionHandler.descriptor
+
+private object GetLastCheckpointedTransactionHandler {
+  val descriptor = Protocol.GetLastCheckpointedTransaction
+}
+
 class GetLastCheckpointedTransactionHandler(server: TransactionServer)
   extends RequestHandler {
 
-  private val descriptor = Protocol.GetLastCheckpointedTransaction
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -58,5 +63,7 @@ class GetLastCheckpointedTransactionHandler(server: TransactionServer)
   }
 
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

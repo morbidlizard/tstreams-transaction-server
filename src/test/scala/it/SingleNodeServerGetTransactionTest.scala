@@ -19,10 +19,13 @@ class SingleNodeServerGetTransactionTest
     )
     val client = bundle.client
 
+
     val currentTime = System.currentTimeMillis()
     val result = Await.result(client.getTransaction(), secondsToWait)
 
+
     result shouldBe >= (currentTime)
+
 
     bundle.close()
   }

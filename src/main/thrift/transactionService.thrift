@@ -57,12 +57,10 @@ struct Stream {
     6: required string        zkPath
 }
 
-struct AuthInfo {
-    1: required tokenType     token
-    2: required i32           maxMetadataPackageSize
-    3: required i32           maxDataPackageSize
+struct TransportOptionsInfo {
+    1: required i32 maxMetadataPackageSize
+    2: required i32 maxDataPackageSize
 }
-
 
 struct ScanTransactionsInfo {
     1: required transactionIDType           lastOpenedTransactionID
@@ -138,9 +136,16 @@ service ConsumerService {
 
 service authService {
 
-  AuthInfo authenticate(1: string authKey),
+  tokenType authenticate(1: string authKey),
 
   bool isValid(1: tokenType token)
+}
+
+service transportService {
+
+  TransportOptionsInfo getMaxPackagesSizes(),
+
+  string getZKCheckpointGroupServerPrefix()
 }
 
 
@@ -184,7 +189,11 @@ service TransactionService {
 
   transactionIDType getConsumerState(1: string name, 2: StreamIDType streamID, 3: PartitionType partition) throws (1:ServerException error),
 
-  AuthInfo authenticate(1: string authKey),
+  tokenType authenticate(1: string authKey),
 
-  bool isValid(1: tokenType token)
+  bool isValid(1: tokenType token),
+
+  TransportOptionsInfo getMaxPackagesSizes(),
+
+  string getZKCheckpointGroupServerPrefix()
 }

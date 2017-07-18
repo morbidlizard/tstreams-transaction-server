@@ -18,17 +18,24 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
-case class ConsumerTransactionValue(transactionId: Long, timestamp:Long) {
+case class ConsumerTransactionValue(transactionId: Long,
+                                    timestamp:Long) {
   def toByteArray: Array[Byte] = {
-    java.nio.ByteBuffer
-      .allocate(java.lang.Long.BYTES + java.lang.Long.BYTES)
+    val buffer = java.nio.ByteBuffer
+      .allocate(ConsumerTransactionValue.size)
       .putLong(transactionId)
       .putLong(timestamp)
-      .array()
+    buffer.flip()
+
+    val bytes = new Array[Byte](ConsumerTransactionValue.size)
+    buffer.get(bytes)
+    bytes
   }
 }
 
 object ConsumerTransactionValue {
+  private val size = java.lang.Long.BYTES + java.lang.Long.BYTES
+
   def fromByteArray(bytes: Array[Byte]): ConsumerTransactionValue = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
     val transactionId = buffer.getLong

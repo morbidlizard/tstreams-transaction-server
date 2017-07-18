@@ -31,19 +31,36 @@ import scala.concurrent.{ExecutionContext, Future => ScalaFuture, Promise => Sca
 
 object TimeoutScheduler{
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val timer = new HashedWheelTimer(10, TimeUnit.MILLISECONDS)
-  def scheduleTimeout(promise:ScalaPromise[_], after:Duration, reqId: Long): Timeout = {
-    timer.newTimeout((timeout: Timeout) => {
-      val requestTimeoutException = new RequestTimeoutException(reqId, after.toMillis)
-      val isExpired = promise.tryFailure(requestTimeoutException)
-      if (isExpired && logger.isDebugEnabled) logger.debug(requestTimeoutException.getMessage)
+  private val timer  = new HashedWheelTimer(10, TimeUnit.MILLISECONDS)
+
+  def scheduleTimeout(promise:ScalaPromise[_],
+                      after:Duration,
+                      requestID: Long): Timeout = {
+    timer.newTimeout(_ => {
+      val requestTimeoutException =
+        new RequestTimeoutException(requestID, after.toMillis)
+      val isExpired =
+        promise.tryFailure(requestTimeoutException)
+      if (isExpired && logger.isDebugEnabled)
+        logger.debug(requestTimeoutException.getMessage)
     }, after.toNanos, TimeUnit.NANOSECONDS)
   }
 
-  def withTimeout[T](fut:ScalaFuture[T])(implicit ec:ExecutionContext, after:Duration, reqId: Long): ScalaFuture[T] = {
-    val prom = ScalaPromise[T]()
-    val timeout = TimeoutScheduler.scheduleTimeout(prom, after, reqId)
-    val combinedFut = ScalaFuture.firstCompletedOf(collection.immutable.Seq(fut, prom.future))
+  def withTimeout[T](fut:ScalaFuture[T])(after:Duration,
+                                         requestID: Long)(implicit ec:ExecutionContext): ScalaFuture[T] = {
+    val promise = ScalaPromise[T]()
+
+    val timeout = TimeoutScheduler
+      .scheduleTimeout(promise, after, requestID)
+
+    val combinedFut =
+      ScalaFuture.firstCompletedOf(
+        collection.immutable.Seq(
+          fut,
+          promise.future
+        )
+      )
+
     fut onComplete (_ => timeout.cancel())
     combinedFut
   }

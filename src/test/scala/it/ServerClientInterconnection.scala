@@ -1,22 +1,30 @@
 package it
 
 import java.io.File
-import java.util.concurrent.atomic.LongAdder
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.atomic.{AtomicLong, LongAdder}
+import java.util.concurrent.{ConcurrentHashMap, CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.client.Client
+import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContextGrid
+import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKClient
+import com.bwsw.tstreamstransactionserver.netty.client.{Client, InetClient}
 import com.bwsw.tstreamstransactionserver.netty.server.{SingleNodeServer, Time}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions._
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ClientOptions, CommonOptions, ServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc._
+import io.netty.buffer.ByteBuf
+import io.netty.channel.EventLoopGroup
+import io.netty.channel.epoll.EpollEventLoopGroup
+import io.netty.channel.nio.NioEventLoopGroup
 import org.apache.commons.io.FileUtils
+import org.apache.commons.lang.SystemUtils
+import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, Promise}
 
 class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndAfterEach {
   var zkTestServer: TestingServer = _
@@ -39,6 +47,7 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
 
   private val serverAuthOptions = ServerOptions.AuthenticationOptions()
   private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
+  private val serverRoleOptions = ServerOptions.ServerRoleOptions()
   private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
   private val serverStorageOptions = ServerOptions.StorageOptions()
   private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
@@ -46,25 +55,24 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
   private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
   private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
 
-
   def startTransactionServer(): SingleNodeServer = {
     val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     transactionServer = new SingleNodeServer(
       authenticationOpts = serverAuthOptions,
       zookeeperOpts = serverZookeeperOptions,
       serverOpts = serverBootstrapOptions,
+      serverRoleOptions = serverRoleOptions,
       serverReplicationOpts = serverReplicationOptions,
       storageOpts = serverStorageOptions,
       rocksStorageOpts = serverRocksStorageOptions,
       commitLogOptions = serverCommitLogOptions,
       packageTransmissionOpts = serverPackageTransmissionOptions,
-      subscriberUpdateOptions,
-      timer = TestTimer
+      subscriberUpdateOptions
     )
+
     val l = new CountDownLatch(1)
     new Thread(() => {
-      l.countDown()
-      transactionServer.start()
+      transactionServer.start(l.countDown())
     }).start()
     l.await()
     transactionServer
@@ -150,6 +158,75 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     intercept[IllegalStateException] {
       client.delStream("test_stream")
     }
+  }
+
+  it should "retrieve prefix of checkpoint group server" in {
+    val isShutdown = false
+
+    val clientOpts =
+      ClientOptions.ConnectionOptions()
+
+    val zookeeperOptions =
+      ZookeeperOptions(endpoints = zkTestServer.getConnectString)
+
+    val authOpts =
+      ClientOptions.AuthOptions()
+
+    val executionContext =
+      new ClientExecutionContextGrid(clientOpts.threadPool)
+
+    val context =
+      executionContext.context
+
+    val workerGroup: EventLoopGroup =
+      if (SystemUtils.IS_OS_LINUX) {
+        new EpollEventLoopGroup()
+      }
+      else {
+        new NioEventLoopGroup()
+      }
+
+    val zkConnection =
+      new ZKClient(
+        zookeeperOptions.endpoints,
+        zookeeperOptions.sessionTimeoutMs,
+        zookeeperOptions.connectionTimeoutMs,
+        new RetryForever(zookeeperOptions.retryDelayMs),
+        zookeeperOptions.prefix
+      ).client
+
+    val requestIdToResponseCommonMap =
+    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+      20000,
+      1.0f,
+      clientOpts.threadPool
+    )
+
+    val requestIDGen = new AtomicLong(1L)
+    val commonInetClient =
+      new InetClient(
+        zookeeperOptions,
+        clientOpts,
+        authOpts,
+        {},
+        {},
+        _ => {},
+        workerGroup,
+        isShutdown,
+      zkConnection,
+      requestIDGen,
+      requestIdToResponseCommonMap,
+      context
+    )
+
+
+
+    val prefix = commonInetClient.getZKCheckpointGroupServerPrefix()
+    prefix shouldBe defined
+
+    prefix.get shouldBe serverRoleOptions.checkpointGroupMasterPrefix
+
+    commonInetClient.shutdown()
   }
 
   it should "put producer and consumer transactions" in {
@@ -245,10 +322,11 @@ class ServerClientInterconnection extends FlatSpec with Matchers with BeforeAndA
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
     transactionServer.shutdown()
-    TimeUnit.MILLISECONDS.sleep(clientBuilder.getConnectionOptions.connectionTimeoutMs * 3 / 5)
+    TimeUnit.MILLISECONDS.sleep(clientBuilder.getConnectionOptions.connectionTimeoutMs * 2 / 5)
     startTransactionServer()
 
-    Await.result(resultInFuture, secondsWait.seconds) shouldBe true
+    Await.result(resultInFuture,
+      secondsWait.seconds) shouldBe true
   }
 
   it should "put any kind of binary data and get it back" in {

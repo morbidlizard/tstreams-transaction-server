@@ -1,11 +1,15 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToBerkeleyWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutProducerStateWithDataHandler._
+
+private object PutProducerStateWithDataHandler {
+  val descriptor = Protocol.PutProducerStateWithData
+}
 
 class PutProducerStateWithDataHandler(server: TransactionServer,
                                       scheduledCommitLog: ScheduledCommitLog)
@@ -43,7 +47,7 @@ class PutProducerStateWithDataHandler(server: TransactionServer,
     )
 
     scheduledCommitLog.putData(
-      CommitLogToBerkeleyWriter.putTransactionType,
+      RecordType.PutTransactionType.id.toByte,
       binaryTransaction
     )
   }
@@ -71,9 +75,7 @@ class PutProducerStateWithDataHandler(server: TransactionServer,
     )
   }
 
-  override def getName: String = descriptor.name
-}
+  override def name: String = descriptor.name
 
-private object PutProducerStateWithDataHandler {
-  val descriptor = Protocol.PutProducerStateWithData
+  override def id: Byte = descriptor.methodID
 }

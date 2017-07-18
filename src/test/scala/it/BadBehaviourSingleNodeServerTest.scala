@@ -4,10 +4,12 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
+import com.bwsw.tstreamstransactionserver.netty.{Message, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
-import com.bwsw.tstreamstransactionserver.netty.server.{ServerHandler, SingleNodeServer, ZKClientServer}
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
+import com.bwsw.tstreamstransactionserver.netty.server.{ServerHandler, SingleNodeServer}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
@@ -18,11 +20,16 @@ import org.apache.curator.retry.RetryForever
 import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import org.slf4j.Logger
+import util.Utils
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class BadBehaviourSingleNodeServerTest
+  extends FlatSpec
+    with Matchers
+    with BeforeAndAfterEach {
+
   var zkTestServer: TestingServer = _
 
   private val rand = scala.util.Random
@@ -41,8 +48,9 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
   private val serverGotRequest = new AtomicInteger(0)
 
   private def serverHandler(requestHandlerChooser: RequestHandlerRouter,
+                            executionContext: ServerExecutionContextGrids,
                             logger: Logger) =
-    new ServerHandler(requestHandlerChooser, logger)
+    new ServerHandler(requestHandlerChooser, executionContext, logger)
     {
       override def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
         serverGotRequest.getAndIncrement()
@@ -54,6 +62,7 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
 
   private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
   private val bootstrapOptions = BootstrapOptions()
+  private val serverRoleOptions = ServerRoleOptions()
   private val serverReplicationOptions = ServerReplicationOptions()
   private val storageOptions = StorageOptions()
   private val rocksStorageOptions = RocksStorageOptions()
@@ -65,8 +74,12 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
     val zookeeperOptions = ZookeeperOptions(endpoints = address)
     server = new SingleNodeServer(
       authOptions, zookeeperOptions,
-      bootstrapOptions, serverReplicationOptions,
-      storageOptions, rocksStorageOptions, commitLogOptions,
+      bootstrapOptions,
+      serverRoleOptions,
+      serverReplicationOptions,
+      storageOptions,
+      rocksStorageOptions,
+      commitLogOptions,
       packageTransmissionOptions,
       subscriberUpdateOptions,
       serverHandler
@@ -83,6 +96,8 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
 
   private val secondsWait = 5
 
+  private val masterElectionPrefix = "/tts/master_election"
+
 
   override def beforeEach(): Unit = {
     zkTestServer = new TestingServer(true)
@@ -97,19 +112,24 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
+    serverGotRequest.set(0)
     zkTestServer.close()
   }
 
   "Client" should "send request with such ttl that it will never converge to a stable state due to the pipeline." in {
     startTransactionServer()
 
-    val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
-    val address = zkTestServer.getConnectString
-    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = address)
+    val authOpts: AuthOptions =
+      com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
+    val address =
+      zkTestServer.getConnectString
+    val zookeeperOpts: ZookeeperOptions =
+      com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = address)
 
     val retryDelayMsForThat = 100
     val retryCount = 10
-    val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
+    val connectionOpts: ConnectionOptions =
+      com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
       requestTimeoutMs = requestTimeoutMs,
       retryDelayMs = retryDelayMsForThat,
       connectionTimeoutMs = 1000,
@@ -125,26 +145,18 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
     }
 
     val stream = getRandomStream
+
     scala.util.Try(Await.ready(client.putStream(stream), secondsWait.seconds))
 
-    client.shutdown()
-    server.shutdown()
-
-    //client on start tries to authenticate but can't because of timeout on request
-
     val serverRequestCounter = serverGotRequest.get()
-    val (trialsLeftBound, trialsRightBound) = {
-      val trials = TimeUnit.SECONDS.toMillis(secondsWait).toInt / requestTimeoutMs
-      (trials - trials * 30 / 100, trials + trials * 30 / 100)
-    }
+    val clientRequestCounter = clientTimeoutRequestCounter.get()
 
-    serverGotRequest.set(0)
-    serverRequestCounter should be >= trialsLeftBound
-    serverRequestCounter should be <= trialsRightBound
+    server.shutdown()
+    client.shutdown()
 
-    //Client hook works only on a request, so, if request fails - the hook would stop to work.
-    //Taking in account all of the above, counter of clientTimeoutRequestCounter may show that it send one request less.
-    (serverRequestCounter - clientTimeoutRequestCounter.get()) should be <= 1
+    //A Client hook works only on a request, so, if request fails - the hook would stop to work.
+    //Taking in account all of the above, counter of serverRequestCounter may show that the client send one request less.
+    (serverRequestCounter - clientRequestCounter) should be <= 1
   }
 
   it should "throw an user defined exception on overriding onRequestTimeout method" in {
@@ -166,7 +178,6 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
       Await.result(client.putStream(stream), secondsWait.seconds)
     }
 
-    serverGotRequest.set(0)
     server.shutdown()
     client.shutdown()
   }
@@ -177,24 +188,38 @@ class BadBehaviourSingleNodeServerTest extends FlatSpec with Matchers with Befor
     val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
     val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(connectionTimeoutMs = 100)
 
-    val zKLeaderClientToPutMaster = new ZKClientServer(
-      "127.0.0.1",
-      1000,
+    val port = Utils.getRandomPort
+    val socket = SocketHostPortPair
+      .validateAndCreate("127.0.0.1", port)
+      .get
+
+    val zKLeaderClientToPutMaster = new ZKClient(
       endpoints = zkTestServer.getConnectString,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )
 
-    zKLeaderClientToPutMaster.putSocketAddress( zookeeperOpts.prefix)
+    val masterElector =
+      zKLeaderClientToPutMaster
+        .masterElector(
+          socket,
+          zookeeperOpts.prefix,
+          masterElectionPrefix
+        )
+
+
+    masterElector.start()
 
     class MyThrowable extends Exception("My exception")
     assertThrows[MyThrowable] {
       new Client(connectionOpts, authOpts, zookeeperOpts) {
-        override def onServerConnectionLost(): Unit = throw new MyThrowable
+        override def onServerConnectionLost(): Unit = {
+          throw new MyThrowable
+        }
       }
     }
-
+    masterElector.stop()
     zKLeaderClientToPutMaster.close()
   }
 }

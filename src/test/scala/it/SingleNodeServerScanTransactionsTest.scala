@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
 import org.apache.commons.io.FileUtils
@@ -13,7 +14,10 @@ import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import util.Utils._
 
 
-class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class SingleNodeServerScanTransactionsTest
+  extends FlatSpec
+    with Matchers
+    with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 
@@ -24,7 +28,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     ttl = Long.MaxValue
   )
 
-  private def getRandomProducerTransaction(streamID:Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue, txnID: Long, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue, txnID: Long, ttlTxn: Long) = ProducerTransaction(
     stream = streamID,
     partition = streamObj.partitions,
     transactionID = txnID,
@@ -53,7 +57,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -62,7 +65,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -75,7 +77,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     )
 
 
-    streamsAndIDs foreach {case (streamID, stream) =>
+    streamsAndIDs foreach { case (streamID, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamID, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -90,22 +92,23 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
           (transactionRootChain.copy(transactionID = 4L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result = transactionServer.scanTransactions(streamID, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result = transactionServer.scanTransactions(streamID, stream.partitions, 2L, 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe 3L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -116,7 +119,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -125,7 +127,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -137,13 +138,13 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       (transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), stream)
     )
 
-    streamsAndIDs foreach {case (streamID, stream) =>
-      val result = transactionServer.scanTransactions(streamID, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
+    streamsAndIDs foreach { case (streamID, stream) =>
+      val result = transactionServer.scanTransactions(streamID, stream.partitions, 2L, 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe -1L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -153,7 +154,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -162,7 +162,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -175,7 +174,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     )
 
 
-    streamsAndIDs foreach {case (streamID, stream) =>
+    streamsAndIDs foreach { case (streamID, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamID, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -190,19 +189,19 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
           (transactionRootChain.copy(transactionID = 4L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result = transactionServer.scanTransactions(streamID, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result = transactionServer.scanTransactions(streamID, stream.partitions, 0L, 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result.lastOpenedTransactionID shouldBe 3L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -221,7 +220,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -234,7 +232,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamId, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamId, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -246,19 +244,20 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
           (transactionRootChain.copy(transactionID = 5L, state = TransactionStates.Checkpointed), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 5L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1)
       result.lastOpenedTransactionID shouldBe 5L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -268,7 +267,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -277,7 +275,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -290,7 +287,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamId, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamId, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -306,22 +303,23 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
           (transactionRootChain.copy(transactionID = 5L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result1 = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result1 = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 4L, Int.MaxValue, Set(TransactionStates.Opened))
       result1.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
-      result1.lastOpenedTransactionID  shouldBe 5L
+      result1.lastOpenedTransactionID shouldBe 5L
 
-      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 5L, Int.MaxValue, Set(TransactionStates.Opened))
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result2.lastOpenedTransactionID shouldBe 5L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -331,7 +329,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -340,7 +337,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -353,7 +349,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamId, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamId, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -369,21 +365,22 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
           (transactionRootChain.copy(transactionID = 5L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 5L, 0, Set(TransactionStates.Opened))
+      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 5L, 0, Set(TransactionStates.Opened))
       result2.producerTransactions shouldBe empty
-      result2.lastOpenedTransactionID  shouldBe 5L
+      result2.lastOpenedTransactionID shouldBe 5L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -393,7 +390,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -402,7 +398,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -415,7 +410,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamId, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamId, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -431,22 +426,23 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
           (transactionRootChain.copy(transactionID = 5L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
 
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 5L, 5, Set(TransactionStates.Opened))
+      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 5L, 5, Set(TransactionStates.Opened))
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
-      result2.lastOpenedTransactionID  shouldBe 5L
+      result2.lastOpenedTransactionID shouldBe 5L
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -455,14 +451,12 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -485,20 +479,20 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val partition = 1
     val txns = transactions.flatMap { t =>
       Seq(
-        (Transaction(Some(ProducerTransaction(streamID, partition, t, TransactionStates.Opened, 1, 120L)), None), t),
-        (Transaction(Some(ProducerTransaction(streamID, partition, t, TransactionStates.Checkpointed, 1, 120L)), None), t)
+        ProducerTransactionRecord(streamID, partition, t, TransactionStates.Opened, 1, 120L, t),
+        ProducerTransactionRecord(streamID, partition, t, TransactionStates.Checkpointed, 1, 120L, t)
       )
     }
 
     val bigCommit1 = transactionServer.getBigCommit(1L)
-    bigCommit1.putSomeTransactions(txns)
+    bigCommit1.putProducerTransactions(txns)
     bigCommit1.commit()
 
     val res = transactionServer.scanTransactions(streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
 
     res.producerTransactions.size shouldBe transactions.size
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -508,7 +502,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -517,7 +510,6 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -530,7 +522,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamID, stream) =>
       val FIRST = 30
       val LAST = 100
       val partition = 1
@@ -543,17 +535,22 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
 
 
       val bigCommit1 = transactionServer.getBigCommit(1L)
-      bigCommit1.putSomeTransactions(transactions1.flatMap { t =>
+      bigCommit1.putProducerTransactions(transactions1.flatMap { t =>
         Seq(
-          (Transaction(Some(ProducerTransaction(streamId, partition, t, TransactionStates.Opened, 1, 120L)), None), t ),
-          (Transaction(Some(ProducerTransaction(streamId, partition, t, TransactionStates.Checkpointed, 1, 120L)), None), t)
+          ProducerTransactionRecord(streamID, partition, t, TransactionStates.Opened, 1, 120L, t),
+          ProducerTransactionRecord(streamID, partition, t, TransactionStates.Checkpointed, 1, 120L, t)
         )
       })
       bigCommit1.commit()
 
 
       val bigCommit2 = transactionServer.getBigCommit(2L)
-      bigCommit2.putSomeTransactions(Seq((Transaction(Some(ProducerTransaction(streamId, partition, currentTime, TransactionStates.Opened, 1, 120L)), None), currentTime)))
+      bigCommit2.putProducerTransactions(
+        Seq(
+          ProducerTransactionRecord(streamID, partition, currentTime, TransactionStates.Opened, 1, 120L, currentTime)
+        )
+      )
+
       bigCommit2.commit()
 
       val transactions2 = for (i <- FIRST until LAST) yield {
@@ -562,10 +559,10 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       }
 
       val bigCommit3 = transactionServer.getBigCommit(3L)
-      bigCommit3.putSomeTransactions(transactions1.flatMap { t =>
+      bigCommit3.putProducerTransactions(transactions1.flatMap { t =>
         Seq(
-          (Transaction(Some(ProducerTransaction(streamId, partition, t, TransactionStates.Opened, 1, 120L)), None), t),
-          (Transaction(Some(ProducerTransaction(streamId, partition, t, TransactionStates.Checkpointed, 1, 120L)), None), t)
+          ProducerTransactionRecord(streamID, partition, t, TransactionStates.Opened, 1, 120L, t),
+          ProducerTransactionRecord(streamID, partition, t, TransactionStates.Checkpointed, 1, 120L, t)
         )
       })
       bigCommit3.commit()
@@ -574,10 +571,10 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
       val firstTransaction = transactions.head
       val lastTransaction = transactions.last
 
-      val res = transactionServer.scanTransactions(streamId, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
+      val res = transactionServer.scanTransactions(streamID, partition, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
       res.producerTransactions.size shouldBe transactions1.size
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -586,14 +583,12 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -615,7 +610,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val res = transactionServer.scanTransactions(streamID, 1, firstTransaction, lastTransaction, Int.MaxValue, Set(TransactionStates.Opened))
     res.producerTransactions.size shouldBe 0
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }
@@ -624,14 +619,12 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -652,9 +645,8 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val lastTransaction = transactions.tail.tail.tail.head
 
     val bigCommit1 = transactionServer.getBigCommit(1L)
-    bigCommit1.putSomeTransactions(transactions.flatMap { t =>
-        Seq((Transaction(Some(ProducerTransaction(streamID, 1, t, TransactionStates.Opened, 1, 120L)), None), t)
-      )
+    bigCommit1.putProducerTransactions(transactions.flatMap { t =>
+      Seq(ProducerTransactionRecord(streamID, 1, t, TransactionStates.Opened, 1, 120L, t))
     })
     bigCommit1.commit()
 
@@ -662,7 +654,7 @@ class SingleNodeServerScanTransactionsTest extends FlatSpec with Matchers with B
     val res = transactionServer.scanTransactions(streamID, 1, lastTransaction, firstTransaction, Int.MaxValue, Set(TransactionStates.Opened))
     res.producerTransactions.size shouldBe 0
 
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }

@@ -1,7 +1,7 @@
 package benchmark.utils.writer
 
 import benchmark.utils.{CsvWriter, TimeMeasure, TransactionCreator}
-import com.bwsw.tstreamstransactionserver.options.ClientBuilder
+import benchmark.Options._
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 
 import scala.concurrent.Await
@@ -9,7 +9,9 @@ import scala.concurrent.duration._
 
 class TransactionDataWriter(streamID: Int, partition: Int = 1) extends TransactionCreator with CsvWriter with TimeMeasure {
   def run(txnCount: Int, dataSize: Int, filename: String) {
-    val client = new ClientBuilder().build()
+
+    val client = clientBuilder
+      .build()
 
     var producerTransaction = createTransaction(streamID, partition, TransactionStates.Opened)
     println("Open a txn: " + time(Await.result(client.putTransactions(Seq(producerTransaction), Seq()),10.seconds)) + " ms")

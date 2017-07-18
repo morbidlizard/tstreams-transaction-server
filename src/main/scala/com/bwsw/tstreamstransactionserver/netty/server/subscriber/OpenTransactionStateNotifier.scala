@@ -25,8 +25,7 @@ import com.bwsw.tstreamstransactionserver.protocol._
 import scala.util.Random
 
 final class OpenTransactionStateNotifier(observer: SubscribersObserver,
-                                         notifier: SubscriberNotifier
-                                        ) {
+                                         notifier: SubscriberNotifier) {
   private val uniqueMasterId =
     Random.nextInt()
 
@@ -40,8 +39,7 @@ final class OpenTransactionStateNotifier(observer: SubscribersObserver,
                         status: TransactionState.Status,
                         ttlMs: Long,
                         authKey: String,
-                        isNotReliable: Boolean
-                       ): Unit = {
+                        isNotReliable: Boolean): Unit = {
     // 1. manage next counter for (stream, part)
     val streamPartitionUnit = StreamPartitionUnit(stream, partition)
     val currentCounter = counters.computeIfAbsent(

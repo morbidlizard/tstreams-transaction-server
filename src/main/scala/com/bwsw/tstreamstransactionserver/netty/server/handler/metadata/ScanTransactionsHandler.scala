@@ -23,10 +23,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
+import ScanTransactionsHandler.descriptor
+
+private object ScanTransactionsHandler {
+  val descriptor = Protocol.ScanTransactions
+}
+
+
 class ScanTransactionsHandler (server: TransactionServer)
   extends RequestHandler{
-
-  private val descriptor = Protocol.ScanTransactions
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)
@@ -60,5 +65,7 @@ class ScanTransactionsHandler (server: TransactionServer)
     )
   }
 
-  override def getName: String = descriptor.name
+  override def name: String = descriptor.name
+
+  override def id: Byte = descriptor.methodID
 }

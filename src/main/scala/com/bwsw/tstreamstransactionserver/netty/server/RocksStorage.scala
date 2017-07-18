@@ -21,13 +21,14 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.util.concurrent.TimeUnit
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDBALL, RocksDatabaseDescriptor}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 
 
 class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions, readOnly: Boolean = false) {
   private val columnFamilyOptions = rocksOpts.createColumnFamilyOptions()
-  val rocksMetaServiceDB: RocksDBALL = new RocksDBALL(
+  val rocksMetaServiceDB: KeyValueDatabaseManager = new RocksDBALL(
     storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
     rocksOpts,
     Seq(
@@ -39,10 +40,12 @@ class RocksStorage(storageOpts: StorageOptions, rocksOpts: RocksStorageOptions, 
         columnFamilyOptions,
         TimeUnit.MINUTES.toSeconds(rocksOpts.transactionExpungeDelayMin).toInt
       ),
-      RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions)
+      RocksDatabaseDescriptor("TransactionOpenStore".getBytes(),               columnFamilyOptions),
+      RocksDatabaseDescriptor("BookkeeperLogStore".getBytes(),                 columnFamilyOptions)
     ),
     readOnly
   )
+  def newBatch: KeyValueDatabaseBatch = rocksMetaServiceDB.newBatch
 }
 
 object RocksStorage {
@@ -52,4 +55,5 @@ object RocksStorage {
   val COMMIT_LOG_STORE = 4
   val TRANSACTION_ALL_STORE = 5
   val TRANSACTION_OPEN_STORE = 6
+  val BOOKKEEPER_LOG_STORE = 7
 }

@@ -4,13 +4,11 @@ package it
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import util.Utils._
@@ -59,9 +57,7 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
-    val secondsAwait = 5
     val maxTTLForProducerTransactionSec = 5
 
     val producerTxnNumber = 100
@@ -71,8 +67,7 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
 
 
-    val transactionService = new TransactionServer(
-      executionContext = serverExecutionContext,
+    val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -83,11 +78,12 @@ class SingleNodeServerCleanerTest extends FlatSpec
         txn.isDefined
       }
     }
+
     def ttlSec = TimeUnit.SECONDS.toMillis(rand.nextInt(maxTTLForProducerTransactionSec))
 
     val stream = getRandomStream
 
-    val streamID = transactionService.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
     val currentTime = System.currentTimeMillis()
     val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] = Array.fill(producerTxnNumber) {
@@ -97,24 +93,24 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
     val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-    val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
+    val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
-    val bigCommit = transactionService.getBigCommit(1L)
-    bigCommit.putSomeTransactions(transactionsWithTimestamp)
+    val bigCommit = transactionServer.getBigCommit(1L)
+    bigCommit.putProducerTransactions(transactionsWithTimestamp)
     bigCommit.commit()
 
-    transactionService.createAndExecuteTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec))
+    transactionServer.createAndExecuteTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec))
     val expiredTransactions = producerTransactionsWithTimestamp.map { case (producerTxn, _) =>
       ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
     }
 
-    transactionService.scanTransactions(streamID, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)).producerTransactions should contain theSameElementsAs expiredTransactions
+    transactionServer.scanTransactions(streamID, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)).producerTransactions should contain theSameElementsAs expiredTransactions
 
     (minTransactionID to maxTransactionID) foreach { transactionID =>
-      transactionService.checkTransactionExistInOpenedTable(streamID, stream.partitions, transactionID) shouldBe false
+      transactionServer.getOpenedTransaction(ProducerTransactionKey(streamID, stream.partitions, transactionID)).isDefined shouldBe false
     }
 
-    transactionService.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkClient.close()
     zkServer.close()
   }

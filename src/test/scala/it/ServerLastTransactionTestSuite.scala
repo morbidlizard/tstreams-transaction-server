@@ -3,12 +3,13 @@ package it
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastOpenedAndCheckpointedTransaction
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import util.Utils.startZkServerAndGetIt
@@ -54,7 +55,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -64,7 +64,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -90,19 +89,21 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
         (producerTransaction, System.currentTimeMillis())
       }.toArray
 
-      val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
+      val maxTransactionID =
+        producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionServer.getLastTransactionIDWrapper(streamId, stream.partitions).get
       lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -111,7 +112,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -121,7 +121,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -154,11 +153,11 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
 
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionServer.getLastTransactionIDWrapper(streamId, stream.partitions).get
@@ -167,7 +166,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe maxTransactionID
 
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -176,7 +175,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
     val streamsNumber = 1
@@ -184,7 +182,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -214,11 +211,12 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
           (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp)}
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       val lastTransactionIDAndCheckpointedID = transactionServer.getLastTransactionIDWrapper(streamID, stream.partitions).get
@@ -227,7 +225,7 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe 1L
 
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }
@@ -236,7 +234,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
-    val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
 
     val secondsAwait = 5
 
@@ -246,7 +243,6 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val (zkServer, zkClient) = startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
-      executionContext = serverExecutionContext,
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
@@ -285,16 +281,17 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
       }
 
       val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2).toList
-      val transactionsWithTimestamp = producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
+      val transactionsWithTimestamp =
+        producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
-      bigCommit.putSomeTransactions(transactionsWithTimestamp)
+      bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
       transactionServer.getLastTransactionIDWrapper(streamID, stream.partitions).get.opened.id shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get
     }
-    transactionServer.stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases()
+    transactionServer.closeAllDatabases()
     zkServer.close()
     zkClient.close()
   }

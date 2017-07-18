@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
 
 
-
 class ConsumerServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager)
   extends ConsumerTransactionStateNotifier
 {

@@ -17,8 +17,7 @@ import util.Utils._
 class SingleNodeServerScanTransactionsTest
   extends FlatSpec
     with Matchers
-    with BeforeAndAfterEach
-{
+    with BeforeAndAfterEach {
 
   private val rand = scala.util.Random
 
@@ -29,7 +28,7 @@ class SingleNodeServerScanTransactionsTest
     ttl = Long.MaxValue
   )
 
-  private def getRandomProducerTransaction(streamID:Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue, txnID: Long, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue, txnID: Long, ttlTxn: Long) = ProducerTransaction(
     stream = streamID,
     partition = streamObj.partitions,
     transactionID = txnID,
@@ -78,7 +77,7 @@ class SingleNodeServerScanTransactionsTest
     )
 
 
-    streamsAndIDs foreach {case (streamID, stream) =>
+    streamsAndIDs foreach { case (streamID, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamID, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -94,7 +93,7 @@ class SingleNodeServerScanTransactionsTest
         )
 
       val transactionsWithTimestamp =
-        producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
@@ -104,7 +103,7 @@ class SingleNodeServerScanTransactionsTest
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result = transactionServer.scanTransactions(streamID, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result = transactionServer.scanTransactions(streamID, stream.partitions, 2L, 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe 3L
@@ -139,8 +138,8 @@ class SingleNodeServerScanTransactionsTest
       (transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), stream)
     )
 
-    streamsAndIDs foreach {case (streamID, stream) =>
-      val result = transactionServer.scanTransactions(streamID, stream.partitions, 2L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
+    streamsAndIDs foreach { case (streamID, stream) =>
+      val result = transactionServer.scanTransactions(streamID, stream.partitions, 2L, 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions shouldBe empty
       result.lastOpenedTransactionID shouldBe -1L
@@ -175,7 +174,7 @@ class SingleNodeServerScanTransactionsTest
     )
 
 
-    streamsAndIDs foreach {case (streamID, stream) =>
+    streamsAndIDs foreach { case (streamID, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamID, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -190,14 +189,14 @@ class SingleNodeServerScanTransactionsTest
           (transactionRootChain.copy(transactionID = 4L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement())
         )
 
-      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
+      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
       bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result = transactionServer.scanTransactions(streamID, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result = transactionServer.scanTransactions(streamID, stream.partitions, 0L, 4L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result.lastOpenedTransactionID shouldBe 3L
@@ -233,7 +232,7 @@ class SingleNodeServerScanTransactionsTest
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamId, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamId, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -246,14 +245,14 @@ class SingleNodeServerScanTransactionsTest
         )
 
       val transactionsWithTimestamp =
-        producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
       bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 5L, Int.MaxValue, Set(TransactionStates.Opened))
 
       result.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1)
       result.lastOpenedTransactionID shouldBe 5L
@@ -288,7 +287,7 @@ class SingleNodeServerScanTransactionsTest
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamId, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamId, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -305,18 +304,18 @@ class SingleNodeServerScanTransactionsTest
         )
 
       val transactionsWithTimestamp =
-        producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
       bigCommit.putProducerTransactions(transactionsWithTimestamp)
       bigCommit.commit()
 
-      val result1 = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 4L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result1 = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 4L, Int.MaxValue, Set(TransactionStates.Opened))
       result1.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
-      result1.lastOpenedTransactionID  shouldBe 5L
+      result1.lastOpenedTransactionID shouldBe 5L
 
-      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 5L, Int.MaxValue, Set(TransactionStates.Opened))
+      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 5L, Int.MaxValue, Set(TransactionStates.Opened))
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
       result2.lastOpenedTransactionID shouldBe 5L
     }
@@ -350,7 +349,7 @@ class SingleNodeServerScanTransactionsTest
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamId, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamId, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -367,7 +366,7 @@ class SingleNodeServerScanTransactionsTest
         )
 
       val transactionsWithTimestamp =
-        producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
@@ -377,9 +376,9 @@ class SingleNodeServerScanTransactionsTest
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 5L, 0, Set(TransactionStates.Opened))
+      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 5L, 0, Set(TransactionStates.Opened))
       result2.producerTransactions shouldBe empty
-      result2.lastOpenedTransactionID  shouldBe 5L
+      result2.lastOpenedTransactionID shouldBe 5L
     }
     transactionServer.closeAllDatabases()
     zkClient.close()
@@ -411,7 +410,7 @@ class SingleNodeServerScanTransactionsTest
     )
 
 
-    streamsAndIDs foreach {case (streamId, stream) =>
+    streamsAndIDs foreach { case (streamId, stream) =>
       val currentTimeInc = new AtomicLong(System.currentTimeMillis())
       val transactionRootChain = getRandomProducerTransaction(streamId, stream, 1, Long.MaxValue)
       val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
@@ -428,7 +427,7 @@ class SingleNodeServerScanTransactionsTest
         )
 
       val transactionsWithTimestamp =
-        producerTransactionsWithTimestamp.map{case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)}
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
       val currentTime = System.currentTimeMillis()
       val bigCommit = transactionServer.getBigCommit(1L)
@@ -439,9 +438,9 @@ class SingleNodeServerScanTransactionsTest
       val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
       val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L , 5L, 5, Set(TransactionStates.Opened))
+      val result2 = transactionServer.scanTransactions(streamId, stream.partitions, 0L, 5L, 5, Set(TransactionStates.Opened))
       result2.producerTransactions should contain theSameElementsAs Seq(producerTransactionsWithTimestamp(1)._1, producerTransactionsWithTimestamp(6)._1)
-      result2.lastOpenedTransactionID  shouldBe 5L
+      result2.lastOpenedTransactionID shouldBe 5L
     }
     transactionServer.closeAllDatabases()
     zkClient.close()
@@ -523,7 +522,7 @@ class SingleNodeServerScanTransactionsTest
     )
 
 
-    streamsAndIDs foreach {case (streamID, stream) =>
+    streamsAndIDs foreach { case (streamID, stream) =>
       val FIRST = 30
       val LAST = 100
       val partition = 1

@@ -23,11 +23,10 @@ import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
@@ -64,7 +63,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
   private val lastTransactionStreamPartition = new LastTransactionStreamPartition(
     rocksStorage.rocksMetaServiceDB
   )
-  private[server] val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
+  private val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
     rocksStorage.rocksMetaServiceDB,
     lastTransactionStreamPartition,
     consumerServiceImpl
@@ -155,7 +154,6 @@ class TransactionServer(authOpts: AuthenticationOptions,
   final def authenticate(authKey: String): Int = {
     authService.authenticate(authKey)
   }
-
 
   final def getBigCommit(fileID: Long): BigCommit = {
     val key = CommitLogKey(fileID).toByteArray

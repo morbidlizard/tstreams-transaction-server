@@ -183,10 +183,15 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     fileIDGenerator
   )
 
-  private val databaseWriterExecutor =
-    Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("DatabaseWriter-%d").build())
+  private val rocksWriterExecutor =
+    Executors.newSingleThreadScheduledExecutor(
+      new ThreadFactoryBuilder().setNameFormat("RocksWriter-%d").build()
+    )
+
   private val commitLogCloseExecutor =
-    Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build())
+    Executors.newSingleThreadScheduledExecutor(
+      new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build()
+    )
 
   private val bossGroup =
     new EpollEventLoopGroup(1)
@@ -254,13 +259,13 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .bind(serverOpts.bindHost, serverOpts.bindPort)
         .sync()
 
-      databaseWriterExecutor.scheduleWithFixedDelay(
+      commitLogCloseExecutor.scheduleWithFixedDelay(
         scheduledCommitLogImpl,
         commitLogOptions.closeDelayMs,
         commitLogOptions.closeDelayMs,
         java.util.concurrent.TimeUnit.MILLISECONDS
       )
-      commitLogCloseExecutor.scheduleWithFixedDelay(
+      rocksWriterExecutor.scheduleWithFixedDelay(
         berkeleyWriter,
         0L,
         10L,
@@ -318,9 +323,9 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         }
       }
 
-      if (databaseWriterExecutor != null) {
-        databaseWriterExecutor.shutdown()
-        databaseWriterExecutor.awaitTermination(
+      if (rocksWriterExecutor != null) {
+        rocksWriterExecutor.shutdown()
+        rocksWriterExecutor.awaitTermination(
           commitLogOptions.closeDelayMs * 5,
           TimeUnit.MILLISECONDS
         )

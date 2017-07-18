@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ZkNoConnectionException
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 
@@ -37,8 +37,8 @@ class ZKClient(endpoints: String,
   }
 
 
-  def streamDatabase(prefix: String): StreamDatabaseZK =
-    new StreamDatabaseZK(client, prefix)
+  def streamRepository(prefix: String): ZookeeperStreamRepository =
+    new ZookeeperStreamRepository(client, prefix)
 
   def idGenerator(prefix: String): ZKIDGenerator =
     new ZKIDGenerator(client, policy, prefix)

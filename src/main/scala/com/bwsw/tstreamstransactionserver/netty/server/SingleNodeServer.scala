@@ -123,7 +123,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
 
 
   private val zkStreamDatabase =
-    zk.streamDatabase(s"${storageOpts.streamZookeeperDirectory}")
+    zk.streamRepository(s"${storageOpts.streamZookeeperDirectory}")
   private val transactionServer = new TransactionServer(
     authenticationOpts,
     storageOpts,

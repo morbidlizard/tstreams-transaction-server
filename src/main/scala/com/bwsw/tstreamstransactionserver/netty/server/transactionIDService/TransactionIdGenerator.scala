@@ -18,7 +18,7 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.transactionIDService
 
-trait ITransactionIDGenerator {
+trait TransactionIdGenerator {
   def getTransaction(): Long
 
   def getTransaction(timestamp: Long): Long

@@ -23,7 +23,7 @@ import java.nio.ByteBuffer
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamCRUD, StreamServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue, TransactionMetaServiceImpl}
@@ -38,7 +38,7 @@ import scala.collection.Set
 class TransactionServer(authOpts: AuthenticationOptions,
                         storageOpts: StorageOptions,
                         rocksStorageOpts: RocksStorageOptions,
-                        streamCache: StreamCRUD)
+                        streamCache: StreamRepository)
 {
   private val authService = new AuthServiceImpl(authOpts)
 
@@ -51,7 +51,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
   )
 
   private val transactionIDService =
-    com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIDService
+    com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
   private val consumerServiceImpl = new ConsumerServiceImpl(
     rocksStorage.rocksMetaServiceDB
@@ -137,8 +137,8 @@ class TransactionServer(authOpts: AuthenticationOptions,
     authService.authenticate(authKey)
   }
 
-  final def getBigCommit(flieID: Long): transactionMetaServiceImpl.BigCommit =
-    transactionMetaServiceImpl.getBigCommit(flieID)
+  final def getBigCommit(fileID: Long): transactionMetaServiceImpl.BigCommit =
+    transactionMetaServiceImpl.getBigCommit(fileID)
 
   final def createAndExecuteTransactionsToDeleteTask(timestamp: Long): Unit =
     transactionMetaServiceImpl.createAndExecuteTransactionsToDeleteTask(timestamp)

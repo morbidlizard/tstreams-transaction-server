@@ -34,7 +34,7 @@ import scala.concurrent.Future
 class Client(clientOpts: ConnectionOptions,
              authOpts: AuthOptions,
              zookeeperOptions: ZookeeperOptions,
-             curatorConnection: Option[CuratorFramework] = None)
+             externalCuratorClient: Option[CuratorFramework] = None)
   extends TTSInetClient {
 
 
@@ -45,7 +45,7 @@ class Client(clientOpts: ConnectionOptions,
     onZKConnectionStateChanged,
     onServerConnectionLost(),
     onRequestTimeout(),
-    curatorConnection
+    externalCuratorClient
   )
 
 

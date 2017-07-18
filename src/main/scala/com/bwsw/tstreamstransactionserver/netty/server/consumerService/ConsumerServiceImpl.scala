@@ -26,8 +26,8 @@ import scala.collection.mutable.ListBuffer
 
 
 class ConsumerServiceImpl(rocksMetaServiceDB: RocksDBALL)
-  extends ConsumerTransactionStateNotifier
-{
+  extends ConsumerTransactionStateNotifier {
+
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val consumerDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.CONSUMER_STORE)
 
@@ -41,7 +41,6 @@ class ConsumerServiceImpl(rocksMetaServiceDB: RocksDBALL)
       -1L
     }
   }
-
 
   private final def transitConsumerTransactionToNewState(commitLogTransactions: Seq[ConsumerTransactionRecord]): ConsumerTransactionRecord = {
     commitLogTransactions.maxBy(_.timestamp)

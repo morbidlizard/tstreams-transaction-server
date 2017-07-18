@@ -5,7 +5,7 @@ import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.{CommitLogQueueBootstrap, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, RocksStorageOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
@@ -23,12 +23,12 @@ class CommitLogQueueBootstrapTestSuite extends FlatSpec with Matchers with Befor
 
   private val path = "/tts/test_path"
   private lazy val (zkServer, zkClient) = startZkServerAndGetIt
-  private lazy val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+  private lazy val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
   private lazy val transactionServer = new TransactionServer(
     authOpts = authOptions,
     storageOpts = storageOptions,
     rocksStorageOpts = rocksStorageOptions,
-    streamDatabaseZK
+    zookeeperStreamRepository
   )
 
   val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory)

@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
@@ -67,15 +67,20 @@ class SingleNodeServerCleanerTest extends FlatSpec
 
     val path = "/tts/streams"
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
 
 
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
-    )
+      zookeeperStreamRepository
+    ) {
+      def checkTransactionExistInOpenedTable(stream: Int, partition: Int, transactionId: Long): Boolean = {
+        val txn = getOpenedTransaction(ProducerTransactionKey(stream, partition, transactionId))
+        txn.isDefined
+      }
+    }
 
     def ttlSec = TimeUnit.SECONDS.toMillis(rand.nextInt(maxTTLForProducerTransactionSec))
 

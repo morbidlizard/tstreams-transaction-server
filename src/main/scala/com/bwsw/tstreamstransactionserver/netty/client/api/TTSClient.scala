@@ -1,6 +1,5 @@
 package com.bwsw.tstreamstransactionserver.netty.client.api
 
-import org.apache.curator.framework.state.ConnectionState
 
 import scala.concurrent.{Future => ScalaFuture}
 

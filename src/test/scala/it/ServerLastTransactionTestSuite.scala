@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastOpenedAndCheckpointedTransaction
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
@@ -61,12 +61,12 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val producerTxnPerStreamPartitionMaxNumber = 100
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     ) {
       final def getLastTransactionIDWrapper(stream: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
         val lastTransaction = getLastTransactionIDAndCheckpointedID(stream, partition)
@@ -116,12 +116,12 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val producerTxnPerStreamPartitionMaxNumber = 100
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     ) {
       final def getLastTransactionIDWrapper(stream: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
         val lastTransaction = getLastTransactionIDAndCheckpointedID(stream, partition)
@@ -177,12 +177,12 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val streamsNumber = 1
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     ) {
       final def getLastTransactionIDWrapper(stream: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
         val lastTransaction = getLastTransactionIDAndCheckpointedID(stream, partition)
@@ -237,12 +237,12 @@ class ServerLastTransactionTestSuite extends FlatSpec with Matchers with BeforeA
     val producerTxnPerStreamPartitionMaxNumber = 50
 
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     ) {
       final def getLastTransactionIDWrapper(stream: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
         val lastTransaction = getLastTransactionIDAndCheckpointedID(stream, partition)

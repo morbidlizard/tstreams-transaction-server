@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.StreamDatabaseZK
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
@@ -36,12 +36,12 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
 
     val rocksStorageOptions = RocksStorageOptions()
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
     transactionServer.delStream(stream.name)
@@ -89,12 +89,12 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
@@ -129,12 +129,12 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
@@ -165,12 +165,12 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Checkpointed Transaction" in {
     val rocksStorageOptions = RocksStorageOptions()
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
@@ -204,12 +204,12 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
     val rocksStorageOptions = RocksStorageOptions()
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
@@ -245,12 +245,12 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Cancel->Updated->Checkpointed. Should return Invalid Transaction(due to transaction with Cancel state)" in {
     val rocksStorageOptions = RocksStorageOptions()
     val (zkServer, zkClient) = startZkServerAndGetIt
-    val streamDatabaseZK = new StreamDatabaseZK(zkClient, path)
+    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
     val transactionServer = new TransactionServer(
       authOpts = authOptions,
       storageOpts = storageOptions,
       rocksStorageOpts = rocksStorageOptions,
-      streamDatabaseZK
+      zookeeperStreamRepository
     )
     val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
     val streamID =transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)

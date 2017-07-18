@@ -403,9 +403,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
 
   /** It Disconnects client from server slightly */
   def shutdown(): Unit = {
-    if (!isShutdown) {
-      if (nettyClient != null)  nettyClient.stop()
-      if (zkInteractor != null) zkInteractor.stop()
-    }
+    if (nettyClient != null) nettyClient.stop()
+    if (zkInteractor != null) zkInteractor.stop()
   }
 }

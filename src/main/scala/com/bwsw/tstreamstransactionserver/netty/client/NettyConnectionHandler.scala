@@ -85,7 +85,9 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
         val channel = futureChannel.channel()
         if (!isStopped.get() && futureChannel.isSuccess) {
           if (channel.isActive && channel.isOpen) {
+            val previousChannel = this.channel
             this.channel = channel
+            previousChannel.close()
             isReconnecting.set(false)
             connectionLostListener(channel)
           } else {
@@ -133,7 +135,11 @@ class NettyConnectionHandler(workerGroup: EventLoopGroup,
     val isNotStopped =
       isStopped.compareAndSet(false, true)
     if (isNotStopped) {
-      channel.close().awaitUninterruptibly()
+      scala.util.Try(
+        channel
+          .close()
+          .awaitUninterruptibly(connectionTimeoutMs/5)
+      )
     }
   }
 }

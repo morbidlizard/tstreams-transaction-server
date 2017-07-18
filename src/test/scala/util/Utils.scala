@@ -4,9 +4,14 @@ import java.net.ServerSocket
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.client.{InetClient, InetClientProxy}
+import com.bwsw.tstreamstransactionserver.netty.server.ServerInitializer
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
+import io.netty.bootstrap.ServerBootstrap
+import io.netty.channel.ChannelOption
+import io.netty.channel.epoll.EpollServerSocketChannel
+import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.test.TestingServer
@@ -93,7 +98,9 @@ object Utils {
     new Thread(() => {
       transactionServer.start(latch.countDown())
     }).start()
-    latch.await(3000, TimeUnit.SECONDS)
+
+    if (!latch.await(5000, TimeUnit.SECONDS))
+      throw new IllegalStateException()
 
     val client = new ClientBuilder()
       .withZookeeperOptions(

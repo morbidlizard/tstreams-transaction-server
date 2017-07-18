@@ -3,12 +3,13 @@ package com.bwsw.tstreamstransactionserver.netty.client
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.exception.Throwable
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
+import com.bwsw.tstreamstransactionserver.netty.client.api.TTSInetClient
 import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -23,7 +24,6 @@ import org.apache.curator.framework.state.ConnectionState
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
 import scala.concurrent.{Future, Promise}
 
 
@@ -34,7 +34,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
                       onServerConnectionLostFunc: => Unit = {},
                       onRequestTimeoutFunc: => Unit = {},
                       externalCuratorClient: Option[CuratorFramework] = None)
-  extends TTSClient {
+  extends TTSInetClient {
 
   private val logger =
     LoggerFactory.getLogger(this.getClass)
@@ -60,6 +60,11 @@ class InetClientProxy(clientOpts: ConnectionOptions,
   private final val context =
     executionContext.context
 
+  private final val processTransactionsPutOperationPool =
+    ExecutionContextGrid("ClientTransactionPool-%d")
+  private final val contextForProducerTransactions =
+    processTransactionsPutOperationPool.getContext
+
   private val zkConnection =
     externalCuratorClient.getOrElse {
       new ZKClient(
@@ -79,12 +84,12 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       clientOpts.threadPool
     )
 
-  private final val requestIdToResponseCheckpointGroupMap =
-    new ConcurrentHashMap[Long, Promise[ByteBuf]](
-      20000,
-      1.0f,
-      clientOpts.threadPool
-    )
+//  private final val requestIdToResponseCheckpointGroupMap =
+//    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+//      20000,
+//      1.0f,
+//      clientOpts.threadPool
+//    )
 
   override protected def onZKConnectionStateChanged(newState: ConnectionState): Unit =
     onZKConnectionStateChangedFunc(newState)
@@ -113,48 +118,48 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     )
 
 
-  private val isRetrievingCheckpointGroupServerPrefix =
-    new AtomicBoolean(false)
-
-  @volatile private var checkpointGroupInetClient: InetClient = _
-  private final def getCheckpointGroupInetClient: InetClient = {
-    def getClientIfPossible: Option[InetClient] =
-      commonInetClient
-        .getZKCheckpointGroupServerPrefix()
-        .map { prefix =>
-          val checkpointGroupZookeeperOptions =
-            zookeeperOptions.copy(prefix = prefix)
-
-          new InetClient(
-            checkpointGroupZookeeperOptions,
-            clientOpts,
-            authOpts,
-            onServerConnectionLost(),
-            onRequestTimeout(),
-            onZKConnectionStateChangedFunc,
-            workerGroup,
-            isShutdown.get(),
-            zkConnection,
-            requestIDGen,
-            requestIdToResponseCheckpointGroupMap,
-            context
-          )
-        }
-
-    val isNotRetrieving = isRetrievingCheckpointGroupServerPrefix
-      .compareAndSet(false, true)
-
-    if (isNotRetrieving) {
-      while (checkpointGroupInetClient == null) {
-        getClientIfPossible.foreach(checkpointGroupInetClient = _)
-      }
-      isRetrievingCheckpointGroupServerPrefix.set(false)
-      checkpointGroupInetClient
-    } else {
-      while (!isRetrievingCheckpointGroupServerPrefix.get()) {}
-      checkpointGroupInetClient
-    }
-  }
+//  private val isRetrievingCheckpointGroupServerPrefix =
+//    new AtomicBoolean(false)
+//
+//  @volatile private var checkpointGroupInetClient: InetClient = _
+//  private final def getCheckpointGroupInetClient: InetClient = {
+//    def getClientIfPossible: Option[InetClient] =
+//      commonInetClient
+//        .getZKCheckpointGroupServerPrefix()
+//        .map { prefix =>
+//          val checkpointGroupZookeeperOptions =
+//            zookeeperOptions.copy(prefix = prefix)
+//
+//          new InetClient(
+//            checkpointGroupZookeeperOptions,
+//            clientOpts,
+//            authOpts,
+//            onServerConnectionLost(),
+//            onRequestTimeout(),
+//            onZKConnectionStateChangedFunc,
+//            workerGroup,
+//            isShutdown.get(),
+//            zkConnection,
+//            requestIDGen,
+//            requestIdToResponseCheckpointGroupMap,
+//            context
+//          )
+//        }
+//
+//    val isNotRetrieving = isRetrievingCheckpointGroupServerPrefix
+//      .compareAndSet(false, true)
+//
+//    if (isNotRetrieving) {
+//      while (checkpointGroupInetClient == null) {
+//        getClientIfPossible.foreach(checkpointGroupInetClient = _)
+//      }
+//      isRetrievingCheckpointGroupServerPrefix.set(false)
+//      checkpointGroupInetClient
+//    } else {
+//      while (!isRetrievingCheckpointGroupServerPrefix.get()) {}
+//      checkpointGroupInetClient
+//    }
+//  }
 
   private def onShutdownThrowException(): Unit =
     if (isShutdown.get()) throw ClientIllegalOperationAfterShutdown
@@ -349,7 +354,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.GetTransactionIDByTimestamp,
       TransactionService.GetTransactionIDByTimestamp.Args(timestamp),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
 
@@ -378,11 +383,11 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
     onShutdownThrowException()
 
-    getCheckpointGroupInetClient.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
+    commonInetClient.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
       Protocol.PutTransactions,
       TransactionService.PutTransactions.Args(transactions),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Puts producer transaction on a server.
@@ -407,7 +412,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(producerTransactionToTransaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Puts consumer transaction on a server.
@@ -456,7 +461,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data.map(java.nio.ByteBuffer.wrap)),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
 
@@ -500,7 +505,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.OpenTransaction,
       TransactionService.OpenTransaction.Args(streamID, partitionID, transactionTTLMs),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Retrieves a producer transaction by id
@@ -657,7 +662,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutProducerStateWithData,
       TransactionService.PutProducerStateWithData.Args(producerTransaction, data.map(java.nio.ByteBuffer.wrap), from),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
 
@@ -719,7 +724,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutConsumerCheckpoint,
       TransactionService.PutConsumerCheckpoint.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Retrieves a consumer state on a specific consumer transaction name, stream, partition from a server; If the result is -1 it will mean there is no checkpoint at all.
@@ -748,28 +753,35 @@ class InetClientProxy(clientOpts: ConnectionOptions,
   }
 
   /** It Disconnects client from server slightly */
-  def shutdown(): Unit = {
-    val isNotShutdown =
-      isShutdown.compareAndSet(false, true)
+  def shutdown(): Unit =
+    this.synchronized {
+      if (!isShutdown.get()) {
+        if (workerGroup != null) {
+          scala.util.Try(
+            workerGroup.shutdownGracefully(
+              0L,
+              0L,
+              TimeUnit.NANOSECONDS
+            ).awaitUninterruptibly(clientOpts.requestTimeoutRetryCount))
+        }
+        if (commonInetClient != null)
+          commonInetClient.shutdown()
 
-    if (isNotShutdown) {
-      if (workerGroup != null) {
-        scala.util.Try(workerGroup.shutdownGracefully(
-          0L,
-          0L,
-          TimeUnit.NANOSECONDS
-        ).awaitUninterruptibly(clientOpts.requestTimeoutRetryCount))
+//        if (checkpointGroupInetClient != null)
+//          checkpointGroupInetClient.shutdown()
+
+        if (isZKClientExternal && zkConnection != null)
+          zkConnection.close()
+
+        if (processTransactionsPutOperationPool != null) {
+          processTransactionsPutOperationPool.stopAccessNewTasks()
+          processTransactionsPutOperationPool.awaitAllCurrentTasksAreCompleted()
+        }
+
+        executionContext
+          .stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()
+
+        isShutdown.set(true)
       }
-      if (commonInetClient != null)
-        commonInetClient.shutdown()
-
-      if (checkpointGroupInetClient != null)
-        checkpointGroupInetClient.shutdown()
-
-      if (isZKClientExternal && zkConnection != null)
-        zkConnection.close()
-      executionContext
-        .stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()
     }
-  }
 }

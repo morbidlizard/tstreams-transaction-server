@@ -15,7 +15,7 @@ class GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions: ServerRoleOptio
   private val encodedResponse =  descriptor.encodeResponse(
     TransactionService.GetZKCheckpointGroupServerPrefix.Result(
       Some(
-        serverRoleOptions.checkpointMasterPrefix
+        serverRoleOptions.checkpointGroupMasterPrefix
       ))
 
   )

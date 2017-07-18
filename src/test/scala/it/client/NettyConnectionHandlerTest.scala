@@ -5,11 +5,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.client.NettyConnectionHandler
-import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
-import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
-import io.netty.channel.socket.SocketChannel
-import io.netty.handler.logging.{LogLevel, LoggingHandler}
+import io.netty.channel.epoll.EpollEventLoopGroup
+import io.netty.channel.nio.NioEventLoopGroup
+import org.apache.commons.lang.SystemUtils
 import org.scalatest.{FlatSpec, Matchers}
 import util.Utils
 
@@ -17,16 +16,8 @@ class NettyConnectionHandlerTest
   extends FlatSpec
     with Matchers {
 
-  private def handler = new SimpleChannelInboundHandler[Nothing] {
-    override def channelRead0(ctx: ChannelHandlerContext, msg: Nothing): Unit = {}
-  }
-
-  private def handlersChain = new ChannelInitializer[SocketChannel] {
-    override def initChannel(ch: SocketChannel): Unit = {
-      ch.pipeline()
-        .addLast(handler)
-    }
-  }
+  private def handlersChain =
+    new util.netty.NettyServerInitializer()
 
   private def getClient(workerGroup: EventLoopGroup,
                         socket: SocketHostPortPair,
@@ -40,36 +31,14 @@ class NettyConnectionHandlerTest
     )
   }
 
-  private def startServer(socket: SocketHostPortPair): (EpollEventLoopGroup, EpollEventLoopGroup) = {
-    val latch = new CountDownLatch(1)
-
-    val workerGroup = new EpollEventLoopGroup()
-    val bossGroup = new EpollEventLoopGroup(1)
-
-    val serverStartupTask = new Runnable {
-      override def run(): Unit = {
-        val b = new ServerBootstrap()
-        b.group(bossGroup, workerGroup)
-          .channel(classOf[EpollServerSocketChannel])
-          .handler(new LoggingHandler(LogLevel.DEBUG))
-          .childHandler(handlersChain)
-          .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
-          .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
-
-        b.bind(socket.address, socket.port).sync()
-        latch.countDown()
-      }
+  private def createEventLoopGroup(): EventLoopGroup = {
+    if (SystemUtils.IS_OS_LINUX) {
+      new EpollEventLoopGroup()
     }
-
-    new Thread(serverStartupTask).start()
-    val isStarted = latch.await(3000, TimeUnit.MILLISECONDS)
-    if (!isStarted)
-      throw new Exception("Server isn't started!")
     else {
-      (bossGroup, workerGroup)
+      new NioEventLoopGroup()
     }
   }
-
 
   private def buildSocket = {
     val host = "127.0.0.1"
@@ -86,62 +55,73 @@ class NettyConnectionHandlerTest
 
     val socket = buildSocket
 
-    val (bossGroup, eventLoopGroup) = startServer(socket)
+    val testServer = new util.netty.NettyServer(
+      socket.address,
+      socket.port
+    )
+    testServer.start()
 
-    val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
+    val workerGroup: EventLoopGroup =
+      createEventLoopGroup()
 
     val latch = new CountDownLatch(reconnectAttemptsNumber)
     getClient(workerGroup, socket, {
       latch.countDown()
     })
 
-    bossGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-      .awaitUninterruptibly
-    eventLoopGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-      .awaitUninterruptibly
+    testServer.shutdown()
 
     latch.await(
       reconnectAttemptsNumber*timePerReconnect,
       TimeUnit.MILLISECONDS
     ) shouldBe true
 
-    workerGroup.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-      .awaitUninterruptibly
+    scala.util.Try(
+      workerGroup
+        .shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+        .awaitUninterruptibly(1000L)
+    )
   }
 
   it should "reconnect to server after the while." in {
     val socket = buildSocket
 
-    val (bossGroup1, eventLoopGroup1) = startServer(socket)
+    val testServer1 = new util.netty.NettyServer(
+      socket.address,
+      socket.port
+    )
+    testServer1.start()
 
-    val workerGroup: EventLoopGroup = new EpollEventLoopGroup()
+    val workerGroup: EventLoopGroup =
+      createEventLoopGroup()
 
     val reconnectAttemptsNumber = new AtomicInteger(0)
     getClient(workerGroup, socket, {
       reconnectAttemptsNumber.getAndIncrement()
     })
 
-    bossGroup1.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-      .awaitUninterruptibly
-    eventLoopGroup1.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-      .awaitUninterruptibly
+    testServer1.shutdown()
 
     val reconnectAttemptsNumber1 =
       reconnectAttemptsNumber.get()
 
-    val (bossGroup2, eventLoopGroup2) = startServer(socket)
-
-    bossGroup2.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-      .awaitUninterruptibly
-    eventLoopGroup2.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
-      .awaitUninterruptibly
+    val testServer2 = new util.netty.NettyServer(
+      socket.address,
+      socket.port
+    )
+    testServer2.start()
+    testServer2.shutdown()
 
     while (reconnectAttemptsNumber.get <= reconnectAttemptsNumber1) {}
 
     val reconnectAttemptsNumber2 =
       reconnectAttemptsNumber.get
 
-    workerGroup.shutdownGracefully().getNow
+    scala.util.Try(
+      workerGroup
+        .shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS)
+        .awaitUninterruptibly(1000L)
+    )
 
     assert(reconnectAttemptsNumber2 > reconnectAttemptsNumber1)
   }

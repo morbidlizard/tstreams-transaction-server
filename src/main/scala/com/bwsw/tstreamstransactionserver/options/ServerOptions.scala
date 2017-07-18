@@ -42,12 +42,12 @@ object ServerOptions {
   /** The options are used to provide zookeeper paths for leader election and to provide a client a prefix
     * of 'checkpoint group' server where its address kept.
     *
-    * @param commonMasterElectionPrefix
-    * @param checkpointMasterPrefix
-    * @param checkpointGroupMasterElectionPrefix
+    * @param commonMasterElectionPrefix the prefix is used for leader election among common servers.
+    * @param checkpointGroupMasterPrefix the prefix is used for providing current master/leader checkpoint group server.
+    * @param checkpointGroupMasterElectionPrefix the prefix is used for leader election among checkpoint group servers.
     */
   case class ServerRoleOptions(commonMasterElectionPrefix: String = "/tts/common/master_election",
-                               checkpointMasterPrefix: String = "/tts/cg/master",
+                               checkpointGroupMasterPrefix: String = "/tts/cg/master",
                                checkpointGroupMasterElectionPrefix: String = "/tts/cg/master_election")
 
   /** The options are used to provide notification service for subscribers.

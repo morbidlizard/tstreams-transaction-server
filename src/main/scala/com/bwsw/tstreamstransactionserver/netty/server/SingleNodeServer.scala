@@ -227,7 +227,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   private val checkpointGroupMasterElector =
     zk.masterElector(
       transactionServerSocketAddress,
-      serverRoleOptions.checkpointMasterPrefix,
+      serverRoleOptions.checkpointGroupMasterPrefix,
       serverRoleOptions.checkpointGroupMasterElectionPrefix
     )
 

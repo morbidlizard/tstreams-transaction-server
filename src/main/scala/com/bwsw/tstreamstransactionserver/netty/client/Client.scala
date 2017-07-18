@@ -18,7 +18,7 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
+import com.bwsw.tstreamstransactionserver.netty.client.api.TTSInetClient
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc
@@ -35,7 +35,7 @@ class Client(clientOpts: ConnectionOptions,
              authOpts: AuthOptions,
              zookeeperOptions: ZookeeperOptions,
              curatorConnection: Option[CuratorFramework] = None)
-  extends TTSClient {
+  extends TTSInetClient {
 
 
   private val inetClientProxy = new InetClientProxy(

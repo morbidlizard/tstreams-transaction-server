@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToBerkeleyWriter
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToRocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestHandlerRouter}
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
@@ -32,26 +32,28 @@ import org.slf4j.Logger
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
-class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
+
+class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
                     executionContext:ServerExecutionContextGrids,
                     logger: Logger)
   extends SimpleChannelInboundHandler[ByteBuf]
 {
   private lazy val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
-    s"than maxMetadataPackageSize (${requestHandlerChooser.packageTransmissionOpts.maxMetadataPackageSize}) " +
-    s"or maxDataPackageSize (${requestHandlerChooser.packageTransmissionOpts.maxDataPackageSize}).")
+    s"than maxMetadataPackageSize (${requestHandlerRouter.packageTransmissionOpts.maxMetadataPackageSize}) " +
+    s"or maxDataPackageSize (${requestHandlerRouter.packageTransmissionOpts.maxDataPackageSize}).")
 
   private val serverWriteContext: ExecutionContext =
     executionContext.serverWriteContext
   private val serverReadContext: ExecutionContext =
     executionContext.serverReadContext
 
+
   private def isTooBigMetadataMessage(message: Message) = {
-    message.length > requestHandlerChooser.packageTransmissionOpts.maxMetadataPackageSize
+    message.length > requestHandlerRouter.packageTransmissionOpts.maxMetadataPackageSize
   }
 
   private def isTooBigDataMessage(message: Message) = {
-    message.length > requestHandlerChooser.packageTransmissionOpts.maxDataPackageSize
+    message.length > requestHandlerRouter.packageTransmissionOpts.maxDataPackageSize
   }
 
   @volatile var isChannelActive = true
@@ -69,7 +71,6 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
   }
 
   private val commitLogContext = executionContext.commitLogContext
-
 
   private def logSuccessfulProcession(method: String, message: Message, ctx: ChannelHandlerContext): Unit =
     if (logger.isDebugEnabled)
@@ -99,7 +100,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
                              isTooBigMessage: Message => Boolean,
                              ctx: ChannelHandlerContext
                             )(message: Message) = {
-    if (!requestHandlerChooser.server.isValid(message.token)) {
+    if (!requestHandlerRouter.server.isValid(message.token)) {
       val response = handler.createErrorResponse(
         com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage
       )
@@ -128,7 +129,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
                                    ctx: ChannelHandlerContext,
                                    f: => ScalaFuture[Unit]
                                   )(message: Message) = {
-    if (!requestHandlerChooser.server.isValid(message.token)) {
+    if (!requestHandlerRouter.server.isValid(message.token)) {
       val response = handler.createErrorResponse(
         com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage
       )
@@ -154,7 +155,8 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
                                                 f: => ScalaFuture[Unit]
                                                )(message: Message) =
 
-      if (!requestHandlerChooser.server.isValid(message.token)) {
+
+      if (!requestHandlerRouter.server.isValid(message.token)) {
         logUnsuccessfulProcessing(handler.name, new TokenInvalidException(), message, ctx)
       }
       else if (isTooBigMessage(message)) {
@@ -170,7 +172,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
                                                ctx: ChannelHandlerContext
                                               )(message: Message) =
     ScalaFuture {
-      if (!requestHandlerChooser.server.isValid(message.token)) {
+      if (!requestHandlerRouter.server.isValid(message.token)) {
         logUnsuccessfulProcessing(handler.name, new TokenInvalidException(), message, ctx)
       }
       else if (isTooBigMessage(message)) {
@@ -181,8 +183,8 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
     }(context)
 
 
-  private val orderedExecutionPool = requestHandlerChooser.orderedExecutionPool
-  private val subscriberNotifier = requestHandlerChooser.openTransactionStateNotifier
+  private val orderedExecutionPool = requestHandlerRouter.orderedExecutionPool
+  private val subscriberNotifier = requestHandlerRouter.openTransactionStateNotifier
   private def processRequestAndReplyClient(handler: RequestHandler,
                                            message: Message,
                                            ctx: ChannelHandlerContext
@@ -224,7 +226,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
           val context = orderedExecutionPool.pool(args.streamID, args.partition)
           ScalaFuture {
             val transactionID =
-              requestHandlerChooser.server.getTransactionID
+              requestHandlerRouter.server.getTransactionID
 
             val txn = Transaction(Some(
               ProducerTransaction(
@@ -241,8 +243,8 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
               TransactionService.PutTransaction.Args(txn)
             )
 
-            requestHandlerChooser.scheduledCommitLog.putData(
-              CommitLogToBerkeleyWriter.putTransactionType,
+            requestHandlerRouter.scheduledCommitLog.putData(
+              RecordType.PutTransactionType.id.toByte,
               binaryTransaction
             )
 
@@ -264,7 +266,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
               count = 0,
               TransactionState.Status.Opened,
               args.transactionTTLMs,
-              requestHandlerChooser.authOptions.key,
+              requestHandlerRouter.authOptions.key,
               isNotReliable = false
             )
           }(context)
@@ -281,10 +283,10 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
           val txn = Protocol.PutSimpleTransactionAndData.decodeRequest(message.body)
           val context = orderedExecutionPool.pool(txn.streamID, txn.partition)
           ScalaFuture {
-            val transactionID = requestHandlerChooser.server
+            val transactionID = requestHandlerRouter.server
               .getTransactionID
 
-            requestHandlerChooser.server.putTransactionData(
+            requestHandlerRouter.server.putTransactionData(
               txn.streamID,
               txn.partition,
               transactionID,
@@ -318,8 +320,8 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
               )
 
 
-            requestHandlerChooser.scheduledCommitLog.putData(
-              CommitLogToBerkeleyWriter.putTransactionsType,
+            requestHandlerRouter.scheduledCommitLog.putData(
+              RecordType.PutTransactionsType.id.toByte,
               messageForPutTransactions
             )
 
@@ -341,7 +343,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
               txn.data.size,
               TransactionState.Status.Instant,
               Long.MaxValue,
-              requestHandlerChooser.authOptions.key,
+              requestHandlerRouter.authOptions.key,
               isNotReliable = false
             )
 
@@ -429,9 +431,9 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
           ScalaFuture {
 
             val transactionID =
-              requestHandlerChooser.server.getTransactionID
+              requestHandlerRouter.server.getTransactionID
 
-            requestHandlerChooser.server.putTransactionData(
+            requestHandlerRouter.server.putTransactionData(
               txn.streamID,
               txn.partition,
               transactionID,
@@ -464,8 +466,8 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
                 TransactionService.PutTransactions.Args(transactions)
               )
 
-            requestHandlerChooser.scheduledCommitLog.putData(
-              CommitLogToBerkeleyWriter.putTransactionsType,
+            requestHandlerRouter.scheduledCommitLog.putData(
+              RecordType.PutTransactionsType.id.toByte,
               messageForPutTransactions
             )
 
@@ -478,7 +480,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
               txn.data.size,
               TransactionState.Status.Instant,
               Long.MaxValue,
-              requestHandlerChooser.authOptions.key,
+              requestHandlerRouter.authOptions.key,
               isNotReliable = true
             )
 
@@ -513,7 +515,7 @@ class ServerHandler(requestHandlerChooser: RequestHandlerRouter,
       else
         false
 
-    val handler = requestHandlerChooser.handler(message.method)
+    val handler = requestHandlerRouter.handler(message.method)
     if (isFireAndForgetMethod)
       processRequestFireAndForgetManner(handler, message, ctx)
     else

@@ -20,19 +20,28 @@ package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import java.nio.charset.StandardCharsets
 
-case class ConsumerTransactionKey(name: String, streamID: Int, partition: Int) {
+case class ConsumerTransactionKey(name: String,
+                                  streamID: Int,
+                                  partition: Int) {
   def toByteArray: Array[Byte] = {
-    val nameBinary = name.getBytes(ConsumerTransactionKey.charset)
+    val nameBinary    = name.getBytes(ConsumerTransactionKey.charset)
     val nameFieldSize = java.lang.Integer.BYTES
-    val buffer = java.nio.ByteBuffer.allocate(
-      nameFieldSize + nameBinary.length + java.lang.Integer.BYTES + java.lang.Integer.BYTES)
 
-    buffer
+    val size = nameFieldSize +
+      nameBinary.length +
+      java.lang.Integer.BYTES +
+      java.lang.Integer.BYTES
+
+    val buffer = java.nio.ByteBuffer.allocate(size)
       .putInt(nameBinary.length)
       .put(nameBinary)
       .putInt(streamID)
       .putInt(partition)
-      .array()
+    buffer.flip()
+
+    val bytes = new Array[Byte](size)
+    buffer.get(bytes)
+    bytes
   }
 
 }

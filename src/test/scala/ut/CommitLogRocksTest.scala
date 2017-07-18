@@ -3,7 +3,9 @@ package ut
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{FileKey, FileValue}
 import org.scalatest.{FlatSpec, Matchers}
 
-class CommitLogRocksTest extends FlatSpec with Matchers {
+class CommitLogRocksTest
+  extends FlatSpec
+    with Matchers {
 
   "File ID" should "be serialized/deserialized" in {
     val key1 = FileKey(5L)

@@ -20,9 +20,10 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.{BigCommit, RocksStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{Batch, RocksDBALL}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamKey
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransactionStreamPartition, TransactionStateHandler}
 import com.bwsw.tstreamstransactionserver.rpc._
@@ -32,7 +33,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 
-class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
+class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
                                  lastTransactionStreamPartition: LastTransactionStreamPartition,
                                  consumerService: ConsumerServiceImpl)
   extends TransactionStateHandler
@@ -88,88 +89,45 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
       }
   }
 
-  private type Timestamp = Long
+  private final def selectInOrderProducerTransactions(transactions: Seq[ProducerTransactionRecord],
+                                                                       batch: KeyValueDatabaseBatch) = {
+    val producerTransactions = ArrayBuffer[ProducerTransactionRecord]()
+    transactions foreach { txn =>
+      val key = KeyStreamPartition(txn.stream, txn.partition)
+      if (txn.state != TransactionStates.Opened) {
+        producerTransactions += txn
+      } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
+        // updating RAM table, and last opened transaction database.
+        updateLastTransactionStreamPartitionRamTable(
+          key,
+          txn.transactionID,
+          isOpenedTransaction = true
+        )
 
-  private final def decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Timestamp)],
-                                                                       batch: Batch) = {
-    if (logger.isDebugEnabled)
-      logger.debug("Decomposing transactions to producer and consumer transactions")
+        putLastTransaction(key,
+          txn.transactionID,
+          isOpenedTransaction = true,
+          batch
+        )
 
-    val producerTransactions = ArrayBuffer[(ProducerTransaction, Timestamp)]()
-    val consumerTransactions = ArrayBuffer[(ConsumerTransaction, Timestamp)]()
-
-    transactions foreach { case (transaction, timestamp) =>
-      (transaction.producerTransaction, transaction.consumerTransaction) match {
-        case (Some(txn), _) =>
-          val key = KeyStreamPartition(txn.stream, txn.partition)
-          if (txn.state != TransactionStates.Opened) {
-            producerTransactions += ((txn, timestamp))
-          } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
-            // updating RAM table, and last opened transaction database.
-            updateLastTransactionStreamPartitionRamTable(
-              key,
-              txn.transactionID,
-              isOpenedTransaction = true
-            )
-
-            putLastTransaction(key,
-              txn.transactionID,
-              isOpenedTransaction = true,
-              batch
-            )
-
-            if (logger.isDebugEnabled)
-              logger.debug(
-                s"On stream:${key.stream} partition:${key.partition} " +
-                s"last opened transaction is ${txn.transactionID} now."
-              )
-            producerTransactions += ((txn, timestamp))
-          }
-
-        case (_, Some(txn)) =>
-          consumerTransactions += ((txn, timestamp))
-
-        case _ =>
+        if (logger.isDebugEnabled)
+          logger.debug(
+            s"On stream:${key.stream} partition:${key.partition} " +
+              s"last opened transaction is ${txn.transactionID} now."
+          )
+        producerTransactions += txn
       }
     }
-    (producerTransactions, consumerTransactions)
-  }
-
-  private final def groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(txns: Seq[(ProducerTransaction, Timestamp)]): Map[StreamKey, ArrayBuffer[ProducerTransactionRecord]] = {
-    if (logger.isDebugEnabled)
-      logger.debug("Mapping all producer transactions streams attrbute to long representation(ID), " +
-        "grouping them by stream and partition, " +
-        "checking that the stream isn't deleted in order to process producer transactions."
-      )
-    txns.foldRight(scala.collection.mutable.Map[StreamKey, ArrayBuffer[ProducerTransactionRecord]]()) {
-      case ((producerTransaction, timestamp), acc) =>
-        val keyStream = StreamKey(producerTransaction.stream)
-        if (acc.contains(keyStream))
-          acc(keyStream) += ProducerTransactionRecord(producerTransaction, timestamp)
-        else
-          acc += ((keyStream, ArrayBuffer(ProducerTransactionRecord(producerTransaction, timestamp))))
-        acc
-    }.toMap
+    producerTransactions
   }
 
 
-  private final def decomposeConsumerTransactionsToDatabaseRepresentation(transactions: Seq[(ConsumerTransaction, Timestamp)]) = {
-    val consumerTransactionsKey = new Array[ConsumerTransactionRecord](transactions.length)
-
-    transactions.foldRight(0){case ((txn, timestamp), index) =>
-      consumerTransactionsKey(index) = ConsumerTransactionRecord(txn, timestamp)
-      index + 1
-    }
-
-    consumerTransactionsKey
-  }
-
-  private final def groupProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]) =
+  private final def groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions: Seq[ProducerTransactionRecord]) =
     producerTransactions.groupBy(txn => txn.key)
 
   private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
                                                                       producerTransactionWithNewState: ProducerTransactionRecord,
-                                                                      batch: Batch): Unit = {
+                                                                      batch: KeyValueDatabaseBatch): Unit = {
     updateLastTransactionStreamPartitionRamTable(
       key,
       producerTransactionWithNewState.transactionID,
@@ -192,7 +150,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
 
   private def putTransactionToAllAndOpenedTables(producerTransactionRecord: ProducerTransactionRecord,
                                                  notifications: scala.collection.mutable.ListBuffer[Unit => Unit],
-                                                 batch: Batch) =
+                                                 batch: KeyValueDatabaseBatch) =
   {
     val binaryTxn = producerTransactionRecord.producerTransaction.toByteArray
     val binaryKey = producerTransactionRecord.key.toByteArray
@@ -228,63 +186,57 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
   }
 
 
-  private def putTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)],
-                              batch: Batch): ListBuffer[Unit => Unit] = {
-    val (producerTransactions, consumerTransactions) =
-      decomposeTransactionsToProducerTxnsAndConsumerTxns(transactions, batch)
-
-    val groupedProducerTransactionsWithTimestamp =
-      groupProducerTransactionsByStreamAndDecomposeThemToDatabaseRepresentation(producerTransactions)
+  def putTransactions(transactions: Seq[ProducerTransactionRecord],
+                      batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
 
     val notifications = new scala.collection.mutable.ListBuffer[Unit => Unit]()
-    groupedProducerTransactionsWithTimestamp.foreach { case (stream, dbProducerTransactions) =>
-      val groupedProducerTransactions = groupProducerTransactions(dbProducerTransactions)
-      groupedProducerTransactions foreach { case (key, txns) =>
-        //retrieving an opened transaction from opened transaction database if it exist
-        val openedTransactionOpt = getOpenedTransaction(key)
 
-        openedTransactionOpt match {
-          case Some(data) =>
-            val persistedProducerTransactionRocks = ProducerTransactionRecord(key, data)
-            if (logger.isDebugEnabled)
-              logger.debug(
-                s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
-                  s"partition ${persistedProducerTransactionRocks.partition}, " +
-                  s"transaction ${persistedProducerTransactionRocks.transactionID} " +
-                  s"with state ${persistedProducerTransactionRocks.state} to new state"
-              )
+    val producerTransactions =
+      selectInOrderProducerTransactions(transactions, batch)
+
+    val groupedProducerTransactions =
+      groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions)
+
+    groupedProducerTransactions foreach { case (key, txns) =>
+      //retrieving an opened transaction from opened transaction database if it exist
+      val openedTransactionOpt = getOpenedTransaction(key)
+
+      openedTransactionOpt match {
+        case Some(data) =>
+          val persistedProducerTransactionRocks = ProducerTransactionRecord(key, data)
+          if (logger.isDebugEnabled)
+            logger.debug(
+              s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
+                s"partition ${persistedProducerTransactionRocks.partition}, " +
+                s"transaction ${persistedProducerTransactionRocks.transactionID} " +
+                s"with state ${persistedProducerTransactionRocks.state} to new state"
+            )
 
 
-            val producerTransaction =
-              transitProducerTransactionToNewState(persistedProducerTransactionRocks, txns)
+          val producerTransaction =
+            transitProducerTransactionToNewState(persistedProducerTransactionRocks, txns)
 
-            producerTransaction.foreach { transaction =>
-              putTransactionToAllAndOpenedTables(transaction, notifications, batch)
-            }
+          producerTransaction.foreach { transaction =>
+            putTransactionToAllAndOpenedTables(transaction, notifications, batch)
+          }
 
-          case None =>
-            if (logger.isDebugEnabled)
-              logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
+        case None =>
+          if (logger.isDebugEnabled)
+            logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
 
-            val producerTransaction = transitProducerTransactionToNewState(txns)
+          val producerTransaction = transitProducerTransactionToNewState(txns)
 
-            producerTransaction.foreach { transaction =>
-              putTransactionToAllAndOpenedTables(transaction, notifications, batch)
-            }
-        }
+          producerTransaction.foreach { transaction =>
+            putTransactionToAllAndOpenedTables(transaction, notifications, batch)
+          }
       }
     }
-    val consumerTransactionsToProcess = decomposeConsumerTransactionsToDatabaseRepresentation(consumerTransactions)
-    val notificationAboutProducerAndConsumerTransactiomns = if (consumerTransactionsToProcess.nonEmpty)
-      notifications ++ consumerService.putConsumersCheckpoints(consumerTransactionsToProcess, batch)
-    else
-      notifications
-    notificationAboutProducerAndConsumerTransactiomns
+
+    notifications
   }
 
 
   private val commitLogDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.COMMIT_LOG_STORE)
-
   private[server] final def getLastProcessedCommitLogFileID: Option[Long] = {
     val iterator = commitLogDatabase.iterator
     iterator.seekToLast()
@@ -298,47 +250,34 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
     id
   }
 
-  private[server] final def getProcessedCommitLogFiles: ArrayBuffer[Long] = {
-    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
+//  private[server] final def getProcessedCommitLogFiles: ArrayBuffer[Long] = {
+//    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
+//
+//    val iterator = commitLogDatabase.iterator
+//    iterator.seekToFirst()
+//
+//    while (iterator.isValid) {
+//      processedCommitLogFiles += CommitLogKey.fromByteArray(iterator.key()).id
+//      iterator.next()
+//    }
+//    iterator.close()
+//
+//    processedCommitLogFiles
+//  }
 
-    val iterator = commitLogDatabase.iterator
-    iterator.seekToFirst()
+  private val bookkeeperLogDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.BOOKKEEPER_LOG_STORE)
+  private[server] final def getLastProcessedLedgerAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] = {
+    val iterator = bookkeeperLogDatabase.iterator
+    iterator.seek(BigCommit.bookkeeperKey)
 
-    while (iterator.isValid) {
-      processedCommitLogFiles += CommitLogKey.fromByteArray(iterator.key()).id
-      iterator.next()
-    }
+    val records = if (iterator.isValid)
+      Some(MetadataRecord.fromByteArray(iterator.value()).records)
+    else
+      None
+
     iterator.close()
-
-    processedCommitLogFiles
+    records
   }
-
-  final class BigCommit(fileID: Long) {
-    private val batch = rocksMetaServiceDB.newBatch
-    private val notifications = new scala.collection.mutable.ListBuffer[Unit => Unit]
-
-    def putSomeTransactions(transactions: Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)]): Unit = {
-      if (logger.isDebugEnabled)
-        logger.debug("Adding to commit new transactions from commit log file.")
-      notifications ++= putTransactions(transactions, batch)
-    }
-
-    def commit(): Boolean = {
-      val key = CommitLogKey(fileID).toByteArray
-      val value = Array[Byte]()
-
-      batch.put(RocksStorage.COMMIT_LOG_STORE, key, value)
-      if (batch.write()) {
-        if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
-        notifications foreach (notification => notification(()))
-        true
-      } else {
-        false
-      }
-    }
-  }
-
-  def getBigCommit(fileID: Long) = new BigCommit(fileID)
 
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
@@ -359,16 +298,16 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: RocksDBALL,
     }
   }
 
-  final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] = {
-    val result = getLastTransactionIDAndCheckpointedID(streamID, partition) match {
-      case Some(last) => last.checkpointed match {
-        case Some(checkpointed) => Some(checkpointed.id)
-        case None => None
-      }
-      case None => None
-    }
-    result
-  }
+//  final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] = {
+//    val result = getLastTransactionIDAndCheckpointedID(streamID, partition) match {
+//      case Some(last) => last.checkpointed match {
+//        case Some(checkpointed) => Some(checkpointed.id)
+//        case None => None
+//      }
+//      case None => None
+//    }
+//    result
+//  }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
   def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =

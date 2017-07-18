@@ -21,6 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 import java.io.{Closeable, File}
 import java.util.concurrent.atomic.AtomicLong
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
 import org.apache.commons.io.FileUtils
 import org.rocksdb._
@@ -31,10 +32,11 @@ class RocksDBALL(absolutePath: String,
                  rocksStorageOpts: RocksStorageOptions,
                  descriptors: Seq[RocksDatabaseDescriptor],
                  readMode: Boolean = false)
-  extends Closeable {
+  extends KeyValueDatabaseManager
+    with Closeable {
   RocksDB.loadLibrary()
 
-  private val batchIDGen = new AtomicLong(0L)
+  private val batchIDGen = new AtomicLong(-1L)
 
   private val options = rocksStorageOpts.createDBOptions()
 
@@ -62,15 +64,19 @@ class RocksDBALL(absolutePath: String,
     (connection, descriptorsWithDefaultDescriptor.toBuffer, JavaConverters.asScalaBuffer(databaseHandlers))
   }
 
+  def getDatabasesNamesAndIndex: mutable.Seq[(Int, Array[Byte])] =
+    descriptorsWorkWith.zipWithIndex.map { case (descriptor, index) => (index, descriptor.name) }
 
-  def getDatabasesNamesAndIndex: mutable.Seq[(Int, Array[Byte])] = descriptorsWorkWith.zipWithIndex.map { case (descriptor, index) => (index, descriptor.name) }
+  def getDatabase(index: Int): RocksDBPartitionDatabase =
+    new RocksDBPartitionDatabase(client, databaseHandlers(index))
 
-  def getDatabase(index: Int): RocksDBPartitionDatabase = new RocksDBPartitionDatabase(client, databaseHandlers(index))
+  def getRecordFromDatabase(index: Int, key: Array[Byte]): Array[Byte] =
+    client.get(databaseHandlers(index), key)
 
-  def getRecordFromDatabase(index: Int, key: Array[Byte]): Array[Byte] = client.get(databaseHandlers(index), key)
+  def newBatch =
+    new Batch(client, databaseHandlers, batchIDGen)
 
-  def newBatch = new Batch(client, databaseHandlers, batchIDGen)
-
-  override def close(): Unit = client.close()
+  override def close(): Unit =
+    client.close()
 }
 

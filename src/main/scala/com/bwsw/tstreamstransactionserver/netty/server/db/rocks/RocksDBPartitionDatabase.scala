@@ -18,9 +18,13 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabase, KeyValueDatabaseIterator}
 import org.rocksdb._
 
-class RocksDBPartitionDatabase(client: TtlDB, databaseHandler: ColumnFamilyHandle) {
+class RocksDBPartitionDatabase(client: TtlDB,
+                               databaseHandler: ColumnFamilyHandle)
+  extends KeyValueDatabase
+{
   RocksDB.loadLibrary()
 
   def get(key: Array[Byte]): Array[Byte] = client.get(databaseHandler, key)
@@ -50,27 +54,27 @@ class RocksDBPartitionDatabase(client: TtlDB, databaseHandler: ColumnFamilyHandl
     record
   }
 
-  def iterator: RocksIterator = client.newIterator(databaseHandler)
+  def iterator: KeyValueDatabaseIterator = new RocksDBIteratorWrapper(client.newIterator(databaseHandler))
 
-  def newBatch = new Batch
-  class Batch() {
-    private val batch  = new WriteBatch()
-
-    def put(key: Array[Byte], data: Array[Byte]): Unit = batch.put(databaseHandler, key, data)
-    def remove(key: Array[Byte]): Unit = batch.remove(databaseHandler, key)
-
-    def write(): Boolean = {
-      val writeOptions = new WriteOptions()
-      val status = scala.util.Try(client.write(writeOptions, batch)) match {
-        case scala.util.Success(_) => true
-        case scala.util.Failure(throwable) =>
-          throwable.printStackTrace()
-          false
-      }
-      writeOptions.close()
-      batch.close()
-      status
-    }
-  }
+//  def newBatch = new Batch
+//  class Batch() {
+//    private val batch  = new WriteBatch()
+//
+//    def put(key: Array[Byte], data: Array[Byte]): Unit = batch.put(databaseHandler, key, data)
+//    def remove(key: Array[Byte]): Unit = batch.remove(databaseHandler, key)
+//
+//    def write(): Boolean = {
+//      val writeOptions = new WriteOptions()
+//      val status = scala.util.Try(client.write(writeOptions, batch)) match {
+//        case scala.util.Success(_) => true
+//        case scala.util.Failure(throwable) =>
+//          throwable.printStackTrace()
+//          false
+//      }
+//      writeOptions.close()
+//      batch.close()
+//      status
+//    }
+//  }
 
 }

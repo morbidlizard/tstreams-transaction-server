@@ -75,7 +75,7 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
       }
   }
 
-
+  @throws[StreamDoesNotExist]
   final def putTransactionData(streamID: Int,
                                partition: Int,
                                transaction: Long,

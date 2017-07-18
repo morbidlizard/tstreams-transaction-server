@@ -24,20 +24,20 @@ import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
-import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
-import com.bwsw.tstreamstransactionserver.rpc.Transaction
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
-                                pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
-                                transactionServer: TransactionServer,
-                                incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
+class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
+                             pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
+                             transactionServer: TransactionServer,
+                             incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
   extends Runnable
 {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -112,19 +112,13 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
     }
   }
 
-  private def readRecordsFromCommitLogFile(iter: CommitLogIterator, recordsToReadNumber: Int): (ArrayBuffer[(Transaction, Long)], CommitLogIterator) = {
-    val buffer = ArrayBuffer[(Transaction, Long)]()
+  private def readRecordsFromCommitLogFile(iter: CommitLogIterator,
+                                           recordsToReadNumber: Int): (ArrayBuffer[CommitLogRecord], CommitLogIterator) = {
+    val buffer = ArrayBuffer[CommitLogRecord]()
     var recordsToRead = recordsToReadNumber
     while (iter.hasNext() && recordsToRead > 0) {
       val record = iter.next()
-      record.right.foreach { record =>
-        scala.util.Try {
-          CommitLogToBerkeleyWriter.retrieveTransactions(record)
-        } match {
-          case scala.util.Success(transactions) => buffer ++= transactions
-          case _ =>
-        }
-      }
+      record.right.map(buffer += _)
       recordsToRead = recordsToRead - 1
     }
     (buffer, iter)
@@ -136,24 +130,84 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
     val bigCommit = transactionServer.getBigCommit(file.getID)
 
     @tailrec
-    def helper(iterator: CommitLogIterator, lastTransationTimestamp: Option[Long]): Option[Long] = {
-      val (records, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
-      bigCommit.putSomeTransactions(records)
+    def helper(iterator: CommitLogIterator, lastTransactionTimestamp: Option[Long]): Option[Long] = {
+      val (commitLogRecords, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
+
+      val producerTransactionsRecords = new ArrayBuffer[ProducerTransactionRecord]()
+      val consumerTransactionsRecords = new ArrayBuffer[ConsumerTransactionRecord]()
+      commitLogRecords.foreach { record =>
+        RecordType(record.messageType) match {
+          case RecordType.PutConsumerCheckpointType =>
+            val consumerTransactionAsStruct =
+              RecordType.deserializePutConsumerCheckpoint(record.message)
+
+            consumerTransactionsRecords += {
+              import consumerTransactionAsStruct._
+              ConsumerTransactionRecord(name,
+                streamID,
+                partition,
+                transaction,
+                record.timestamp
+              )
+            }
+
+          case RecordType.PutTransactionType =>
+            val transactionAsStruct =
+              RecordType.deserializePutTransaction(record.message)
+                .transaction
+
+            transactionAsStruct.producerTransaction.foreach(producerTransaction =>
+              producerTransactionsRecords += ProducerTransactionRecord(producerTransaction, record.timestamp)
+            )
+
+            transactionAsStruct.consumerTransaction.foreach(consumerTransaction =>
+              consumerTransactionsRecords += ConsumerTransactionRecord(consumerTransaction, record.timestamp)
+            )
+          case RecordType.PutTransactionsType =>
+            val transactionsAsStructs =
+              RecordType.deserializePutTransactions(record.message)
+                .transactions
+
+            transactionsAsStructs.foreach { transactionAsStruct =>
+              transactionAsStruct.producerTransaction.foreach(producerTransaction =>
+                producerTransactionsRecords += ProducerTransactionRecord(producerTransaction, record.timestamp)
+              )
+
+              transactionAsStruct.consumerTransaction.foreach(consumerTransaction =>
+                consumerTransactionsRecords += ConsumerTransactionRecord(consumerTransaction, record.timestamp)
+              )
+            }
+          case _ =>
+        }
+      }
+
+      bigCommit.putProducerTransactions(producerTransactionsRecords)
+      bigCommit.putConsumerTransactions(consumerTransactionsRecords)
+
       val isAnyElements = iter.hasNext()
       if (isAnyElements) {
-        val lastTransactionTimestampInRecord = records.lastOption.map(_._2)
-        helper(iter, if (lastTransactionTimestampInRecord.isDefined) lastTransactionTimestampInRecord else lastTransationTimestamp)
+        val lastTransactionTimestampInRecord =
+          commitLogRecords.lastOption.map(_.timestamp)
+
+        helper(
+          iter,
+          lastTransactionTimestampInRecord.
+            orElse(lastTransactionTimestamp)
+        )
       }
       else
-        lastTransationTimestamp
+        lastTransactionTimestamp
     }
 
     val iterator = file.getIterator
     val lastTransactionTimestamp = helper(iterator, None)
     iterator.close()
+
     val result = bigCommit.commit()
-    lastTransactionTimestamp.orElse(Some(System.currentTimeMillis()))
-      .foreach (timestamp => transactionServer.createAndExecuteTransactionsToDeleteTask(timestamp))
+
+    val timestamp = lastTransactionTimestamp.getOrElse(System.currentTimeMillis())
+    transactionServer.createAndExecuteTransactionsToDeleteTask(timestamp)
+
     result
   }
 
@@ -170,31 +224,4 @@ class CommitLogToBerkeleyWriter(rocksDb: RocksDbConnection,
   }
 
   final def closeRocksDB(): Unit = rocksDb.close()
-}
-
-object CommitLogToBerkeleyWriter {
-  val putTransactionType: Byte = 1
-  val putTransactionsType: Byte = 2
-  val setConsumerStateType: Byte = 3
-
-  private def deserializePutTransaction(message: Array[Byte]) = Protocol.PutTransaction.decodeRequest(message)
-
-  private def deserializePutTransactions(message: Array[Byte]) = Protocol.PutTransactions.decodeRequest(message)
-
-  private def deserializeSetConsumerState(message: Array[Byte]) = Protocol.PutConsumerCheckpoint.decodeRequest(message)
-
-
-  def retrieveTransactions(record: CommitLogRecord): Seq[(Transaction, Long)] = record.messageType match {
-    case `putTransactionType` =>
-      val txn = deserializePutTransaction(record.message)
-      Seq((txn.transaction, record.timestamp))
-    case `putTransactionsType` =>
-      val txns = deserializePutTransactions(record.message)
-      txns.transactions.map(txn => (txn, record.timestamp))
-    case `setConsumerStateType` =>
-      val args = deserializeSetConsumerState(record.message)
-      val consumerTransaction = com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction(args.streamID, args.partition, args.transaction, args.name)
-      Seq((Transaction(None, Some(consumerTransaction)), record.timestamp))
-    case _ => throw new IllegalArgumentException("Undefined method type for retrieving message from commit log record")
-  }
 }

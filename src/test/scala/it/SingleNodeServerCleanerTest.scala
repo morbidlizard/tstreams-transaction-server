@@ -4,13 +4,11 @@ package it
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionKey
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import util.Utils._
@@ -60,7 +58,6 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val storageOptions = StorageOptions()
     val rocksStorageOptions = RocksStorageOptions()
 
-    val secondsAwait = 5
     val maxTTLForProducerTransactionSec = 5
 
     val producerTxnNumber = 100
@@ -96,10 +93,10 @@ class SingleNodeServerCleanerTest extends FlatSpec
     val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
     val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-    val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => (Transaction(Some(producerTxn), None), timestamp) }
+    val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
 
     val bigCommit = transactionServer.getBigCommit(1L)
-    bigCommit.putSomeTransactions(transactionsWithTimestamp)
+    bigCommit.putProducerTransactions(transactionsWithTimestamp)
     bigCommit.commit()
 
     transactionServer.createAndExecuteTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec))

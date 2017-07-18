@@ -23,11 +23,12 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 
-import PutTransactionDataHandler.descriptor
 
 private object PutTransactionDataHandler {
   val descriptor = Protocol.PutTransactionData
 }
+
+import PutTransactionDataHandler._
 
 class PutTransactionDataHandler(server: TransactionServer)
   extends RequestHandler {
@@ -45,7 +46,6 @@ class PutTransactionDataHandler(server: TransactionServer)
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
     val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.PutStream.name)
     descriptor.encodeResponse(
       TransactionService.PutTransactionData.Result(Some(result))
     )

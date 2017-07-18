@@ -4,9 +4,10 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
+
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
@@ -70,16 +71,24 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
 
   private lazy val fileIDGen = new AtomicLong(0L)
   private final def transitOneTransactionToAnotherState(transactionServiceServer: TransactionServer, in: ProducerTransaction, toUpdateIn: ProducerTransaction, out: ProducerTransaction, timeBetweenTransactionMs: Long) = {
-    val inAggregated = Transaction(Some(in), None)
     val firstCommitTime = System.currentTimeMillis()
+    val inAggregated = ProducerTransactionRecord(
+      in,
+      firstCommitTime
+    )
+
     val commitFirst = transactionServiceServer.getBigCommit(fileIDGen.getAndIncrement())
-    commitFirst.putSomeTransactions(Seq((inAggregated, firstCommitTime)))
+    commitFirst.putProducerTransactions(Seq(inAggregated))
     commitFirst.commit()
 
-    val toUpdateInAggregated = Transaction(Some(toUpdateIn), None)
     val secondCommitTime = System.currentTimeMillis()
+    val toUpdateInAggregated = ProducerTransactionRecord(
+      toUpdateIn,
+      secondCommitTime + timeBetweenTransactionMs
+    )
+
     val secondCommit = transactionServiceServer.getBigCommit(fileIDGen.getAndIncrement())
-    secondCommit.putSomeTransactions(Seq((toUpdateInAggregated, secondCommitTime + timeBetweenTransactionMs)))
+    secondCommit.putProducerTransactions(Seq(toUpdateInAggregated))
     secondCommit.commit()
 
     getProducerTransactionFromServer(transactionServiceServer, out) shouldBe out

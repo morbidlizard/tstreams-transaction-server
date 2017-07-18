@@ -131,13 +131,15 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     zkStreamDatabase
   )
 
-  final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
+  final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean,
+                                               func: => Unit): Long =
     transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
 
   final def removeNotification(id: Long): Boolean =
     transactionServer.removeProducerTransactionNotification(id)
 
-  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
+  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean,
+                                               func: => Unit): Long =
     transactionServer.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
 
   final def removeConsumerNotification(id: Long): Boolean =
@@ -163,7 +165,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   /**
     * this variable is public for testing purposes only
     */
-  val berkeleyWriter = new CommitLogToBerkeleyWriter(
+  val berkeleyWriter = new CommitLogToRocksWriter(
     rocksDBCommitLog,
     commitLogQueue,
     transactionServer,
@@ -181,8 +183,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     fileIDGenerator
   )
 
-  private val berkeleyWriterExecutor =
-    Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("BerkeleyWriter-%d").build())
+  private val databaseWriterExecutor =
+    Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("DatabaseWriter-%d").build())
   private val commitLogCloseExecutor =
     Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build())
 
@@ -252,8 +254,18 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .bind(serverOpts.bindHost, serverOpts.bindPort)
         .sync()
 
-      berkeleyWriterExecutor.scheduleWithFixedDelay(scheduledCommitLogImpl, commitLogOptions.closeDelayMs, commitLogOptions.closeDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-      commitLogCloseExecutor.scheduleWithFixedDelay(berkeleyWriter, 0, 10, java.util.concurrent.TimeUnit.MILLISECONDS)
+      databaseWriterExecutor.scheduleWithFixedDelay(
+        scheduledCommitLogImpl,
+        commitLogOptions.closeDelayMs,
+        commitLogOptions.closeDelayMs,
+        java.util.concurrent.TimeUnit.MILLISECONDS
+      )
+      commitLogCloseExecutor.scheduleWithFixedDelay(
+        berkeleyWriter,
+        0L,
+        10L,
+        java.util.concurrent.TimeUnit.MILLISECONDS
+      )
 
       commonMasterElector.start()
       checkpointGroupMasterElector.start()
@@ -306,9 +318,9 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         }
       }
 
-      if (berkeleyWriterExecutor != null) {
-        berkeleyWriterExecutor.shutdown()
-        berkeleyWriterExecutor.awaitTermination(
+      if (databaseWriterExecutor != null) {
+        databaseWriterExecutor.shutdown()
+        databaseWriterExecutor.awaitTermination(
           commitLogOptions.closeDelayMs * 5,
           TimeUnit.MILLISECONDS
         )

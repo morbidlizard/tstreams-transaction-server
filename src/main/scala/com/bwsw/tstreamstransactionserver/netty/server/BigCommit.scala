@@ -10,7 +10,7 @@ object BigCommit {
 }
 
 
-class BigCommit(transactionServer: TransactionServer,
+class BigCommit(rocksWriter: RocksWriter,
                 databaseIndex: Int,
                 key: Array[Byte],
                 value: Array[Byte]) {
@@ -19,7 +19,7 @@ class BigCommit(transactionServer: TransactionServer,
     LoggerFactory.getLogger(this.getClass)
 
   private val batch =
-    transactionServer.getNewBatch
+    rocksWriter.getNewBatch
 
   private lazy val notifications =
     new scala.collection.mutable.ListBuffer[Unit => Unit]
@@ -32,7 +32,7 @@ class BigCommit(transactionServer: TransactionServer,
     }
 
     notifications ++=
-      transactionServer.putTransactions(
+      rocksWriter.putTransactions(
         producerTransactions,
         batch
       )
@@ -45,7 +45,7 @@ class BigCommit(transactionServer: TransactionServer,
     }
 
     notifications ++=
-      transactionServer.putConsumersCheckpoints(
+      rocksWriter.putConsumersCheckpoints(
         consumerTransactions,
         batch
       )
@@ -56,7 +56,7 @@ class BigCommit(transactionServer: TransactionServer,
                       transaction: Long,
                       data: Seq[ByteBuffer],
                       from: Int): Boolean = {
-    val isDataPersisted = transactionServer.putTransactionData(
+    val isDataPersisted = rocksWriter.putTransactionData(
       streamID,
       partition,
       transaction,

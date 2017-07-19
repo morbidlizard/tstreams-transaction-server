@@ -9,11 +9,11 @@ import scala.collection.mutable.ArrayBuffer
 class KeyValueDatabaseBatchInMemory(dbs: Array[KeyValueDatabase])
   extends KeyValueDatabaseBatch(new AtomicLong(-1L))
 {
-  private val operationBuffer = new ArrayBuffer[Unit => Unit]()
+  private val operationBuffer = ArrayBuffer.empty[Unit => Unit]
 
   override def put(index: Int, key: Array[Byte], data: Array[Byte]): Boolean =
     this.synchronized {
-      def operation: Unit => Unit =
+      val operation: Unit => Unit =
         Unit => dbs(index).put(key, data)
       operationBuffer += operation
       true

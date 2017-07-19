@@ -1,68 +1,61 @@
 package it
 
-import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
-import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionStates}
-import org.apache.commons.io.FileUtils
-import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
+import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils.startZkServerAndGetIt
 
-class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with Matchers with BeforeAndAfterEach {
-  private val serverBuilder = new SingleNodeServerBuilder()
-  private val storageOptions = serverBuilder.getStorageOptions
-  private val authOptions = serverBuilder.getAuthenticationOptions
-  private val secondsWait = 5
+class SingleNodeServerClientInterconnectionLifecycleTest
+  extends FlatSpec
+    with Matchers
+    with BeforeAndAfterAll {
 
-  override def beforeEach(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
+  private lazy val (zkServer, zkClient) =
+    startZkServerAndGetIt
+
+  override def beforeAll(): Unit = {
+    zkServer
+    zkClient
   }
 
-  override def afterEach(): Unit = beforeEach()
-
-  private val path = "/tts/test_path"
-
-  it should "put stream, then delete this stream, and put it again and return correct result" in {
-    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
-    val streamAfterDelete = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, Some("Previous one was deleted"), 538L)
-
-    val rocksStorageOptions = RocksStorageOptions()
-    val (zkServer, zkClient) = startZkServerAndGetIt
-    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
-    val transactionServer = new TransactionServer(
-      authOpts = authOptions,
-      storageOpts = storageOptions,
-      rocksStorageOpts = rocksStorageOptions,
-      zookeeperStreamRepository
-    )
-    transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
-    transactionServer.delStream(stream.name)
-    val streamAfterDeleteWithID = transactionServer.putStream(streamAfterDelete.name, streamAfterDelete.partitions, streamAfterDelete.description, streamAfterDelete.ttl)
-
-    val retrievedStream = transactionServer.getStream(streamAfterDelete.name).get
-
-    com.bwsw.tstreamstransactionserver.rpc.Stream(
-      streamAfterDeleteWithID,
-      streamAfterDelete.name,
-      streamAfterDelete.partitions,
-      streamAfterDelete.description,
-      streamAfterDelete.ttl,
-      s"$path/ids/id0000000001"
-    ) shouldBe retrievedStream
-
-    transactionServer.closeAllDatabases()
+  override def afterAll(): Unit = {
     zkClient.close()
     zkServer.close()
+  }
+
+
+  it should "put stream, then delete this stream, and put it again and return correct result" in {
+    val bundle = util.Utils
+      .getTransactionServerBundle(zkClient)
+
+    bundle.operate { transactionServer =>
+
+      val stream =
+        com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
+
+      val streamAfterDelete =
+        com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, Some("Previous one was deleted"), 538L)
+
+
+      transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+      transactionServer.delStream(stream.name)
+      val streamAfterDeleteWithID = transactionServer.putStream(streamAfterDelete.name, streamAfterDelete.partitions, streamAfterDelete.description, streamAfterDelete.ttl)
+
+      val retrievedStream = transactionServer.getStream(streamAfterDelete.name).get
+
+      com.bwsw.tstreamstransactionserver.rpc.Stream(
+        streamAfterDeleteWithID,
+        streamAfterDelete.name,
+        streamAfterDelete.partitions,
+        streamAfterDelete.description,
+        streamAfterDelete.ttl,
+        s"${bundle.storageOptions.streamZookeeperDirectory}/ids/id0000000001"
+      ) shouldBe retrievedStream
+    }
   }
 
   private final def getProducerTransactionFromServer(transactionServer: TransactionServer, producerTransaction: ProducerTransaction) = {
@@ -98,199 +91,164 @@ class SingleNodeServerClientInterconnectionLifecycleTest extends FlatSpec with M
 
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Checkpointed Transaction" in {
-    val rocksStorageOptions = RocksStorageOptions()
-    val (zkServer, zkClient) = startZkServerAndGetIt
-    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
-    val transactionServer = new TransactionServer(
-      authOpts = authOptions,
-      storageOpts = storageOptions,
-      rocksStorageOpts = rocksStorageOptions,
-      zookeeperStreamRepository
-    )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
-    val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    val bundle = util.Utils
+      .getTransactionServerBundle(zkClient)
+
+    bundle.operate { transactionServer =>
+      val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
+      val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 
-    val openedTTL = TimeUnit.SECONDS.toMillis(2)
-    val checkpointedTTL = TimeUnit.SECONDS.toMillis(3)
-    val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(
-      streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL
-    )
+      val openedTTL = TimeUnit.SECONDS.toMillis(2)
+      val checkpointedTTL = TimeUnit.SECONDS.toMillis(3)
+      val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(
+        streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL
+      )
 
-    val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(
-      producerTransaction.stream, producerTransaction.partition,
-      producerTransaction.transactionID,
-      TransactionStates.Checkpointed, -1,
-      checkpointedTTL
-    )
+      val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(
+        producerTransaction.stream, producerTransaction.partition,
+        producerTransaction.transactionID,
+        TransactionStates.Checkpointed, -1,
+        checkpointedTTL
+      )
 
-    transitOneTransactionToAnotherState(
-      transactionServer,
-      producerTransaction,
-      producerTransactionCheckpointed,
-      producerTransactionCheckpointed,
-      openedTTL - TimeUnit.SECONDS.toMillis(1)
-    )
+      transitOneTransactionToAnotherState(
+        transactionServer,
+        producerTransaction,
+        producerTransactionCheckpointed,
+        producerTransactionCheckpointed,
+        openedTTL - TimeUnit.SECONDS.toMillis(1)
+      )
 
-    transactionServer.closeAllDatabases()
-    zkClient.close()
-    zkServer.close()
+    }
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
-    val rocksStorageOptions = RocksStorageOptions()
-    val (zkServer, zkClient) = startZkServerAndGetIt
-    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
-    val transactionServer = new TransactionServer(
-      authOpts = authOptions,
-      storageOpts = storageOptions,
-      rocksStorageOpts = rocksStorageOptions,
-      zookeeperStreamRepository
-    )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
-    val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    val bundle = util.Utils
+      .getTransactionServerBundle(zkClient)
+
+    bundle.operate { transactionServer =>
+      val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
+      val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 
-    val openedTTL = TimeUnit.SECONDS.toMillis(4)
-    val checkpointedTTL = TimeUnit.SECONDS.toMillis(2)
-    val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(
-      streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL
-    )
+      val openedTTL = TimeUnit.SECONDS.toMillis(4)
+      val checkpointedTTL = TimeUnit.SECONDS.toMillis(2)
+      val producerTransaction = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(
+        streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL
+      )
 
-    val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(
-      producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID,
-      TransactionStates.Checkpointed, -1, checkpointedTTL
-    )
+      val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(
+        producerTransaction.stream, producerTransaction.partition, producerTransaction.transactionID,
+        TransactionStates.Checkpointed, -1, checkpointedTTL
+      )
 
-    transitOneTransactionToAnotherState(
-      transactionServer,
-      producerTransaction,
-      producerTransactionCheckpointed,
-      producerTransaction.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), openedTTL + TimeUnit.SECONDS.toMillis(1))
+      transitOneTransactionToAnotherState(
+        transactionServer,
+        producerTransaction,
+        producerTransactionCheckpointed,
+        producerTransaction.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), openedTTL + TimeUnit.SECONDS.toMillis(1))
 
-    transactionServer.closeAllDatabases()
-    zkClient.close()
-    zkServer.close()
+    }
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Checkpointed Transaction" in {
-    val rocksStorageOptions = RocksStorageOptions()
-    val (zkServer, zkClient) = startZkServerAndGetIt
-    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
-    val transactionServer = new TransactionServer(
-      authOpts = authOptions,
-      storageOpts = storageOptions,
-      rocksStorageOpts = rocksStorageOptions,
-      zookeeperStreamRepository
-    )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
-    val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    val bundle = util.Utils
+      .getTransactionServerBundle(zkClient)
 
-    val openedTTL = TimeUnit.SECONDS.toMillis(7L)
-    val updatedTTL1 = openedTTL
-    val producerTxnOpened = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
-    val producerTxnUpdated1 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
+    bundle.operate { transactionServer =>
+      val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
+      val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened, openedTTL - TimeUnit.SECONDS.toMillis(2))
+      val openedTTL = TimeUnit.SECONDS.toMillis(7L)
+      val updatedTTL1 = openedTTL
+      val producerTxnOpened = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
+      val producerTxnUpdated1 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
 
-    val updatedTTL2 = openedTTL
-    val producerTxnUpdated2 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL2)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated2, producerTxnOpened, updatedTTL2 - TimeUnit.SECONDS.toMillis(2))
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened, openedTTL - TimeUnit.SECONDS.toMillis(2))
 
-    val updatedTTL3 = openedTTL
-    val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened, updatedTTL3 - TimeUnit.SECONDS.toMillis(2))
+      val updatedTTL2 = openedTTL
+      val producerTxnUpdated2 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL2)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated2, producerTxnOpened, updatedTTL2 - TimeUnit.SECONDS.toMillis(2))
 
-    val checkpointedTTL = TimeUnit.SECONDS.toMillis(6)
-    val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
+      val updatedTTL3 = openedTTL
+      val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened, updatedTTL3 - TimeUnit.SECONDS.toMillis(2))
 
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTransactionCheckpointed, checkpointedTTL - TimeUnit.SECONDS.toMillis(2))
+      val checkpointedTTL = TimeUnit.SECONDS.toMillis(6)
+      val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
 
-    transactionServer.closeAllDatabases()
-    zkClient.close()
-    zkServer.close()
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTransactionCheckpointed, checkpointedTTL - TimeUnit.SECONDS.toMillis(2))
+
+    }
   }
 
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Updated->Updated->Checkpointed. Should return Invalid Transaction(due to expiration)" in {
-    val rocksStorageOptions = RocksStorageOptions()
-    val (zkServer, zkClient) = startZkServerAndGetIt
-    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
-    val transactionServer = new TransactionServer(
-      authOpts = authOptions,
-      storageOpts = storageOptions,
-      rocksStorageOpts = rocksStorageOptions,
-      zookeeperStreamRepository
-    )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
-    val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    val bundle = util.Utils
+      .getTransactionServerBundle(zkClient)
+
+    bundle.operate { transactionServer =>
+      val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
+      val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 
-    val openedTTL = TimeUnit.SECONDS.toMillis(7L)
-    val updatedTTL1 = TimeUnit.SECONDS.toMillis(5L)
-    val wait1 = openedTTL - TimeUnit.SECONDS.toMillis(1)
-    val producerTxnOpened = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
-    val producerTxnUpdated1 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened.copy(ttl = updatedTTL1), wait1)
+      val openedTTL = TimeUnit.SECONDS.toMillis(7L)
+      val updatedTTL1 = TimeUnit.SECONDS.toMillis(5L)
+      val wait1 = openedTTL - TimeUnit.SECONDS.toMillis(1)
+      val producerTxnOpened = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
+      val producerTxnUpdated1 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened.copy(ttl = updatedTTL1), wait1)
 
-    val updatedTTL2 = TimeUnit.SECONDS.toMillis(2L)
-    val wait2 = updatedTTL2 - TimeUnit.SECONDS.toMillis(2)
-    val producerTxnUpdated2 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL2)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated2, producerTxnOpened.copy(ttl = updatedTTL2), wait2)
+      val updatedTTL2 = TimeUnit.SECONDS.toMillis(2L)
+      val wait2 = updatedTTL2 - TimeUnit.SECONDS.toMillis(2)
+      val producerTxnUpdated2 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL2)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated2, producerTxnOpened.copy(ttl = updatedTTL2), wait2)
 
-    val updatedTTL3 = TimeUnit.SECONDS.toMillis(7L)
-    val wait3 = updatedTTL3 - TimeUnit.SECONDS.toMillis(2)
-    val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
+      val updatedTTL3 = TimeUnit.SECONDS.toMillis(7L)
+      val wait3 = updatedTTL3 - TimeUnit.SECONDS.toMillis(2)
+      val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
 
-    val checkpointedTTL = TimeUnit.SECONDS.toMillis(2L)
-    val wait4 = checkpointedTTL - TimeUnit.SECONDS.toMillis(2)
-    val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
+      val checkpointedTTL = TimeUnit.SECONDS.toMillis(2L)
+      val wait4 = checkpointedTTL - TimeUnit.SECONDS.toMillis(2)
+      val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
 
-    transactionServer.closeAllDatabases()
-    zkClient.close()
-    zkServer.close()
+    }
   }
 
   it should "put stream, then put producerTransaction with states in following order: Opened->Updated->Cancel->Updated->Checkpointed. Should return Invalid Transaction(due to transaction with Cancel state)" in {
-    val rocksStorageOptions = RocksStorageOptions()
-    val (zkServer, zkClient) = startZkServerAndGetIt
-    val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, path)
-    val transactionServer = new TransactionServer(
-      authOpts = authOptions,
-      storageOpts = storageOptions,
-      rocksStorageOpts = rocksStorageOptions,
-      zookeeperStreamRepository
-    )
-    val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
-    val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
+    val bundle = util.Utils
+      .getTransactionServerBundle(zkClient)
+
+    bundle.operate { transactionServer =>
+      val stream = com.bwsw.tstreamstransactionserver.rpc.StreamValue("stream_test", 10, None, 100L)
+      val streamID = transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl)
 
 
-    val openedTTL = TimeUnit.SECONDS.toMillis(7L)
-    val updatedTTL1 = TimeUnit.SECONDS.toMillis(4L)
-    val wait1 = openedTTL - TimeUnit.SECONDS.toMillis(1)
-    val producerTxnOpened = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
-    val producerTxnUpdated1 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened.copy(ttl = updatedTTL1), wait1)
+      val openedTTL = TimeUnit.SECONDS.toMillis(7L)
+      val updatedTTL1 = TimeUnit.SECONDS.toMillis(4L)
+      val wait1 = openedTTL - TimeUnit.SECONDS.toMillis(1)
+      val producerTxnOpened = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(streamID, stream.partitions, System.currentTimeMillis(), TransactionStates.Opened, -1, openedTTL)
+      val producerTxnUpdated1 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL1)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated1, producerTxnOpened.copy(ttl = updatedTTL1), wait1)
 
-    val updatedTTL2 = TimeUnit.SECONDS.toMillis(1L)
-    val wait2 = TimeUnit.SECONDS.toMillis(1L)
-    val producerTxnCancel2 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Cancel, -1, updatedTTL2)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened.copy(ttl = updatedTTL1), producerTxnCancel2, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait2)
+      val updatedTTL2 = TimeUnit.SECONDS.toMillis(1L)
+      val wait2 = TimeUnit.SECONDS.toMillis(1L)
+      val producerTxnCancel2 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Cancel, -1, updatedTTL2)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened.copy(ttl = updatedTTL1), producerTxnCancel2, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait2)
 
-    val updatedTTL3 = TimeUnit.SECONDS.toMillis(7L)
-    val wait3 = updatedTTL3 - TimeUnit.SECONDS.toMillis(2)
-    val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
+      val updatedTTL3 = TimeUnit.SECONDS.toMillis(7L)
+      val wait3 = updatedTTL3 - TimeUnit.SECONDS.toMillis(2)
+      val producerTxnUpdated3 = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Updated, -1, updatedTTL3)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTxnUpdated3, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait3)
 
-    val checkpointedTTL = TimeUnit.SECONDS.toMillis(2L)
-    val wait4 = checkpointedTTL - TimeUnit.SECONDS.toMillis(2)
-    val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
-    transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
+      val checkpointedTTL = TimeUnit.SECONDS.toMillis(2L)
+      val wait4 = checkpointedTTL - TimeUnit.SECONDS.toMillis(2)
+      val producerTransactionCheckpointed = com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction(producerTxnOpened.stream, producerTxnOpened.partition, producerTxnOpened.transactionID, TransactionStates.Checkpointed, -1, checkpointedTTL)
+      transitOneTransactionToAnotherState(transactionServer, producerTxnOpened, producerTransactionCheckpointed, producerTxnOpened.copy(state = TransactionStates.Invalid, quantity = 0, ttl = 0L), wait4)
 
-    transactionServer.closeAllDatabases()
-    zkClient.close()
-    zkServer.close()
+    }
   }
 }

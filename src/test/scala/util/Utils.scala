@@ -6,11 +6,18 @@ import java.nio.file.Files
 import java.util
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
+import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.bookkeeper.conf.ServerConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.apache.bookkeeper.proto.BookieServer
+import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.test.TestingServer
@@ -124,6 +131,75 @@ object Utils {
       server.close()
       port
     }.get
+  }
+
+  def getTransactionServerBundle(zkClient: CuratorFramework): TransactionServerBundle = {
+    val authOptions =
+      com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
+
+    val dbPath = Files.createTempDirectory("tts").toFile
+
+    val storageOptions =
+      StorageOptions().copy(
+        dbPath.getPath,
+        streamZookeeperDirectory = s"/$uuid"
+      )
+    val rocksStorageOptions =
+      RocksStorageOptions()
+
+    val rocksStorage =
+      new AllInOneRockStorage(
+        storageOptions,
+        rocksStorageOptions
+      )
+
+    val lastTransactionStreamPartition =
+      new LastTransactionStreamPartition(
+        rocksStorage.getRocksStorage
+      )
+
+    val zkStreamRepository =
+      new ZookeeperStreamRepository(
+        zkClient,
+        storageOptions.streamZookeeperDirectory
+      )
+
+    val transactionDataServiceImpl =
+      new TransactionDataServiceImpl(
+        storageOptions,
+        rocksStorageOptions,
+        zkStreamRepository
+      )
+
+    val rocksWriter =
+      new RocksWriter(
+        rocksStorage,
+        lastTransactionStreamPartition,
+        transactionDataServiceImpl
+      )
+
+    val rocksReader =
+      new RocksReader(
+        rocksStorage,
+        lastTransactionStreamPartition,
+        transactionDataServiceImpl
+      )
+
+    val transactionServer =
+      new TransactionServer(
+        authOptions,
+        zkStreamRepository,
+        rocksWriter,
+        rocksReader
+      )
+
+    new TransactionServerBundle(
+      transactionServer,
+      rocksStorage,
+      transactionDataServiceImpl,
+      storageOptions,
+      rocksStorageOptions
+    )
   }
 
   def startTransactionServer(builder: SingleNodeServerBuilder): ZkSeverAndTransactionServer = {

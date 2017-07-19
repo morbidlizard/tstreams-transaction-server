@@ -1,8 +1,7 @@
 package com.bwsw.tstreamstransactionserver
 
-import com.bwsw.tstreamstransactionserver.DumpProcessedCommitLogUtility.{RecordToProducerOrConsumerTransaction, Transaction, process}
-import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord, ProducerTransactionValue}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.{AllInOneRockStorage, RocksStorage}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
 import org.json4s.jackson.JsonMethods.{pretty, render}
 import org.json4s.{Extraction, NoTypeHints}
@@ -33,7 +32,7 @@ object DumpProcessedAllTransactionsUtility {
         "Path to database folder and name of transaction metadata database folder name should be provided."
       )
     else {
-      val rocksStorage = new RocksStorage(
+      val rocksStorage = new AllInOneRockStorage(
         ServerOptions.StorageOptions(
           path = args(0),
           metadataDirectory = args(1)
@@ -44,7 +43,7 @@ object DumpProcessedAllTransactionsUtility {
         readOnly = true
       )
       val database =
-        rocksStorage.rocksMetaServiceDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
+        rocksStorage.getRocksStorage.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
 
       val iterator = database.iterator
       iterator.seekToFirst()

@@ -29,7 +29,10 @@ import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
+import com.bwsw.tstreamstransactionserver.netty.server.storage.{AllInOneRockStorage, RocksStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
@@ -122,13 +125,44 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     }.getOrElse(zk)
 
 
-  private val zkStreamDatabase =
+  private val rocksStorage =
+    new AllInOneRockStorage(
+      storageOpts,
+      rocksStorageOpts
+    )
+
+  private val lastTransactionStreamPartition =
+    new LastTransactionStreamPartition(
+      rocksStorage.getRocksStorage
+    )
+
+  private val zkStreamRepository =
     zk.streamRepository(s"${storageOpts.streamZookeeperDirectory}")
+
+  private val transactionDataServiceImpl =
+    new TransactionDataServiceImpl(
+      storageOpts,
+      rocksStorageOpts,
+      zkStreamRepository
+    )
+
+  private val rocksWriter = new RocksWriter(
+    rocksStorage,
+    lastTransactionStreamPartition,
+    transactionDataServiceImpl
+  )
+
+  private val rocksReader = new RocksReader(
+    rocksStorage,
+    lastTransactionStreamPartition,
+    transactionDataServiceImpl
+  )
+
   private val transactionServer = new TransactionServer(
     authenticationOpts,
-    storageOpts,
-    rocksStorageOpts,
-    zkStreamDatabase
+    zkStreamRepository,
+    rocksWriter,
+    rocksReader
   )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean,
@@ -207,7 +241,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     new OpenTransactionStateNotifier(
       new SubscribersObserver(
         curatorSubscriberClient.client,
-        zkStreamDatabase,
+        zkStreamRepository,
         subscribersUpdateOptions.updatePeriodMs
       ),
       new SubscriberNotifier
@@ -356,8 +390,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
           .stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
       }
 
-      if (transactionServer != null) {
-        transactionServer.closeAllDatabases()
+      if (rocksStorage != null) {
+        rocksStorage.getRocksStorage.close()
+      }
+
+      if (transactionDataServiceImpl != null) {
+        transactionDataServiceImpl.closeTransactionDataDatabases()
       }
     }
   }

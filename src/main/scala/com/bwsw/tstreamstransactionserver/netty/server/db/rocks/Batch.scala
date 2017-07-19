@@ -24,7 +24,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import org.rocksdb.{ColumnFamilyHandle, TtlDB, WriteBatch, WriteOptions}
 
 class Batch(client: TtlDB,
-            databaseHandlers: Seq[ColumnFamilyHandle],
+            databaseHandlers: collection.immutable.Map[Int, ColumnFamilyHandle],
             idGenerator: AtomicLong)
   extends KeyValueDatabaseBatch(idGenerator)
 {

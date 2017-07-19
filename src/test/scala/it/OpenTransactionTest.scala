@@ -99,37 +99,44 @@ class OpenTransactionTest extends FlatSpec
     val stream = getRandomStream
     val streamID = Await.result(bundle.client.putStream(stream), secondsWait.seconds)
 
-    val ALL = 80
+    val ALL = 100
 
     val partition = 1
 
-    val transactions = (0 until ALL).map { _ =>
+
+    val transactionsIDs = (0 until ALL).map { _ =>
       val id = Await.result(
         bundle.client.openTransaction(streamID, partition, 24000L),
         secondsWait.seconds
-      )
-
-      bundle.client.putProducerState(
-        ProducerTransaction(streamID, partition, id, TransactionStates.Checkpointed, 0, 25000L)
       )
       id
     }
 
     val latch1 = new CountDownLatch(1)
-    bundle.transactionServer.notifyProducerTransactionCompleted(producerTransaction =>
-      producerTransaction.transactionID == transactions.last,
+    bundle.transactionServer.notifyProducerTransactionCompleted(producerTransaction => {
+      producerTransaction.transactionID == transactionsIDs.last &&
+        producerTransaction.state == TransactionStates.Checkpointed
+    },
       latch1.countDown()
     )
+
+
+    transactionsIDs.foreach {id =>
+      bundle.client.putProducerState(
+        ProducerTransaction(streamID, partition, id, TransactionStates.Checkpointed, 0, 25000L)
+      )
+    }
+
 
     latch1.await(secondsWait, TimeUnit.SECONDS)
 
     val res = Await.result(bundle.client.scanTransactions(
-      streamID, partition, transactions.head, transactions.last, Int.MaxValue, Set(TransactionStates.Opened)
+      streamID, partition, transactionsIDs.head, transactionsIDs.last, Int.MaxValue, Set(TransactionStates.Opened)
     ), secondsWait.seconds)
 
     bundle.close()
 
-    res.producerTransactions.size shouldBe transactions.size
+    res.producerTransactions.size shouldBe transactionsIDs.size
     res.producerTransactions.forall(_.state == TransactionStates.Checkpointed) shouldBe true
   }
 

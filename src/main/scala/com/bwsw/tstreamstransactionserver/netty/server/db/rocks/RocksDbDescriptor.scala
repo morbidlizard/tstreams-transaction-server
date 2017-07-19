@@ -18,14 +18,30 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDatabaseDescriptor._
+import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbDescriptor._
 import org.rocksdb._
 
-case class RocksDatabaseDescriptor(name: Array[Byte],
-                                   options: ColumnFamilyOptions,
-                                   ttl: Integer = NoTTL)
+case class RocksDbDescriptor(rocksDatabaseMeta: RocksDbMeta,
+                             options: ColumnFamilyOptions,
+                             ttl: Integer = NoTTL) {
+  def this(name: String,
+           options: ColumnFamilyOptions,
+           ttl: Integer) = {
+    this(
+      RocksDbMeta(
+        name
+      ),
+      options,
+      ttl
+    )
+  }
+
+  def id: Int = rocksDatabaseMeta.id
+
+  def name: Array[Byte] = rocksDatabaseMeta.binaryName
+}
 
 
-object RocksDatabaseDescriptor {
+object RocksDbDescriptor {
   val NoTTL: Integer = int2Integer(-1)
 }

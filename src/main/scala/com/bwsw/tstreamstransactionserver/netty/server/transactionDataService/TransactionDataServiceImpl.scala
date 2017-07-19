@@ -32,8 +32,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class TransactionDataServiceImpl(storageOpts: StorageOptions,
                                  rocksStorageOpts: RocksStorageOptions,
-                                 streamCache: StreamRepository
-                                ) {
+                                 streamCache: StreamRepository) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val ttlToAdd: Int = rocksStorageOpts.transactionTtlAppendMs
 

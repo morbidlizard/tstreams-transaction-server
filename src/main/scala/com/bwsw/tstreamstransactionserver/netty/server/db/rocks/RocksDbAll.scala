@@ -28,9 +28,9 @@ import org.rocksdb._
 
 import scala.collection.{JavaConverters, mutable}
 
-class RocksDBALL(absolutePath: String,
+class RocksDbAll(absolutePath: String,
                  rocksStorageOpts: RocksStorageOptions,
-                 descriptors: Seq[RocksDatabaseDescriptor],
+                 descriptors: Seq[RocksDbDescriptor],
                  readMode: Boolean = false)
   extends KeyValueDatabaseManager
     with Closeable {
@@ -42,13 +42,21 @@ class RocksDBALL(absolutePath: String,
 
   private[rocks] val (client, descriptorsWorkWith, databaseHandlers) = {
     val descriptorsWithDefaultDescriptor =
-      (new RocksDatabaseDescriptor("default".getBytes(), new ColumnFamilyOptions()) +: descriptors).toArray
+      new RocksDbDescriptor(
+        RocksDbMeta("default"),
+        new ColumnFamilyOptions()
+      ) +: descriptors
 
     val (columnFamilyDescriptors, ttls) = descriptorsWithDefaultDescriptor
-      .map(descriptor => (new ColumnFamilyDescriptor(descriptor.name, descriptor.options), descriptor.ttl)
+      .map(descriptor =>
+        (
+          new ColumnFamilyDescriptor(descriptor.name, descriptor.options),
+          descriptor.ttl
+        )
       ).unzip
 
-    val databaseHandlers = new java.util.ArrayList[ColumnFamilyHandle](columnFamilyDescriptors.length)
+    val databaseHandlers =
+      new java.util.ArrayList[ColumnFamilyHandle](columnFamilyDescriptors.length)
 
     val file = new File(absolutePath)
     FileUtils.forceMkdir(file)
@@ -61,17 +69,27 @@ class RocksDBALL(absolutePath: String,
       JavaConverters.seqAsJavaList(ttls),
       readMode
     )
-    (connection, descriptorsWithDefaultDescriptor.toBuffer, JavaConverters.asScalaBuffer(databaseHandlers))
+
+    val handlerToIndexMap: collection.immutable.Map[Int, ColumnFamilyHandle] =
+      JavaConverters.asScalaBuffer(databaseHandlers)
+        .zip(descriptorsWithDefaultDescriptor)
+        .map(x => (x._2.id, x._1)).toMap
+
+    (
+      connection,
+      descriptorsWithDefaultDescriptor.toBuffer,
+      handlerToIndexMap
+    )
   }
 
-  def getDatabasesNamesAndIndex: mutable.Seq[(Int, Array[Byte])] =
-    descriptorsWorkWith.zipWithIndex.map { case (descriptor, index) => (index, descriptor.name) }
 
-  def getDatabase(index: Int): RocksDBPartitionDatabase =
-    new RocksDBPartitionDatabase(client, databaseHandlers(index))
+  def getDatabase(index: Int): RocksDbPartitionDatabase = {
+    new RocksDbPartitionDatabase(client, databaseHandlers(index))
+  }
 
-  def getRecordFromDatabase(index: Int, key: Array[Byte]): Array[Byte] =
+  def getRecordFromDatabase(index: Int, key: Array[Byte]): Array[Byte] = {
     client.get(databaseHandlers(index), key)
+  }
 
   def newBatch =
     new Batch(client, databaseHandlers, batchIDGen)

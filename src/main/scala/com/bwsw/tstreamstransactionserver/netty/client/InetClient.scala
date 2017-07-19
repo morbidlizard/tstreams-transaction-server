@@ -338,7 +338,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
             packageSizes.maxDataPackageSize
           )
 
-          isAuthenticating.set(false)
           latch.countDown()
         }
       )(context)
@@ -347,6 +346,8 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         clientOpts.requestTimeoutMs,
         TimeUnit.MILLISECONDS
       )
+
+      isAuthenticating.set(false)
     } else {
       while (isAuthenticating.get()) {}
     }

@@ -110,16 +110,15 @@ class CommitLog(seconds: Int,
       fileStream.flush()
     }
 
-    private[CommitLog] def close(withMD5: Boolean = true): Unit =
-      this.synchronized {
-        digestOutputStream.on(false)
-        digestOutputStream.close()
-        outputStream.close()
-        fileStream.close()
-        if (withMD5) {
-          writeMD5File()
-        }
+    private[CommitLog] def close(withMD5: Boolean = true): Unit = {
+      digestOutputStream.on(false)
+      digestOutputStream.close()
+      outputStream.close()
+      fileStream.close()
+      if (withMD5) {
+        writeMD5File()
       }
+    }
   }
 
   private val currentCommitLogFileToPut =

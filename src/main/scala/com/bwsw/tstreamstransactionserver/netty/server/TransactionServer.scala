@@ -20,12 +20,12 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.nio.ByteBuffer
 
-
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.{AllInOneRockStorage, RocksStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
@@ -40,16 +40,12 @@ import scala.collection.mutable.ListBuffer
 
 
 class TransactionServer(authOpts: AuthenticationOptions,
-                        storageOpts: StorageOptions,
-                        rocksStorageOpts: RocksStorageOptions,
-                        streamRepository: StreamRepository)
+                        streamRepository: StreamRepository,
+                        rocksWriter: RocksWriter,
+                        rocksReader: RocksReader)
 {
   private val authService = new AuthServiceImpl(authOpts)
 
-  private val rocksStorage = new RocksStorage(
-    storageOpts,
-    rocksStorageOpts
-  )
   private val streamServiceImpl = new StreamServiceImpl(
     streamRepository
   )
@@ -57,40 +53,24 @@ class TransactionServer(authOpts: AuthenticationOptions,
   private val transactionIDService =
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
-  private val consumerServiceImpl = new ConsumerServiceImpl(
-    rocksStorage.rocksMetaServiceDB
-  )
-  private val lastTransactionStreamPartition = new LastTransactionStreamPartition(
-    rocksStorage.rocksMetaServiceDB
-  )
-  private val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
-    rocksStorage.rocksMetaServiceDB,
-    lastTransactionStreamPartition,
-    consumerServiceImpl
-  )
-  private val transactionDataServiceImpl = new TransactionDataServiceImpl(
-    storageOpts,
-    rocksStorageOpts,
-    streamRepository
-  )
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
-    transactionMetaServiceImpl.notifyProducerTransactionCompleted(onNotificationCompleted, func)
+    rocksWriter.notifyProducerTransactionCompleted(onNotificationCompleted, func)
 
   final def removeProducerTransactionNotification(id: Long): Boolean =
-    transactionMetaServiceImpl.removeProducerTransactionNotification(id)
+    rocksWriter.removeProducerTransactionNotification(id)
 
   final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
-    consumerServiceImpl.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
+    rocksWriter.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
 
   final def removeConsumerTransactionNotification(id: Long): Boolean =
-    consumerServiceImpl.removeConsumerTransactionNotification(id)
+    rocksWriter.removeConsumerTransactionNotification(id)
 
   final def getLastProcessedCommitLogFileID: Long =
-    transactionMetaServiceImpl.getLastProcessedCommitLogFileID.getOrElse(-1L)
+    rocksReader.getLastProcessedCommitLogFileID
 
   final def getLastProcessedLedgersAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] =
-    transactionMetaServiceImpl.getLastProcessedLedgerAndRecordIDs
+    rocksReader.getLastProcessedLedgersAndRecordIDs
 
   final def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Int =
     streamServiceImpl.putStream(stream, partitions, description, ttl)
@@ -112,40 +92,40 @@ class TransactionServer(authOpts: AuthenticationOptions,
 
   @throws[StreamDoesNotExist]
   final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean =
-    transactionDataServiceImpl.putTransactionData(streamID, partition, transaction, data, from)
+    rocksWriter.putTransactionData(streamID, partition, transaction, data, from)
 
   final def putTransactions(transactions: Seq[ProducerTransactionRecord],
                             batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
-    transactionMetaServiceImpl.putTransactions(transactions, batch)
+    rocksWriter.putTransactions(transactions, batch)
   }
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): TransactionInfo =
-    transactionMetaServiceImpl.getTransaction(streamID, partition, transaction)
+    rocksReader.getTransaction(streamID, partition, transaction)
 
   final def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] =
-    transactionMetaServiceImpl.getOpenedTransaction(key)
+    rocksReader.getOpenedTransaction(key)
 
   final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] =
-    lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)
+    rocksReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
       .flatMap(_.checkpointed.map(txn => txn.id)).orElse(Some(-1L))
 
   final def getLastTransactionIDAndCheckpointedID(streamID: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] =
-    lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)
+    rocksReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
 
   final def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: Set[TransactionStates]): ScanTransactionsInfo =
-    transactionMetaServiceImpl.scanTransactions(streamID, partition, from, to, count, states)
+    rocksReader.scanTransactions(streamID, partition, from, to, count, states)
 
   final def getTransactionData(streamID: Int, partition: Int, transaction: Long, from: Int, to: Int): Seq[ByteBuffer] = {
-    transactionDataServiceImpl.getTransactionData(streamID, partition, transaction, from, to)
+    rocksReader.getTransactionData(streamID, partition, transaction, from, to)
   }
 
   final def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
                                     batch: KeyValueDatabaseBatch): ListBuffer[(Unit) => Unit] = {
-    consumerServiceImpl.putConsumersCheckpoints(consumerTransactions, batch)
+    rocksWriter.putConsumersCheckpoints(consumerTransactions, batch)
   }
 
   final def getConsumerState(name: String, streamID: Int, partition: Int): Long = {
-    consumerServiceImpl.getConsumerState(name, streamID, partition)
+    rocksReader.getConsumerState(name, streamID, partition)
   }
 
   final def isValid(token: Int): Boolean =
@@ -155,29 +135,15 @@ class TransactionServer(authOpts: AuthenticationOptions,
     authService.authenticate(authKey)
   }
 
-  final def getBigCommit(fileID: Long): BigCommit = {
-    val key = CommitLogKey(fileID).toByteArray
-    new BigCommit(this, RocksStorage.COMMIT_LOG_STORE, key, Array.emptyByteArray)
-  }
+  final def getBigCommit(fileID: Long): BigCommit =
+    rocksWriter.getBigCommit(fileID)
 
-  final def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit = {
-    val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
-    new BigCommit(this, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
-  }
+  final def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit =
+    rocksWriter.getBigCommit(processedLastRecordIDsAcrossLedgers)
 
   final def getNewBatch: KeyValueDatabaseBatch =
-    rocksStorage.newBatch
+    rocksWriter.getNewBatch
 
   final def createAndExecuteTransactionsToDeleteTask(timestamp: Long): Unit =
-    transactionMetaServiceImpl.createAndExecuteTransactionsToDeleteTask(timestamp)
-
-
-  final def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompletedAndCloseDatabases(): Unit = {
-    closeAllDatabases()
-  }
-
-  final def closeAllDatabases(): Unit = {
-    rocksStorage.rocksMetaServiceDB.close()
-    transactionDataServiceImpl.closeTransactionDataDatabases()
-  }
+    rocksWriter.createAndExecuteTransactionsToDeleteTask(timestamp)
 }

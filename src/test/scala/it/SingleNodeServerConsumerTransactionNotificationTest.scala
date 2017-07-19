@@ -95,7 +95,7 @@ class SingleNodeServerConsumerTransactionNotificationTest extends FlatSpec with 
 
   val secondsWait = 5
 
-  "Client" should "put consumerCheckpoint and get a transaction id back" in {
+  "Client" should "put consumerCheckpoint and get a transaction id back." in {
     val stream = getRandomStream
     val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 

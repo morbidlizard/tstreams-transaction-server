@@ -1,17 +1,15 @@
 package util
 
-
 import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
 import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import org.apache.commons.io.FileUtils
 
-class ZkSeverTxnServerTxnClient(val transactionServer: SingleNodeServer,
-                                val client: TTSClient,
-                                val serverBuilder: SingleNodeServerBuilder)
+class ZkSeverTxnServerTxnClients(val transactionServer: SingleNodeServer,
+                                 val clients: Array[TTSClient],
+                                 val serverBuilder: SingleNodeServerBuilder)
 {
 
   def operate(operation: SingleNodeServer => Unit): Unit = {
@@ -28,7 +26,7 @@ class ZkSeverTxnServerTxnClient(val transactionServer: SingleNodeServer,
 
   def closeDbsAndDeleteDirectories(): Unit = {
     transactionServer.shutdown()
-    client.shutdown()
+    clients.foreach(client => client.shutdown())
 
     val storageOptions = serverBuilder.getStorageOptions
 
@@ -39,3 +37,4 @@ class ZkSeverTxnServerTxnClient(val transactionServer: SingleNodeServer,
     new File(storageOptions.path).delete()
   }
 }
+

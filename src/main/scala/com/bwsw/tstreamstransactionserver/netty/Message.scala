@@ -71,10 +71,8 @@ object Message {
   /** Deserializes a binary to message. */
   def fromByteArray(bytes: Array[Byte]): Message = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
-    println(buffer.position())
     val id     = buffer.getLong
     val protocol = buffer.get
-    println(buffer.position())
     val token = buffer.getInt
     val method = buffer.get()
     val isFireAndForgetMethod = buffer.get()

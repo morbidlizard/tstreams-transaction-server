@@ -334,7 +334,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
             0L,
             0L,
             TimeUnit.NANOSECONDS
-          ).awaitUninterruptibly(1000L)
+          ).cancel(true)
         }
       }
       if (workerGroup != null) {
@@ -343,7 +343,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
             0L,
             0L,
             TimeUnit.NANOSECONDS
-          ).awaitUninterruptibly(1000L)
+          ).cancel(true)
         }
       }
 

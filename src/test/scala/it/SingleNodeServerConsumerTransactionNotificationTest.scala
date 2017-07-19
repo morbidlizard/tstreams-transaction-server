@@ -1,86 +1,32 @@
 package it
 
-import java.io.File
+
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
-import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, CommonOptions, ServerOptions}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
 import com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction
-import org.apache.commons.io.FileUtils
-import org.apache.curator.test.TestingServer
-import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import util.Utils
+import util.Utils.startZkServerAndGetIt
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class SingleNodeServerConsumerTransactionNotificationTest extends FlatSpec with Matchers with BeforeAndAfterEach {
-  var zkTestServer: TestingServer = _
-  var client: Client = _
-  var transactionServer: SingleNodeServer = _
-
-  private val clientBuilder = new ClientBuilder()
-
-  private val maxIdleTimeBetweenRecordsMs = 1000
+class SingleNodeServerConsumerTransactionNotificationTest
+  extends FlatSpec
+    with Matchers
+    with BeforeAndAfterAll {
 
   private val commitLogToBerkeleyDBTaskDelayMs = 100
+  private lazy val serverBuilder = new SingleNodeServerBuilder()
+    .withCommitLogOptions(ServerOptions.CommitLogOptions(
+      closeDelayMs = commitLogToBerkeleyDBTaskDelayMs
+    ))
 
-  private val serverAuthOptions = ServerOptions.AuthenticationOptions()
-  private val serverBootstrapOptions = ServerOptions.BootstrapOptions()
-  private val serverRoleOptions = ServerOptions.ServerRoleOptions()
-  private val serverReplicationOptions = ServerOptions.ServerReplicationOptions()
-  private val serverStorageOptions = ServerOptions.StorageOptions()
-  private val serverRocksStorageOptions = ServerOptions.RocksStorageOptions()
-  private val serverCommitLogOptions = ServerOptions.CommitLogOptions(closeDelayMs = commitLogToBerkeleyDBTaskDelayMs)
-  private val serverPackageTransmissionOptions = ServerOptions.TransportOptions()
-  private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
+  private lazy val (zkServer, zkClient) =
+    startZkServerAndGetIt
 
-  def startTransactionServer(): SingleNodeServer = {
-    val serverZookeeperOptions = CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    transactionServer = new SingleNodeServer(
-      authenticationOpts = serverAuthOptions,
-      zookeeperOpts = serverZookeeperOptions,
-      serverOpts = serverBootstrapOptions,
-      serverRoleOptions = serverRoleOptions,
-      serverReplicationOpts = serverReplicationOptions,
-      storageOpts = serverStorageOptions,
-      rocksStorageOpts = serverRocksStorageOptions,
-      commitLogOptions = serverCommitLogOptions,
-      packageTransmissionOpts = serverPackageTransmissionOptions,
-      subscriberUpdateOptions
-    )
-
-    val latch = new CountDownLatch(1)
-    new Thread(() => {
-      transactionServer.start(latch.countDown())
-    }).start()
-
-    latch.await()
-    transactionServer
-  }
-
-  override def beforeEach(): Unit = {
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
-
-    zkTestServer = new TestingServer(true)
-    startTransactionServer()
-    client = clientBuilder.withZookeeperOptions(ZookeeperOptions(endpoints = zkTestServer.getConnectString)).build()
-  }
-
-  override def afterEach() {
-    client.shutdown()
-    transactionServer.shutdown()
-    zkTestServer.close()
-
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(serverStorageOptions.path + java.io.File.separatorChar + serverStorageOptions.commitLogRawDirectory))
-  }
+  private lazy val clientBuilder = new ClientBuilder()
 
   private val rand = scala.util.Random
   private def getRandomStream =
@@ -93,60 +39,92 @@ class SingleNodeServerConsumerTransactionNotificationTest extends FlatSpec with 
     }
 
 
-  val secondsWait = 5
+  override def beforeAll(): Unit = {
+    zkServer
+    zkClient
+  }
+
+  override def afterAll(): Unit = {
+    zkClient.close()
+    zkServer.close()
+  }
+
+  private val secondsWait = 5
 
   "Client" should "put consumerCheckpoint and get a transaction id back." in {
-    val stream = getRandomStream
-    val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
-
-    val transactionId = 10L
-    val checkpointName = "test-name"
-
-
-    val latch = new CountDownLatch(1)
-    transactionServer.notifyConsumerTransactionCompleted(consumerTransaction =>
-      consumerTransaction.transactionID == transactionId && consumerTransaction.name == checkpointName, latch.countDown()
+    val bundle = Utils.startTransactionServerAndClient(
+      zkClient, serverBuilder, clientBuilder
     )
 
-    val consumerTransactionOuter = ConsumerTransaction(streamID, 1, transactionId, checkpointName)
-    client.putConsumerCheckpoint(consumerTransactionOuter)
+    bundle.operate { transactionServer =>
+      val client = bundle.client
 
-    latch.await(1, TimeUnit.SECONDS) shouldBe true
+      val stream = getRandomStream
+      val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
+
+      val transactionId = 10L
+      val checkpointName = "test-name"
+
+
+      val latch = new CountDownLatch(1)
+      transactionServer.notifyConsumerTransactionCompleted(consumerTransaction =>
+        consumerTransaction.transactionID == transactionId && consumerTransaction.name == checkpointName, latch.countDown()
+      )
+
+      val consumerTransactionOuter = ConsumerTransaction(streamID, 1, transactionId, checkpointName)
+      client.putConsumerCheckpoint(consumerTransactionOuter)
+
+      latch.await(1, TimeUnit.SECONDS) shouldBe true
+    }
   }
 
   it should "shouldn't get notification." in {
-    val stream = getRandomStream
-    Await.result(client.putStream(stream), secondsWait.seconds)
-
-    val transactionId = 10L
-    val checkpointName = "test-name"
-
-    val latch = new CountDownLatch(1)
-    val id = transactionServer.notifyConsumerTransactionCompleted(consumerTransaction =>
-      consumerTransaction.transactionID == transactionId && consumerTransaction.name == checkpointName, latch.countDown()
+    val bundle = Utils.startTransactionServerAndClient(
+      zkClient, serverBuilder, clientBuilder
     )
 
-    latch.await(1, TimeUnit.SECONDS) shouldBe false
-    transactionServer.removeConsumerNotification(id) shouldBe true
+    bundle.operate { transactionServer =>
+      val client = bundle.client
+      val stream = getRandomStream
+      Await.result(client.putStream(stream), secondsWait.seconds)
+
+      val transactionId = 10L
+      val checkpointName = "test-name"
+
+      val latch = new CountDownLatch(1)
+      val id = transactionServer.notifyConsumerTransactionCompleted(consumerTransaction =>
+        consumerTransaction.transactionID == transactionId && consumerTransaction.name == checkpointName, latch.countDown()
+      )
+
+      latch.await(1, TimeUnit.SECONDS) shouldBe false
+      transactionServer.removeConsumerNotification(id) shouldBe true
+    }
   }
 
   it should "get notification about consumer checkpoint after using putTransactions method." in {
-    val stream = getRandomStream
-    val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
-
-    val transactionId = 10L
-    val checkpointName = "test-name"
-
-
-    val latch = new CountDownLatch(1)
-    transactionServer.notifyConsumerTransactionCompleted(consumerTransaction =>
-      consumerTransaction.transactionID == transactionId, latch.countDown()
+    val bundle = Utils.startTransactionServerAndClient(
+      zkClient, serverBuilder, clientBuilder
     )
 
-    val consumerTransactionOuter = ConsumerTransaction(streamID, 1, transactionId, checkpointName)
-    client.putTransactions(Seq(), Seq(consumerTransactionOuter))
+    bundle.operate { transactionServer =>
+      val client = bundle.client
+      val stream = getRandomStream
+      val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
 
-    latch.await(1, TimeUnit.SECONDS) shouldBe true
+      val transactionId = 10L
+      val checkpointName = "test-name"
+
+
+      val latch = new CountDownLatch(1)
+      transactionServer.notifyConsumerTransactionCompleted(consumerTransaction =>
+        consumerTransaction.transactionID == transactionId, latch.countDown()
+      )
+
+      val consumerTransactionOuter = ConsumerTransaction(streamID, 1, transactionId, checkpointName)
+      client.putTransactions(Seq(), Seq(consumerTransactionOuter))
+
+      latch.await(1, TimeUnit.SECONDS) shouldBe true
+    }
   }
 
 }

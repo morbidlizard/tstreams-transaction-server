@@ -272,7 +272,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
             previousException match {
               case Some(exception: RequestTimeoutException) =>
                 if (retryCount == 0) {
-                  nettyClient.reconnect()
+//                  nettyClient.reconnect()
                   (exception, concreteThrowable, Int.MaxValue)
                 }
                 else if (retryCount == Int.MaxValue)

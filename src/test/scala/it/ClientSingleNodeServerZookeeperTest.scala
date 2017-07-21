@@ -26,7 +26,7 @@ class ClientSingleNodeServerZookeeperTest
     with BeforeAndAfterAll
 {
   private val zkTestServer = new TestingServer(false)
-  private def uuid = java.util.UUID.randomUUID.toString
+  private def uuid = util.Utils.uuid
 
 
   override def beforeAll(): Unit = {

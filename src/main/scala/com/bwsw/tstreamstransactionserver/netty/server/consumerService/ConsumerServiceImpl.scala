@@ -18,7 +18,7 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
-import com.bwsw.tstreamstransactionserver.netty.server.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
 import org.slf4j.LoggerFactory
 

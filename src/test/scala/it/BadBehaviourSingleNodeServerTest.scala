@@ -9,7 +9,8 @@ import com.bwsw.tstreamstransactionserver.netty.{Message, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
-import com.bwsw.tstreamstransactionserver.netty.server.{ServerHandler, SingleNodeServer}
+import com.bwsw.tstreamstransactionserver.netty.server.ServerHandler
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
@@ -22,7 +23,7 @@ import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import org.slf4j.Logger
 import util.Utils
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration._
 
 class BadBehaviourSingleNodeServerTest
@@ -211,14 +212,19 @@ class BadBehaviourSingleNodeServerTest
 
     masterElector.start()
 
+    val promise = Promise[Unit]()
     class MyThrowable extends Exception("My exception")
-    assertThrows[MyThrowable] {
-      new Client(connectionOpts, authOpts, zookeeperOpts) {
-        override def onServerConnectionLost(): Unit = {
-          throw new MyThrowable
-        }
+    val client = new Client(connectionOpts, authOpts, zookeeperOpts) {
+      override def onServerConnectionLost(): Unit = {
+        promise.tryFailure(new MyThrowable)
       }
     }
+
+    assertThrows[MyThrowable] {
+      Await.result(promise.future, 5.seconds)
+    }
+
+    client.shutdown()
     masterElector.stop()
     zKLeaderClientToPutMaster.close()
   }

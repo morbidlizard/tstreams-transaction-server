@@ -20,7 +20,7 @@
 
 package com.bwsw.tstreamstransactionserver.options
 
-import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 

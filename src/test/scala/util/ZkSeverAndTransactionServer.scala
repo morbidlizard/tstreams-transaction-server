@@ -1,6 +1,6 @@
 package util
 
-import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
 import org.apache.curator.test.TestingServer
 
 final class ZkSeverAndTransactionServer(val zkServer: TestingServer,

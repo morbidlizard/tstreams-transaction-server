@@ -4,28 +4,34 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
-import com.bwsw.tstreamstransactionserver.netty.client.NettyConnectionHandler
+import com.bwsw.tstreamstransactionserver.netty.client.NettyConnection
 import io.netty.channel._
 import io.netty.channel.epoll.EpollEventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.handler.codec.bytes.ByteArrayEncoder
 import org.apache.commons.lang.SystemUtils
 import org.scalatest.{FlatSpec, Matchers}
 import util.Utils
+import util.netty.NettyServerHandler
 
-class NettyConnectionHandlerTest
+class NettyConnectionTest
   extends FlatSpec
     with Matchers {
 
   private def handlersChain =
-    new util.netty.NettyServerInitializer()
+    Seq(
+      new ByteArrayEncoder(),
+      new NettyServerHandler()
+    )
 
   private def getClient(workerGroup: EventLoopGroup,
                         socket: SocketHostPortPair,
                         onConnectionLostDo: => Unit) = {
-    new NettyConnectionHandler(
+    new NettyConnection(
       workerGroup,
       handlersChain,
       3000,
+      30,
       socket,
       onConnectionLostDo
     )
@@ -72,7 +78,7 @@ class NettyConnectionHandlerTest
     testServer.shutdown()
 
     latch.await(
-      reconnectAttemptsNumber*timePerReconnect,
+      reconnectAttemptsNumber*timePerReconnect*10,
       TimeUnit.MILLISECONDS
     ) shouldBe true
 

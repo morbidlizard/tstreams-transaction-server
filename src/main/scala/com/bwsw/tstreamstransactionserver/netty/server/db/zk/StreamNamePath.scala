@@ -26,6 +26,8 @@ import org.apache.curator.framework.state.ConnectionState
 import org.apache.zookeeper.CreateMode
 import org.slf4j.LoggerFactory
 
+import scala.util.Try
+
 final class StreamNamePath(client: CuratorFramework, path: String) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -72,8 +74,10 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
 
   def checkExists(streamName: String): Boolean =
     lock {
-      Option(client.checkExists().forPath(s"$path/$streamName"))
-        .exists(_ => true)
+      Try(client.checkExists().forPath(s"$path/$streamName")) match {
+        case scala.util.Success(stat) if stat != null => true
+        case _ => false
+      }
     }
 
   def get(streamName: String): Option[streamService.StreamRecord] =

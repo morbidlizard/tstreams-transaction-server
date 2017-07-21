@@ -4,7 +4,7 @@ import java.util.concurrent._
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.bookkeeper.client.BookKeeper
@@ -15,7 +15,8 @@ import org.apache.curator.framework.CuratorFramework
 import scala.annotation.tailrec
 import scala.util.Try
 
-final class BookKeeperGateway(transactionServer: TransactionServer,
+final class BookKeeperGateway(rocksReader: RocksReader,
+                              rocksWriter: RocksWriter,
                               zkClient: CuratorFramework,
                               selector: Electable,
                               zkTress: Array[ZookeeperTreeListLong],
@@ -63,7 +64,8 @@ final class BookKeeperGateway(transactionServer: TransactionServer,
     bookKeeper,
     replicationConfig,
     zkTress,
-    transactionServer,
+    rocksReader,
+    rocksWriter,
     bookKeeperLedgerPassword
   )
 

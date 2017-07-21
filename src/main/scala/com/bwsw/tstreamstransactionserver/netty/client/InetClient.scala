@@ -11,7 +11,9 @@ import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
 import com.twitter.scrooge.ThriftStruct
 import io.netty.buffer.ByteBuf
-import io.netty.channel.EventLoopGroup
+import io.netty.channel.{ChannelHandlerContext, EventLoopGroup}
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder
+import io.netty.handler.codec.bytes.ByteArrayEncoder
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.ConnectionState
 import org.slf4j.LoggerFactory
@@ -19,6 +21,7 @@ import org.slf4j.LoggerFactory
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContextExecutorService, Future, Promise}
 import scala.concurrent.duration._
+import scala.util.Try
 
 class InetClient(zookeeperOptions: ZookeeperOptions,
                  clientOpts: ConnectionOptions,
@@ -58,8 +61,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
   )
 
   private final def onServerConnectionLostDefaultBehaviour(): Unit = {
-    val before = System.currentTimeMillis()
-
     val connectionSocket = zkInteractor.getCurrentMaster
       .right.map(_.map(_.toString).getOrElse("NO_CONNECTION_SOCKET"))
       .right.getOrElse("NO_CONNECTION_SOCKET")
@@ -75,17 +76,25 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     if (logger.isWarnEnabled) {
       logger.warn(s"Server is unreachable. Retrying to reconnect server $connectionSocket.")
     }
-
-    val now = System.currentTimeMillis()
-    val diff = now - before
-    if (diff < clientOpts.connectionTimeoutMs)
-      TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs - diff)
   }
 
-  private val nettyClient = new NettyConnectionHandler(
+  private def handlers = {
+    Seq(
+      new ByteArrayEncoder(),
+      new LengthFieldBasedFrameDecoder(
+        Int.MaxValue,
+        Message.headerFieldSize,
+        Message.lengthFieldSize
+      ),
+      new ClientHandler(requestIdToResponseMap)
+    )
+  }
+
+  private val nettyClient = new NettyConnection(
     workerGroup,
-    new ClientInitializer(requestIdToResponseMap),
+    handlers,
     clientOpts.connectionTimeoutMs,
+    clientOpts.retryDelayMs,
     retrieveCurrentMaster(),
     {
       onServerConnectionLost
@@ -95,10 +104,10 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     }
   )
 
-  private def reconnectToServer() = {
-    if (nettyClient != null)
-      nettyClient.reconnect()
-  }
+//  private def reconnectToServer() = {
+//    if (nettyClient != null)
+//      nettyClient.reconnect()
+//  }
 
   private def onShutdownThrowException(): Unit =
     if (isShutdown) throw ClientIllegalOperationAfterShutdown
@@ -124,8 +133,12 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
             else
               go(timestamp)
           }
-          else
-            masterOpt.get
+          else {
+            val master =  masterOpt.get
+            master
+          }
+
+
       }
     }
     go(System.currentTimeMillis())
@@ -152,7 +165,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     )(after = clientOpts.requestTimeoutMs.millis, message.id)(methodContext)
 
     channel.flush()
-
 
     responseFuture.recoverWith { case error =>
       requestIdToResponseMap.remove(message.id)
@@ -338,7 +350,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
             packageSizes.maxDataPackageSize
           )
 
-          isAuthenticating.set(false)
           latch.countDown()
         }
       )(context)
@@ -347,6 +358,8 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         clientOpts.requestTimeoutMs,
         TimeUnit.MILLISECONDS
       )
+
+      isAuthenticating.set(false)
     } else {
       while (isAuthenticating.get()) {}
     }

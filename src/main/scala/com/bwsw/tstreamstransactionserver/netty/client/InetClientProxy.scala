@@ -762,7 +762,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
               0L,
               0L,
               TimeUnit.NANOSECONDS
-            ).awaitUninterruptibly(clientOpts.requestTimeoutRetryCount))
+            ).cancel(true))
         }
         if (commonInetClient != null)
           commonInetClient.shutdown()

@@ -1,8 +1,9 @@
 package it
 
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
+import util.Utils.startZkServerAndGetIt
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -10,38 +11,60 @@ import scala.concurrent.duration._
 class SingleNodeServerGetTransactionTest
   extends FlatSpec
     with Matchers
+    with BeforeAndAfterAll
 {
   private val secondsToWait = 5.seconds
 
+  private lazy val serverBuilder =
+    new SingleNodeServerBuilder()
+
+  private lazy val clientBuilder =
+    new ClientBuilder()
+
+
+  private lazy val (zkServer, zkClient) =
+    startZkServerAndGetIt
+
+  override def beforeAll(): Unit = {
+    zkServer
+    zkClient
+  }
+
+  override def afterAll(): Unit = {
+    zkClient.close()
+    zkServer.close()
+  }
+
   "Client" should "get transaction ID that not less that current time" in {
     val bundle = Utils.startTransactionServerAndClient(
-      new SingleNodeServerBuilder(), new ClientBuilder()
+      zkClient, serverBuilder, clientBuilder
     )
-    val client = bundle.client
+
+    bundle.operate { _ =>
+      val client = bundle.client
 
 
-    val currentTime = System.currentTimeMillis()
-    val result = Await.result(client.getTransaction(), secondsToWait)
+      val currentTime = System.currentTimeMillis()
+      val result = Await.result(client.getTransaction(), secondsToWait)
 
 
-    result shouldBe >= (currentTime)
-
-
-    bundle.close()
+      result shouldBe >=(currentTime)
+    }
   }
 
   it should "get transaction ID by timestamp" in {
     val bundle = Utils.startTransactionServerAndClient(
-      new SingleNodeServerBuilder(), new ClientBuilder()
+      zkClient, serverBuilder, clientBuilder
     )
-    val client = bundle.client
 
-    val currentTime = System.currentTimeMillis()
-    val result = Await.result(client.getTransaction(currentTime), secondsToWait)
+    bundle.operate { _ =>
+      val client = bundle.client
 
-    result shouldBe (currentTime*100000)
+      val currentTime = System.currentTimeMillis()
+      val result = Await.result(client.getTransaction(currentTime), secondsToWait)
 
-    bundle.close()
+      result shouldBe (currentTime * 100000)
+    }
   }
 
 }

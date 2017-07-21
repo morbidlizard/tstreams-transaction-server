@@ -60,16 +60,6 @@ class RocksWriter(rocksStorage: AllInOneRockStorage,
     consumerServiceImpl.getConsumerState(name, streamID, partition)
   }
 
-  final def getBigCommit(fileID: Long): BigCommit = {
-    val value = CommitLogKey(fileID).toByteArray
-    new BigCommit(this, RocksStorage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
-  }
-
-  final def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit = {
-    val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
-    new BigCommit(this, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
-  }
-
   final def getNewBatch: KeyValueDatabaseBatch =
     rocksStorage.newBatch
 

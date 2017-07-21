@@ -50,222 +50,224 @@ class ServerLastTransactionTestSuite
   }
 
   it should "correctly return last transaction id per stream and partition" in {
-    val bundle = util.Utils
-      .getTransactionServerBundle(zkClient)
+    val bundle = util.Utils.getRocksReaderAndRocksWriter(zkClient)
 
-    bundle.operate { transactionServer =>
+    val streamService = bundle.streamService
+    val rocksReader = bundle.rocksReader
+    val rocksWriter = bundle.rocksWriter
 
+    val streamsNumber = 50
+    val producerTxnPerStreamPartitionMaxNumber = 100
 
-      val streamsNumber = 50
-      val producerTxnPerStreamPartitionMaxNumber = 100
+    val streams = Array.fill(streamsNumber)(getRandomStream)
+    val streamsAndIDs = streams.map(stream =>
+      (streamService.putStream(
+        stream.name,
+        stream.partitions,
+        stream.description,
+        stream.ttl
+      ), stream)
+    )
 
-      val streams = Array.fill(streamsNumber)(getRandomStream)
-      val streamsAndIDs = streams.map(stream =>
-        (transactionServer.putStream(
-          stream.name,
-          stream.partitions,
-          stream.description,
-          stream.ttl
-        ), stream)
-      )
+    streamsAndIDs foreach { case (streamId, stream) =>
+      val producerTransactionsNumber =
+        rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
 
-
-      streamsAndIDs foreach { case (streamId, stream) =>
-        val producerTransactionsNumber =
-          rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
-
-        val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
-          (0 to producerTransactionsNumber).map { transactionID =>
-            val producerTransaction =
-              getRandomProducerTransaction(
-                streamId,
-                stream,
-                transactionID.toLong,
-                Long.MaxValue
-              )
-            (producerTransaction, System.currentTimeMillis())
-          }.toArray
-
-        val maxTransactionID =
-          producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
-
-        val transactionsWithTimestamp =
-          producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) =>
-            ProducerTransactionRecord(producerTxn, timestamp)
-          }
-
-
-        val bigCommit = transactionServer.getBigCommit(1L)
-        bigCommit.putProducerTransactions(transactionsWithTimestamp)
-        bigCommit.commit()
-
-        val lastTransactionIDAndCheckpointedID = transactionServer
-          .getLastTransactionIDAndCheckpointedID(streamId, stream.partitions)
-          .get
-
-        lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
-      }
-
-    }
-  }
-
-  it should "correctly return last transaction and last checkpointed transaction id per stream and partition" in {
-    val bundle = util.Utils
-      .getTransactionServerBundle(zkClient)
-
-    bundle.operate { transactionServer =>
-
-      val streamsNumber = 1
-      val producerTxnPerStreamPartitionMaxNumber = 100
-
-      val streams = Array.fill(streamsNumber)(getRandomStream)
-      val streamsAndIDs = streams.map(stream =>
-        (transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), stream)
-      )
-
-      streamsAndIDs foreach { case (streamId, stream) =>
-        val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber) + 1
-
-        var currentTimeInc = System.currentTimeMillis()
-        val producerTransactionsWithTimestampWithoutChecpointed: Array[(ProducerTransaction, Long)] =
-          (0 until producerTransactionsNumber).map { transactionID =>
-            val producerTransaction = getRandomProducerTransaction(
+      val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
+        (0 to producerTransactionsNumber).map { transactionID =>
+          val producerTransaction =
+            getRandomProducerTransaction(
               streamId,
               stream,
               transactionID.toLong,
               Long.MaxValue
             )
-            currentTimeInc = currentTimeInc + 1
-            (producerTransaction, currentTimeInc)
-          }.toArray
+          (producerTransaction, System.currentTimeMillis())
+        }.toArray
 
-        val transactionInCertainIndex =
-          producerTransactionsWithTimestampWithoutChecpointed(producerTransactionsNumber - 1)
-        val producerTransactionsWithTimestamp =
-          producerTransactionsWithTimestampWithoutChecpointed :+ (transactionInCertainIndex._1.copy(state = TransactionStates.Checkpointed), currentTimeInc)
+      val maxTransactionID =
+        producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-        val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
-
-        val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) =>
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) =>
           ProducerTransactionRecord(producerTxn, timestamp)
         }
 
 
-        val bigCommit = transactionServer.getBigCommit(1L)
-        bigCommit.putProducerTransactions(transactionsWithTimestamp)
-        bigCommit.commit()
+      val batch = bundle.newBatch
+      rocksWriter.putTransactions(transactionsWithTimestamp, batch)
+      batch.write()
 
-        val lastTransactionIDAndCheckpointedID = transactionServer
-          .getLastTransactionIDAndCheckpointedID(streamId, stream.partitions)
-          .get
+      val lastTransactionIDAndCheckpointedID = rocksReader
+        .getLastTransactionIDAndCheckpointedID(streamId, stream.partitions)
+        .get
 
-        lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
-        lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe maxTransactionID
-
-      }
+      lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
     }
+
+    bundle.closeDBAndDeleteFolder()
   }
 
-  it should "correctly return last transaction and last checkpointed transaction id per stream and partition and checkpointed transaction should be proccessed earlier" in {
-    val bundle = util.Utils
-      .getTransactionServerBundle(zkClient)
+  it should "correctly return last transaction and last checkpointed transaction id per stream and partition" in {
+    val bundle = util.Utils.getRocksReaderAndRocksWriter(zkClient)
 
-    bundle.operate { transactionServer =>
+    val streamService = bundle.streamService
+    val rocksReader = bundle.rocksReader
+    val rocksWriter = bundle.rocksWriter
 
-      val streamsNumber = 1
+    val streamsNumber = 1
+    val producerTxnPerStreamPartitionMaxNumber = 100
 
-      val streams = Array.fill(streamsNumber)(getRandomStream)
-      val streamsAndIDs = streams.map(stream =>
-        (transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), stream)
-      )
+    val streams = Array.fill(streamsNumber)(getRandomStream)
+    val streamsAndIDs = streams.map(stream =>
+      (streamService.putStream(stream.name, stream.partitions, stream.description, stream.ttl), stream)
+    )
 
-      streamsAndIDs foreach { case (streamID, stream) =>
-        val currentTimeInc = new AtomicLong(System.currentTimeMillis())
-        val transactionRootChain = getRandomProducerTransaction(streamID, stream, 1, Long.MaxValue)
-        val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
-          Array(
-            (transactionRootChain, currentTimeInc.getAndIncrement()),
-            (transactionRootChain.copy(transactionID = 1L, state = TransactionStates.Checkpointed), currentTimeInc.getAndIncrement()),
-            (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement()),
-            (transactionRootChain.copy(transactionID = 3L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement()),
-            (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
-          )
+    streamsAndIDs foreach { case (streamId, stream) =>
+      val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber) + 1
 
-        val transactionsWithTimestamp =
-          producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) =>
-            ProducerTransactionRecord(producerTxn, timestamp)
-          }
-
-
-        val bigCommit = transactionServer.getBigCommit(1L)
-        bigCommit.putProducerTransactions(transactionsWithTimestamp)
-        bigCommit.commit()
-
-        val lastTransactionIDAndCheckpointedID = transactionServer
-          .getLastTransactionIDAndCheckpointedID(streamID, stream.partitions)
-          .get
-
-        lastTransactionIDAndCheckpointedID.opened.id shouldBe 3L
-        lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe 1L
-
-      }
-    }
-  }
-
-  it should "correctly return last transaction id per stream and partition even if some transactions are out of order." in {
-    val bundle = util.Utils
-      .getTransactionServerBundle(zkClient)
-
-    bundle.operate { transactionServer =>
-
-      val streamsNumber = 2
-      val producerTxnPerStreamPartitionMaxNumber = 50
-
-      val streams = Array.fill(streamsNumber)(getRandomStream)
-
-      @tailrec
-      def getLastTransactionID(producerTransactions: List[ProducerTransaction], acc: Option[Long]): Option[Long] = {
-        producerTransactions match {
-          case Nil => acc
-          case transaction :: otherTransactions =>
-            if (acc.isEmpty) getLastTransactionID(otherTransactions, acc)
-            else if (acc.get <= transaction.transactionID) getLastTransactionID(otherTransactions, Some(transaction.transactionID))
-            else getLastTransactionID(otherTransactions, acc)
-        }
-      }
-
-      val streamsAndIDs = streams.map(stream =>
-        (transactionServer.putStream(stream.name, stream.partitions, stream.description, stream.ttl), stream)
-      )
-
-      streamsAndIDs foreach { case (streamID, stream) =>
-        val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
-
-
-        val producerTransactions = scala.util.Random.shuffle(0 to producerTransactionsNumber).toArray.map { transactionID =>
-          val transaction = getRandomProducerTransaction(
-            streamID,
+      var currentTimeInc = System.currentTimeMillis()
+      val producerTransactionsWithTimestampWithoutChecpointed: Array[(ProducerTransaction, Long)] =
+        (0 until producerTransactionsNumber).map { transactionID =>
+          val producerTransaction = getRandomProducerTransaction(
+            streamId,
             stream,
             transactionID.toLong,
             Long.MaxValue
           )
-          (transaction, System.currentTimeMillis() + rand.nextInt(100))
+          currentTimeInc = currentTimeInc + 1
+          (producerTransaction, currentTimeInc)
+        }.toArray
+
+      val transactionInCertainIndex =
+        producerTransactionsWithTimestampWithoutChecpointed(producerTransactionsNumber - 1)
+      val producerTransactionsWithTimestamp =
+        producerTransactionsWithTimestampWithoutChecpointed :+ (transactionInCertainIndex._1.copy(state = TransactionStates.Checkpointed), currentTimeInc)
+
+      val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
+
+      val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) =>
+        ProducerTransactionRecord(producerTxn, timestamp)
+      }
+
+
+      val batch = bundle.newBatch
+      rocksWriter.putTransactions(transactionsWithTimestamp, batch)
+      batch.write()
+
+      val lastTransactionIDAndCheckpointedID = rocksReader
+        .getLastTransactionIDAndCheckpointedID(streamId, stream.partitions)
+        .get
+
+      lastTransactionIDAndCheckpointedID.opened.id shouldBe maxTransactionID
+      lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe maxTransactionID
+
+    }
+    bundle.closeDBAndDeleteFolder()
+  }
+
+  it should "correctly return last transaction and last checkpointed transaction id per stream and partition and checkpointed transaction should be proccessed earlier" in {
+    val bundle = util.Utils.getRocksReaderAndRocksWriter(zkClient)
+
+    val streamService = bundle.streamService
+    val rocksReader = bundle.rocksReader
+    val rocksWriter = bundle.rocksWriter
+
+    val batch = bundle.newBatch
+
+    val streamsNumber = 1
+
+    val streams = Array.fill(streamsNumber)(getRandomStream)
+    val streamsAndIDs = streams.map(stream =>
+      (streamService.putStream(stream.name, stream.partitions, stream.description, stream.ttl), stream)
+    )
+
+    streamsAndIDs foreach { case (streamID, stream) =>
+      val currentTimeInc = new AtomicLong(System.currentTimeMillis())
+      val transactionRootChain = getRandomProducerTransaction(streamID, stream, 1, Long.MaxValue)
+      val producerTransactionsWithTimestamp: Array[(ProducerTransaction, Long)] =
+        Array(
+          (transactionRootChain, currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 1L, state = TransactionStates.Checkpointed), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Updated), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 3L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement()),
+          (transactionRootChain.copy(transactionID = 2L, state = TransactionStates.Opened), currentTimeInc.getAndIncrement())
+        )
+
+      val transactionsWithTimestamp =
+        producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) =>
+          ProducerTransactionRecord(producerTxn, timestamp)
         }
 
-        val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2).toList
-        val transactionsWithTimestamp =
-          producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) =>
-            ProducerTransactionRecord(producerTxn, timestamp)
-          }
+      rocksWriter.putTransactions(transactionsWithTimestamp, batch)
+      batch.write()
 
-        val bigCommit = transactionServer.getBigCommit(1L)
-        bigCommit.putProducerTransactions(transactionsWithTimestamp)
-        bigCommit.commit()
+      val lastTransactionIDAndCheckpointedID = rocksReader
+        .getLastTransactionIDAndCheckpointedID(streamID, stream.partitions)
+        .get
 
-        transactionServer
-          .getLastTransactionIDAndCheckpointedID(streamID, stream.partitions)
-          .get.opened.id shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get
+      lastTransactionIDAndCheckpointedID.opened.id shouldBe 3L
+      lastTransactionIDAndCheckpointedID.checkpointed.get.id shouldBe 1L
+
+    }
+    bundle.closeDBAndDeleteFolder()
+  }
+
+  it should "correctly return last transaction id per stream and partition even if some transactions are out of order." in {
+    val bundle = util.Utils.getRocksReaderAndRocksWriter(zkClient)
+
+    val streamService = bundle.streamService
+    val rocksReader = bundle.rocksReader
+    val rocksWriter = bundle.rocksWriter
+
+    val streamsNumber = 2
+    val producerTxnPerStreamPartitionMaxNumber = 50
+
+    val streams = Array.fill(streamsNumber)(getRandomStream)
+
+    @tailrec
+    def getLastTransactionID(producerTransactions: List[ProducerTransaction], acc: Option[Long]): Option[Long] = {
+      producerTransactions match {
+        case Nil => acc
+        case transaction :: otherTransactions =>
+          if (acc.isEmpty) getLastTransactionID(otherTransactions, acc)
+          else if (acc.get <= transaction.transactionID) getLastTransactionID(otherTransactions, Some(transaction.transactionID))
+          else getLastTransactionID(otherTransactions, acc)
       }
     }
+
+    val streamsAndIDs = streams.map(stream =>
+      (streamService.putStream(stream.name, stream.partitions, stream.description, stream.ttl), stream)
+    )
+
+    streamsAndIDs foreach { case (streamID, stream) =>
+      val producerTransactionsNumber = rand.nextInt(producerTxnPerStreamPartitionMaxNumber)
+
+
+      val producerTransactions = scala.util.Random.shuffle(0 to producerTransactionsNumber).toArray.map { transactionID =>
+        val transaction = getRandomProducerTransaction(
+          streamID,
+          stream,
+          transactionID.toLong,
+          Long.MaxValue
+        )
+        (transaction, System.currentTimeMillis() + rand.nextInt(100))
+      }
+
+      val producerTransactionsOrderedByTimestamp = producerTransactions.sortBy(_._2).toList
+      val transactionsWithTimestamp =
+        producerTransactionsOrderedByTimestamp.map { case (producerTxn, timestamp) =>
+          ProducerTransactionRecord(producerTxn, timestamp)
+        }
+
+      val batch = bundle.newBatch
+      rocksWriter.putTransactions(transactionsWithTimestamp, batch)
+      batch.write()
+
+      rocksReader
+        .getLastTransactionIDAndCheckpointedID(streamID, stream.partitions)
+        .get.opened.id shouldBe getLastTransactionID(producerTransactionsOrderedByTimestamp.map(_._1), Some(0L)).get
+    }
+    bundle.closeDBAndDeleteFolder()
   }
 }

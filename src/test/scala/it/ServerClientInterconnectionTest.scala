@@ -7,10 +7,8 @@ import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.netty.client.InetClient
 import com.bwsw.tstreamstransactionserver.netty.server.Time
-import com.bwsw.tstreamstransactionserver.options.CommonOptions._
 import com.bwsw.tstreamstransactionserver.options._
 import com.bwsw.tstreamstransactionserver.rpc._
-import com.twitter.util.CountDownLatch
 import io.netty.buffer.ByteBuf
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.epoll.EpollEventLoopGroup
@@ -331,26 +329,25 @@ class ServerClientInterconnectionTest
     val transactionServer = bundle.transactionServer
 
     val stream = getRandomStream
-    val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
-
-    val producerTransactions = Array.fill(10000)(getRandomProducerTransaction(streamID, stream))
-    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamID, stream))
+    val producerTransactions = Array.fill(10000)(getRandomProducerTransaction(1, stream))
+    val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(1, stream))
 
 
     val resultInFuture = client.putTransactions(producerTransactions, consumerTransactions)
 
-    transactionServer.shutdown()
 
+    transactionServer.shutdown()
     val secondServer = bundle.serverBuilder
+        .withBootstrapOptions(ServerOptions.BootstrapOptions(bindPort = 8071))
       .build()
 
-    val task =
-      new Thread(() => secondServer.start())
+    val task = new Thread(
+      () => secondServer.start()
+    )
 
     task.start()
 
-    Await.result(resultInFuture,
-      secondsWait.seconds) shouldBe true
+    Await.result(resultInFuture, 10000.seconds) shouldBe true
 
     secondServer.shutdown()
     task.interrupt()

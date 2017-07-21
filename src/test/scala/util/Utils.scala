@@ -134,17 +134,39 @@ object Utils {
     }.get
   }
 
+  private def testStorageOptions(dbPath: File) = {
+    StorageOptions().copy(
+      path = dbPath.getPath,
+      streamZookeeperDirectory = s"/$uuid"
+    )
+  }
+
+  private def tempFolder() = {
+    Files.createTempDirectory("tts").toFile
+  }
+
+  def getRocksReaderAndRocksWriter(zkClient: CuratorFramework) = {
+    val dbPath = tempFolder()
+
+    val storageOptions =
+      testStorageOptions(dbPath)
+
+    val rocksStorageOptions =
+      RocksStorageOptions()
+
+
+    new RocksReaderAndWriter(zkClient, storageOptions, rocksStorageOptions)
+  }
+
   def getTransactionServerBundle(zkClient: CuratorFramework): TransactionServerBundle = {
     val authOptions =
       com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
 
-    val dbPath = Files.createTempDirectory("tts").toFile
+    val dbPath = tempFolder()
 
     val storageOptions =
-      StorageOptions().copy(
-        path = dbPath.getPath,
-        streamZookeeperDirectory = s"/$uuid"
-      )
+      testStorageOptions(dbPath)
+
     val rocksStorageOptions =
       RocksStorageOptions()
 

@@ -20,6 +20,17 @@ class RocksReader(rocksStorage: AllInOneRockStorage,
     rocksStorage.getRocksStorage
   )
 
+  private val oneNodeCommitLogServiceImpl =
+    new singleNode.commitLogService.CommitLogServiceImpl(
+    rocksStorage.getRocksStorage
+  )
+
+
+  private val multiNodeCommitLogServiceImpl =
+    new multiNode.commitLogService.CommitLogServiceImpl(
+    rocksStorage.getRocksStorage
+  )
+
   private val transactionIDService =
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
@@ -30,10 +41,10 @@ class RocksReader(rocksStorage: AllInOneRockStorage,
   )
 
   final def getLastProcessedCommitLogFileID: Long =
-    transactionMetaServiceImpl.getLastProcessedCommitLogFileID.getOrElse(-1L)
+    oneNodeCommitLogServiceImpl.getLastProcessedCommitLogFileID.getOrElse(-1L)
 
   final def getLastProcessedLedgersAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] =
-    transactionMetaServiceImpl.getLastProcessedLedgerAndRecordIDs
+    multiNodeCommitLogServiceImpl.getLastProcessedLedgerAndRecordIDs
 
   final def getTransactionID: Long =
     transactionIDService.getTransaction()

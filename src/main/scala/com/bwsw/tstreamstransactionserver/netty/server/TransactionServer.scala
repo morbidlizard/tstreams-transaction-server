@@ -134,16 +134,4 @@ class TransactionServer(authOpts: AuthenticationOptions,
   final def authenticate(authKey: String): Int = {
     authService.authenticate(authKey)
   }
-
-  final def getBigCommit(fileID: Long): BigCommit =
-    rocksWriter.getBigCommit(fileID)
-
-  final def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit =
-    rocksWriter.getBigCommit(processedLastRecordIDsAcrossLedgers)
-
-  final def getNewBatch: KeyValueDatabaseBatch =
-    rocksWriter.getNewBatch
-
-  final def createAndExecuteTransactionsToDeleteTask(timestamp: Long): Unit =
-    rocksWriter.createAndExecuteTransactionsToDeleteTask(timestamp)
 }

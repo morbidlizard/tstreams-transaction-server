@@ -4,7 +4,7 @@ package util
 import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
-import com.bwsw.tstreamstransactionserver.netty.server.SingleNodeServer
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import org.apache.commons.io.FileUtils

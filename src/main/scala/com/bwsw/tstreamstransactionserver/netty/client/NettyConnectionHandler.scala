@@ -1,152 +1,59 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
+import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.exception.Throwable.ClientIllegalOperationAfterShutdown
-import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
-import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{ChannelInitializer, _}
-import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.channel.socket.SocketChannel
-import io.netty.channel.socket.nio.NioSocketChannel
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
+import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
+@Sharable
+class NettyConnectionHandler(reconnectDelayMs: Int,
+                             onServerConnectionLostDo: => Unit,
+                             connectMethod: => Unit)
+  extends ChannelInboundHandlerAdapter {
 
-class NettyConnectionHandler(workerGroup: EventLoopGroup,
-                             handlersChain: ChannelInitializer[SocketChannel],
-                             connectionTimeoutMs: Int,
-                             getConnectionAddress: => SocketHostPortPair,
-                             onConnectionLostDo:   => Unit) {
+  private val logger =
+    LoggerFactory.getLogger(this.getClass)
 
-  private val counter = new AtomicLong(0L)
-  private val bootstrap: Bootstrap = {
-    new Bootstrap()
-      .group(workerGroup)
-      .channel(determineChannelType())
-      .option(
-        ChannelOption.SO_KEEPALIVE,
-        java.lang.Boolean.FALSE
-      )
-      .option(
-        ChannelOption.CONNECT_TIMEOUT_MILLIS,
-        int2Integer(connectionTimeoutMs)
-      )
-      .handler(handlersChain)
+
+  override def channelRead(ctx: ChannelHandlerContext, msg: scala.Any): Unit = {
+    ctx.fireChannelRead(msg)
   }
-  private val isReconnecting =
-    new AtomicBoolean(false)
 
-  private val isStopped =
-    new AtomicBoolean(false)
+  override def channelActive(ctx: ChannelHandlerContext): Unit = {
+    if (logger.isInfoEnabled)
+      logger.info(s"Connected to: ${ctx.channel().remoteAddress()}")
+  }
 
-  @volatile private var channel: Channel = connect()
+  override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+    if (logger.isInfoEnabled)
+      logger.info(s"Disconnected from: ${ctx.channel().remoteAddress()}")
+  }
 
-  private def determineChannelType(): Class[_ <: SocketChannel] =
-    workerGroup match {
-      case _: EpollEventLoopGroup => classOf[EpollSocketChannel]
-      case _: NioEventLoopGroup => classOf[NioSocketChannel]
-      case group => throw new IllegalArgumentException(
-        s"Can't determine channel type for group '$group'."
-      )
-    }
+  @throws[Exception]
+  override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
+    if (logger.isInfoEnabled)
+      logger.info(s"Sleeping for: " + reconnectDelayMs + "ms")
 
 
-  @tailrec
-  final private def connect(): Channel = {
-    val socket = getConnectionAddress
-    val newConnection = bootstrap.connect(socket.address, socket.port)
-    scala.util.Try {
-      newConnection.syncUninterruptibly()
-      newConnection.channel()
-    } match {
-      case scala.util.Success(channelToUse) =>
-        if (channelToUse.isActive) {
-          connectionLostListener(channelToUse)
-          val reconnectID = counter.getAndIncrement()
-          println(s"id: $reconnectID Before reconnect $channelToUse", channelToUse.isActive, channelToUse.isOpen)
-          channelToUse
-        } else {
-          channelToUse.close().awaitUninterruptibly()
-          onConnectionLostDo
-          connect()
-        }
+    scala.util.Try(onServerConnectionLostDo) match {
       case scala.util.Failure(throwable) =>
-        if (throwable.isInstanceOf[java.util.concurrent.RejectedExecutionException])
-          throw ClientIllegalOperationAfterShutdown
-        else {
-          onConnectionLostDo
-          connect()
-        }
-    }
-  }
-
-
-  final def reconnect(): Unit = {
-    def go() {
-      val reconnectID = counter.getAndIncrement()
-      val socket = getConnectionAddress
-      val newConnection = bootstrap.connect(socket.address, socket.port)
-      newConnection.awaitUninterruptibly()
-      newConnection.addListener { (futureChannel: ChannelFuture) =>
-        val channel = futureChannel.channel()
-        println(s"id:$reconnectID After reconnect $channel")
-        if (!isStopped.get() && futureChannel.isSuccess) {
-          println(s"id: $reconnectID After reconnect $channel", channel.isActive, channel.isOpen)
-          if (channel.isActive && channel.isOpen) {
-            this.channel = channel
-            isReconnecting.set(false)
-            connectionLostListener(channel)
-          } else {
-            channel.close()
-            onConnectionLostDo
-            go()
+        ctx.close()
+        throw throwable
+      case _ =>
+        ctx.channel.eventLoop.schedule(new Runnable() {
+          override def run(): Unit = {
+            if (logger.isInfoEnabled)
+              logger.info(s"Reconnecting to: ${ctx.channel.remoteAddress()}")
+            connectMethod
           }
-        }
-        else {
-          onConnectionLostDo
-          val eventLoop = channel.eventLoop()
-          if (!isStopped.get() && !eventLoop.isShuttingDown) {
-            go()
-          }
-        }
-      }
-    }
-
-    val needToReconnect =
-      isReconnecting.compareAndSet(false, true)
-
-    if (needToReconnect)
-      go()
-    else while (isReconnecting.get()) {}
-  }
-
-
-  private def connectionLostListener(oldChannel: Channel) = {
-    oldChannel.closeFuture.addListener { (f: ChannelFuture) =>
-      val eventLoop = f.channel().eventLoop()
-      if (!isStopped.get() && !eventLoop.isShuttingDown) {
-        eventLoop.execute { () =>
-          onConnectionLostDo
-          reconnect()
-        }
-      }
+        }, reconnectDelayMs, TimeUnit.MILLISECONDS)
     }
   }
 
-  def getChannel(): Channel = {
-    channel
-  }
-
-  def stop(): Unit = {
-    val isNotStopped =
-      isStopped.compareAndSet(false, true)
-    if (isNotStopped) {
-      scala.util.Try(
-        channel
-          .close()
-          .cancel(true)
-      )
-    }
+  override def exceptionCaught(ctx: ChannelHandlerContext,
+                               cause: Throwable): Unit = {
+    cause.printStackTrace()
+    ctx.close()
   }
 }

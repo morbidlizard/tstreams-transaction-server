@@ -61,8 +61,8 @@ class RocksWriter(rocksStorage: AllInOneRockStorage,
   }
 
   final def getBigCommit(fileID: Long): BigCommit = {
-    val key = CommitLogKey(fileID).toByteArray
-    new BigCommit(this, RocksStorage.COMMIT_LOG_STORE, key, Array.emptyByteArray)
+    val value = CommitLogKey(fileID).toByteArray
+    new BigCommit(this, RocksStorage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
   }
 
   final def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit = {

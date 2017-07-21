@@ -26,8 +26,9 @@ import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{CommitLogKey, ProducerTransactionRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.{BigCommit, RecordType, RocksWriter, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
 import org.slf4j.LoggerFactory
 
@@ -36,12 +37,16 @@ import scala.collection.mutable.ArrayBuffer
 
 class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
                              pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
-                             transactionServer: TransactionServer,
+                             rocksWriter: RocksWriter,
                              incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
-  extends Runnable
-{
+  extends Runnable {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val processAccordingToPolicy = createProcessingFunction()
+
+  final def getBigCommit(fileID: Long): BigCommit = {
+    val value = CommitLogKey(fileID).toByteArray
+    new BigCommit(rocksWriter, RocksStorage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
+  }
 
   private def createProcessingFunction() = { (commitLogEntity: CommitLogStorage) =>
     incompleteCommitLogReadPolicy match {
@@ -127,7 +132,7 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
   @throws[Exception]
   private def processCommitLogFile(file: CommitLogStorage): Boolean = {
     val recordsToReadNumber = 1
-    val bigCommit = transactionServer.getBigCommit(file.getID)
+    val bigCommit = getBigCommit(file.getID)
 
     @tailrec
     def helper(iterator: CommitLogIterator, lastTransactionTimestamp: Option[Long]): Option[Long] = {
@@ -206,7 +211,7 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
     val result = bigCommit.commit()
 
     val timestamp = lastTransactionTimestamp.getOrElse(System.currentTimeMillis())
-    transactionServer.createAndExecuteTransactionsToDeleteTask(timestamp)
+    rocksWriter.createAndExecuteTransactionsToDeleteTask(timestamp)
 
     result
   }

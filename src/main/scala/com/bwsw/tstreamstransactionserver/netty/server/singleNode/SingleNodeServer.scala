@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server
+package com.bwsw.tstreamstransactionserver.netty.server.singleNode
 
 import java.util
 import java.util.concurrent.atomic.AtomicBoolean
@@ -26,10 +26,11 @@ import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitL
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
+import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
-import com.bwsw.tstreamstransactionserver.netty.server.storage.{AllInOneRockStorage, RocksStorage}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
@@ -146,13 +147,13 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       zkStreamRepository
     )
 
-  private val rocksWriter = new RocksWriter(
+  val rocksWriter = new RocksWriter(
     rocksStorage,
     lastTransactionStreamPartition,
     transactionDataServiceImpl
   )
 
-  private val rocksReader = new RocksReader(
+  val rocksReader = new RocksReader(
     rocksStorage,
     lastTransactionStreamPartition,
     transactionDataServiceImpl
@@ -202,7 +203,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   val berkeleyWriter = new CommitLogToRocksWriter(
     rocksDBCommitLog,
     commitLogQueue,
-    transactionServer,
+    rocksWriter,
     commitLogOptions.incompleteReadPolicy
   )
 

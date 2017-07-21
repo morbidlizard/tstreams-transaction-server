@@ -6,7 +6,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 import org.slf4j.{Logger, LoggerFactory}
 
 object BigCommit {
-  val bookkeeperKey = "key".getBytes()
+  val bookkeeperKey: Array[Byte] = "key".getBytes()
+  val commitLogKey: Array[Byte] = "file".getBytes()
 }
 
 

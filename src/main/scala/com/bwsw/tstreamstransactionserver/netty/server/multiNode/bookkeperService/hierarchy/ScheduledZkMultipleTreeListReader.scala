@@ -1,18 +1,27 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTreeListReader,
-                                        transactionServer: TransactionServer)
+                                        rocksReader: RocksReader,
+                                        rocksWriter: RocksWriter)
   extends Runnable
 {
+
+  private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit = {
+    val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
+    new BigCommit(rocksWriter, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
+  }
+
+
   private def putConsumerTransaction(consumerRecords: java.util.Map[ConsumerTransactionKey, ConsumerTransactionRecord],
                                      consumerTransactionRecord: ConsumerTransactionRecord): Unit = {
     Option(
@@ -55,7 +64,7 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
   }
 
   def processAndPersistRecords(): PersistedCommitAndMoveToNextRecordsInfo = {
-    val ledgerRecordIDs = transactionServer
+    val ledgerRecordIDs = rocksReader
       .getLastProcessedLedgersAndRecordIDs
       .getOrElse(Array.empty[LedgerIDAndItsLastRecordID])
 
@@ -71,8 +80,7 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
     }
     else
     {
-      val bigCommit = transactionServer
-        .getBigCommit(ledgerIDsAndTheirLastRecordIDs)
+      val bigCommit = getBigCommit(ledgerIDsAndTheirLastRecordIDs)
 
       val recordsByType = records.groupBy(record => record.recordType)
 

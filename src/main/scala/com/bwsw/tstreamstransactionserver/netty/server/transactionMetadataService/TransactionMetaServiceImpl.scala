@@ -33,7 +33,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 
-class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
+class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
                                  lastTransactionStreamPartition: LastTransactionStreamPartition,
                                  consumerService: ConsumerServiceImpl)
   extends TransactionStateHandler
@@ -44,9 +44,9 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private val producerTransactionsDatabase =
-    rocksMetaServiceDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
+    rocksDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
   private val producerTransactionsWithOpenedStateDatabase =
-    rocksMetaServiceDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
+    rocksDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
 
   private def fillOpenedTransactionsRAMTable: com.google.common.cache.Cache[ProducerTransactionKey, ProducerTransactionValue] = {
     if (logger.isDebugEnabled)
@@ -235,51 +235,6 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
     notifications
   }
 
-
-  private val commitLogDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.COMMIT_LOG_STORE)
-  private[server] final def getLastProcessedCommitLogFileID: Option[Long] = {
-    val iterator = commitLogDatabase.iterator
-    iterator.seekToLast()
-
-    val id = if (iterator.isValid)
-      Some(CommitLogKey.fromByteArray(iterator.key()).id)
-    else
-      None
-
-    iterator.close()
-    id
-  }
-
-//  private[server] final def getProcessedCommitLogFiles: ArrayBuffer[Long] = {
-//    val processedCommitLogFiles = scala.collection.mutable.ArrayBuffer[Long]()
-//
-//    val iterator = commitLogDatabase.iterator
-//    iterator.seekToFirst()
-//
-//    while (iterator.isValid) {
-//      processedCommitLogFiles += CommitLogKey.fromByteArray(iterator.key()).id
-//      iterator.next()
-//    }
-//    iterator.close()
-//
-//    processedCommitLogFiles
-//  }
-
-  private val bookkeeperLogDatabase = rocksMetaServiceDB.getDatabase(RocksStorage.BOOKKEEPER_LOG_STORE)
-  private[server] final def getLastProcessedLedgerAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] = {
-    val iterator = bookkeeperLogDatabase.iterator
-    iterator.seek(BigCommit.bookkeeperKey)
-
-    val records = if (iterator.isValid)
-      Some(MetadataRecord.fromByteArray(iterator.value()).records)
-    else
-      None
-
-    iterator.close()
-    records
-  }
-
-
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
     val lastTransaction = getLastTransactionIDAndCheckpointedID(streamID, partition)
     if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
@@ -297,17 +252,6 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
       }
     }
   }
-
-//  final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] = {
-//    val result = getLastTransactionIDAndCheckpointedID(streamID, partition) match {
-//      case Some(last) => last.checkpointed match {
-//        case Some(checkpointed) => Some(checkpointed.id)
-//        case None => None
-//      }
-//      case None => None
-//    }
-//    result
-//  }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
   def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =
@@ -396,7 +340,7 @@ class TransactionMetaServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager,
 
     if (logger.isDebugEnabled)
       logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
-    val batch = rocksMetaServiceDB.newBatch
+    val batch = rocksDB.newBatch
 
     val iterator = producerTransactionsWithOpenedStateDatabase.iterator
     iterator.seekToFirst()

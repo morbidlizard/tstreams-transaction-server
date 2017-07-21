@@ -25,7 +25,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.streamService
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRepository
 import org.apache.curator.framework.CuratorFramework
 
-final class ZookeeperStreamRepository(client: CuratorFramework, path: String)
+final class ZookeeperStreamRepository(client: CuratorFramework,
+                                      path: String)
   extends StreamRepository {
 
   private val streamCache =

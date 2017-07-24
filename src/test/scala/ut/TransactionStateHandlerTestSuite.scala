@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
 
 class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with BeforeAndAfterAll {
   //arrange
-  val transactionStateHandler = new TransactionStateHandler {}
+  val transactionStateHandler = TransactionStateHandler
   val ts = 640836800000L
   val openedTTL = 2
   val quantity = -1

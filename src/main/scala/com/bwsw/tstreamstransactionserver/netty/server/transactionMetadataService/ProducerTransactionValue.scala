@@ -23,8 +23,7 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 case class ProducerTransactionValue(state: TransactionStates,
                                     quantity: Int,
                                     ttl: Long,
-                                    timestamp: Long
-                                   )
+                                    timestamp: Long)
   extends Ordered[ProducerTransactionValue]
 {
 

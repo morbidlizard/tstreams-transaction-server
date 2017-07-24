@@ -22,8 +22,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 case class ProducerTransactionKey(stream: Int,
                                   partition: Int,
-                                  transactionID: Long
-                                 )
+                                  transactionID: Long)
   extends Ordered[ProducerTransactionKey]
 {
 

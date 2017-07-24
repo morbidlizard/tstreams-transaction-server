@@ -25,7 +25,7 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
 
 import scala.annotation.tailrec
 
-trait TransactionStateHandler {
+object TransactionStateHandler {
   private[transactionMetadataService] def transitProducerTransactionToInvalidState(txn: ProducerTransactionRecord) = {
     ProducerTransactionRecord(
       ProducerTransactionKey(txn.stream, txn.partition, txn.transactionID),

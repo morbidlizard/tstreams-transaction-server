@@ -102,9 +102,6 @@ class TransactionServer(authOpts: AuthenticationOptions,
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): TransactionInfo =
     rocksReader.getTransaction(streamID, partition, transaction)
 
-  final def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] =
-    rocksReader.getOpenedTransaction(key)
-
   final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] =
     rocksReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
       .flatMap(_.checkpointed.map(txn => txn.id)).orElse(Some(-1L))

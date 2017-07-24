@@ -34,10 +34,9 @@ class RocksReader(rocksStorage: AllInOneRockStorage,
   private val transactionIDService =
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
-  private val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
+  private val transactionMetaServiceImpl = new TransactionMetaServiceReaderImpl(
     rocksStorage.getRocksStorage,
-    lastTransactionStreamPartition,
-    consumerServiceImpl
+    lastTransactionStreamPartition
   )
 
   final def getLastProcessedCommitLogFileID: Long =
@@ -54,9 +53,6 @@ class RocksReader(rocksStorage: AllInOneRockStorage,
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): TransactionInfo =
     transactionMetaServiceImpl.getTransaction(streamID, partition, transaction)
-
-  final def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] =
-    transactionMetaServiceImpl.getOpenedTransaction(key)
 
   final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] =
     lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)

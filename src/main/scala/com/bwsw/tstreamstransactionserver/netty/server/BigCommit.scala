@@ -28,7 +28,7 @@ class BigCommit(rocksWriter: RocksWriter,
 
   def putProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]): Unit = {
     if (logger.isDebugEnabled) {
-      logger.debug(s"[batch ${batch.id}] " +
+      logger.debug(s"[batch] " +
         s"Adding producer transactions to commit.")
     }
 
@@ -41,7 +41,7 @@ class BigCommit(rocksWriter: RocksWriter,
 
   def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord]): Unit = {
     if (logger.isDebugEnabled) {
-      logger.debug(s"[batch ${batch.id}] " +
+      logger.debug(s"[batch] " +
         s"Adding consumer transactions to commit.")
     }
 
@@ -66,7 +66,7 @@ class BigCommit(rocksWriter: RocksWriter,
     )
 
     if (logger.isDebugEnabled) {
-      logger.debug(s"[batch ${batch.id}] " +
+      logger.debug(s"[batch] " +
         s"Persisting producer transactions data on stream: $streamID, partition: $partition, transaction: $transaction, " +
         s"from: $from.")
     }
@@ -77,7 +77,7 @@ class BigCommit(rocksWriter: RocksWriter,
   def commit(): Boolean = {
     batch.put(databaseIndex, key, value)
     if (batch.write()) {
-      if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
+      if (logger.isDebugEnabled) logger.debug(s"commit is successfully fixed.")
       notifications foreach (notification => notification(()))
       true
     } else {

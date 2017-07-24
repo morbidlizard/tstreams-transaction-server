@@ -209,6 +209,8 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
     iterator.close()
 
     val result = bigCommit.commit()
+    rocksWriter.clearProducerTransactionCache()
+
 
     val timestamp = lastTransactionTimestamp.getOrElse(System.currentTimeMillis())
     rocksWriter.createAndExecuteTransactionsToDeleteTask(timestamp)

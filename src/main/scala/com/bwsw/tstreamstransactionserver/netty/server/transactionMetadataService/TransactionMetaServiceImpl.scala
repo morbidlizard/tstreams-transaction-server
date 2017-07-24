@@ -24,6 +24,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.annotation.tailrec
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
@@ -140,26 +141,6 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
   }
 
 
-//  @tailrec
-//  private final def transiteTransactionToFinalState(records: List[ProducerTransactionRecord],
-//                                                    currentState: ProducerTransactionState): ProducerTransactionState = {
-//    records match {
-//      case Nil =>
-//        currentState
-//      case head :: tail =>
-//        val newState = currentState.handle(
-//          ProducerTransactionState(head)
-//        )
-//        if (newState.isInstanceOf[UndefinedTransactionState]) {
-//          currentState
-//        }
-//        else {
-//          transiteTransactionToFinalState(tail, newState)
-//        }
-//    }
-//  }
-
-
   def putTransactions(transactions: Seq[ProducerTransactionRecord],
                       batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
 
@@ -175,42 +156,28 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
       //retrieving an opened transaction from opened transaction database if it exist
       val openedTransactionOpt = producerStateMachine.getOpenedTransaction(key)
 
-      openedTransactionOpt match {
-        case Some(data) =>
-          val persistedProducerTransactionRocks = ProducerTransactionRecord(key, data)
-          if (logger.isDebugEnabled)
-            logger.debug(
-              s"Transiting producer transaction on stream: ${persistedProducerTransactionRocks.stream}" +
-                s"partition ${persistedProducerTransactionRocks.partition}, " +
-                s"transaction ${persistedProducerTransactionRocks.transactionID} " +
-                s"with state ${persistedProducerTransactionRocks.state} to new state"
-            )
+      val orderedTxns = txns.sorted
+      val transactionsToProcess = openedTransactionOpt
+        .map(data =>
+          ProducerTransactionRecord(key, data) +: orderedTxns
+        )
+        .getOrElse(orderedTxns)
 
-
-          val producerTransaction =
-            TransactionStateHandler.transitProducerTransactionToNewState(persistedProducerTransactionRocks, txns)
-
-          producerTransaction.foreach { transaction =>
+      val finalStateOpt = ProducerTransactionState
+        .transiteTransactionsToFinalState(
+          transactionsToProcess,
+          transaction => {
             if (notifier.areThereAnyProducerNotifies)
-              notifications += notifier.tryCompleteProducerNotify(transaction)
-
-            putTransactionToAllAndOpenedTables(transaction, batch)
+            notifications += notifier.tryCompleteProducerNotify(transaction)
           }
+        )
 
-        case None =>
-          if (logger.isDebugEnabled)
-            logger.debug(s"Trying to put new producer transaction on stream ${key.stream}.")
-
-          val producerTransaction =
-            TransactionStateHandler.transitProducerTransactionToNewState(txns)
-
-          producerTransaction.foreach { transaction =>
-            if (notifier.areThereAnyProducerNotifies)
-              notifications += notifier.tryCompleteProducerNotify(transaction)
-
-            putTransactionToAllAndOpenedTables(transaction, batch)
-          }
-      }
+      finalStateOpt
+        .filter(ProducerTransactionState.checkFinalStateOnCorrectness)
+        .foreach { finalState =>
+          val transaction = finalState.producerTransactionRecord
+          putTransactionToAllAndOpenedTables(transaction, batch)
+        }
     }
 
     notifications

@@ -29,22 +29,27 @@ class ProducerTransactionStateNotifier {
   private implicit lazy val notifierProducerContext: ExecutionContext =
     scala.concurrent.ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
   private val producerNotifies =
-    new java.util.concurrent.ConcurrentHashMap[Long, ProducerTransactionNotification](0)
+    scala.collection.concurrent.TrieMap.empty[Long, ProducerTransactionNotification]
   private lazy val producerSeq =
     new AtomicLong(0L)
 
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean,
                                                func: => Unit): Long = {
-    val producerNotification = new ProducerTransactionNotification(onNotificationCompleted, scala.concurrent.Promise[Unit]())
+    val producerNotification =
+      ProducerTransactionNotification(
+        onNotificationCompleted,
+        scala.concurrent.Promise[Unit]()
+      )
+
     val id = producerSeq.getAndIncrement()
 
     producerNotifies.put(id, producerNotification)
 
-    producerNotification.notificationPromise.future.map { onCompleteSuccessfully =>
-      producerNotifies.remove(id)
-      func
-    }
+    producerNotification
+      .notificationPromise
+      .future.map { _ => func}
+
     id
   }
 
@@ -52,14 +57,21 @@ class ProducerTransactionStateNotifier {
     producerNotifies.remove(id) != null
 
   private[transactionMetadataService] final def areThereAnyProducerNotifies =
-    !producerNotifies.isEmpty
+    producerNotifies.nonEmpty
 
-  private[transactionMetadataService] final def tryCompleteProducerNotify: ProducerTransactionRecord => Unit => Unit = { producerTransactionRecord =>
-    _ =>
-      producerNotifies.values().forEach(notify =>
-        if (notify.notifyOn(producerTransactionRecord)) notify.notificationPromise.trySuccess(value = Unit))
+  private[transactionMetadataService] final def tryCompleteProducerNotify: ProducerTransactionRecord => Unit => Unit = {
+    producerTransactionRecord =>
+      _ =>
+        producerNotifies
+          .find { case (_, notify) =>
+            notify.notifyOn(producerTransactionRecord)
+          }
+          .foreach { case (id, notify) =>
+            notify.notificationPromise.trySuccess(value = Unit)
+            producerNotifies.remove(id, notify)
+          }
   }
 }
 
-private class ProducerTransactionNotification(val notifyOn: ProducerTransaction => Boolean,
-                                              val notificationPromise: scala.concurrent.Promise[Unit])
+private case class ProducerTransactionNotification(notifyOn: ProducerTransaction => Boolean,
+                                                   notificationPromise: scala.concurrent.Promise[Unit])

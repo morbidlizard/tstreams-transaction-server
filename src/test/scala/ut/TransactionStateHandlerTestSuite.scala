@@ -1,7 +1,7 @@
 package ut
 
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.TransactionStateHandler
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{ProducerTransactionState, TransactionStateHandler}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
@@ -20,6 +20,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     //arrange
     val producerTransaction = createProducerTransaction(Checkpointed, ts)
 
+
     //act and assert
     transactionStateHandler
       .transitProducerTransactionToNewState(Seq(producerTransaction)) shouldBe None
@@ -29,6 +30,8 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     "It should return None (due an invalid transition of state machine)" in {
     //arrange
     val producerTransaction = createProducerTransaction(Invalid, ts)
+
+
 
     //act and assert
     transactionStateHandler
@@ -131,6 +134,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     val checkpointedProducerTransaction = createProducerTransaction(Checkpointed, ts + 2)
     val cancelProducerTransaction = createProducerTransaction(Cancel, ts + 3)
 
+
     //act
     val finalState = transactionStateHandler.transitProducerTransactionToNewState(
       Seq(openedProducerTransaction,
@@ -150,6 +154,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     val updatedProducerTransaction = createProducerTransaction(Updated, ts + 1)
     val checkpointedProducerTransaction = createProducerTransaction(Checkpointed, ts + 2)
     val cancelProducerTransaction = createProducerTransaction(Invalid, ts + 3)
+
 
     //act
     val finalState = transactionStateHandler.transitProducerTransactionToNewState(
@@ -208,6 +213,7 @@ class TransactionStateHandlerTestSuite extends FlatSpec with Matchers with Befor
     val updatedProducerTransaction1 = createProducerTransaction(Updated, ts + 1)
     val updatedProducerTransaction2 = createProducerTransaction(Updated, ts + 2)
     val cancelProducerTransaction = createProducerTransaction(Cancel, ts + 3)
+
 
     //act
     val finalState = transactionStateHandler.transitProducerTransactionToNewState(

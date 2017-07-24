@@ -3,15 +3,17 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord, ProducerTransactionValue}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Cancel, Checkpointed, Invalid, Opened, Updated}
 
+import scala.annotation.tailrec
+
 
 object ProducerTransactionState {
   def apply(producerTransactionRecord: ProducerTransactionRecord): ProducerTransactionState = {
     producerTransactionRecord.state match {
-      case Opened  =>
+      case Opened =>
         new OpenedTransactionState(producerTransactionRecord)
       case Updated =>
         new UpdatedTransactionState(producerTransactionRecord)
-      case Cancel  =>
+      case Cancel =>
         new CanceledTransactionState(producerTransactionRecord)
       case Invalid =>
         new InvalidTransactionState(producerTransactionRecord)
@@ -20,6 +22,56 @@ object ProducerTransactionState {
       case _ =>
         new UndefinedTransactionState(producerTransactionRecord)
     }
+  }
+
+  def checkFinalStateOnCorrectness(producerTransactionState: ProducerTransactionState): Boolean = {
+    producerTransactionState match {
+      case _: OpenedTransactionState =>
+        true
+      case _: InvalidTransactionState =>
+        true
+      case _: CheckpointedTransactionState =>
+        true
+      case _ =>
+        false
+    }
+  }
+
+  final def transiteTransactionsToFinalState(records: Seq[ProducerTransactionRecord],
+                                             onTransitionDo: ProducerTransactionRecord => Unit): Option[ProducerTransactionState] = {
+    @tailrec
+    def go(records: List[ProducerTransactionRecord],
+           currentState: ProducerTransactionState): ProducerTransactionState = {
+      records match {
+        case Nil =>
+          onTransitionDo(currentState.producerTransactionRecord)
+          currentState
+        case head :: tail =>
+          val newState = currentState.handle(
+            ProducerTransactionState(head)
+          )
+          onTransitionDo(newState.producerTransactionRecord)
+          if (newState == currentState ||
+            newState.isInstanceOf[UndefinedTransactionState]) {
+            currentState
+          }
+          else {
+            go(tail, newState)
+          }
+      }
+    }
+
+    val recordsLst =
+      records.toList
+    recordsLst
+      .headOption
+      .map(rootRecord =>
+        go(recordsLst.tail, ProducerTransactionState(rootRecord))
+      )
+  }
+
+  final def transiteTransactionsToFinalState(records: Seq[ProducerTransactionRecord]): Option[ProducerTransactionState] = {
+    transiteTransactionsToFinalState(records, _ => {})
   }
 }
 
@@ -48,6 +100,9 @@ class OpenedTransactionState(producerTransactionRecord: ProducerTransactionRecor
 
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
     producerTransactionState match {
+      case _: OpenedTransactionState =>
+        this
+
       case that: UpdatedTransactionState =>
         val thatTxn = that.producerTransactionRecord
 
@@ -100,19 +155,13 @@ class CanceledTransactionState(producerTransactionRecord: ProducerTransactionRec
 class InvalidTransactionState(producerTransactionRecord: ProducerTransactionRecord)
   extends ProducerTransactionState(producerTransactionRecord){
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
-    producerTransactionState match {
-      case that =>
-        new UndefinedTransactionState(that.producerTransactionRecord)
-    }
+    this
 }
 
 class CheckpointedTransactionState(producerTransactionRecord: ProducerTransactionRecord)
   extends ProducerTransactionState(producerTransactionRecord){
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
-    producerTransactionState match {
-      case that =>
-        new UndefinedTransactionState(that.producerTransactionRecord)
-    }
+    this
 }
 
 class UndefinedTransactionState(producerTransactionRecord: ProducerTransactionRecord)

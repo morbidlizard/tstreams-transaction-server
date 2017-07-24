@@ -34,8 +34,12 @@ class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager,
   }
 
   private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
-  def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo =
-  {
+  def scanTransactions(streamID: Int,
+                       partition: Int,
+                       from: Long,
+                       to: Long,
+                       count: Int,
+                       states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo = {
     val (lastOpenedTransactionID, toTransactionID) =
       lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition) match {
       case Some(lastTransaction) => lastTransaction.opened.id match {

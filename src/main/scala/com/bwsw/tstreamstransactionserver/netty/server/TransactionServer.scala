@@ -28,7 +28,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.storage.{AllInOneRockStorage, RocksStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionReader}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc

@@ -8,13 +8,11 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerStateMachine, ProducerTransactionRecord, TransactionMetaServiceImpl}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 
 import scala.collection.mutable.ListBuffer
 
 class RocksWriter(rocksStorage: AllInOneRockStorage,
-                  lastTransactionStreamPartition: LastTransactionStreamPartition,
                   transactionDataService: TransactionDataServiceImpl) {
 
   private val consumerServiceImpl = new ConsumerServiceImpl(
@@ -26,7 +24,6 @@ class RocksWriter(rocksStorage: AllInOneRockStorage,
 
   private val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
     rocksStorage.getRocksStorage,
-    lastTransactionStreamPartition,
     producerStateMachine
   )
 

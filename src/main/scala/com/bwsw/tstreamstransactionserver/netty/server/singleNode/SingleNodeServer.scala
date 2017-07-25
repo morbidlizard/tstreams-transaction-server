@@ -33,7 +33,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRou
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
@@ -132,11 +132,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       rocksStorageOpts
     )
 
-  private val lastTransactionStreamPartition =
-    new LastTransactionStreamPartition(
-      rocksStorage.getRocksStorage
-    )
-
   private val zkStreamRepository =
     zk.streamRepository(s"${storageOpts.streamZookeeperDirectory}")
 
@@ -149,13 +144,11 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
 
   val rocksWriter = new RocksWriter(
     rocksStorage,
-    lastTransactionStreamPartition,
     transactionDataServiceImpl
   )
 
   val rocksReader = new RocksReader(
     rocksStorage,
-    lastTransactionStreamPartition,
     transactionDataServiceImpl
   )
 

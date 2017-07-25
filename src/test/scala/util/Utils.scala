@@ -12,7 +12,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepo
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
@@ -177,7 +177,7 @@ object Utils {
       )
 
     val lastTransactionStreamPartition =
-      new LastTransactionStreamPartition(
+      new LastTransactionReader(
         rocksStorage.getRocksStorage
       )
 
@@ -197,14 +197,12 @@ object Utils {
     val rocksWriter =
       new RocksWriter(
         rocksStorage,
-        lastTransactionStreamPartition,
         transactionDataServiceImpl
       )
 
     val rocksReader =
       new RocksReader(
         rocksStorage,
-        lastTransactionStreamPartition,
         transactionDataServiceImpl
       )
 

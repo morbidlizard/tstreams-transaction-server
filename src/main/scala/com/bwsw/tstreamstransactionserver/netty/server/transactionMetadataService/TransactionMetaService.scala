@@ -2,10 +2,10 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 
 abstract class TransactionMetaService(rocksDB: KeyValueDatabaseManager,
-                                      lastTransactionStreamPartition: LastTransactionStreamPartition,
+                                      lastTransactionStreamPartition: LastTransactionReader,
                                       consumerService: ConsumerServiceImpl)
 {
 

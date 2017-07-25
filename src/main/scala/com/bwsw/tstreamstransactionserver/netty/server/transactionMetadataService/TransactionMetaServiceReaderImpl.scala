@@ -2,19 +2,19 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.rpc.{ScanTransactionsInfo, TransactionInfo, TransactionStates}
 
 import scala.collection.mutable.ArrayBuffer
 
 class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager,
-                                       lastTransactionStreamPartition: LastTransactionStreamPartition) {
+                                       lastTransactionReader: LastTransactionReader) {
 
   private val producerTransactionsDatabase =
     rocksDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
-    val lastTransaction = lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)
+    val lastTransaction = lastTransactionReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
     if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
       TransactionInfo(exists = false, None)
     } else {
@@ -41,7 +41,7 @@ class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager,
                        count: Int,
                        states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo = {
     val (lastOpenedTransactionID, toTransactionID) =
-      lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition) match {
+      lastTransactionReader.getLastTransactionIDAndCheckpointedID(streamID, partition) match {
       case Some(lastTransaction) => lastTransaction.opened.id match {
         case lt if lt < from => (lt, from - 1L)
         case lt if from <= lt && lt < to => (lt, lt)

@@ -9,7 +9,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFramework
@@ -27,11 +27,6 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
       rocksStorageOpts
     )
 
-  private val lastTransactionStreamPartition =
-    new LastTransactionStreamPartition(
-      rocksStorage.getRocksStorage
-    )
-
   private val streamRepository =
     new ZookeeperStreamRepository(zkClient, s"${storageOptions.streamZookeeperDirectory}")
 
@@ -44,13 +39,11 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
 
   val rocksWriter = new RocksWriter(
     rocksStorage,
-    lastTransactionStreamPartition,
     transactionDataServiceImpl
   )
 
   val rocksReader = new RocksReader(
     rocksStorage,
-    lastTransactionStreamPartition,
     transactionDataServiceImpl
   )
 

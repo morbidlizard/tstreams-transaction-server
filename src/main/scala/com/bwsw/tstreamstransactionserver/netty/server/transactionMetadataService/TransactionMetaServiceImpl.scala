@@ -30,10 +30,9 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
-                                 lastTransactionStreamPartition: LastTransactionStreamPartition,
                                  producerStateMachine: ProducerStateMachine)
 {
-  import lastTransactionStreamPartition._
+  import producerStateMachine._
 
   val notifier = new ProducerTransactionStateNotifier()
 
@@ -120,7 +119,7 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
     val binaryTxn = producerTransactionRecord.producerTransaction.toByteArray
     val binaryKey = producerTransactionRecord.key.toByteArray
 
-    producerStateMachine.updateOpenedTransaction(
+    producerStateMachine.updateProducerTransaction(
       producerTransactionRecord.key,
       producerTransactionRecord.producerTransaction
     )
@@ -152,9 +151,9 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
     val groupedProducerTransactions =
       groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions)
 
-    groupedProducerTransactions foreach { case (key, txns) =>
+    groupedProducerTransactions.foreach { case (key, txns) =>
       //retrieving an opened transaction from opened transaction database if it exist
-      val openedTransactionOpt = producerStateMachine.getOpenedTransaction(key)
+      val openedTransactionOpt = producerStateMachine.getProducerTransaction(key)
 
       val orderedTxns = txns.sorted
       val transactionsToProcess = openedTransactionOpt
@@ -168,12 +167,12 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
           transactionsToProcess,
           transaction => {
             if (notifier.areThereAnyProducerNotifies)
-            notifications += notifier.tryCompleteProducerNotify(transaction)
+              notifications += notifier.tryCompleteProducerNotify(transaction)
           }
         )
 
       finalStateOpt
-        .filter(ProducerTransactionState.checkFinalStateOnCorrectness)
+        .filter(ProducerTransactionState.checkFinalStateBeStoredInDB)
         .foreach { finalState =>
           val transaction = finalState.producerTransactionRecord
           putTransactionToAllAndOpenedTables(transaction, batch)

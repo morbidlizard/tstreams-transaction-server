@@ -24,7 +24,7 @@ object ProducerTransactionState {
     }
   }
 
-  def checkFinalStateOnCorrectness(producerTransactionState: ProducerTransactionState): Boolean = {
+  def checkFinalStateBeStoredInDB(producerTransactionState: ProducerTransactionState): Boolean = {
     producerTransactionState match {
       case _: OpenedTransactionState =>
         true

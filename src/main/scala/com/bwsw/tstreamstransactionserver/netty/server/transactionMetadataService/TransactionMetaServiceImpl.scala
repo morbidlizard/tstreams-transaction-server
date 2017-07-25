@@ -24,23 +24,17 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.annotation.tailrec
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.ArrayBuffer
 
 
 
 class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
-                                 producerStateMachine: ProducerStateMachine)
+                                 producerStateMachineCache: ProducerStateMachineCache)
 {
-  import producerStateMachine._
+  import producerStateMachineCache._
 
-  val notifier = new ProducerTransactionStateNotifier()
-
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-
-  private val producerTransactionsWithOpenedStateDatabase =
-    rocksDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
-
+  private val logger: Logger =
+    LoggerFactory.getLogger(this.getClass)
 
   private final def selectInOrderProducerTransactions(transactions: Seq[ProducerTransactionRecord],
                                                                        batch: KeyValueDatabaseBatch) = {
@@ -119,7 +113,7 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
     val binaryTxn = producerTransactionRecord.producerTransaction.toByteArray
     val binaryKey = producerTransactionRecord.key.toByteArray
 
-    producerStateMachine.updateProducerTransaction(
+    producerStateMachineCache.updateProducerTransaction(
       producerTransactionRecord.key,
       producerTransactionRecord.producerTransaction
     )
@@ -139,12 +133,12 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
     )
   }
 
+  protected def onProducerTransactionStateChangeDo: ProducerTransactionRecord => Unit =
+    _ => {}
+
 
   def putTransactions(transactions: Seq[ProducerTransactionRecord],
-                      batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
-
-    val notifications = new scala.collection.mutable.ListBuffer[Unit => Unit]()
-
+                      batch: KeyValueDatabaseBatch): Unit = {
     val producerTransactions =
       selectInOrderProducerTransactions(transactions, batch)
 
@@ -153,7 +147,7 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
 
     groupedProducerTransactions.foreach { case (key, txns) =>
       //retrieving an opened transaction from opened transaction database if it exist
-      val openedTransactionOpt = producerStateMachine.getProducerTransaction(key)
+      val openedTransactionOpt = producerStateMachineCache.getProducerTransaction(key)
 
       val orderedTxns = txns.sorted
       val transactionsToProcess = openedTransactionOpt
@@ -165,10 +159,7 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
       val finalStateOpt = ProducerTransactionState
         .transiteTransactionsToFinalState(
           transactionsToProcess,
-          transaction => {
-            if (notifier.areThereAnyProducerNotifies)
-              notifications += notifier.tryCompleteProducerNotify(transaction)
-          }
+          onProducerTransactionStateChangeDo
         )
 
       finalStateOpt
@@ -178,55 +169,5 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
           putTransactionToAllAndOpenedTables(transaction, batch)
         }
     }
-
-    notifications
-  }
-
-  def transactionsToDeleteTask(timestampToDeleteTransactions: Long) {
-    def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
-      scala.math.abs(
-        producerTransactionWithoutKey.timestamp +
-          producerTransactionWithoutKey.ttl
-      ) <= timestampToDeleteTransactions
-    }
-
-
-    if (logger.isDebugEnabled)
-      logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
-    val batch = rocksDB.newBatch
-
-    val iterator = producerTransactionsWithOpenedStateDatabase.iterator
-    iterator.seekToFirst()
-
-    val notifications = new ListBuffer[Unit => Unit]()
-    while (iterator.isValid) {
-      val producerTransactionValue = ProducerTransactionValue.fromByteArray(iterator.value())
-      if (doesProducerTransactionExpired(producerTransactionValue)) {
-        if (logger.isDebugEnabled)
-          logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
-
-        val producerTransactionValueTimestampUpdated = producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
-        val key = iterator.key()
-        val producerTransactionKey = ProducerTransactionKey.fromByteArray(key)
-
-        val canceledTransactionRecordDueExpiration =
-          TransactionStateHandler.transitProducerTransactionToInvalidState(ProducerTransactionRecord(producerTransactionKey, producerTransactionValueTimestampUpdated))
-        if (notifier.areThereAnyProducerNotifies)
-          notifications += notifier.tryCompleteProducerNotify(ProducerTransactionRecord(producerTransactionKey, canceledTransactionRecordDueExpiration.producerTransaction))
-
-        batch.put(RocksStorage.TRANSACTION_ALL_STORE, key, canceledTransactionRecordDueExpiration.producerTransaction.toByteArray)
-
-        batch.remove(RocksStorage.TRANSACTION_OPEN_STORE, key)
-      }
-      iterator.next()
-    }
-    iterator.close()
-    batch.write()
-
-    notifications.foreach(notification => notification(()))
-  }
-
-  final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {
-    transactionsToDeleteTask(timestampToDeleteTransactions)
   }
 }

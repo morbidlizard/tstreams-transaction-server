@@ -19,7 +19,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
 
-case class KeyStreamPartition(stream: Int, partition: Int) {
+case class KeyStreamPartition(stream: Int,
+                              partition: Int) {
 
   def toByteArray: Array[Byte] = {
     val buffer = java.nio.ByteBuffer.allocate(

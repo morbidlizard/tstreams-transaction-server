@@ -1,0 +1,33 @@
+package com.bwsw.tstreamstransactionserver.netty.server.consumerService
+
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
+import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import org.slf4j.LoggerFactory
+
+class ConsumerServiceReadImpl(rocksMetaServiceDB: KeyValueDatabaseManager) {
+  private val logger =
+    LoggerFactory.getLogger(this.getClass)
+  private val consumerDatabase =
+    rocksMetaServiceDB.getDatabase(RocksStorage.CONSUMER_STORE)
+
+  def getConsumerState(name: String,
+                       streamID: Int,
+                       partition: Int): Long = {
+    val consumerTransactionKey =
+      ConsumerTransactionKey(name, streamID, partition).toByteArray
+    val consumerTransactionValue =
+      Option(consumerDatabase.get(consumerTransactionKey))
+
+    consumerTransactionValue.map(bytes =>
+      ConsumerTransactionValue.fromByteArray(bytes).transactionId
+    ).getOrElse {
+      if (logger.isDebugEnabled())
+        logger.debug(s"There is no checkpointed consumer transaction " +
+          s"on stream $name, " +
+          s"partition $partition " +
+          s"with name: $name. " +
+          s"Returning -1L")
+      -1L
+    }
+  }
+}

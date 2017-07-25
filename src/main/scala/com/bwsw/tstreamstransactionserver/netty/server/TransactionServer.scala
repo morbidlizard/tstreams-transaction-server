@@ -53,19 +53,6 @@ class TransactionServer(authOpts: AuthenticationOptions,
   private val transactionIDService =
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
-
-  final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
-    rocksWriter.notifyProducerTransactionCompleted(onNotificationCompleted, func)
-
-  final def removeProducerTransactionNotification(id: Long): Boolean =
-    rocksWriter.removeProducerTransactionNotification(id)
-
-  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
-    rocksWriter.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
-
-  final def removeConsumerTransactionNotification(id: Long): Boolean =
-    rocksWriter.removeConsumerTransactionNotification(id)
-
   final def getLastProcessedCommitLogFileID: Long =
     rocksReader.getLastProcessedCommitLogFileID
 
@@ -95,7 +82,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
     rocksWriter.putTransactionData(streamID, partition, transaction, data, from)
 
   final def putTransactions(transactions: Seq[ProducerTransactionRecord],
-                            batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
+                            batch: KeyValueDatabaseBatch) : Unit = {
     rocksWriter.putTransactions(transactions, batch)
   }
 
@@ -117,7 +104,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
   }
 
   final def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
-                                    batch: KeyValueDatabaseBatch): ListBuffer[(Unit) => Unit] = {
+                                    batch: KeyValueDatabaseBatch): Unit = {
     rocksWriter.putConsumersCheckpoints(consumerTransactions, batch)
   }
 

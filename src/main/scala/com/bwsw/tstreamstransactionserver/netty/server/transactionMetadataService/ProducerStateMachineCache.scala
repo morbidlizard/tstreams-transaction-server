@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 
 import scala.collection.mutable
 
-private[server] final class ProducerStateMachine(rocksDB: KeyValueDatabaseManager) {
+private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseManager) {
   private val producerTransactionsWithOpenedStateDatabase =
     rocksDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
 

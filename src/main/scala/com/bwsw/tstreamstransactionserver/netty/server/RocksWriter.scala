@@ -7,44 +7,33 @@ import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{Consumer
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerStateMachine, ProducerTransactionRecord, TransactionMetaServiceImpl}
-import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
-
-import scala.collection.mutable.ListBuffer
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{Cleaner, ProducerStateMachineCache, ProducerTransactionRecord, TransactionMetaServiceImpl}
 
 class RocksWriter(rocksStorage: AllInOneRockStorage,
                   transactionDataService: TransactionDataServiceImpl) {
 
-  private val consumerServiceImpl = new ConsumerServiceImpl(
+  protected val consumerServiceImpl = new ConsumerServiceImpl(
     rocksStorage.getRocksStorage
   )
 
-  private val producerStateMachine =
-    new ProducerStateMachine(rocksStorage.getRocksStorage)
-
-  private val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
-    rocksStorage.getRocksStorage,
-    producerStateMachine
+  protected val cleaner = new Cleaner(
+    rocksStorage.getRocksStorage
   )
 
-  final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
-    transactionMetaServiceImpl.notifier.notifyProducerTransactionCompleted(onNotificationCompleted, func)
+  protected val producerStateMachineCache =
+    new ProducerStateMachineCache(rocksStorage.getRocksStorage)
 
-  final def removeProducerTransactionNotification(id: Long): Boolean =
-    transactionMetaServiceImpl.notifier.removeProducerTransactionNotification(id)
-
-  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
-    consumerServiceImpl.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
-
-  final def removeConsumerTransactionNotification(id: Long): Boolean =
-    consumerServiceImpl.removeConsumerTransactionNotification(id)
+  protected val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
+    rocksStorage.getRocksStorage,
+    producerStateMachineCache
+  )
 
   @throws[StreamDoesNotExist]
   final def putTransactionData(streamID: Int, partition: Int, transaction: Long, data: Seq[ByteBuffer], from: Int): Boolean =
     transactionDataService.putTransactionData(streamID, partition, transaction, data, from)
 
   final def putTransactions(transactions: Seq[ProducerTransactionRecord],
-                            batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
+                            batch: KeyValueDatabaseBatch): Unit = {
     transactionMetaServiceImpl.putTransactions(
       transactions,
       batch
@@ -52,20 +41,16 @@ class RocksWriter(rocksStorage: AllInOneRockStorage,
   }
 
   final def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
-                                    batch: KeyValueDatabaseBatch): ListBuffer[(Unit) => Unit] = {
+                                    batch: KeyValueDatabaseBatch): Unit = {
     consumerServiceImpl.putConsumersCheckpoints(consumerTransactions, batch)
-  }
-
-  final def getConsumerState(name: String, streamID: Int, partition: Int): Long = {
-    consumerServiceImpl.getConsumerState(name, streamID, partition)
   }
 
   final def getNewBatch: KeyValueDatabaseBatch =
     rocksStorage.newBatch
 
   final def createAndExecuteTransactionsToDeleteTask(timestamp: Long): Unit =
-    transactionMetaServiceImpl.createAndExecuteTransactionsToDeleteTask(timestamp)
+    cleaner.createAndExecuteTransactionsToDeleteTask(timestamp)
 
-  final def clearProducerTransactionCache(): Unit =
-    producerStateMachine.clear()
+  def clearProducerTransactionCache(): Unit =
+    producerStateMachineCache.clear()
 }

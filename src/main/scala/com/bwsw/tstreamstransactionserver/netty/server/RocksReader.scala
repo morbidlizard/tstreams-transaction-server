@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.nio.ByteBuffer
 
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerServiceReadImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
@@ -15,7 +15,7 @@ import scala.collection.Set
 class RocksReader(rocksStorage: AllInOneRockStorage,
                   transactionDataService: TransactionDataServiceImpl) {
 
-  private val consumerServiceImpl = new ConsumerServiceImpl(
+  private val consumerServiceImpl = new ConsumerServiceReadImpl(
     rocksStorage.getRocksStorage
   )
 
@@ -29,7 +29,6 @@ class RocksReader(rocksStorage: AllInOneRockStorage,
     rocksStorage.getRocksStorage
   )
 
-
   private val multiNodeCommitLogServiceImpl =
     new multiNode.commitLogService.CommitLogServiceImpl(
     rocksStorage.getRocksStorage
@@ -39,8 +38,7 @@ class RocksReader(rocksStorage: AllInOneRockStorage,
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
   private val transactionMetaServiceImpl = new TransactionMetaServiceReaderImpl(
-    rocksStorage.getRocksStorage,
-    lastTransactionReader
+    rocksStorage.getRocksStorage
   )
 
   final def getLastProcessedCommitLogFileID: Long =

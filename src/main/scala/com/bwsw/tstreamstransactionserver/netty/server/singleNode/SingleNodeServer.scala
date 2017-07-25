@@ -33,7 +33,6 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRou
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
@@ -142,9 +141,14 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       zkStreamRepository
     )
 
-  val rocksWriter = new RocksWriter(
+  val producerNotifier = new StateNotifier[ProducerTransaction]
+  val consumerNotifier = new StateNotifier[ConsumerTransaction]
+
+  val rocksWriter = new TestRocksWriter(
     rocksStorage,
-    transactionDataServiceImpl
+    transactionDataServiceImpl,
+    producerNotifier,
+    consumerNotifier
   )
 
   val rocksReader = new RocksReader(
@@ -161,17 +165,17 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
 
   final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean,
                                                func: => Unit): Long =
-    transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
+    producerNotifier.leaveRequest(onNotificationCompleted, func)
 
   final def removeNotification(id: Long): Boolean =
-    transactionServer.removeProducerTransactionNotification(id)
+    producerNotifier.removeRequest(id)
 
   final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean,
                                                func: => Unit): Long =
-    transactionServer.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
+    consumerNotifier.leaveRequest(onNotificationCompleted, func)
 
   final def removeConsumerNotification(id: Long): Boolean =
-    transactionServer.removeConsumerTransactionNotification(id)
+    consumerNotifier.removeRequest(id)
 
 
   private val rocksDBCommitLog = new RocksDbConnection(

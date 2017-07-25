@@ -7,11 +7,13 @@ import com.bwsw.tstreamstransactionserver.rpc.{ScanTransactionsInfo, Transaction
 
 import scala.collection.mutable.ArrayBuffer
 
-class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager,
-                                       lastTransactionReader: LastTransactionReader) {
+class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager) {
 
   private val producerTransactionsDatabase =
     rocksDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
+
+  private val lastTransactionReader =
+    new LastTransactionReader(rocksDB)
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
     val lastTransaction = lastTransactionReader.getLastTransactionIDAndCheckpointedID(streamID, partition)

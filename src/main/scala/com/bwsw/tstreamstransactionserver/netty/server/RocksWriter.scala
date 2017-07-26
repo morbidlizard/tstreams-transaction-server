@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{Consumer
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{Cleaner, ProducerStateMachineCache, ProducerTransactionRecord, TransactionMetaServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionsCleaner, ProducerStateMachineCache, ProducerTransactionRecord, TransactionMetaServiceImpl}
 
 class RocksWriter(rocksStorage: AllInOneRockStorage,
                   transactionDataService: TransactionDataServiceImpl) {
@@ -16,7 +16,7 @@ class RocksWriter(rocksStorage: AllInOneRockStorage,
     rocksStorage.getRocksStorage
   )
 
-  protected val cleaner = new Cleaner(
+  protected val cleaner = new ProducerTransactionsCleaner(
     rocksStorage.getRocksStorage
   )
 

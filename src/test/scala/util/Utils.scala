@@ -9,13 +9,14 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeTestServer
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.bookkeeper.conf.ServerConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.apache.bookkeeper.proto.BookieServer
@@ -269,9 +270,18 @@ object Utils {
         serverBuilder.getBootstrapOptions.copy(bindPort = getRandomPort)
       )
 
-
-    val transactionServer = updatedBuilder.build()
-
+    val transactionServer = new SingleNodeTestServer(
+      updatedBuilder.getAuthenticationOptions,
+      updatedBuilder.getZookeeperOptions,
+      updatedBuilder.getBootstrapOptions,
+      updatedBuilder.getServerRoleOptions,
+      updatedBuilder.getServerReplicationOptions,
+      updatedBuilder.getStorageOptions,
+      updatedBuilder.getRocksStorageOptions,
+      updatedBuilder.getCommitLogOptions,
+      updatedBuilder.getPackageTransmissionOptions,
+      updatedBuilder.getSubscribersUpdateOptions
+    )
 
     val latch = new CountDownLatch(1)
     new Thread(() => {
@@ -324,8 +334,18 @@ object Utils {
       )
 
 
-    val transactionServer = updatedBuilder.build()
-
+    val transactionServer = new SingleNodeTestServer(
+      updatedBuilder.getAuthenticationOptions,
+      updatedBuilder.getZookeeperOptions,
+      updatedBuilder.getBootstrapOptions,
+      updatedBuilder.getServerRoleOptions,
+      updatedBuilder.getServerReplicationOptions,
+      updatedBuilder.getStorageOptions,
+      updatedBuilder.getRocksStorageOptions,
+      updatedBuilder.getCommitLogOptions,
+      updatedBuilder.getPackageTransmissionOptions,
+      updatedBuilder.getSubscribersUpdateOptions
+    )
 
     val latch = new CountDownLatch(1)
     new Thread(() => {

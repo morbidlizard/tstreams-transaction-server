@@ -2,12 +2,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.StateNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{Cleaner, ProducerTransactionRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionsCleaner, ProducerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction
 
-class TestCleaner(rocksDB: KeyValueDatabaseManager,
-                  notifier: StateNotifier[ProducerTransaction])
-  extends Cleaner(rocksDB)
+class TestProducerTransactionsCleaner(rocksDB: KeyValueDatabaseManager,
+                                      notifier: StateNotifier[ProducerTransaction])
+  extends ProducerTransactionsCleaner(rocksDB)
 {
   override protected def onProducerTransactionStateChangeDo: (ProducerTransactionRecord) => Unit = {
     transaction => {

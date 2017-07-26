@@ -4,8 +4,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerS
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.test.TestConsumerServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.test.{TestCleaner, TestTransactionMetaServiceImpl}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{Cleaner, TransactionMetaServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.test.{TestProducerTransactionsCleaner, TestTransactionMetaServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionsCleaner, TransactionMetaServiceImpl}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, ConsumerTransaction}
 
 class TestRocksWriter(rocksStorage: AllInOneRockStorage,
@@ -22,8 +22,8 @@ class TestRocksWriter(rocksStorage: AllInOneRockStorage,
       consumerTransactionNotifier
     )
 
-  override protected val cleaner: Cleaner =
-    new TestCleaner(
+  override protected val cleaner: ProducerTransactionsCleaner =
+    new TestProducerTransactionsCleaner(
       rocksStorage.getRocksStorage,
       producerTransactionNotifier
     )

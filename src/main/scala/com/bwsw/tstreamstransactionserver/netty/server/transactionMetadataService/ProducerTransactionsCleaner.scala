@@ -2,10 +2,10 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.TransactionStateHandler
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.Invalid
 import org.slf4j.{Logger, LoggerFactory}
 
-class Cleaner(rocksDB: KeyValueDatabaseManager) {
+class ProducerTransactionsCleaner(rocksDB: KeyValueDatabaseManager) {
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
 
@@ -15,7 +15,15 @@ class Cleaner(rocksDB: KeyValueDatabaseManager) {
   protected def onProducerTransactionStateChangeDo: ProducerTransactionRecord => Unit =
     _ => {}
 
-  def transactionsToDeleteTask(timestampToDeleteTransactions: Long) {
+  private def transitProducerTransactionToInvalidState(producerTransactionRecord: ProducerTransactionRecord) = {
+    val txn = producerTransactionRecord
+    ProducerTransactionRecord(
+      ProducerTransactionKey(txn.stream, txn.partition, txn.transactionID),
+      ProducerTransactionValue(Invalid, 0, 0L, txn.timestamp)
+    )
+  }
+
+  def cleanExpiredProducerTransactions(timestampToDeleteTransactions: Long) {
     def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(
         producerTransactionWithoutKey.timestamp +
@@ -44,13 +52,12 @@ class Cleaner(rocksDB: KeyValueDatabaseManager) {
 
         val producerTransactionKey =
           ProducerTransactionKey.fromByteArray(key)
-        val producerTransactionValueTimestampUpdated =
-          producerTransactionValue.copy(timestamp = timestampToDeleteTransactions)
-        val canceledTransactionRecordDueExpiration = TransactionStateHandler
-          .transitProducerTransactionToInvalidState(
+
+        val canceledTransactionRecordDueExpiration =
+          transitProducerTransactionToInvalidState(
             ProducerTransactionRecord(
               producerTransactionKey,
-              producerTransactionValueTimestampUpdated
+              producerTransactionValue
             )
           )
 
@@ -77,6 +84,6 @@ class Cleaner(rocksDB: KeyValueDatabaseManager) {
   }
 
   final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {
-    transactionsToDeleteTask(timestampToDeleteTransactions)
+    cleanExpiredProducerTransactions(timestampToDeleteTransactions)
   }
 }

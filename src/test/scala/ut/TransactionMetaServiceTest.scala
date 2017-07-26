@@ -4,7 +4,9 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 import org.scalatest.{FlatSpec, Matchers}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates
 
-class TransactionMetaServiceTest extends FlatSpec with Matchers {
+class TransactionMetaServiceTest
+  extends FlatSpec
+    with Matchers {
 
   "Key" should "be serialized/deserialized" in {
     val key = ProducerTransactionKey(1, 10, 15L)

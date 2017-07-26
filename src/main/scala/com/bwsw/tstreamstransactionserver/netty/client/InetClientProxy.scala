@@ -16,7 +16,7 @@ import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc._
 import io.netty.buffer.ByteBuf
 import io.netty.channel.EventLoopGroup
-import io.netty.channel.epoll.EpollEventLoopGroup
+import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
 import io.netty.channel.nio.NioEventLoopGroup
 import org.apache.commons.lang.SystemUtils
 import org.apache.curator.framework.CuratorFramework
@@ -46,7 +46,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     new AtomicBoolean(false)
 
   private val workerGroup: EventLoopGroup =
-    if (SystemUtils.IS_OS_LINUX) {
+    if (Epoll.isAvailable) {
       new EpollEventLoopGroup()
     }
     else {

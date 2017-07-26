@@ -19,8 +19,9 @@ class BigCommit(rocksWriter: RocksWriter,
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
 
-  private val batch =
+  private val batch = {
     rocksWriter.getNewBatch
+  }
 
   def putProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]): Unit = {
     if (logger.isDebugEnabled) {

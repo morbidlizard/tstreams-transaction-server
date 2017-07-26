@@ -42,6 +42,12 @@ publishTo := {
 publishArtifact in Test := false
 assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
 
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", _ @ _*) =>
+    MergeStrategy.discard
+  case _ =>
+    MergeStrategy.first
+}
 
 val sroogeGenOutput = "src/main/thrift/gen"
 ScroogeSBT.autoImport.scroogeThriftOutputFolder in Compile := baseDirectory.value / sroogeGenOutput

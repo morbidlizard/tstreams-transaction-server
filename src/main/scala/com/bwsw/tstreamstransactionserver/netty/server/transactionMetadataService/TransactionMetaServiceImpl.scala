@@ -45,15 +45,15 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
         producerTransactions += txn
       } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
         // updating RAM table, and last opened transaction database.
-        updateLastTransactionStreamPartitionRamTable(
+
+        updateLastOpenedTransactionID(
           key,
-          txn.transactionID,
-          isOpenedTransaction = true
+          txn.transactionID
         )
 
-        putLastTransaction(key,
+        putLastOpenedTransactionID(
+          key,
           txn.transactionID,
-          isOpenedTransaction = true,
           batch
         )
 
@@ -75,19 +75,16 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
   private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
                                                                       producerTransactionWithNewState: ProducerTransactionRecord,
                                                                       batch: KeyValueDatabaseBatch): Unit = {
-    updateLastTransactionStreamPartitionRamTable(
+    updateLastCheckpointedTransactionID(
       key,
-      producerTransactionWithNewState.transactionID,
-      isOpenedTransaction = false
+      producerTransactionWithNewState.transactionID
     )
 
-    putLastTransaction(
+    putLastCheckpointedTransactionID(
       key,
       producerTransactionWithNewState.transactionID,
-      isOpenedTransaction = false,
       batch
     )
-
     if (logger.isDebugEnabled())
       logger.debug(
         s"On stream:${key.stream} partition:${key.partition} " +
@@ -149,12 +146,12 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
       //retrieving an opened transaction from opened transaction database if it exist
       val openedTransactionOpt = producerStateMachineCache.getProducerTransaction(key)
 
-      val orderedTxns = txns.sorted
+      val sortedTransactions = txns.sorted
       val transactionsToProcess = openedTransactionOpt
         .map(data =>
-          ProducerTransactionRecord(key, data) +: orderedTxns
+          ProducerTransactionRecord(key, data) +: sortedTransactions
         )
-        .getOrElse(orderedTxns)
+        .getOrElse(sortedTransactions)
 
       val finalStateOpt = ProducerTransactionState
         .transiteTransactionsToFinalState(

@@ -23,13 +23,22 @@ case class KeyStreamPartition(stream: Int,
                               partition: Int) {
 
   def toByteArray: Array[Byte] = {
-    val buffer = java.nio.ByteBuffer.allocate(
-      java.lang.Integer.BYTES + java.lang.Integer.BYTES
-    )
-    buffer
-      .putInt(stream)
-      .putInt(partition)
-      .array()
+    val size = java.lang.Integer.BYTES +
+      java.lang.Integer.BYTES
+
+    val buffer =
+      java.nio.ByteBuffer.allocate(size)
+        .putInt(stream)
+        .putInt(partition)
+
+    buffer.flip()
+
+    val bytes = {
+      val bytes = new Array[Byte](size)
+      buffer.get(bytes)
+      bytes
+    }
+    bytes
   }
 }
 

@@ -37,7 +37,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
                              pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
-                             rocksWriter: RocksWriter,
+                             rocksWriter: => RocksWriter,
                              incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
   extends Runnable {
   private val logger = LoggerFactory.getLogger(this.getClass)

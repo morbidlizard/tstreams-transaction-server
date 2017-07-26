@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastOpenedAndCheckpointedTransaction, LastTransactionReader, TransactionID}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastOpenedAndCheckpointedTransaction, TransactionID}
 
 import scala.collection.mutable
 
@@ -76,84 +76,93 @@ private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseM
   //    lastCheckpointedTransactionDatabaseIterator.close()
   //  }
 
-  private val lastTransactionReader =
-    new LastTransactionReader(rocksDB)
+  private def putLastTransaction(key: KeyStreamPartition,
+                                 transactionId: Long,
+                                 batch: KeyValueDatabaseBatch,
+                                 databaseIndex: Int): Boolean = {
+    val updatedTransactionID =
+      new TransactionID(transactionId)
+    val binaryKey =
+      key.toByteArray
+    val binaryTransactionID =
+      updatedTransactionID.toByteArray
 
-  def getLastTransactionIDAndCheckpointedID(streamID: Int,
-                                            partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
-    val key = KeyStreamPartition(streamID, partition)
-    lastTransactionStreamPartitionRamTable
-      .get(key)
-      .orElse(
-        lastTransactionReader
-          .getLastTransactionIDAndCheckpointedID(streamID, partition)
-      )
+    batch.put(
+      databaseIndex,
+      binaryKey,
+      binaryTransactionID
+    )
   }
 
-  def putLastTransaction(key: KeyStreamPartition,
-                         transactionId: Long,
-                         isOpenedTransaction: Boolean,
-                         batch: KeyValueDatabaseBatch): Boolean = {
-    val updatedTransactionID = new TransactionID(transactionId)
-    if (isOpenedTransaction)
-      batch.put(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE,
-        key.toByteArray,
-        updatedTransactionID.toByteArray
-      )
-    else
-      batch.put(RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE,
-        key.toByteArray,
-        updatedTransactionID.toByteArray
-      )
+  def putLastOpenedTransactionID(key: KeyStreamPartition,
+                                 transactionId: Long,
+                                 batch: KeyValueDatabaseBatch): Boolean = {
+    putLastTransaction(
+      key,
+      transactionId,
+      batch,
+      RocksStorage.LAST_OPENED_TRANSACTION_STORAGE
+    )
   }
 
-  def updateLastTransactionStreamPartitionRamTable(key: KeyStreamPartition,
-                                                   transaction: Long,
-                                                   isOpenedTransaction: Boolean): Unit = {
+  def putLastCheckpointedTransactionID(key: KeyStreamPartition,
+                                       transactionId: Long,
+                                       batch: KeyValueDatabaseBatch): Boolean = {
+    putLastTransaction(
+      key,
+      transactionId,
+      batch,
+      RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE
+    )
+  }
+
+
+  def updateLastOpenedTransactionID(key: KeyStreamPartition,
+                                    transaction: Long): Unit = {
     val lastOpenedAndCheckpointedTransaction =
       lastTransactionStreamPartitionRamTable.get(key)
-    lastOpenedAndCheckpointedTransaction match {
-      case Some(x) =>
-        if (isOpenedTransaction)
-          lastTransactionStreamPartitionRamTable.put(
-            key,
-            LastOpenedAndCheckpointedTransaction(
-              TransactionID(transaction),
-              x.checkpointed
-            )
-          )
-        else
-          lastTransactionStreamPartitionRamTable.put(
-            key,
-            LastOpenedAndCheckpointedTransaction(
-              x.opened,
-              Some(TransactionID(transaction))
-            )
-          )
-      case None if isOpenedTransaction =>
+
+    val checkpointedTransactionID =
+      lastOpenedAndCheckpointedTransaction
+        .map(_.checkpointed)
+        .getOrElse(Option.empty[TransactionID])
+
+    lastTransactionStreamPartitionRamTable.put(
+      key,
+      LastOpenedAndCheckpointedTransaction(
+        TransactionID(transaction),
+        checkpointedTransactionID
+      )
+    )
+  }
+
+  def updateLastCheckpointedTransactionID(key: KeyStreamPartition,
+                                          transaction: Long): Unit = {
+    val lastOpenedAndCheckpointedTransaction =
+      lastTransactionStreamPartitionRamTable.get(key)
+
+    lastOpenedAndCheckpointedTransaction
+      .map(_.opened)
+      .foreach { openedTransactionID =>
         lastTransactionStreamPartitionRamTable.put(
           key,
           LastOpenedAndCheckpointedTransaction(
-            TransactionID(transaction),
-            None
+            openedTransactionID,
+            Some(TransactionID(transaction))
           )
         )
-      case _ => //do nothing
-    }
+      }
   }
 
+
   def isThatTransactionOutOfOrder(key: KeyStreamPartition,
-                                  transactionThatId: Long): Boolean = {
-    val lastTransactionOpt = lastTransactionStreamPartitionRamTable.get(key)
-    lastTransactionOpt match {
-      case Some(transactionId) =>
-        if (transactionId.opened.id < transactionThatId)
-          false
-        else
-          true
-      case None =>
-        false
-    }
+                                  thatTransactionId: Long): Boolean = {
+    val lastTransactionOpt =
+      lastTransactionStreamPartitionRamTable.get(key)
+
+    lastTransactionOpt
+      .map(_.opened.id)
+      .exists(_ > thatTransactionId)
   }
 
   def clear(): Unit = {

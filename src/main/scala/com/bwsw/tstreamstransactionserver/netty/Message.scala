@@ -26,17 +26,17 @@ import io.netty.buffer.ByteBuf
 /** Message is a placeholder for some binary information.
   *
   *  @constructor create a new message with body, the size of body, and a protocol to serialize/deserialize the body.
-  *  @param length a size of body.
-  *  @param protocol a protocol to serialize/deserialize the body.
+  *  @param bodyLength a size of body.
+  *  @param thriftProtocol a protocol to serialize/deserialize the body.
   *  @param body a binary representation of information.
   *
   */
 case class Message(id: Long,
-                   length: Int,
-                   protocol: Byte,
+                   bodyLength: Int,
+                   thriftProtocol: Byte,
                    body: Array[Byte],
                    token: Int,
-                   method: Byte,
+                   methodId: Byte,
                    isFireAndForgetMethod: Byte)
 {
   /** Serializes a message. */
@@ -44,12 +44,12 @@ case class Message(id: Long,
     val size = Message.headerFieldSize + Message.lengthFieldSize + body.length
     val buffer = java.nio.ByteBuffer
       .allocate(size)
-      .putLong(id)    //0-8
-      .put(protocol)  //8-9
-      .putInt(token)  //9-13
-      .put(method)    //13-14
+      .putLong(id)                //0-8
+      .put(thriftProtocol)        //8-9
+      .putInt(token)              //9-13
+      .put(methodId)              //13-14
       .put(isFireAndForgetMethod) //14-15
-      .putInt(length)             //15-19
+      .putInt(bodyLength)         //15-19
       .put(body)                  //20-size
     buffer.flip()
 

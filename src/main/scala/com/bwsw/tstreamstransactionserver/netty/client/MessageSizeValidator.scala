@@ -45,7 +45,7 @@ final class MessageSizeValidator(maxMetadataPackageSize: Int,
 
   private def notValidateSomeMessageTypesSize(message: Message) = {
     if (MessageSizeValidator.notValidateMessageProtocolIds
-      .search(message.method).isInstanceOf[Found]) {
+      .search(message.methodId).isInstanceOf[Found]) {
       //do nothing
     }
     else {
@@ -56,8 +56,8 @@ final class MessageSizeValidator(maxMetadataPackageSize: Int,
   @throws[PackageTooBigException]
   private def validateMetadataMessageSize(message: Message) = {
     if (MessageSizeValidator.metadataMessageProtocolIds
-      .search(message.method).isInstanceOf[Found]) {
-      if (message.length > maxMetadataPackageSize) {
+      .search(message.methodId).isInstanceOf[Found]) {
+      if (message.bodyLength > maxMetadataPackageSize) {
         throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
           s"than maxMetadataPackageSize ($maxMetadataPackageSize).")
       }
@@ -71,8 +71,8 @@ final class MessageSizeValidator(maxMetadataPackageSize: Int,
   @throws[PackageTooBigException]
   private def validateDataMessageSize(message: Message) = {
     if (MessageSizeValidator.dataMessageProtocolIds
-      .search(message.method).isInstanceOf[Found]) {
-      if (message.length > maxDataPackageSize) {
+      .search(message.methodId).isInstanceOf[Found]) {
+      if (message.bodyLength > maxDataPackageSize) {
         throw new PackageTooBigException(s"Client shouldn't transmit amount of data which is greater " +
           s"than maxDataPackageSize ($maxDataPackageSize).")
       }

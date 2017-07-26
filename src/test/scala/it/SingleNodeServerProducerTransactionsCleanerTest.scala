@@ -10,7 +10,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils._
 
 
-class SingleNodeServerCleanerTest
+class SingleNodeServerProducerTransactionsCleanerTest
   extends FlatSpec
     with Matchers
     with BeforeAndAfterAll {
@@ -25,7 +25,9 @@ class SingleNodeServerCleanerTest
   )
 
   private val txnCounter = new AtomicLong(0)
-  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamID: Int,
+                                           streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue,
+                                           ttlTxn: Long) = ProducerTransaction(
     stream = streamID,
     partition = streamObj.partitions,
     transactionID = txnCounter.getAndIncrement(),

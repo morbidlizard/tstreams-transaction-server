@@ -2,29 +2,32 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.nio.ByteBuffer
 
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerServiceReadImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionReader}
 import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.collection.Set
 
 class RocksReader(rocksStorage: AllInOneRockStorage,
-                  lastTransactionStreamPartition: LastTransactionStreamPartition,
                   transactionDataService: TransactionDataServiceImpl) {
 
-  private val consumerServiceImpl = new ConsumerServiceImpl(
+  private val consumerServiceImpl = new ConsumerServiceReadImpl(
     rocksStorage.getRocksStorage
   )
+
+  private val lastTransactionReader =
+    new LastTransactionReader(
+      rocksStorage.getRocksStorage
+    )
 
   private val oneNodeCommitLogServiceImpl =
     new singleNode.commitLogService.CommitLogServiceImpl(
     rocksStorage.getRocksStorage
   )
-
 
   private val multiNodeCommitLogServiceImpl =
     new multiNode.commitLogService.CommitLogServiceImpl(
@@ -34,10 +37,8 @@ class RocksReader(rocksStorage: AllInOneRockStorage,
   private val transactionIDService =
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
-  private val transactionMetaServiceImpl = new TransactionMetaServiceImpl(
-    rocksStorage.getRocksStorage,
-    lastTransactionStreamPartition,
-    consumerServiceImpl
+  private val transactionMetaServiceImpl = new TransactionMetaServiceReaderImpl(
+    rocksStorage.getRocksStorage
   )
 
   final def getLastProcessedCommitLogFileID: Long =
@@ -55,15 +56,12 @@ class RocksReader(rocksStorage: AllInOneRockStorage,
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): TransactionInfo =
     transactionMetaServiceImpl.getTransaction(streamID, partition, transaction)
 
-  final def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] =
-    transactionMetaServiceImpl.getOpenedTransaction(key)
-
   final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] =
-    lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)
+    lastTransactionReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
       .flatMap(_.checkpointed.map(txn => txn.id)).orElse(Some(-1L))
 
   final def getLastTransactionIDAndCheckpointedID(streamID: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] =
-    lastTransactionStreamPartition.getLastTransactionIDAndCheckpointedID(streamID, partition)
+    lastTransactionReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
 
   final def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: Set[TransactionStates]): ScanTransactionsInfo =
     transactionMetaServiceImpl.scanTransactions(streamID, partition, from, to, count, states)

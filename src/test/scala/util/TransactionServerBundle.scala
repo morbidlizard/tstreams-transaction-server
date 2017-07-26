@@ -9,7 +9,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions
 import org.apache.commons.io.FileUtils
 
 
-final class TransactionServerBundle(transactionServer: TransactionServer,
+final class TransactionServerBundle(val transactionServer: TransactionServer,
                                     rocksStorage: RocksStorage,
                                     transactionDataServiceImpl: TransactionDataServiceImpl,
                                     val storageOptions: ServerOptions.StorageOptions,

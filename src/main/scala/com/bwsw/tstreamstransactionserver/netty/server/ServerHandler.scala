@@ -49,11 +49,11 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
 
 
   private def isTooBigMetadataMessage(message: Message) = {
-    message.length > requestHandlerRouter.packageTransmissionOpts.maxMetadataPackageSize
+    message.bodyLength > requestHandlerRouter.packageTransmissionOpts.maxMetadataPackageSize
   }
 
   private def isTooBigDataMessage(message: Message) = {
-    message.length > requestHandlerRouter.packageTransmissionOpts.maxDataPackageSize
+    message.bodyLength > requestHandlerRouter.packageTransmissionOpts.maxDataPackageSize
   }
 
   @volatile var isChannelActive = true
@@ -92,7 +92,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
     .recover { case error =>
       logUnsuccessfulProcessing(handler.name, error, message, ctx)
       val response = handler.createErrorResponse(error.getMessage)
-      val responseMessage = message.copy(length = response.length, body = response)
+      val responseMessage = message.copy(bodyLength = response.length, body = response)
       sendResponseToClient(responseMessage, ctx)
     }(context)
 
@@ -104,7 +104,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
       val response = handler.createErrorResponse(
         com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage
       )
-      val responseMessage  = message.copy(length = response.length, body = response)
+      val responseMessage  = message.copy(bodyLength = response.length, body = response)
       sendResponseToClient(responseMessage, ctx)
     }
     else if (isTooBigMessage(message)) {
@@ -112,12 +112,12 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
       val response = handler.createErrorResponse(
         packageTooBigException.getMessage
       )
-      val responseMessage  = message.copy(length = response.length, body = response)
+      val responseMessage  = message.copy(bodyLength = response.length, body = response)
       sendResponseToClient(responseMessage, ctx)
     }
     else {
       val response = handler.handleAndGetResponse(message.body)
-      val responseMessage  = message.copy(length = response.length, body = response)
+      val responseMessage  = message.copy(bodyLength = response.length, body = response)
 
       logSuccessfulProcession(handler.name, message, ctx)
       sendResponseToClient(responseMessage, ctx)
@@ -133,7 +133,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
       val response = handler.createErrorResponse(
         com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidExceptionMessage
       )
-      val responseMessage  = message.copy(length = response.length, body = response)
+      val responseMessage  = message.copy(bodyLength = response.length, body = response)
       sendResponseToClient(responseMessage, ctx)
     }
     else if (isTooBigMessage(message)) {
@@ -141,7 +141,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
       val response = handler.createErrorResponse(
         packageTooBigException.getMessage
       )
-      val responseMessage  = message.copy(length = response.length, body = response)
+      val responseMessage  = message.copy(bodyLength = response.length, body = response)
       sendResponseToClient(responseMessage, ctx)
     }
     else {
@@ -189,7 +189,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
                                            message: Message,
                                            ctx: ChannelHandlerContext
                                           ): Unit = {
-    message.method match {
+    message.methodId match {
       case Protocol.GetCommitLogOffsets.methodID =>
         processRequestAsync(serverReadContext, handler, isTooBigMetadataMessage, ctx)(message)
 
@@ -254,7 +254,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
               )
             )
 
-            val responseMessage = message.copy(length = response.length, body = response)
+            val responseMessage = message.copy(bodyLength = response.length, body = response)
 
             logSuccessfulProcession(handler.name, message, ctx)
             sendResponseToClient(responseMessage, ctx)
@@ -273,7 +273,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
             .recover { case error =>
               logUnsuccessfulProcessing(handler.name, error, message, ctx)
               val response = handler.createErrorResponse(error.getMessage)
-              val responseMessage = message.copy(length = response.length, body = response)
+              val responseMessage = message.copy(bodyLength = response.length, body = response)
               sendResponseToClient(responseMessage, ctx)
             }(context)
         })(message)
@@ -331,7 +331,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
               )
             )
 
-            val responseMessage  = message.copy(length = response.length, body = response)
+            val responseMessage  = message.copy(bodyLength = response.length, body = response)
 
             logSuccessfulProcession(handler.name, message, ctx)
             sendResponseToClient(responseMessage, ctx)
@@ -351,7 +351,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
             .recover { case error =>
               logUnsuccessfulProcessing(handler.name, error, message, ctx)
               val response = handler.createErrorResponse(error.getMessage)
-              val responseMessage = message.copy(length = response.length, body = response)
+              val responseMessage = message.copy(bodyLength = response.length, body = response)
               sendResponseToClient(responseMessage, ctx)
             }(context)
         })(message)
@@ -379,25 +379,25 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
 
       case Protocol.Authenticate.methodID =>
         val response = handler.handleAndGetResponse(message.body)
-        val responseMessage = message.copy(length = response.length, body = response)
+        val responseMessage = message.copy(bodyLength = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.IsValid.methodID =>
         val response = handler.handleAndGetResponse(message.body)
-        val responseMessage = message.copy(length = response.length, body = response)
+        val responseMessage = message.copy(bodyLength = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.GetMaxPackagesSizes.methodID =>
         val response = handler.handleAndGetResponse(message.body)
-        val responseMessage = message.copy(length = response.length, body = response)
+        val responseMessage = message.copy(bodyLength = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.GetZKCheckpointGroupServerPrefix.methodID =>
         val response = handler.handleAndGetResponse(message.body)
-        val responseMessage = message.copy(length = response.length, body = response)
+        val responseMessage = message.copy(bodyLength = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
     }
@@ -408,7 +408,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
                                                 ctx: ChannelHandlerContext
                                                ): Unit =
   {
-    message.method match {
+    message.methodId match {
       case Protocol.PutStream.methodID =>
         processRequestAsyncFireAndForget(serverWriteContext, handler, isTooBigMetadataMessage, ctx)(message)
 
@@ -515,7 +515,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
       else
         false
 
-    val handler = requestHandlerRouter.handler(message.method)
+    val handler = requestHandlerRouter.handler(message.methodId)
     if (isFireAndForgetMethod)
       processRequestFireAndForgetManner(handler, message, ctx)
     else

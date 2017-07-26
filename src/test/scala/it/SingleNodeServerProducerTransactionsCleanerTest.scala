@@ -10,7 +10,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils._
 
 
-class SingleNodeServerCleanerTest
+class SingleNodeServerProducerTransactionsCleanerTest
   extends FlatSpec
     with Matchers
     with BeforeAndAfterAll {
@@ -25,7 +25,9 @@ class SingleNodeServerCleanerTest
   )
 
   private val txnCounter = new AtomicLong(0)
-  private def getRandomProducerTransaction(streamID: Int, streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue, ttlTxn: Long) = ProducerTransaction(
+  private def getRandomProducerTransaction(streamID: Int,
+                                           streamObj: com.bwsw.tstreamstransactionserver.rpc.StreamValue,
+                                           ttlTxn: Long) = ProducerTransaction(
     stream = streamID,
     partition = streamObj.partitions,
     transactionID = txnCounter.getAndIncrement(),
@@ -71,22 +73,38 @@ class SingleNodeServerCleanerTest
     val minTransactionID = producerTransactionsWithTimestamp.minBy(_._1.transactionID)._1.transactionID
     val maxTransactionID = producerTransactionsWithTimestamp.maxBy(_._1.transactionID)._1.transactionID
 
-    val transactionsWithTimestamp = producerTransactionsWithTimestamp.map { case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp) }
+    val transactionsWithTimestamp = producerTransactionsWithTimestamp.map {
+      case (producerTxn, timestamp) => ProducerTransactionRecord(producerTxn, timestamp)
+    }
 
     val batch = bundle.newBatch
     rocksWriter.putTransactions(transactionsWithTimestamp, batch)
     batch.write()
 
-    rocksWriter.createAndExecuteTransactionsToDeleteTask(currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec))
+    rocksWriter.createAndExecuteTransactionsToDeleteTask(
+      currentTime + TimeUnit.SECONDS.toMillis(maxTTLForProducerTransactionSec)
+    )
+
     val expiredTransactions = producerTransactionsWithTimestamp.map { case (producerTxn, _) =>
-      ProducerTransaction(producerTxn.stream, producerTxn.partition, producerTxn.transactionID, TransactionStates.Invalid, 0, 0L)
+      ProducerTransaction(
+        producerTxn.stream,
+        producerTxn.partition,
+        producerTxn.transactionID,
+        TransactionStates.Invalid,
+        0,
+        0L
+      )
     }
 
-    rocksReader.scanTransactions(streamID, stream.partitions, minTransactionID, maxTransactionID, Int.MaxValue, Set(TransactionStates.Opened)).producerTransactions should contain theSameElementsAs expiredTransactions
+    rocksReader.scanTransactions(
+      streamID,
+      stream.partitions,
+      minTransactionID,
+      maxTransactionID,
+      Int.MaxValue,
+      Set(TransactionStates.Opened)
+    ).producerTransactions should contain theSameElementsAs expiredTransactions
 
-    (minTransactionID to maxTransactionID) foreach { transactionID =>
-      rocksReader.getOpenedTransaction(ProducerTransactionKey(streamID, stream.partitions, transactionID)).isDefined shouldBe false
-    }
     bundle.closeDBAndDeleteFolder()
   }
 

@@ -63,13 +63,13 @@ class PutTransactionHandler(server: TransactionServer,
         val messageResponse =
           if (BKException.Code.OK == operationCode) {
             message.copy(
-              length = isPuttedResponse.length,
+              bodyLength = isPuttedResponse.length,
               body = isPuttedResponse
             )
           }
           else {
             message.copy(
-              length = isNotPuttedResponse.length,
+              bodyLength = isNotPuttedResponse.length,
               body = isNotPuttedResponse
             )
           }

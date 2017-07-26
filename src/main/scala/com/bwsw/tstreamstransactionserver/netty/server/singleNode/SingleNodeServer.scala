@@ -29,20 +29,22 @@ import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
+import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
 import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionStreamPartition
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.buffer.ByteBuf
-import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
-import io.netty.channel.{ChannelOption, SimpleChannelInboundHandler}
+import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup, EpollServerSocketChannel}
+import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.ServerSocketChannel
+import io.netty.channel.socket.nio.NioServerSocketChannel
+import io.netty.channel.{ChannelOption, EventLoopGroup, SimpleChannelInboundHandler}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 import org.slf4j.{Logger, LoggerFactory}
@@ -100,7 +102,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   private val transactionServerSocketAddress =
     createTransactionServerExternalSocket()
 
-
   private val zk =
     new ZKClient(
       zookeeperOpts.endpoints,
@@ -109,53 +110,29 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )
 
-  private val curatorSubscriberClient =
-    subscribersUpdateOptions.monitoringZkEndpoints.map {
-      monitoringZkEndpoints =>
-        if (monitoringZkEndpoints == zookeeperOpts.endpoints) {
-          zk
-        }
-        else {
-          new ZKClient(
-            monitoringZkEndpoints,
-            zookeeperOpts.sessionTimeoutMs,
-            zookeeperOpts.connectionTimeoutMs,
-            new RetryForever(zookeeperOpts.retryDelayMs)
-          )
-        }
-    }.getOrElse(zk)
-
-
-  private val rocksStorage =
+  protected val rocksStorage: AllInOneRockStorage =
     new AllInOneRockStorage(
       storageOpts,
       rocksStorageOpts
     )
 
-  private val lastTransactionStreamPartition =
-    new LastTransactionStreamPartition(
-      rocksStorage.getRocksStorage
-    )
-
-  private val zkStreamRepository =
+  private val zkStreamRepository: ZookeeperStreamRepository =
     zk.streamRepository(s"${storageOpts.streamZookeeperDirectory}")
 
-  private val transactionDataServiceImpl =
+  protected val transactionDataServiceImpl: TransactionDataServiceImpl =
     new TransactionDataServiceImpl(
       storageOpts,
       rocksStorageOpts,
       zkStreamRepository
     )
 
-  val rocksWriter = new RocksWriter(
+  protected lazy val rocksWriter: RocksWriter = new RocksWriter(
     rocksStorage,
-    lastTransactionStreamPartition,
     transactionDataServiceImpl
   )
 
-  val rocksReader = new RocksReader(
+  private val rocksReader = new RocksReader(
     rocksStorage,
-    lastTransactionStreamPartition,
     transactionDataServiceImpl
   )
 
@@ -165,21 +142,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     rocksWriter,
     rocksReader
   )
-
-  final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean,
-                                               func: => Unit): Long =
-    transactionServer.notifyProducerTransactionCompleted(onNotificationCompleted, func)
-
-  final def removeNotification(id: Long): Boolean =
-    transactionServer.removeProducerTransactionNotification(id)
-
-  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean,
-                                               func: => Unit): Long =
-    transactionServer.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
-
-  final def removeConsumerNotification(id: Long): Boolean =
-    transactionServer.removeConsumerTransactionNotification(id)
-
 
   private val rocksDBCommitLog = new RocksDbConnection(
     rocksStorageOpts,
@@ -228,15 +190,41 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build()
     )
 
-  private val bossGroup =
-    new EpollEventLoopGroup(1)
+  val (bossGroup: EventLoopGroup, workerGroup: EventLoopGroup) = {
+    if (Epoll.isAvailable)
+      (new EpollEventLoopGroup(1), new EpollEventLoopGroup())
+    else
+      (new NioEventLoopGroup(1), new NioEventLoopGroup())
+  }
 
-  private val workerGroup =
-    new EpollEventLoopGroup()
+  private def determineChannelType(): Class[_ <: ServerSocketChannel] =
+    workerGroup match {
+      case _: EpollEventLoopGroup => classOf[EpollServerSocketChannel]
+      case _: NioEventLoopGroup => classOf[NioServerSocketChannel]
+      case group => throw new IllegalArgumentException(
+        s"Can't determine channel type for group '$group'."
+      )
+    }
 
   private val orderedExecutionPool =
     new OrderedExecutionContextPool(serverOpts.openOperationsPoolSize)
 
+
+  private val curatorSubscriberClient =
+    subscribersUpdateOptions.monitoringZkEndpoints.map {
+      monitoringZkEndpoints =>
+        if (monitoringZkEndpoints == zookeeperOpts.endpoints) {
+          zk
+        }
+        else {
+          new ZKClient(
+            monitoringZkEndpoints,
+            zookeeperOpts.sessionTimeoutMs,
+            zookeeperOpts.connectionTimeoutMs,
+            new RetryForever(zookeeperOpts.retryDelayMs)
+          )
+        }
+    }.getOrElse(zk)
 
   private val openTransactionStateNotifier =
     new OpenTransactionStateNotifier(
@@ -248,7 +236,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new SubscriberNotifier
     )
 
-  private val requestHandlerChooser: RequestHandlerRouter =
+  private val requestHandlerRouter: RequestHandlerRouter =
     new RequestHandlerRouter(
       transactionServer,
       scheduledCommitLogImpl,
@@ -284,9 +272,9 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
-        .channel(classOf[EpollServerSocketChannel])
+        .channel(determineChannelType())
         .handler(new LoggingHandler(LogLevel.DEBUG))
-        .childHandler(new ServerInitializer(serverHandler(requestHandlerChooser, executionContext, logger)))
+        .childHandler(new ServerInitializer(serverHandler(requestHandlerRouter, executionContext, logger)))
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 

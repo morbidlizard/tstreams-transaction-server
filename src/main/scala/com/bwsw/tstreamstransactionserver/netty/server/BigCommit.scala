@@ -19,37 +19,31 @@ class BigCommit(rocksWriter: RocksWriter,
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
 
-  private val batch =
+  private val batch = {
     rocksWriter.getNewBatch
-
-  private lazy val notifications =
-    new scala.collection.mutable.ListBuffer[Unit => Unit]
-
+  }
 
   def putProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]): Unit = {
     if (logger.isDebugEnabled) {
-      logger.debug(s"[batch ${batch.id}] " +
+      logger.debug(s"[batch] " +
         s"Adding producer transactions to commit.")
     }
-
-    notifications ++=
-      rocksWriter.putTransactions(
-        producerTransactions,
-        batch
-      )
+    rocksWriter.putTransactions(
+      producerTransactions,
+      batch
+    )
   }
 
   def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord]): Unit = {
     if (logger.isDebugEnabled) {
-      logger.debug(s"[batch ${batch.id}] " +
+      logger.debug(s"[batch] " +
         s"Adding consumer transactions to commit.")
     }
 
-    notifications ++=
-      rocksWriter.putConsumersCheckpoints(
-        consumerTransactions,
-        batch
-      )
+    rocksWriter.putConsumersCheckpoints(
+      consumerTransactions,
+      batch
+    )
   }
 
   def putProducerData(streamID: Int,
@@ -66,7 +60,7 @@ class BigCommit(rocksWriter: RocksWriter,
     )
 
     if (logger.isDebugEnabled) {
-      logger.debug(s"[batch ${batch.id}] " +
+      logger.debug(s"[batch] " +
         s"Persisting producer transactions data on stream: $streamID, partition: $partition, transaction: $transaction, " +
         s"from: $from.")
     }
@@ -77,8 +71,7 @@ class BigCommit(rocksWriter: RocksWriter,
   def commit(): Boolean = {
     batch.put(databaseIndex, key, value)
     if (batch.write()) {
-      if (logger.isDebugEnabled) logger.debug(s"commit ${batch.id} is successfully fixed.")
-      notifications foreach (notification => notification(()))
+      if (logger.isDebugEnabled) logger.debug(s"commit is successfully fixed.")
       true
     } else {
       false

@@ -4,22 +4,22 @@ package util
 import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeTestServer
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import org.apache.commons.io.FileUtils
 
-class ZkSeverTxnServerTxnClient(val transactionServer: SingleNodeServer,
+class ZkSeverTxnServerTxnClient(val transactionServer: SingleNodeTestServer,
                                 val client: TTSClient,
                                 val serverBuilder: SingleNodeServerBuilder)
 {
 
-  def operate(operation: SingleNodeServer => Unit): Unit = {
+  def operate(operation: SingleNodeTestServer => Unit): Unit = {
     try {
       operation(transactionServer)
     }
     catch {
-      case throwable: Throwable => throw throwable
+      case throwable: Throwable =>
+        throw throwable
     }
     finally {
       closeDbsAndDeleteDirectories()

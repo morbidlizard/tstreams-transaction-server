@@ -98,7 +98,7 @@ class PutSimpleTransactionAndData(server: TransactionServer,
               )
             )
             message.copy(
-              length = response.length,
+              bodyLength = response.length,
               body = response
             )
           }
@@ -106,7 +106,7 @@ class PutSimpleTransactionAndData(server: TransactionServer,
             val response =
               createErrorResponse(BKException.getMessage(operationCode))
             message.copy(
-              length = response.length,
+              bodyLength = response.length,
               body = response
             )
           }

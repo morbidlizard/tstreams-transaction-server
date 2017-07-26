@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabase, Key
 import scala.collection.mutable.ArrayBuffer
 
 class KeyValueDatabaseBatchInMemory(dbs: Array[KeyValueDatabase])
-  extends KeyValueDatabaseBatch(new AtomicLong(-1L))
+  extends KeyValueDatabaseBatch()
 {
   private val operationBuffer = ArrayBuffer.empty[Unit => Unit]
 

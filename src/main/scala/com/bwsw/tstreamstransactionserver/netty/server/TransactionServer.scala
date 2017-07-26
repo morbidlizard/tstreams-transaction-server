@@ -28,7 +28,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.storage.{AllInOneRockStorage, RocksStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamServiceImpl}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionStreamPartition}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionReader}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc
@@ -52,19 +52,6 @@ class TransactionServer(authOpts: AuthenticationOptions,
 
   private val transactionIDService =
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
-
-
-  final def notifyProducerTransactionCompleted(onNotificationCompleted: ProducerTransaction => Boolean, func: => Unit): Long =
-    rocksWriter.notifyProducerTransactionCompleted(onNotificationCompleted, func)
-
-  final def removeProducerTransactionNotification(id: Long): Boolean =
-    rocksWriter.removeProducerTransactionNotification(id)
-
-  final def notifyConsumerTransactionCompleted(onNotificationCompleted: ConsumerTransaction => Boolean, func: => Unit): Long =
-    rocksWriter.notifyConsumerTransactionCompleted(onNotificationCompleted, func)
-
-  final def removeConsumerTransactionNotification(id: Long): Boolean =
-    rocksWriter.removeConsumerTransactionNotification(id)
 
   final def getLastProcessedCommitLogFileID: Long =
     rocksReader.getLastProcessedCommitLogFileID
@@ -95,15 +82,12 @@ class TransactionServer(authOpts: AuthenticationOptions,
     rocksWriter.putTransactionData(streamID, partition, transaction, data, from)
 
   final def putTransactions(transactions: Seq[ProducerTransactionRecord],
-                            batch: KeyValueDatabaseBatch): ListBuffer[Unit => Unit] = {
+                            batch: KeyValueDatabaseBatch) : Unit = {
     rocksWriter.putTransactions(transactions, batch)
   }
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): TransactionInfo =
     rocksReader.getTransaction(streamID, partition, transaction)
-
-  final def getOpenedTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] =
-    rocksReader.getOpenedTransaction(key)
 
   final def getLastCheckpointedTransaction(streamID: Int, partition: Int): Option[Long] =
     rocksReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
@@ -120,7 +104,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
   }
 
   final def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
-                                    batch: KeyValueDatabaseBatch): ListBuffer[(Unit) => Unit] = {
+                                    batch: KeyValueDatabaseBatch): Unit = {
     rocksWriter.putConsumersCheckpoints(consumerTransactions, batch)
   }
 

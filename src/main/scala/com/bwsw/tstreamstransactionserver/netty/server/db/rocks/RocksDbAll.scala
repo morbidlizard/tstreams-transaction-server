@@ -92,7 +92,7 @@ class RocksDbAll(absolutePath: String,
   }
 
   def newBatch =
-    new Batch(client, databaseHandlers, batchIDGen)
+    new Batch(client, databaseHandlers)
 
   override def close(): Unit =
     client.close()

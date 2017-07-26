@@ -19,13 +19,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
 
 
-class ConsumerServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager) {
+class ConsumerServiceWriter(rocksMetaServiceDB: KeyValueDbManager) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private final def transitConsumerTransactionToNewState(commitLogTransactions: Seq[ConsumerTransactionRecord]): ConsumerTransactionRecord = {
@@ -36,7 +36,7 @@ class ConsumerServiceImpl(rocksMetaServiceDB: KeyValueDatabaseManager) {
     _ => {}
 
   def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
-                              batch: KeyValueDatabaseBatch): Unit = {
+                              batch: KeyValueDbBatch): Unit = {
     if (logger.isDebugEnabled())
       logger.debug(s"Trying to commit consumer transactions: $consumerTransactions")
 

@@ -26,7 +26,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.Random
 
-class AuthServiceImpl(authOpts: AuthenticationOptions) {
+class AuthService(authOpts: AuthenticationOptions) {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private val usersToken = CacheBuilder.newBuilder()

@@ -1,13 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastOpenedAndCheckpointedTransaction, TransactionID}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransaction, TransactionId}
 
 import scala.collection.mutable
 
-private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseManager) {
+final class ProducerStateMachineCache(rocksDB: KeyValueDbManager) {
   private val producerTransactionsWithOpenedStateDatabase =
     rocksDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
 
@@ -15,7 +15,7 @@ private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseM
     mutable.Map.empty[ProducerTransactionKey, ProducerTransactionValue]
 
   private val lastTransactionStreamPartitionRamTable =
-    mutable.Map.empty[KeyStreamPartition, LastOpenedAndCheckpointedTransaction]
+    mutable.Map.empty[KeyStreamPartition, LastTransaction]
 
 
   def getProducerTransaction(key: ProducerTransactionKey): Option[ProducerTransactionValue] = {
@@ -78,10 +78,10 @@ private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseM
 
   private def putLastTransaction(key: KeyStreamPartition,
                                  transactionId: Long,
-                                 batch: KeyValueDatabaseBatch,
+                                 batch: KeyValueDbBatch,
                                  databaseIndex: Int): Boolean = {
     val updatedTransactionID =
-      new TransactionID(transactionId)
+      new TransactionId(transactionId)
     val binaryKey =
       key.toByteArray
     val binaryTransactionID =
@@ -96,7 +96,7 @@ private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseM
 
   def putLastOpenedTransactionID(key: KeyStreamPartition,
                                  transactionId: Long,
-                                 batch: KeyValueDatabaseBatch): Boolean = {
+                                 batch: KeyValueDbBatch): Boolean = {
     putLastTransaction(
       key,
       transactionId,
@@ -107,7 +107,7 @@ private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseM
 
   def putLastCheckpointedTransactionID(key: KeyStreamPartition,
                                        transactionId: Long,
-                                       batch: KeyValueDatabaseBatch): Boolean = {
+                                       batch: KeyValueDbBatch): Boolean = {
     putLastTransaction(
       key,
       transactionId,
@@ -125,12 +125,12 @@ private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseM
     val checkpointedTransactionID =
       lastOpenedAndCheckpointedTransaction
         .map(_.checkpointed)
-        .getOrElse(Option.empty[TransactionID])
+        .getOrElse(Option.empty[TransactionId])
 
     lastTransactionStreamPartitionRamTable.put(
       key,
-      LastOpenedAndCheckpointedTransaction(
-        TransactionID(transaction),
+      LastTransaction(
+        TransactionId(transaction),
         checkpointedTransactionID
       )
     )
@@ -146,9 +146,9 @@ private[server] final class ProducerStateMachineCache(rocksDB: KeyValueDatabaseM
       .foreach { openedTransactionID =>
         lastTransactionStreamPartitionRamTable.put(
           key,
-          LastOpenedAndCheckpointedTransaction(
+          LastTransaction(
             openedTransactionID,
-            Some(TransactionID(transaction))
+            Some(TransactionId(transaction))
           )
         )
       }

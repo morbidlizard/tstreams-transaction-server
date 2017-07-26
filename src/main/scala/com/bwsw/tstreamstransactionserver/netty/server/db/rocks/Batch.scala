@@ -18,12 +18,12 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
 import org.rocksdb.{ColumnFamilyHandle, TtlDB, WriteBatch, WriteOptions}
 
 class Batch(client: TtlDB,
             databaseHandlers: collection.immutable.Map[Int, ColumnFamilyHandle])
-  extends KeyValueDatabaseBatch()
+  extends KeyValueDbBatch()
 {
 
   private val batch  = new WriteBatch()

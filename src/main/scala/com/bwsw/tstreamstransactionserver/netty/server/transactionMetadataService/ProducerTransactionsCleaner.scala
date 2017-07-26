@@ -1,15 +1,15 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.Invalid
 import org.slf4j.{Logger, LoggerFactory}
 
-class ProducerTransactionsCleaner(rocksDB: KeyValueDatabaseManager) {
+class ProducerTransactionsCleaner(rocksDB: KeyValueDbManager) {
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
 
-  private val producerTransactionsWithOpenedStateDatabase =
+  private val openedProducerTransactionsDatabase =
     rocksDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
 
   protected def onProducerTransactionStateChangeDo: ProducerTransactionRecord => Unit =
@@ -24,7 +24,7 @@ class ProducerTransactionsCleaner(rocksDB: KeyValueDatabaseManager) {
   }
 
   def cleanExpiredProducerTransactions(timestampToDeleteTransactions: Long) {
-    def doesProducerTransactionExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
+    def isExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(
         producerTransactionWithoutKey.timestamp +
           producerTransactionWithoutKey.ttl
@@ -36,14 +36,14 @@ class ProducerTransactionsCleaner(rocksDB: KeyValueDatabaseManager) {
       logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
     val batch = rocksDB.newBatch
 
-    val iterator = producerTransactionsWithOpenedStateDatabase.iterator
+    val iterator = openedProducerTransactionsDatabase.iterator
     iterator.seekToFirst()
 
     while (iterator.isValid) {
       val producerTransactionValue =
         ProducerTransactionValue.fromByteArray(iterator.value())
 
-      if (doesProducerTransactionExpired(producerTransactionValue)) {
+      if (isExpired(producerTransactionValue)) {
         if (logger.isDebugEnabled)
           logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
 
@@ -81,9 +81,5 @@ class ProducerTransactionsCleaner(rocksDB: KeyValueDatabaseManager) {
     }
     iterator.close()
     batch.write()
-  }
-
-  final def createAndExecuteTransactionsToDeleteTask(timestampToDeleteTransactions: Long): Unit = {
-    cleanExpiredProducerTransactions(timestampToDeleteTransactions)
   }
 }

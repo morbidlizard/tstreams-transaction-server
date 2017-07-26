@@ -31,9 +31,9 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
-import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
@@ -110,8 +110,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )
 
-  protected val rocksStorage: AllInOneRockStorage =
-    new AllInOneRockStorage(
+  protected val rocksStorage: MultiAndSingleNodeRockStorage =
+    new MultiAndSingleNodeRockStorage(
       storageOpts,
       rocksStorageOpts
     )
@@ -119,8 +119,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   private val zkStreamRepository: ZookeeperStreamRepository =
     zk.streamRepository(s"${storageOpts.streamZookeeperDirectory}")
 
-  protected val transactionDataServiceImpl: TransactionDataServiceImpl =
-    new TransactionDataServiceImpl(
+  protected val transactionDataServiceImpl: TransactionDataService =
+    new TransactionDataService(
       storageOpts,
       rocksStorageOpts,
       zkStreamRepository
@@ -380,7 +380,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       }
 
       if (rocksStorage != null) {
-        rocksStorage.getRocksStorage.close()
+        rocksStorage.getRocksStorage.closeDatabases()
       }
 
       if (transactionDataServiceImpl != null) {

@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.db
 
-abstract class KeyValueDatabase {
+abstract class KeyValueDb {
   def get(key: Array[Byte]): Array[Byte]
 
   def put(key: Array[Byte], data: Array[Byte]): Boolean
@@ -9,5 +9,5 @@ abstract class KeyValueDatabase {
 
   def getLastRecord: Option[(Array[Byte], Array[Byte])]
 
-  def iterator: KeyValueDatabaseIterator
+  def iterator: KeyValueDbIterator
 }

@@ -18,12 +18,12 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabase, KeyValueDatabaseIterator}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDb, KeyValueDbIterator}
 import org.rocksdb._
 
-class RocksDbPartitionDatabase(client: TtlDB,
-                               databaseHandler: ColumnFamilyHandle)
-  extends KeyValueDatabase
+class RocksDb(client: TtlDB,
+              databaseHandler: ColumnFamilyHandle)
+  extends KeyValueDb
 {
   RocksDB.loadLibrary()
 
@@ -54,7 +54,7 @@ class RocksDbPartitionDatabase(client: TtlDB,
     record
   }
 
-  def iterator: KeyValueDatabaseIterator = new RocksDbIteratorWrapper(client.newIterator(databaseHandler))
+  def iterator: KeyValueDbIterator = new RocksDbIteratorWrapper(client.newIterator(databaseHandler))
 
 //  def newBatch = new Batch
 //  class Batch() {

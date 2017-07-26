@@ -2,12 +2,12 @@ package util.db
 
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabase, KeyValueDatabaseBatch}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDb, KeyValueDbBatch}
 
 import scala.collection.mutable.ArrayBuffer
 
-class KeyValueDatabaseBatchInMemory(dbs: Array[KeyValueDatabase])
-  extends KeyValueDatabaseBatch()
+class KeyValueDbBatchInMemory(dbs: Array[KeyValueDb])
+  extends KeyValueDbBatch()
 {
   private val operationBuffer = ArrayBuffer.empty[Unit => Unit]
 

@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.storage
 
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
-import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDbAll, RocksDbDescriptor}
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
+import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDbManager, RocksDbDescriptor}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage._
 
@@ -12,14 +12,14 @@ class MultiNodeRockStorage(storageOpts: StorageOptions,
                            readOnly: Boolean = false)
   extends RocksStorage(storageOpts, rocksOpts, readOnly)
 {
-  private val rocksMetaServiceDB: KeyValueDatabaseManager = new RocksDbAll(
+  private val rocksMetaServiceDB: KeyValueDbManager = new RocksDbManager(
     storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
     rocksOpts,
     commonDescriptors :+ RocksDbDescriptor(bookkeeperLogStoreDescriptorInfo, columnFamilyOptions),
     readOnly
   )
 
-  override def getRocksStorage: KeyValueDatabaseManager = {
+  override def getRocksStorage: KeyValueDbManager = {
     rocksMetaServiceDB
   }
 }

@@ -11,8 +11,8 @@ import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeTestServer
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
-import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
@@ -172,7 +172,7 @@ object Utils {
       RocksStorageOptions()
 
     val rocksStorage =
-      new AllInOneRockStorage(
+      new MultiAndSingleNodeRockStorage(
         storageOptions,
         rocksStorageOptions
       )
@@ -189,7 +189,7 @@ object Utils {
       )
 
     val transactionDataServiceImpl =
-      new TransactionDataServiceImpl(
+      new TransactionDataService(
         storageOptions,
         rocksStorageOptions,
         zkStreamRepository

@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver
 
-import com.bwsw.tstreamstransactionserver.netty.server.storage.{AllInOneRockStorage, RocksStorage}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.{MultiAndSingleNodeRockStorage, RocksStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
 import org.json4s.jackson.JsonMethods.{pretty, render}
@@ -32,7 +32,7 @@ object DumpProcessedAllTransactionsUtility {
         "Path to database folder and name of transaction metadata database folder name should be provided."
       )
     else {
-      val rocksStorage = new AllInOneRockStorage(
+      val rocksStorage = new MultiAndSingleNodeRockStorage(
         ServerOptions.StorageOptions(
           path = args(0),
           metadataDirectory = args(1)

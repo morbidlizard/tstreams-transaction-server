@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.storage
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDbDescriptor, RocksDbMeta}
-import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.rocksdb.ColumnFamilyOptions
@@ -63,8 +63,8 @@ abstract class RocksStorage(storageOpts: StorageOptions,
       RocksDbDescriptor(transactionOpenStoreDescriptorInfo,               columnFamilyOptions)
     )
 
-  def getRocksStorage: KeyValueDatabaseManager
+  def getRocksStorage: KeyValueDbManager
 
-  final def newBatch: KeyValueDatabaseBatch =
+  final def newBatch: KeyValueDbBatch =
     getRocksStorage.newBatch
 }

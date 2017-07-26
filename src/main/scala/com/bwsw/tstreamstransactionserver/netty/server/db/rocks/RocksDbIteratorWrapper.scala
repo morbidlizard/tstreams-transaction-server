@@ -1,10 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseIterator
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbIterator
 import org.rocksdb.RocksIterator
 
 private[rocks] final class RocksDbIteratorWrapper(iterator: RocksIterator)
-  extends KeyValueDatabaseIterator
+  extends KeyValueDbIterator
 {
   override def key(): Array[Byte] = iterator.key()
 

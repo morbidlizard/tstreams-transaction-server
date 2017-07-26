@@ -3,12 +3,12 @@ package util
 
 import java.io.File
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
+import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamService
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
@@ -22,7 +22,7 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
 {
 
   private val rocksStorage =
-    new AllInOneRockStorage(
+    new MultiAndSingleNodeRockStorage(
       storageOptions,
       rocksStorageOpts
     )
@@ -31,7 +31,7 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
     new ZookeeperStreamRepository(zkClient, s"${storageOptions.streamZookeeperDirectory}")
 
   private val transactionDataServiceImpl =
-    new TransactionDataServiceImpl(
+    new TransactionDataService(
       storageOptions,
       rocksStorageOpts,
       streamRepository
@@ -47,15 +47,15 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
     transactionDataServiceImpl
   )
 
-  val streamService = new StreamServiceImpl(
+  val streamService = new StreamService(
     streamRepository
   )
 
-  def newBatch: KeyValueDatabaseBatch =
+  def newBatch: KeyValueDbBatch =
     rocksWriter.getNewBatch
 
   def closeDBAndDeleteFolder(): Unit = {
-    rocksStorage.getRocksStorage.close()
+    rocksStorage.getRocksStorage.closeDatabases()
     transactionDataServiceImpl.closeTransactionDataDatabases()
 
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))

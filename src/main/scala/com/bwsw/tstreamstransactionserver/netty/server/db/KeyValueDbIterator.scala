@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.db
 
-trait KeyValueDatabaseIterator {
+trait KeyValueDbIterator {
   def key(): Array[Byte]
 
   def value(): Array[Byte]

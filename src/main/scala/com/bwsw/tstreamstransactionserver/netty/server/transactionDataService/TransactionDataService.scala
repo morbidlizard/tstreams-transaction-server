@@ -26,13 +26,13 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnectio
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamKey, StreamRecord}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
-import TransactionDataServiceImpl._
+import TransactionDataService._
 
 import scala.collection.mutable.ArrayBuffer
 
-class TransactionDataServiceImpl(storageOpts: StorageOptions,
-                                 rocksStorageOpts: RocksStorageOptions,
-                                 streamCache: StreamRepository) {
+class TransactionDataService(storageOpts: StorageOptions,
+                             rocksStorageOpts: RocksStorageOptions,
+                             streamCache: StreamRepository) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val ttlToAdd: Int = rocksStorageOpts.transactionTtlAppendMs
 
@@ -163,6 +163,6 @@ class TransactionDataServiceImpl(storageOpts: StorageOptions,
     rocksDBStorageToStream.values().forEach(_.close())
 }
 
-object TransactionDataServiceImpl {
+object TransactionDataService {
   val prefixName = "[TransactionDataService] "
 }

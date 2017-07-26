@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.3.8.1-SNAPSHOT"
+version := "1.4.0-SNAPSHOT"
 
 scalaVersion := "2.12.2"
 

@@ -102,7 +102,7 @@ class CommitLogOffsetTest
       Await.result(client.putTransactions(producerTransactions, Seq()), secondsWait.seconds)
 
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       transactionServer.berkeleyWriter.run()
 
       val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
@@ -146,7 +146,7 @@ class CommitLogOffsetTest
   //
   //    TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
   //    Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(stream)), secondsWait.seconds)
-  //    transactionServer.scheduledCommitLogImpl.run()
+  //    transactionServer.scheduledCommitLog.run()
   //
   //    val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
   //    result.currentProcessedCommitLog   shouldBe -1L
@@ -157,9 +157,9 @@ class CommitLogOffsetTest
   //    val stream = getRandomStream
   //    Await.result(client.putStream(stream), secondsWait.seconds)
   //
-  //    transactionServer.scheduledCommitLogImpl.run()
-  //    transactionServer.scheduledCommitLogImpl.run()
-  //    transactionServer.scheduledCommitLogImpl.run()
+  //    transactionServer.scheduledCommitLog.run()
+  //    transactionServer.scheduledCommitLog.run()
+  //    transactionServer.scheduledCommitLog.run()
   //
   //    val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
   //    result.currentProcessedCommitLog   shouldBe -1L

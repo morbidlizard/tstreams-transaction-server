@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import java.nio.ByteBuffer
 
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceWriter, ConsumerServiceRead}
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceRead
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
@@ -15,7 +15,7 @@ import scala.collection.Set
 class RocksReader(rocksStorage: MultiAndSingleNodeRockStorage,
                   transactionDataService: TransactionDataService) {
 
-  private val consumerServiceImpl =
+  private val consumerService =
     new ConsumerServiceRead(
       rocksStorage.getRocksStorage
     )
@@ -25,12 +25,12 @@ class RocksReader(rocksStorage: MultiAndSingleNodeRockStorage,
       rocksStorage.getRocksStorage
     )
 
-  private val oneNodeCommitLogServiceImpl =
+  private val oneNodeCommitLogService =
     new singleNode.commitLogService.CommitLogService(
       rocksStorage.getRocksStorage
     )
 
-  private val multiNodeCommitLogServiceImpl =
+  private val multiNodeCommitLogService =
     new multiNode.commitLogService.CommitLogService(
       rocksStorage.getRocksStorage
     )
@@ -38,16 +38,16 @@ class RocksReader(rocksStorage: MultiAndSingleNodeRockStorage,
   private val transactionIDService =
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
 
-  private val transactionMetaServiceReaderImpl =
+  private val transactionMetaServiceReader =
     new TransactionMetaServiceReader(
       rocksStorage.getRocksStorage
     )
 
   final def getLastProcessedCommitLogFileID: Long =
-    oneNodeCommitLogServiceImpl.getLastProcessedCommitLogFileID.getOrElse(-1L)
+    oneNodeCommitLogService.getLastProcessedCommitLogFileID.getOrElse(-1L)
 
   final def getLastProcessedLedgersAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] =
-    multiNodeCommitLogServiceImpl.getLastProcessedLedgerAndRecordIDs
+    multiNodeCommitLogService.getLastProcessedLedgerAndRecordIDs
 
   final def getTransactionID: Long =
     transactionIDService.getTransaction()
@@ -58,7 +58,7 @@ class RocksReader(rocksStorage: MultiAndSingleNodeRockStorage,
   final def getTransaction(streamID: Int,
                            partition: Int,
                            transaction: Long): TransactionInfo =
-    transactionMetaServiceReaderImpl.getTransaction(
+    transactionMetaServiceReader.getTransaction(
       streamID,
       partition,
       transaction
@@ -82,7 +82,7 @@ class RocksReader(rocksStorage: MultiAndSingleNodeRockStorage,
                              to: Long,
                              count: Int,
                              states: Set[TransactionStates]): ScanTransactionsInfo =
-    transactionMetaServiceReaderImpl.scanTransactions(
+    transactionMetaServiceReader.scanTransactions(
       streamID,
       partition,
       from,
@@ -108,7 +108,7 @@ class RocksReader(rocksStorage: MultiAndSingleNodeRockStorage,
   final def getConsumerState(name: String,
                              streamID: Int,
                              partition: Int): Long = {
-    consumerServiceImpl.getConsumerState(
+    consumerService.getConsumerState(
       name,
       streamID,
       partition

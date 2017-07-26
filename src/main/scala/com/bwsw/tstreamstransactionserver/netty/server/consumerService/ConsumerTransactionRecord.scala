@@ -24,8 +24,8 @@ import com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction
 object ConsumerTransactionRecord {
   def apply(txn: ConsumerTransaction, timestamp: Long): ConsumerTransactionRecord = {
     val key = ConsumerTransactionKey(txn.name, txn.stream, txn.partition)
-    val producerTransaction = ConsumerTransactionValue(txn.transactionID, timestamp)
-    ConsumerTransactionRecord(key, producerTransaction)
+    val value = ConsumerTransactionValue(txn.transactionID, timestamp)
+    ConsumerTransactionRecord(key, value)
   }
 
   def apply(name: String,

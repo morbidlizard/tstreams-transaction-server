@@ -2,14 +2,13 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{CommitLogKey, ProducerTransactionRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import org.slf4j.{Logger, LoggerFactory}
 
 object BigCommit {
   val bookkeeperKey: Array[Byte] = "key".getBytes()
   val commitLogKey: Array[Byte] = "file".getBytes()
 }
-
 
 class BigCommit(rocksWriter: RocksWriter,
                 databaseIndex: Int,

@@ -24,14 +24,14 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Promise}
 
-private object StateNotifier {
+private object Notifier {
   private implicit lazy val executionContext: ExecutionContext =
     scala.concurrent.ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
 }
 
-final class StateNotifier[T] {
+final class Notifier[T] {
 
-  import StateNotifier.executionContext
+  import Notifier.executionContext
 
   private case class Notification(notifyOn: T => Boolean,
                                   notificationPromise: scala.concurrent.Promise[Unit])
@@ -52,11 +52,10 @@ final class StateNotifier[T] {
     notifications.clear()
   }
 
-
   def leaveRequest(onNotificationCompleted: T => Boolean,
                    func: => Unit): Long = {
 
-    val producerNotification =
+    val notification =
       Notification(
         onNotificationCompleted,
         scala.concurrent.Promise[Unit]()
@@ -64,9 +63,9 @@ final class StateNotifier[T] {
 
     val id = requestIdGenerator.getAndIncrement()
 
-    requests.put(id, producerNotification)
+    requests.put(id, notification)
 
-    producerNotification
+    notification
       .notificationPromise
       .future.map { _ => func }
 
@@ -79,12 +78,12 @@ final class StateNotifier[T] {
   def tryCompleteRequests(entity: T): Unit = {
     if (requests.nonEmpty) {
       requests
-        .find { case (_, notify) =>
-          notify.notifyOn(entity)
+        .find { case (_, notification) =>
+          notification.notifyOn(entity)
         }
-        .foreach { case (id, notify) =>
-          requests.remove(id, notify)
-          notifications += notify.notificationPromise
+        .foreach { case (id, notification) =>
+          requests.remove(id, notification)
+          notifications += notification.notificationPromise
         }
     }
   }

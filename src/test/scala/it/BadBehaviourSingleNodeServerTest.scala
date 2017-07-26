@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.{Message, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
-import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.netty.server.ServerHandler
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
@@ -194,7 +194,7 @@ class BadBehaviourSingleNodeServerTest
       .validateAndCreate("127.0.0.1", port)
       .get
 
-    val zKLeaderClientToPutMaster = new ZKClient(
+    val zKLeaderClientToPutMaster = new ZookeeperClient(
       endpoints = zkTestServer.getConnectString,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,

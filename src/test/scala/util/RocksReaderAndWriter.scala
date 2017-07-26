@@ -5,11 +5,10 @@ import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
+import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFramework
@@ -30,7 +29,7 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
   private val streamRepository =
     new ZookeeperStreamRepository(zkClient, s"${storageOptions.streamZookeeperDirectory}")
 
-  private val transactionDataServiceImpl =
+  private val transactionDataService =
     new TransactionDataService(
       storageOptions,
       rocksStorageOpts,
@@ -39,12 +38,12 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
 
   val rocksWriter = new RocksWriter(
     rocksStorage,
-    transactionDataServiceImpl
+    transactionDataService
   )
 
   val rocksReader = new RocksReader(
     rocksStorage,
-    transactionDataServiceImpl
+    transactionDataService
   )
 
   val streamService = new StreamService(
@@ -56,7 +55,7 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
 
   def closeDBAndDeleteFolder(): Unit = {
     rocksStorage.getRocksStorage.closeDatabases()
-    transactionDataServiceImpl.closeTransactionDataDatabases()
+    transactionDataService.closeTransactionDataDatabases()
 
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))

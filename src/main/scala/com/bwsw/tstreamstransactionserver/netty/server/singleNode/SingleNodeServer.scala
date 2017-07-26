@@ -32,9 +32,9 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnectio
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
-import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
-import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -103,7 +103,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     createTransactionServerExternalSocket()
 
   private val zk =
-    new ZKClient(
+    new ZookeeperClient(
       zookeeperOpts.endpoints,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,
@@ -119,7 +119,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   private val zkStreamRepository: ZookeeperStreamRepository =
     zk.streamRepository(s"${storageOpts.streamZookeeperDirectory}")
 
-  protected val transactionDataServiceImpl: TransactionDataService =
+  protected val transactionDataService: TransactionDataService =
     new TransactionDataService(
       storageOpts,
       rocksStorageOpts,
@@ -128,12 +128,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
 
   protected lazy val rocksWriter: RocksWriter = new RocksWriter(
     rocksStorage,
-    transactionDataServiceImpl
+    transactionDataService
   )
 
   private val rocksReader = new RocksReader(
     rocksStorage,
-    transactionDataServiceImpl
+    transactionDataService
   )
 
   private val transactionServer = new TransactionServer(
@@ -173,7 +173,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     zk.idGenerator(commitLogOptions.zkFileIdGeneratorPath)
 
 
-  val scheduledCommitLogImpl = new ScheduledCommitLog(
+  val scheduledCommitLog = new ScheduledCommitLog(
     commitLogQueue,
     storageOpts,
     commitLogOptions,
@@ -217,7 +217,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
           zk
         }
         else {
-          new ZKClient(
+          new ZookeeperClient(
             monitoringZkEndpoints,
             zookeeperOpts.sessionTimeoutMs,
             zookeeperOpts.connectionTimeoutMs,
@@ -226,8 +226,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         }
     }.getOrElse(zk)
 
-  private val openTransactionStateNotifier =
-    new OpenTransactionStateNotifier(
+  private val openedTransactionNotifier =
+    new OpenedTransactionNotifier(
       new SubscribersObserver(
         curatorSubscriberClient.client,
         zkStreamRepository,
@@ -239,11 +239,11 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   private val requestHandlerRouter: RequestHandlerRouter =
     new RequestHandlerRouter(
       transactionServer,
-      scheduledCommitLogImpl,
+      scheduledCommitLog,
       packageTransmissionOpts,
       authenticationOpts,
       orderedExecutionPool,
-      openTransactionStateNotifier,
+      openedTransactionNotifier,
       serverRoleOptions
     )
 
@@ -283,7 +283,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .sync()
 
       commitLogCloseExecutor.scheduleWithFixedDelay(
-        scheduledCommitLogImpl,
+        scheduledCommitLog,
         commitLogOptions.closeDelayMs,
         commitLogOptions.closeDelayMs,
         java.util.concurrent.TimeUnit.MILLISECONDS
@@ -354,8 +354,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         )
       }
 
-      if (scheduledCommitLogImpl != null)
-        scheduledCommitLogImpl.closeWithoutCreationNewFile()
+      if (scheduledCommitLog != null)
+        scheduledCommitLog.closeWithoutCreationNewFile()
 
       if (commitLogCloseExecutor != null) {
         commitLogCloseExecutor.shutdown()
@@ -383,8 +383,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         rocksStorage.getRocksStorage.closeDatabases()
       }
 
-      if (transactionDataServiceImpl != null) {
-        transactionDataServiceImpl.closeTransactionDataDatabases()
+      if (transactionDataService != null) {
+        transactionDataService.closeTransactionDataDatabases()
       }
     }
   }

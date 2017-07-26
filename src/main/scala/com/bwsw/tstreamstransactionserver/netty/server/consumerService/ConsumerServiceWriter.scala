@@ -18,22 +18,21 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import org.slf4j.LoggerFactory
-
-import scala.collection.mutable.ListBuffer
 
 
 class ConsumerServiceWriter(rocksMetaServiceDB: KeyValueDbManager) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private final def transitConsumerTransactionToNewState(commitLogTransactions: Seq[ConsumerTransactionRecord]): ConsumerTransactionRecord = {
+  private final def getLastTransaction(commitLogTransactions: Seq[ConsumerTransactionRecord]): ConsumerTransactionRecord = {
     commitLogTransactions.maxBy(_.timestamp)
   }
 
-  protected def onConsumerTransactionStateChangeDo: ConsumerTransactionRecord => Unit =
+  protected def onStateChange: ConsumerTransactionRecord => Unit = {
     _ => {}
+  }
 
   def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
                               batch: KeyValueDbBatch): Unit = {
@@ -45,22 +44,16 @@ class ConsumerServiceWriter(rocksMetaServiceDB: KeyValueDbManager) {
 
     groupedConsumerTransactions.foreach {
       case (key, txns) =>
-        val theLastStateTransaction =
-          transitConsumerTransactionToNewState(txns)
-        val consumerTransactionValueBinary =
-          theLastStateTransaction.consumerTransaction.toByteArray
-        val consumerTransactionKeyBinary =
-          key.toByteArray
+        val lastTransaction = getLastTransaction(txns)
+        val value = lastTransaction.consumerTransaction.toByteArray
 
         batch.put(
           RocksStorage.CONSUMER_STORE,
-          consumerTransactionKeyBinary,
-          consumerTransactionValueBinary
+          key.toByteArray,
+          value
         )
 
-        onConsumerTransactionStateChangeDo(
-          theLastStateTransaction
-        )
+        onStateChange(lastTransaction)
     }
   }
 }

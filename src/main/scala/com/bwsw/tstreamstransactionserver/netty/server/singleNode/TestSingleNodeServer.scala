@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.singleNode
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.netty.server.{RocksWriter, ServerHandler, StateNotifier, TestRocksWriter}
+import com.bwsw.tstreamstransactionserver.netty.server.{RocksWriter, ServerHandler, Notifier, TestRocksWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
@@ -10,7 +10,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.SimpleChannelInboundHandler
 import org.slf4j.Logger
 
-class SingleNodeTestServer(authenticationOpts: AuthenticationOptions,
+class TestSingleNodeServer(authenticationOpts: AuthenticationOptions,
                            zookeeperOpts: CommonOptions.ZookeeperOptions,
                            serverOpts: BootstrapOptions,
                            serverRoleOptions: ServerRoleOptions,
@@ -37,14 +37,14 @@ class SingleNodeTestServer(authenticationOpts: AuthenticationOptions,
     serverHandler) {
 
   private lazy val producerNotifier =
-    new StateNotifier[ProducerTransaction]
+    new Notifier[ProducerTransaction]
   private lazy val consumerNotifier =
-    new StateNotifier[ConsumerTransaction]
+    new Notifier[ConsumerTransaction]
 
   override protected lazy val rocksWriter: RocksWriter =
     new TestRocksWriter(
       rocksStorage,
-      transactionDataServiceImpl,
+      transactionDataService,
       producerNotifier,
       consumerNotifier
     )

@@ -11,7 +11,7 @@ import org.apache.commons.io.FileUtils
 
 final class TransactionServerBundle(val transactionServer: TransactionServer,
                                     rocksStorage: RocksStorage,
-                                    transactionDataServiceImpl: TransactionDataService,
+                                    transactionDataService: TransactionDataService,
                                     val storageOptions: ServerOptions.StorageOptions,
                                     rocksOptions: ServerOptions.RocksStorageOptions)
 {
@@ -29,7 +29,7 @@ final class TransactionServerBundle(val transactionServer: TransactionServer,
 
   def closeDbsAndDeleteDirectories(): Unit = {
     rocksStorage.getRocksStorage.closeDatabases()
-    transactionDataServiceImpl.closeTransactionDataDatabases()
+    transactionDataService.closeTransactionDataDatabases()
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))

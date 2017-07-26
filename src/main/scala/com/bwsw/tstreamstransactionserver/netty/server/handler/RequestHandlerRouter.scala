@@ -25,7 +25,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransact
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesHandler
-import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, ServerRoleOptions, TransportOptions}
 
@@ -36,7 +36,7 @@ final class RequestHandlerRouter(val server: TransactionServer,
                                  val packageTransmissionOpts: TransportOptions,
                                  val authOptions: AuthenticationOptions,
                                  val orderedExecutionPool: OrderedExecutionContextPool,
-                                 val openTransactionStateNotifier: OpenTransactionStateNotifier,
+                                 val openedTransactionNotifier: OpenedTransactionNotifier,
                                  val serverRoleOptions: ServerRoleOptions) {
 
   private val handlers: Array[RequestHandler] = Array(

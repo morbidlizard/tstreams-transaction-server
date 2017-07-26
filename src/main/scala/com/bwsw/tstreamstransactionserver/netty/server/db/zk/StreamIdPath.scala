@@ -24,8 +24,8 @@ import org.apache.curator.framework.CuratorFramework
 import org.apache.zookeeper.CreateMode
 //import org.slf4j.LoggerFactory
 
-final class StreamIDPath(client: CuratorFramework, path: String) {
-//  private val logger = LoggerFactory.getLogger(this.getClass)
+final class StreamIdPath(client: CuratorFramework, path: String) {
+  //  private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val seqPrefix = "id"
   private val streamsIdsPath = s"$path/$seqPrefix"
@@ -60,35 +60,35 @@ final class StreamIDPath(client: CuratorFramework, path: String) {
     streamRecord
   }
 
-  def checkExists(streamKey: streamService.StreamKey): Boolean = {
+  def exists(streamKey: streamService.StreamKey): Boolean = {
     Option(client.checkExists().forPath(buildPath(streamKey.id)))
       .exists(_ => true)
   }
 
   def get(streamKey: streamService.StreamKey): Option[streamService.StreamRecord] = {
     val streamValueOpt = scala.util.Try(client.getData.forPath(buildPath(streamKey.id)))
-    val streamRecord   = streamValueOpt.toOption
+    val streamRecord = streamValueOpt.toOption
       .map(data => StreamRecord.fromBinaryJson(data))
 
     streamRecord
   }
 
-//  def delete(streamKey: StreamKey, streamPath: StreamNamePath): Boolean = {
-//    if (checkExists(streamKey)) {
-//      val isDeleted = Option(client.getData.forPath(buildPath(streamKey.id)))
-//        .map(data => StreamRecord.fromBinaryJson(data))
-//        .map(streamRecord => streamPath.delete(streamRecord.name, this))
-//        .map(_ => client.setData().forPath(buildPath(streamKey.id), Array.emptyByteArray))
-//        .exists(_ => true)
-//
-//      if (isDeleted && logger.isDebugEnabled) {
-//        logger.debug(s"Stream with id ${streamKey.id} is ${if (isDeleted) "" else "not"} deleted")
-//      }
-//      isDeleted
-//    }
-//    else {
-//      false
-//    }
-//  }
+  //  def delete(streamKey: StreamKey, streamPath: StreamNamePath): Boolean = {
+  //    if (checkExists(streamKey)) {
+  //      val isDeleted = Option(client.getData.forPath(buildPath(streamKey.id)))
+  //        .map(data => StreamRecord.fromBinaryJson(data))
+  //        .map(streamRecord => streamPath.delete(streamRecord.name, this))
+  //        .map(_ => client.setData().forPath(buildPath(streamKey.id), Array.emptyByteArray))
+  //        .exists(_ => true)
+  //
+  //      if (isDeleted && logger.isDebugEnabled) {
+  //        logger.debug(s"Stream with id ${streamKey.id} is ${if (isDeleted) "" else "not"} deleted")
+  //      }
+  //      isDeleted
+  //    }
+  //    else {
+  //      false
+  //    }
+  //  }
 }
 

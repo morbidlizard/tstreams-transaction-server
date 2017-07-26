@@ -6,7 +6,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterInteractor
-import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
@@ -233,7 +233,7 @@ class ClientSingleNodeServerZookeeperTest
       endpoints = zkTestServer.getConnectString
     )
 
-    val zk = new ZKClient(
+    val zk = new ZookeeperClient(
       zkOptions.endpoints,
       zkOptions.sessionTimeoutMs,
       zkOptions.connectionTimeoutMs,

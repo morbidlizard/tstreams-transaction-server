@@ -6,14 +6,13 @@ import java.nio.file.Files
 import java.util
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeTestServer
-import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.TestSingleNodeServer
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
+import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
@@ -188,7 +187,7 @@ object Utils {
         storageOptions.streamZookeeperDirectory
       )
 
-    val transactionDataServiceImpl =
+    val transactionDataService =
       new TransactionDataService(
         storageOptions,
         rocksStorageOptions,
@@ -198,13 +197,13 @@ object Utils {
     val rocksWriter =
       new RocksWriter(
         rocksStorage,
-        transactionDataServiceImpl
+        transactionDataService
       )
 
     val rocksReader =
       new RocksReader(
         rocksStorage,
-        transactionDataServiceImpl
+        transactionDataService
       )
 
     val transactionServer =
@@ -218,7 +217,7 @@ object Utils {
     new TransactionServerBundle(
       transactionServer,
       rocksStorage,
-      transactionDataServiceImpl,
+      transactionDataService,
       storageOptions,
       rocksStorageOptions
     )
@@ -270,7 +269,7 @@ object Utils {
         serverBuilder.getBootstrapOptions.copy(bindPort = getRandomPort)
       )
 
-    val transactionServer = new SingleNodeTestServer(
+    val transactionServer = new TestSingleNodeServer(
       updatedBuilder.getAuthenticationOptions,
       updatedBuilder.getZookeeperOptions,
       updatedBuilder.getBootstrapOptions,
@@ -334,7 +333,7 @@ object Utils {
       )
 
 
-    val transactionServer = new SingleNodeTestServer(
+    val transactionServer = new TestSingleNodeServer(
       updatedBuilder.getAuthenticationOptions,
       updatedBuilder.getZookeeperOptions,
       updatedBuilder.getBootstrapOptions,

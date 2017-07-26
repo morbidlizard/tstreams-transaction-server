@@ -130,7 +130,7 @@ class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
     )
   }
 
-  protected def onProducerTransactionStateChangeDo: ProducerTransactionRecord => Unit =
+  protected def onStateChange: ProducerTransactionRecord => Unit =
     _ => {}
 
 
@@ -156,7 +156,7 @@ class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
       val finalStateOpt = ProducerTransactionStateMachine
         .transiteTransactionsToFinalState(
           transactionsToProcess,
-          onProducerTransactionStateChangeDo
+          onStateChange
         )
 
       finalStateOpt

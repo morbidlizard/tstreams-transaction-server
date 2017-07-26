@@ -21,7 +21,6 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToRocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestHandlerRouter}
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
@@ -184,7 +183,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
 
 
   private val orderedExecutionPool = requestHandlerRouter.orderedExecutionPool
-  private val subscriberNotifier = requestHandlerRouter.openTransactionStateNotifier
+  private val subscriberNotifier = requestHandlerRouter.openedTransactionNotifier
   private def processRequestAndReplyClient(handler: RequestHandler,
                                            message: Message,
                                            ctx: ChannelHandlerContext

@@ -21,22 +21,19 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 import java.io.{Closeable, File}
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
 import org.apache.commons.io.FileUtils
 import org.rocksdb._
 
 import scala.collection.{JavaConverters, mutable}
 
-class RocksDbAll(absolutePath: String,
-                 rocksStorageOpts: RocksStorageOptions,
-                 descriptors: Seq[RocksDbDescriptor],
-                 readMode: Boolean = false)
-  extends KeyValueDatabaseManager
-    with Closeable {
+class RocksDbManager(absolutePath: String,
+                     rocksStorageOpts: RocksStorageOptions,
+                     descriptors: Seq[RocksDbDescriptor],
+                     readMode: Boolean = false)
+  extends KeyValueDbManager {
   RocksDB.loadLibrary()
-
-  private val batchIDGen = new AtomicLong(-1L)
 
   private val options = rocksStorageOpts.createDBOptions()
 
@@ -83,18 +80,14 @@ class RocksDbAll(absolutePath: String,
   }
 
 
-  def getDatabase(index: Int): RocksDbPartitionDatabase = {
-    new RocksDbPartitionDatabase(client, databaseHandlers(index))
-  }
-
-  def getRecordFromDatabase(index: Int, key: Array[Byte]): Array[Byte] = {
-    client.get(databaseHandlers(index), key)
+  def getDatabase(index: Int): RocksDb = {
+    new RocksDb(client, databaseHandlers(index))
   }
 
   def newBatch =
     new Batch(client, databaseHandlers)
 
-  override def close(): Unit =
+  override def closeDatabases(): Unit =
     client.close()
 }
 

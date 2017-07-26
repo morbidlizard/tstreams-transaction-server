@@ -19,32 +19,32 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 
 
-class LastTransactionReader(rocksMetaServiceDB: KeyValueDatabaseManager) {
+class LastTransactionReader(rocksMetaServiceDB: KeyValueDbManager) {
   private final val lastTransactionDatabase =
     rocksMetaServiceDB.getDatabase(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE)
 
   private final val lastCheckpointedTransactionDatabase =
     rocksMetaServiceDB.getDatabase(RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE)
 
-  final def getLastTransactionIDAndCheckpointedID(streamID: Int,
-                                                  partition: Int): Option[LastOpenedAndCheckpointedTransaction] = {
+  final def getLastTransaction(streamID: Int,
+                               partition: Int): Option[LastTransaction] = {
 
     val key = KeyStreamPartition(streamID, partition)
     val binaryKey = key.toByteArray
     val lastOpenedTransaction =
       Option(lastTransactionDatabase.get(binaryKey))
-        .map(data => TransactionID.fromByteArray(data))
+        .map(data => TransactionId.fromByteArray(data))
 
     lastOpenedTransaction.map { openedTxn =>
       val lastCheckpointedTransaction =
         Option(lastCheckpointedTransactionDatabase.get(binaryKey))
-          .map(data => TransactionID.fromByteArray(data))
+          .map(data => TransactionId.fromByteArray(data))
 
-      LastOpenedAndCheckpointedTransaction(openedTxn, lastCheckpointedTransaction)
+      LastTransaction(openedTxn, lastCheckpointedTransaction)
     }
   }
 }

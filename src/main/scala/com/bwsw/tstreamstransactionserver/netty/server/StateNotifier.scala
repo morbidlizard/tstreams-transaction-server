@@ -76,14 +76,11 @@ final class StateNotifier[T] {
   def removeRequest(id: Long): Boolean =
     requests.remove(id).isDefined
 
-  def areThereAnyRequests: Boolean =
-    requests.nonEmpty
-
-  def tryCompleteRequests(producerTransactionRecord: T): Unit = {
+  def tryCompleteRequests(entity: T): Unit = {
     if (requests.nonEmpty) {
       requests
         .find { case (_, notify) =>
-          notify.notifyOn(producerTransactionRecord)
+          notify.notifyOn(entity)
         }
         .foreach { case (id, notify) =>
           requests.remove(id, notify)

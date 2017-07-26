@@ -18,7 +18,7 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabaseBatch, KeyValueDatabaseManager}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler._
 import com.bwsw.tstreamstransactionserver.rpc._
@@ -28,8 +28,8 @@ import scala.collection.mutable.ArrayBuffer
 
 
 
-class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
-                                 producerStateMachineCache: ProducerStateMachineCache)
+class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
+                                   producerStateMachineCache: ProducerStateMachineCache)
 {
   import producerStateMachineCache._
 
@@ -37,7 +37,7 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
     LoggerFactory.getLogger(this.getClass)
 
   private final def selectInOrderProducerTransactions(transactions: Seq[ProducerTransactionRecord],
-                                                                       batch: KeyValueDatabaseBatch) = {
+                                                                       batch: KeyValueDbBatch) = {
     val producerTransactions = ArrayBuffer[ProducerTransactionRecord]()
     transactions foreach { txn =>
       val key = KeyStreamPartition(txn.stream, txn.partition)
@@ -74,7 +74,7 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
 
   private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
                                                                       producerTransactionWithNewState: ProducerTransactionRecord,
-                                                                      batch: KeyValueDatabaseBatch): Unit = {
+                                                                      batch: KeyValueDbBatch): Unit = {
     updateLastCheckpointedTransactionID(
       key,
       producerTransactionWithNewState.transactionID
@@ -93,7 +93,7 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
   }
 
   private def putTransactionToAllAndOpenedTables(producerTransactionRecord: ProducerTransactionRecord,
-                                                 batch: KeyValueDatabaseBatch) =
+                                                 batch: KeyValueDbBatch) =
   {
 
     if (producerTransactionRecord.state == TransactionStates.Checkpointed) {
@@ -135,7 +135,7 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
 
 
   def putTransactions(transactions: Seq[ProducerTransactionRecord],
-                      batch: KeyValueDatabaseBatch): Unit = {
+                      batch: KeyValueDbBatch): Unit = {
     val producerTransactions =
       selectInOrderProducerTransactions(transactions, batch)
 
@@ -153,14 +153,14 @@ class TransactionMetaServiceImpl(rocksDB: KeyValueDatabaseManager,
         )
         .getOrElse(sortedTransactions)
 
-      val finalStateOpt = ProducerTransactionState
+      val finalStateOpt = ProducerTransactionStateMachine
         .transiteTransactionsToFinalState(
           transactionsToProcess,
           onProducerTransactionStateChangeDo
         )
 
       finalStateOpt
-        .filter(ProducerTransactionState.checkFinalStateBeStoredInDB)
+        .filter(ProducerTransactionStateMachine.checkFinalStateBeStoredInDB)
         .foreach { finalState =>
           val transaction = finalState.producerTransactionRecord
           putTransactionToAllAndOpenedTables(transaction, batch)

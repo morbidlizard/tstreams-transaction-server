@@ -18,5 +18,5 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
-case class LastOpenedAndCheckpointedTransaction(opened: TransactionID,
-                                                checkpointed: Option[TransactionID])
+case class LastTransaction(opened: TransactionId,
+                           checkpointed: Option[TransactionId])

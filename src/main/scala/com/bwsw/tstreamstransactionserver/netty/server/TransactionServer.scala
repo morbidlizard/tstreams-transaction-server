@@ -21,14 +21,14 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
-import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceImpl, ConsumerTransactionRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseBatch
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceWriter, ConsumerTransactionRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.{AllInOneRockStorage, RocksStorage}
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamServiceImpl}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastOpenedAndCheckpointedTransaction, LastTransactionReader}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.{MultiAndSingleNodeRockStorage, RocksStorage}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamService}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastTransaction, LastTransactionReader}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc
@@ -44,9 +44,9 @@ class TransactionServer(authOpts: AuthenticationOptions,
                         rocksWriter: RocksWriter,
                         rocksReader: RocksReader)
 {
-  private val authService = new AuthServiceImpl(authOpts)
+  private val authService = new AuthService(authOpts)
 
-  private val streamServiceImpl = new StreamServiceImpl(
+  private val streamServiceImpl = new StreamService(
     streamRepository
   )
 
@@ -82,7 +82,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
     rocksWriter.putTransactionData(streamID, partition, transaction, data, from)
 
   final def putTransactions(transactions: Seq[ProducerTransactionRecord],
-                            batch: KeyValueDatabaseBatch) : Unit = {
+                            batch: KeyValueDbBatch) : Unit = {
     rocksWriter.putTransactions(transactions, batch)
   }
 
@@ -93,7 +93,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
     rocksReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
       .flatMap(_.checkpointed.map(txn => txn.id)).orElse(Some(-1L))
 
-  final def getLastTransactionIDAndCheckpointedID(streamID: Int, partition: Int): Option[LastOpenedAndCheckpointedTransaction] =
+  final def getLastTransactionIDAndCheckpointedID(streamID: Int, partition: Int): Option[LastTransaction] =
     rocksReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
 
   final def scanTransactions(streamID: Int, partition: Int, from: Long, to: Long, count: Int, states: Set[TransactionStates]): ScanTransactionsInfo =
@@ -104,7 +104,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
   }
 
   final def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
-                                    batch: KeyValueDatabaseBatch): Unit = {
+                                    batch: KeyValueDbBatch): Unit = {
     rocksWriter.putConsumersCheckpoints(consumerTransactions, batch)
   }
 

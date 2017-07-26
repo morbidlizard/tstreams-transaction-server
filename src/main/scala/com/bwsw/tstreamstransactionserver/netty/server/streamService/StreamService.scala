@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 
-class StreamServiceImpl(streamCache: StreamRepository)
+class StreamService(streamCache: StreamRepository)
 {
   def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Int =
     streamCache.put(StreamValue(stream, partitions, description, ttl, None)).id

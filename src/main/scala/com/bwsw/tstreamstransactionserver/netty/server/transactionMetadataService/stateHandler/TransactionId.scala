@@ -18,7 +18,7 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
-class TransactionID(val id: Long) extends AnyVal {
+class TransactionId(val id: Long) extends AnyVal {
   def toByteArray: Array[Byte] = {
     val size = java.lang.Long.BYTES
     val buffer = java.nio.ByteBuffer.allocate(size)
@@ -33,12 +33,12 @@ class TransactionID(val id: Long) extends AnyVal {
   override def toString: String = id.toString
 }
 
-object TransactionID {
-  def apply(id: Long): TransactionID = new TransactionID(id)
+object TransactionId {
+  def apply(id: Long): TransactionId = new TransactionId(id)
 
-  def fromByteArray(bytes: Array[Byte]): TransactionID = {
+  def fromByteArray(bytes: Array[Byte]): TransactionId = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
     val id = buffer.getLong
-    TransactionID(id)
+    TransactionId(id)
   }
 }

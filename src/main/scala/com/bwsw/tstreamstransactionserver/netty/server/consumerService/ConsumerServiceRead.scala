@@ -1,10 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import org.slf4j.LoggerFactory
 
-class ConsumerServiceReadImpl(rocksMetaServiceDB: KeyValueDatabaseManager) {
+class ConsumerServiceRead(rocksMetaServiceDB: KeyValueDbManager) {
   private val logger =
     LoggerFactory.getLogger(this.getClass)
   private val consumerDatabase =

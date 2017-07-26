@@ -1,13 +1,16 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDatabaseManager
+import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.rpc.{ScanTransactionsInfo, TransactionInfo, TransactionStates}
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ArrayBuffer
 
-class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager) {
+class TransactionMetaServiceReader(rocksDB: KeyValueDbManager) {
+  private val logger: Logger =
+    LoggerFactory.getLogger(this.getClass)
 
   private val producerTransactionsDatabase =
     rocksDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
@@ -16,7 +19,7 @@ class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager) {
     new LastTransactionReader(rocksDB)
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
-    val lastTransaction = lastTransactionReader.getLastTransactionIDAndCheckpointedID(streamID, partition)
+    val lastTransaction = lastTransactionReader.getLastTransaction(streamID, partition)
     if (lastTransaction.isEmpty || transaction > lastTransaction.get.opened.id) {
       TransactionInfo(exists = false, None)
     } else {
@@ -43,7 +46,7 @@ class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager) {
                        count: Int,
                        states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo = {
     val (lastOpenedTransactionID, toTransactionID) =
-      lastTransactionReader.getLastTransactionIDAndCheckpointedID(streamID, partition) match {
+      lastTransactionReader.getLastTransaction(streamID, partition) match {
       case Some(lastTransaction) => lastTransaction.opened.id match {
         case lt if lt < from => (lt, from - 1L)
         case lt if from <= lt && lt < to => (lt, lt)
@@ -52,8 +55,12 @@ class TransactionMetaServiceReaderImpl(rocksDB: KeyValueDatabaseManager) {
       case None => (-1L, from - 1L)
     }
 
-//    if (logger.isDebugEnabled) logger.debug(s"Trying to retrieve transactions on stream $streamID, partition: $partition in range [$from, $to]." +
-//      s"Actually as lt ${if (lastOpenedTransactionID == -1) "doesn't exist" else s"is $lastOpenedTransactionID"} the range is [$from, $toTransactionID].")
+    if (logger.isDebugEnabled)
+      logger.debug(s"Trying to retrieve transactions " +
+        s"on stream $streamID, " +
+        s"partition: $partition " +
+        s"in range [$from, $to]." +
+      s"Actually as lt ${if (lastOpenedTransactionID == -1) "doesn't exist" else s"is $lastOpenedTransactionID"} the range is [$from, $toTransactionID].")
 
     if (toTransactionID < from || count == 0) ScanTransactionsInfo(lastOpenedTransactionID, Seq())
     else {

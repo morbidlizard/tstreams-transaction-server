@@ -1,11 +1,11 @@
 package util.db
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDatabase, KeyValueDatabaseIterator}
+import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDb, KeyValueDbIterator}
 
 import scala.collection.concurrent.TrieMap
 
-class KeyValueDatabaseInMemory
-  extends KeyValueDatabase {
+class KeyValueDbInMemory
+  extends KeyValueDb {
   private val db = new TrieMap[Array[Byte], Array[Byte]]()
 
   override def get(key: Array[Byte]): Array[Byte] =
@@ -24,5 +24,5 @@ class KeyValueDatabaseInMemory
     db.lastOption
   }
 
-  override def iterator: KeyValueDatabaseIterator = ???
+  override def iterator: KeyValueDbIterator = ???
 }

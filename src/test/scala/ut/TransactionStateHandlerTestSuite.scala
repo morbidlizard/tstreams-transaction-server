@@ -12,7 +12,7 @@ class TransactionStateHandlerTestSuite
     with BeforeAndAfterAll {
 
   //arrange
-  private val transactionStateHandler = ProducerTransactionState
+  private val transactionStateHandler = ProducerTransactionStateMachine
   private val ts = 640836800000L
   private val openedTTL = 2
   private val quantity = -1

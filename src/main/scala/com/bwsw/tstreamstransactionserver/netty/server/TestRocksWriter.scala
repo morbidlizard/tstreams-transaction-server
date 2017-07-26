@@ -1,35 +1,35 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.test.TestConsumerServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.storage.AllInOneRockStorage
-import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataServiceImpl
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.test.{TestProducerTransactionsCleaner, TestTransactionMetaServiceImpl}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionsCleaner, TransactionMetaServiceImpl}
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceWriter
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.test.TestConsumerServiceWriter
+import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.test.{TestProducerTransactionsCleaner, TestTransactionMetaServiceWriter}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionsCleaner, TransactionMetaServiceWriter}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, ConsumerTransaction}
 
-class TestRocksWriter(rocksStorage: AllInOneRockStorage,
-                      transactionDataService: TransactionDataServiceImpl,
+class TestRocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
+                      transactionDataService: TransactionDataService,
                       producerTransactionNotifier: StateNotifier[ProducerTransaction],
                       consumerTransactionNotifier: StateNotifier[ConsumerTransaction])
   extends RocksWriter(
     rocksStorage,
     transactionDataService) {
 
-  override protected val consumerServiceImpl: ConsumerServiceImpl =
-    new TestConsumerServiceImpl(
+  override protected val consumerServiceImpl: ConsumerServiceWriter =
+    new TestConsumerServiceWriter(
       rocksStorage.getRocksStorage,
       consumerTransactionNotifier
     )
 
-  override protected val cleaner: ProducerTransactionsCleaner =
+  override protected val producerTransactionsCleaner: ProducerTransactionsCleaner =
     new TestProducerTransactionsCleaner(
       rocksStorage.getRocksStorage,
       producerTransactionNotifier
     )
 
-  override protected val transactionMetaServiceImpl: TransactionMetaServiceImpl =
-    new TestTransactionMetaServiceImpl(
+  override protected val transactionMetaServiceWriterImpl: TransactionMetaServiceWriter =
+    new TestTransactionMetaServiceWriter(
       rocksStorage.getRocksStorage,
       producerStateMachineCache,
       producerTransactionNotifier

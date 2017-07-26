@@ -19,30 +19,31 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.OpenTransactionHandler._
 import com.bwsw.tstreamstransactionserver.rpc._
 import OpenTransactionHandler.descriptor
+import com.bwsw.tstreamstransactionserver.rpc.TransactionService.OpenTransaction
+
+import scala.concurrent.Future
 
 private object OpenTransactionHandler {
   val descriptor = Protocol.OpenTransaction
 }
 
 class OpenTransactionHandler(server: TransactionServer,
-                             scheduledCommitLog: ScheduledCommitLog)
+                             scheduledCommitLog: ScheduledCommitLog,
+                             orderedExecutionPool: OrderedExecutionContextPool)
   extends RequestHandler {
 
-  private def process(requestBody: Array[Byte]) = {
-    val transactionID = server.getTransactionID
-    val args = descriptor.decodeRequest(requestBody)
-
+  private def process(transactionId: Long,
+                      args: OpenTransaction.Args): Long = {
     val txn = Transaction(Some(
       ProducerTransaction(
         args.streamID,
         args.partition,
-        transactionID,
+        transactionId,
         TransactionStates.Opened,
         quantity = 0,
         ttl = args.transactionTTLMs
@@ -58,18 +59,36 @@ class OpenTransactionHandler(server: TransactionServer,
       binaryTransaction
     )
 
-    transactionID
+    transactionId
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val transactionID = process(requestBody)
-    descriptor.encodeResponse(
-      TransactionService.OpenTransaction.Result(Some(transactionID))
+  private def processFuture[T](requestBody: Array[Byte],
+                               idToEntity: Long => T) = {
+    val transactionID = server.getTransactionID
+    val args = descriptor.decodeRequest(requestBody)
+    val context = orderedExecutionPool.pool(args.streamID, args.partition)
+    Future {
+      idToEntity(
+        process(transactionID, args))
+    }(context)
+  }
+
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    processFuture[Array[Byte]](
+      requestBody,
+      transactionID => {
+        descriptor.encodeResponse(
+          TransactionService.OpenTransaction.Result(Some(transactionID))
+        )
+      }
     )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
+  override def handle(requestBody: Array[Byte]): Future[Unit]= {
+    processFuture(
+      requestBody,
+      _ => ()
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

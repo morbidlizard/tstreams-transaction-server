@@ -21,36 +21,41 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
-
 import AuthenticateHandler.descriptor
+
+import scala.concurrent.Future
 
 private object AuthenticateHandler {
   val descriptor = Protocol.Authenticate
 }
 
-class AuthenticateHandler(server: TransactionServer,
-                          packageTransmissionOpts: TransportOptions)
+class AuthenticateHandler(server: TransactionServer)
   extends RequestHandler{
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    server.authenticate(args.authKey)
-  }
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val authInfo = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
+    val authInfo = server.authenticate(args.authKey)
     descriptor.encodeResponse(
       TransactionService.Authenticate.Result(Some(authInfo))
     )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to authenticate to fire and forget policy"
-//    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    scala.util.Try(process(requestBody)) match {
+      case scala.util.Success(authInfo) =>
+        Future.successful(authInfo)
+      case scala.util.Failure(throwable) =>
+        Future.failed(throwable)
+    }
+  }
+
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to authenticate to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

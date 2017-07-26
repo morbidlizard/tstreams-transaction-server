@@ -22,34 +22,44 @@ import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-
 import GetTransactionDataHandler.descriptor
+
+import scala.concurrent.{ExecutionContext, Future}
 
 private object GetTransactionDataHandler {
   val descriptor = Protocol.GetTransactionData
 }
 
-class GetTransactionDataHandler(server: TransactionServer)
+class GetTransactionDataHandler(server: TransactionServer,
+                                context: ExecutionContext)
   extends RequestHandler{
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+  private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.getTransactionData(
+    server.getTransactionData(
       args.streamID,
       args.partition,
       args.transaction,
       args.from,
       args.to
     )
-    descriptor.encodeResponse(
-      TransactionService.GetTransactionData.Result(Some(result))
-    )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to get transaction data according to fire and forget policy"
-    //    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val result = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.GetTransactionData.Result(Some(result))
+      )
+    }(context)
+  }
+
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to get transaction data according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

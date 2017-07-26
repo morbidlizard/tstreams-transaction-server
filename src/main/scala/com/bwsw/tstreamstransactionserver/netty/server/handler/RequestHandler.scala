@@ -18,13 +18,15 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
+import scala.concurrent.Future
+
 trait RequestHandler
   extends Ordered[RequestHandler]
 {
   def id: Byte
   def name: String
-  def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte]
-  def handle(requestBody: Array[Byte]): Unit
+  def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]]
+  def handle(requestBody: Array[Byte]): Future[Unit]
   def createErrorResponse(message: String): Array[Byte]
 
   override final def compare(that: RequestHandler): Int = {

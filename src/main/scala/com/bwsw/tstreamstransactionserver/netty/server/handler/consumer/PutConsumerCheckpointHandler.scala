@@ -25,12 +25,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import PutConsumerCheckpointHandler.descriptor
 
+import scala.concurrent.{ExecutionContext, Future}
+
 private object PutConsumerCheckpointHandler {
   val descriptor = Protocol.PutConsumerCheckpoint
 }
 
 class PutConsumerCheckpointHandler(server: TransactionServer,
-                                   scheduledCommitLog: ScheduledCommitLog)
+                                   scheduledCommitLog: ScheduledCommitLog,
+                                   context: ExecutionContext)
   extends RequestHandler {
 
   private def process(requestBody: Array[Byte]) = {
@@ -40,16 +43,20 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
     )
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.PutStream.name)
-    descriptor.encodeResponse(
-      TransactionService.PutConsumerCheckpoint.Result(Some(result))
-    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val result = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.PutConsumerCheckpoint.Result(Some(result))
+      )
+    }(context)
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future {
+      process(requestBody)
+      ()
+    }(context)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

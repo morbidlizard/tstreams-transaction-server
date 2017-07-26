@@ -25,34 +25,42 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
 import GetCommitLogOffsetsHandler.descriptor
 
+import scala.concurrent.{ExecutionContext, Future}
+
 private object GetCommitLogOffsetsHandler {
   val descriptor = Protocol.GetCommitLogOffsets
 }
 
 class GetCommitLogOffsetsHandler(server: TransactionServer,
-                                 scheduledCommitLog: ScheduledCommitLog
-                                )
+                                 scheduledCommitLog: ScheduledCommitLog,
+                                 context: ExecutionContext)
   extends RequestHandler {
 
 
   private def process(requestBody: Array[Byte]) = {
-    TransactionService.GetCommitLogOffsets.Result(
-      Some(CommitLogInfo(
-        server.getLastProcessedCommitLogFileID,
-        scheduledCommitLog.currentCommitLogFile)
-      )
+    CommitLogInfo(
+      server.getLastProcessedCommitLogFileID,
+      scheduledCommitLog.currentCommitLogFile
     )
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val response = process(requestBody)
-    descriptor.encodeResponse(response)
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val response = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.GetCommitLogOffsets.Result(
+          Some(response)
+        )
+      )
+    }(context)
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to get commit log offsets according to fire and forget policy"
-//    )
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to get commit log offsets according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

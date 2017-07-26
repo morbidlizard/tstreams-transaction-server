@@ -22,33 +22,40 @@ import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-
 import GetConsumerStateHandler.descriptor
+
+import scala.concurrent.{ExecutionContext, Future}
 
 private object GetConsumerStateHandler {
   val descriptor = Protocol.GetConsumerState
 }
 
-class GetConsumerStateHandler (server: TransactionServer)
+class GetConsumerStateHandler(server: TransactionServer,
+                              context: ExecutionContext)
   extends RequestHandler {
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+  private def process(requestBody: Array[Byte]): Array[Byte] = {
     val args = descriptor.decodeRequest(requestBody)
     val result = server.getConsumerState(
       args.name,
       args.streamID,
       args.partition
     )
-    //    logSuccessfulProcession(Descriptors.GetConsumerState.name)
     descriptor.encodeResponse(
       TransactionService.GetConsumerState.Result(Some(result))
     )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to get consumer state according to fire and forget policy"
-    //    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future(process(requestBody))(context)
+  }
+
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to get consumer state according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

@@ -24,11 +24,14 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import GetTransactionHandler.descriptor
 
+import scala.concurrent.{ExecutionContext, Future}
+
 private object GetTransactionHandler {
   val descriptor = Protocol.GetTransaction
 }
 
-class GetTransactionHandler(server: TransactionServer)
+class GetTransactionHandler(server: TransactionServer,
+                            context: ExecutionContext)
   extends RequestHandler{
 
   private def process(requestBody: Array[Byte]) = {
@@ -36,17 +39,21 @@ class GetTransactionHandler(server: TransactionServer)
     server.getTransaction(args.streamID, args.partition, args.transaction)
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = process(requestBody)
-    descriptor.encodeResponse(
-      TransactionService.GetTransaction.Result(Some(result))
-    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val result = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.GetTransaction.Result(Some(result))
+      )
+    }(context)
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to get producer transaction according to fire and forget policy"
-    //    )
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to get producer transaction according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

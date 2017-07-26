@@ -22,8 +22,9 @@ import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
-
 import IsValidHandler._
+
+import scala.concurrent.Future
 
 private object IsValidHandler {
   val descriptor = Protocol.IsValid
@@ -32,19 +33,29 @@ private object IsValidHandler {
 class IsValidHandler(server: TransactionServer)
   extends RequestHandler{
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+  private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
     val result = server.isValid(args.token)
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
     descriptor.encodeResponse(
       TransactionService.IsValid.Result(Some(result))
     )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to check if token is valid according to fire and forget policy"
-    //    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    scala.util.Try(process(requestBody)) match {
+      case scala.util.Success(isValid) =>
+        Future.successful(isValid)
+      case scala.util.Failure(throwable) =>
+        Future.failed(throwable)
+    }
+  }
+
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to check if token is valid according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

@@ -4,7 +4,9 @@ import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import GetMaxPackagesSizesHandler._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
-import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService, TransportOptionsInfo}
+
+import scala.concurrent.Future
 
 private object GetMaxPackagesSizesHandler {
   val descriptor = Protocol.GetMaxPackagesSizes
@@ -21,18 +23,29 @@ class GetMaxPackagesSizesHandler(packageTransmissionOpts: TransportOptions)
     response
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val transportInfo = process(requestBody)
-    descriptor.encodeResponse(
-      TransactionService.GetMaxPackagesSizes.Result(Some(transportInfo))
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future.successful {
+      val transportInfo = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.GetMaxPackagesSizes.Result(Some(transportInfo))
+      )
+    }
+  }
+
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to get max packages sizes according to fire and forget policy"
+      )
     )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {}
-
   override def createErrorResponse(message: String): Array[Byte] = {
-    throw new UnsupportedOperationException(
-      s"$name method doesn't imply error at all!"
+    descriptor.encodeResponse(
+      TransactionService.GetMaxPackagesSizes.Result(
+        None //,
+        //        Some(ServerException(message)
+      )
     )
   }
 

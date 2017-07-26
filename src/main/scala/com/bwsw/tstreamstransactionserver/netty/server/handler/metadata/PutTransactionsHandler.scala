@@ -25,6 +25,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import PutTransactionsHandler._
 
+import scala.concurrent.{ExecutionContext, Future}
+
 private object PutTransactionsHandler {
   val descriptor = Protocol.PutTransactions
   val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
@@ -36,7 +38,8 @@ private object PutTransactionsHandler {
 }
 
 class PutTransactionsHandler(server: TransactionServer,
-                             scheduledCommitLog: ScheduledCommitLog)
+                             scheduledCommitLog: ScheduledCommitLog,
+                             context: ExecutionContext)
   extends RequestHandler {
 
   private def process(requestBody: Array[Byte]) = {
@@ -46,16 +49,21 @@ class PutTransactionsHandler(server: TransactionServer,
     )
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val isPutted = process(requestBody)
-    if (isPutted)
-      isPuttedResponse
-    else
-      isNotPuttedResponse
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val isPutted = process(requestBody)
+      if (isPutted)
+        isPuttedResponse
+      else
+        isNotPuttedResponse
+    }(context)
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future {
+      process(requestBody)
+      ()
+    }(context)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

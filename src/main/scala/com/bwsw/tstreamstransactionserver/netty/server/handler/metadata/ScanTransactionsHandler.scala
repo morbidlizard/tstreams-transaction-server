@@ -22,20 +22,22 @@ import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-
 import ScanTransactionsHandler.descriptor
+
+import scala.concurrent.{ExecutionContext, Future}
 
 private object ScanTransactionsHandler {
   val descriptor = Protocol.ScanTransactions
 }
 
 
-class ScanTransactionsHandler (server: TransactionServer)
+class ScanTransactionsHandler(server: TransactionServer,
+                              context: ExecutionContext)
   extends RequestHandler{
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+  private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.scanTransactions(
+    server.scanTransactions(
       args.streamID,
       args.partition,
       args.from,
@@ -43,16 +45,23 @@ class ScanTransactionsHandler (server: TransactionServer)
       args.count,
       args.states
     )
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
-    descriptor.encodeResponse(
-      TransactionService.ScanTransactions.Result(Some(result))
-    )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to scan transactions according to fire and forget policy"
-    //    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val result = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.ScanTransactions.Result(Some(result))
+      )
+    }(context)
+  }
+
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to scan transactions according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

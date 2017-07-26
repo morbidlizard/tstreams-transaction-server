@@ -19,11 +19,17 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutSimpleTransactionAndDataHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
+import com.bwsw.tstreamstransactionserver.protocol.TransactionState
+import com.bwsw.tstreamstransactionserver.rpc.TransactionService.PutSimpleTransactionAndData
+
+import scala.concurrent.Future
 
 private object PutSimpleTransactionAndDataHandler {
   val descriptor = Protocol.PutSimpleTransactionAndData
@@ -31,12 +37,15 @@ private object PutSimpleTransactionAndDataHandler {
 
 
 class PutSimpleTransactionAndDataHandler(server: TransactionServer,
-                                         scheduledCommitLog: ScheduledCommitLog)
+                                         scheduledCommitLog: ScheduledCommitLog,
+                                         notifier: OpenTransactionStateNotifier,
+                                         authOptions: AuthenticationOptions,
+                                         orderedExecutionPool: OrderedExecutionContextPool)
   extends RequestHandler {
 
-  private def process(requestBody: Array[Byte]) = {
+  private def process(txn: PutSimpleTransactionAndData.Args) = {
     val transactionID = server.getTransactionID
-    val txn = descriptor.decodeRequest(requestBody)
+
     server.putTransactionData(
       txn.streamID,
       txn.partition,
@@ -52,7 +61,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
           txn.partition,
           transactionID,
           TransactionStates.Opened,
-          txn.data.size, 3L
+          txn.data.size, 3000L
         )), None
       ),
       Transaction(Some(
@@ -62,31 +71,60 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
           transactionID,
           TransactionStates.Checkpointed,
           txn.data.size,
-          120L)), None
+          Long.MaxValue)), None
       )
     )
-    val messageForPutTransactions = Protocol.PutTransactions.encodeRequest(
-      TransactionService.PutTransactions.Args(transactions)
-    )
+    val messageForPutTransactions =
+      Protocol.PutTransactions.encodeRequest(
+        TransactionService.PutTransactions.Args(transactions)
+      )
 
     scheduledCommitLog.putData(
       RecordType.PutTransactionsType.id.toByte,
       messageForPutTransactions
     )
+
+    notifier.notifySubscribers(
+      txn.streamID,
+      txn.partition,
+      transactionID,
+      txn.data.size,
+      TransactionState.Status.Instant,
+      Long.MaxValue,
+      authOptions.key,
+      isNotReliable = false
+    )
+
     transactionID
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val transactionID = process(requestBody)
-    Protocol.PutSimpleTransactionAndData.encodeResponse(
-      TransactionService.PutSimpleTransactionAndData.Result(
-        Some(transactionID)
-      )
+  private def processFuture[T](requestBody: Array[Byte],
+                               idToEntity: Long => T) = {
+    val args = descriptor.decodeRequest(requestBody)
+    val context = orderedExecutionPool.pool(args.streamID, args.partition)
+    Future {
+      idToEntity(
+        process(args))
+    }(context)
+  }
+
+
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    processFuture[Array[Byte]](
+      requestBody,
+      transactionID => {
+        descriptor.encodeResponse(
+          TransactionService.PutSimpleTransactionAndData.Result(Some(transactionID))
+        )
+      }
     )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    processFuture(
+      requestBody,
+      _ => ()
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

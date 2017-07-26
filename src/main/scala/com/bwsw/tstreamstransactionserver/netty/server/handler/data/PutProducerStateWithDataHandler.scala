@@ -7,15 +7,18 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutProducerStateWithDataHandler._
 
+import scala.concurrent.{ExecutionContext, Future}
+
 private object PutProducerStateWithDataHandler {
   val descriptor = Protocol.PutProducerStateWithData
 }
 
 class PutProducerStateWithDataHandler(server: TransactionServer,
-                                      scheduledCommitLog: ScheduledCommitLog)
+                                      scheduledCommitLog: ScheduledCommitLog,
+                                      context: ExecutionContext)
   extends RequestHandler {
 
-  private def process(requestBody: Array[Byte]) = {
+  private def process(requestBody: Array[Byte]): Boolean = {
     val transactionAndData = descriptor.decodeRequest(requestBody)
     val txn  = transactionAndData.transaction
     val data = transactionAndData.data
@@ -52,17 +55,22 @@ class PutProducerStateWithDataHandler(server: TransactionServer,
     )
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val isPutted = process(requestBody)
-    descriptor.encodeResponse(
-      TransactionService.PutProducerStateWithData.Result(
-        Some(isPutted)
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val isPutted = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.PutProducerStateWithData.Result(
+          Some(isPutted)
+        )
       )
-    )
+    }(context)
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future{
+      process(requestBody)
+      ()
+    }(context)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

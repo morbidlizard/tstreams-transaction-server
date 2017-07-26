@@ -20,11 +20,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.PutTransactionHandler._
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import PutTransactionHandler._
+
+import scala.concurrent.{ExecutionContext, Future}
 
 private object PutTransactionHandler {
   val descriptor = Protocol.PutTransaction
@@ -37,7 +38,8 @@ private object PutTransactionHandler {
 }
 
 class PutTransactionHandler(server: TransactionServer,
-                            scheduledCommitLog: ScheduledCommitLog)
+                            scheduledCommitLog: ScheduledCommitLog,
+                            context: ExecutionContext)
   extends RequestHandler {
 
   private def process(requestBody: Array[Byte]) = {
@@ -47,16 +49,21 @@ class PutTransactionHandler(server: TransactionServer,
     )
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val isPutted = process(requestBody)
-    if (isPutted)
-      isPuttedResponse
-    else
-      isNotPuttedResponse
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val isPutted = process(requestBody)
+      if (isPutted)
+        isPuttedResponse
+      else
+        isNotPuttedResponse
+    }(context)
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future{
+      process(requestBody)
+      ()
+    }(context)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

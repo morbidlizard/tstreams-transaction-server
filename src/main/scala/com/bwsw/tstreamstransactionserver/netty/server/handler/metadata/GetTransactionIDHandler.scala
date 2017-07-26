@@ -24,6 +24,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import GetTransactionIDHandler.descriptor
 
+import scala.concurrent.Future
+
 private object GetTransactionIDHandler {
   val descriptor = Protocol.GetTransactionID
 }
@@ -31,19 +33,25 @@ private object GetTransactionIDHandler {
 class GetTransactionIDHandler(server: TransactionServer)
   extends RequestHandler {
 
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = server.getTransactionID
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
-    descriptor.encodeResponse(
-      TransactionService.GetTransactionID.Result(Some(result))
-    )
+  private def process(requestBody: Array[Byte]) = {
+    server.getTransactionID
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to get transaction ID according to fire and forget policy"
-    //    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future.successful {
+      val result = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.GetTransactionID.Result(Some(result))
+      )
+    }
+  }
+
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to get transaction ID according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

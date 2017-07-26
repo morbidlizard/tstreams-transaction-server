@@ -23,11 +23,14 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import DelStreamHandler.descriptor
+
+import scala.concurrent.{ExecutionContext, Future}
 private object DelStreamHandler {
   val descriptor = Protocol.DelStream
 }
 
-class DelStreamHandler(server: TransactionServer)
+class DelStreamHandler(server: TransactionServer,
+                       context: ExecutionContext)
   extends RequestHandler {
 
   private def process(requestBody: Array[Byte]) = {
@@ -35,16 +38,20 @@ class DelStreamHandler(server: TransactionServer)
     server.delStream(args.name)
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
-    descriptor.encodeResponse(
-      TransactionService.DelStream.Result(Some(result))
-    )
+  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
+    Future {
+      val result = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.DelStream.Result(Some(result))
+      )
+    }(context)
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
+  override def handle(requestBody: Array[Byte]): Future[Unit] = {
+    Future {
+      process(requestBody)
+      ()
+    }(context)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

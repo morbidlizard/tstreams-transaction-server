@@ -21,9 +21,9 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc._
-import PutSimpleTransactionAndDataHandler.descriptor
+import PutSimpleTransactionAndDataProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
@@ -31,17 +31,17 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionService.PutSimpleTransa
 
 import scala.concurrent.Future
 
-private object PutSimpleTransactionAndDataHandler {
+private object PutSimpleTransactionAndDataProcessor {
   val descriptor = Protocol.PutSimpleTransactionAndData
 }
 
 
-class PutSimpleTransactionAndDataHandler(server: TransactionServer,
-                                         scheduledCommitLog: ScheduledCommitLog,
-                                         notifier: OpenTransactionStateNotifier,
-                                         authOptions: AuthenticationOptions,
-                                         orderedExecutionPool: OrderedExecutionContextPool)
-  extends RequestHandler {
+class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
+                                           scheduledCommitLog: ScheduledCommitLog,
+                                           notifier: OpenTransactionStateNotifier,
+                                           authOptions: AuthenticationOptions,
+                                           orderedExecutionPool: OrderedExecutionContextPool)
+  extends RequestProcessor {
 
   private def process(txn: PutSimpleTransactionAndData.Args) = {
     val transactionID = server.getTransactionID

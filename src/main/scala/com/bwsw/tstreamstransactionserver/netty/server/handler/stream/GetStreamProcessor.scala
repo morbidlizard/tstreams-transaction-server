@@ -16,41 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
+package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
-import GetCommitLogOffsetsHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import GetStreamProcessor.descriptor
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private object GetCommitLogOffsetsHandler {
-  val descriptor = Protocol.GetCommitLogOffsets
+private object GetStreamProcessor {
+  val descriptor = Protocol.GetStream
 }
 
-class GetCommitLogOffsetsHandler(server: TransactionServer,
-                                 scheduledCommitLog: ScheduledCommitLog,
-                                 context: ExecutionContext)
-  extends RequestHandler {
-
+class GetStreamProcessor(server: TransactionServer,
+                         context: ExecutionContext)
+  extends RequestProcessor {
 
   private def process(requestBody: Array[Byte]) = {
-    CommitLogInfo(
-      server.getLastProcessedCommitLogFileID,
-      scheduledCommitLog.currentCommitLogFile
-    )
+    val args = descriptor.decodeRequest(requestBody)
+    server.getStream(args.name)
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
     Future {
-      val response = process(requestBody)
+      val result = process(requestBody)
       descriptor.encodeResponse(
-        TransactionService.GetCommitLogOffsets.Result(
-          Some(response)
-        )
+        TransactionService.GetStream.Result(result)
       )
     }(context)
   }
@@ -58,16 +51,17 @@ class GetCommitLogOffsetsHandler(server: TransactionServer,
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
     Future.failed(
       throw new UnsupportedOperationException(
-        "It doesn't make any sense to get commit log offsets according to fire and forget policy"
+        "It doesn't make any sense to get stream according to fire and forget policy"
       )
     )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.GetCommitLogOffsets.Result(
+      TransactionService.GetStream.Result(
         None,
-        Some(ServerException(message))
+        Some(ServerException(message)
+        )
       )
     )
   }

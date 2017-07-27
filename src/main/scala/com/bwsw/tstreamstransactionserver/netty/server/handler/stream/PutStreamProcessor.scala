@@ -16,50 +16,52 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
+package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.rpc.TransactionService
-import IsValidHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import PutStreamProcessor.descriptor
 
-import scala.concurrent.Future
-
-private object IsValidHandler {
-  val descriptor = Protocol.IsValid
+import scala.concurrent.{ExecutionContext, Future}
+private object PutStreamProcessor{
+  val descriptor = Protocol.PutStream
 }
 
-class IsValidHandler(server: TransactionServer)
-  extends RequestHandler{
+class PutStreamProcessor(server: TransactionServer,
+                         context: ExecutionContext)
+  extends RequestProcessor {
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.isValid(args.token)
-    descriptor.encodeResponse(
-      TransactionService.IsValid.Result(Some(result))
-    )
+    server.putStream(args.name, args.partitions, args.description, args.ttl)
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    scala.util.Try(process(requestBody)) match {
-      case scala.util.Success(isValid) =>
-        Future.successful(isValid)
-      case scala.util.Failure(throwable) =>
-        Future.failed(throwable)
-    }
+    Future {
+      val result = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.PutStream.Result(Some(result))
+      )
+    }(context)
   }
 
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    Future.failed(
-      throw new UnsupportedOperationException(
-        "It doesn't make any sense to check if token is valid according to fire and forget policy"
-      )
-    )
+    Future {
+      process(requestBody)
+      ()
+    }(context)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
-    throw new UnsupportedOperationException("isValid method can't throw error at all!")
+    descriptor.encodeResponse(
+      TransactionService.PutStream.Result(
+        None,
+        Some(ServerException(message)
+        )
+      )
+    )
   }
 
   override def name: String = descriptor.name

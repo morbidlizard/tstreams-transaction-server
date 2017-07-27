@@ -16,32 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.data
+package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import GetTransactionDataHandler.descriptor
+import ScanTransactionsProcessor.descriptor
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private object GetTransactionDataHandler {
-  val descriptor = Protocol.GetTransactionData
+private object ScanTransactionsProcessor {
+  val descriptor = Protocol.ScanTransactions
 }
 
-class GetTransactionDataHandler(server: TransactionServer,
+
+class ScanTransactionsProcessor(server: TransactionServer,
                                 context: ExecutionContext)
-  extends RequestHandler{
+  extends RequestProcessor{
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    server.getTransactionData(
+    server.scanTransactions(
       args.streamID,
       args.partition,
-      args.transaction,
       args.from,
-      args.to
+      args.to,
+      args.count,
+      args.states
     )
   }
 
@@ -49,7 +51,7 @@ class GetTransactionDataHandler(server: TransactionServer,
     Future {
       val result = process(requestBody)
       descriptor.encodeResponse(
-        TransactionService.GetTransactionData.Result(Some(result))
+        TransactionService.ScanTransactions.Result(Some(result))
       )
     }(context)
   }
@@ -57,14 +59,14 @@ class GetTransactionDataHandler(server: TransactionServer,
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
     Future.failed(
       throw new UnsupportedOperationException(
-        "It doesn't make any sense to get transaction data according to fire and forget policy"
+        "It doesn't make any sense to scan transactions according to fire and forget policy"
       )
     )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.GetTransactionData.Result(
+      TransactionService.ScanTransactions.Result(
         None,
         Some(ServerException(message)
         )

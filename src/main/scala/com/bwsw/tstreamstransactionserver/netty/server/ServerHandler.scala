@@ -22,7 +22,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToRocksWriter
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestHandlerRouter}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, RequestHandlerRouter}
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionService, TransactionStates}
@@ -82,7 +82,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
 
 
   private def processRequestAsync(context: ExecutionContext,
-                                  handler: RequestHandler,
+                                  handler: RequestProcessor,
                                   isTooBigMessage: Message => Boolean,
                                   ctx: ChannelHandlerContext
                                  )(message: Message) =
@@ -96,7 +96,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
       sendResponseToClient(responseMessage, ctx)
     }(context)
 
-  private def processRequest(handler: RequestHandler,
+  private def processRequest(handler: RequestProcessor,
                              isTooBigMessage: Message => Boolean,
                              ctx: ChannelHandlerContext
                             )(message: Message) = {
@@ -116,7 +116,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
       sendResponseToClient(responseMessage, ctx)
     }
     else {
-      val response = handler.handleAndGetResponse(message.body)
+      val response = handler.process(message.body)
       val responseMessage  = message.copy(bodyLength = response.length, body = response)
 
       logSuccessfulProcession(handler.name, message, ctx)
@@ -124,7 +124,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
     }
   }
 
-  private def processFutureRequest(handler: RequestHandler,
+  private def processFutureRequest(handler: RequestProcessor,
                                    isTooBigMessage: Message => Boolean,
                                    ctx: ChannelHandlerContext,
                                    f: => ScalaFuture[Unit]
@@ -149,7 +149,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
     }
   }
 
-  private def processFutureRequestFireAndForget(handler: RequestHandler,
+  private def processFutureRequestFireAndForget(handler: RequestProcessor,
                                                 isTooBigMessage: Message => Boolean,
                                                 ctx: ChannelHandlerContext,
                                                 f: => ScalaFuture[Unit]
@@ -167,7 +167,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
 
 
   private def processRequestAsyncFireAndForget(context: ExecutionContext,
-                                               handler: RequestHandler,
+                                               handler: RequestProcessor,
                                                isTooBigMessage: Message => Boolean,
                                                ctx: ChannelHandlerContext
                                               )(message: Message) =
@@ -185,7 +185,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
 
   private val orderedExecutionPool = requestHandlerRouter.orderedExecutionPool
   private val subscriberNotifier = requestHandlerRouter.openTransactionStateNotifier
-  private def processRequestAndReplyClient(handler: RequestHandler,
+  private def processRequestAndReplyClient(handler: RequestProcessor,
                                            message: Message,
                                            ctx: ChannelHandlerContext
                                           ): Unit = {
@@ -378,32 +378,32 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
         processRequestAsync(serverReadContext, handler, isTooBigMetadataMessage, ctx)(message)
 
       case Protocol.Authenticate.methodID =>
-        val response = handler.handleAndGetResponse(message.body)
+        val response = handler.process(message.body)
         val responseMessage = message.copy(bodyLength = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.IsValid.methodID =>
-        val response = handler.handleAndGetResponse(message.body)
+        val response = handler.process(message.body)
         val responseMessage = message.copy(bodyLength = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.GetMaxPackagesSizes.methodID =>
-        val response = handler.handleAndGetResponse(message.body)
+        val response = handler.process(message.body)
         val responseMessage = message.copy(bodyLength = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
 
       case Protocol.GetZKCheckpointGroupServerPrefix.methodID =>
-        val response = handler.handleAndGetResponse(message.body)
+        val response = handler.process(message.body)
         val responseMessage = message.copy(bodyLength = response.length, body = response)
         logSuccessfulProcession(handler.name, message, ctx)
         sendResponseToClient(responseMessage, ctx)
     }
   }
 
-  private def processRequestFireAndForgetManner(handler: RequestHandler,
+  private def processRequestFireAndForgetManner(handler: RequestProcessor,
                                                 message: Message,
                                                 ctx: ChannelHandlerContext
                                                ): Unit =
@@ -509,16 +509,12 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
     if (logger.isDebugEnabled)
       logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id} method is invoked.")
 
-    val isFireAndForgetMethod: Boolean =
-      if (message.isFireAndForgetMethod == (1:Byte))
-        true
-      else
-        false
-
     val handler = requestHandlerRouter.handler(message.methodId)
-    if (isFireAndForgetMethod)
+    if (message.isFireAndForgetMethod)
+      handler.process()
       processRequestFireAndForgetManner(handler, message, ctx)
     else
+    handler.handle()
       processRequestAndReplyClient(handler, message, ctx)
   }
 

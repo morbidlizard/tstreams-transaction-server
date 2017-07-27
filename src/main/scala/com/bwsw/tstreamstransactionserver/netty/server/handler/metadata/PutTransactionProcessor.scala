@@ -16,44 +16,51 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
+package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import PutConsumerCheckpointHandler.descriptor
+import PutTransactionProcessor._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private object PutConsumerCheckpointHandler {
-  val descriptor = Protocol.PutConsumerCheckpoint
+private object PutTransactionProcessor {
+  val descriptor = Protocol.PutTransaction
+  val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
+    TransactionService.PutTransaction.Result(Some(true))
+  )
+  val isNotPuttedResponse: Array[Byte] = descriptor.encodeResponse(
+    TransactionService.PutTransaction.Result(Some(false))
+  )
 }
 
-class PutConsumerCheckpointHandler(server: TransactionServer,
-                                   scheduledCommitLog: ScheduledCommitLog,
-                                   context: ExecutionContext)
-  extends RequestHandler {
+class PutTransactionProcessor(server: TransactionServer,
+                              scheduledCommitLog: ScheduledCommitLog,
+                              context: ExecutionContext)
+  extends RequestProcessor {
 
   private def process(requestBody: Array[Byte]) = {
     scheduledCommitLog.putData(
-      RecordType.PutConsumerCheckpointType.id.toByte,
+      RecordType.PutTransactionType.id.toByte,
       requestBody
     )
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
     Future {
-      val result = process(requestBody)
-      descriptor.encodeResponse(
-        TransactionService.PutConsumerCheckpoint.Result(Some(result))
-      )
+      val isPutted = process(requestBody)
+      if (isPutted)
+        isPuttedResponse
+      else
+        isNotPuttedResponse
     }(context)
   }
 
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    Future {
+    Future{
       process(requestBody)
       ()
     }(context)
@@ -61,7 +68,7 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutConsumerCheckpoint.Result(
+      TransactionService.PutTransaction.Result(
         None,
         Some(ServerException(message)
         )

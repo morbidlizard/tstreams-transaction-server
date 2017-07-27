@@ -20,45 +20,44 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import GetTransactionHandler.descriptor
+import GetTransactionIDByTimestampProcessor.descriptor
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-private object GetTransactionHandler {
-  val descriptor = Protocol.GetTransaction
+private object GetTransactionIDByTimestampProcessor {
+  val descriptor = Protocol.GetTransactionIDByTimestamp
 }
 
-class GetTransactionHandler(server: TransactionServer,
-                            context: ExecutionContext)
-  extends RequestHandler{
+class GetTransactionIDByTimestampProcessor(server: TransactionServer)
+  extends RequestProcessor {
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    server.getTransaction(args.streamID, args.partition, args.transaction)
+    server.getTransactionIDByTimestamp(args.timestamp)
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    Future {
+    Future.successful {
       val result = process(requestBody)
       descriptor.encodeResponse(
-        TransactionService.GetTransaction.Result(Some(result))
+        TransactionService.GetTransactionIDByTimestamp.Result(Some(result))
       )
-    }(context)
+    }
   }
 
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
     Future.failed(
       throw new UnsupportedOperationException(
-        "It doesn't make any sense to get producer transaction according to fire and forget policy"
+        "It doesn't make any sense to get transaction ID by timestamp according to fire and forget policy"
       )
     )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.GetTransaction.Result(
+      TransactionService.GetTransactionIDByTimestamp.Result(
         None,
         Some(ServerException(message)
         )

@@ -18,20 +18,24 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
-import AuthenticateHandler.descriptor
+import AuthenticateProcessor.descriptor
+import io.netty.channel.ChannelHandlerContext
 
-import scala.concurrent.Future
 
-private object AuthenticateHandler {
+private object AuthenticateProcessor {
   val descriptor = Protocol.Authenticate
 }
 
-class AuthenticateHandler(server: TransactionServer)
-  extends RequestHandler{
+class AuthenticateProcessor(server: TransactionServer)
+  extends RequestProcessor{
+
+  override val name: String = descriptor.name
+
+  override val id: Byte = descriptor.methodID
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -41,21 +45,29 @@ class AuthenticateHandler(server: TransactionServer)
     )
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    scala.util.Try(process(requestBody)) match {
+  override protected def handleAndGetResponse(message: Message,
+                                              ctx: ChannelHandlerContext): Unit = {
+    val updatedMessage = scala.util.Try(process(message.body)) match {
       case scala.util.Success(authInfo) =>
-        Future.successful(authInfo)
+        message.copy(
+          bodyLength = authInfo.length,
+          body = authInfo
+        )
       case scala.util.Failure(throwable) =>
-        Future.failed(throwable)
+        val response = createErrorResponse(throwable.getMessage)
+        message.copy(
+          bodyLength = response.length,
+          body = response
+        )
     }
+    sendResponseToClient(updatedMessage, ctx)
   }
 
-  override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    Future.failed(
-      throw new UnsupportedOperationException(
-        "It doesn't make any sense to authenticate to fire and forget policy"
-      )
-    )
+  override protected def handle(message: Message,
+                                ctx: ChannelHandlerContext): Unit = {
+//    throw new UnsupportedOperationException(
+//      "It doesn't make any sense to authenticate to fire and forget policy"
+//    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
@@ -63,8 +75,4 @@ class AuthenticateHandler(server: TransactionServer)
       "Authenticate method doesn't imply error at all!"
     )
   }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

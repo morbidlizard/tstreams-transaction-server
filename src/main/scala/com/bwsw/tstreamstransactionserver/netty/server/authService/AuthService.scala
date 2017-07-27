@@ -26,7 +26,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.Random
 
-class AuthService(authOpts: AuthenticationOptions) {
+final class AuthService(authOpts: AuthenticationOptions) {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private val usersToken = CacheBuilder.newBuilder()
@@ -34,7 +34,7 @@ class AuthService(authOpts: AuthenticationOptions) {
     .expireAfterAccess(authOpts.keyCacheExpirationTimeSec, java.util.concurrent.TimeUnit.SECONDS)
     .build[java.lang.Integer, String]()
 
-  private[server] final def authenticate(authKey: String): Int = {
+  private[server] def authenticate(authKey: String): Int = {
     if (authKey == authOpts.key) {
       val token = Random.nextInt(Integer.MAX_VALUE)
       usersToken.put(token, authKey)
@@ -46,7 +46,7 @@ class AuthService(authOpts: AuthenticationOptions) {
     }
   }
 
-  private[server] final def isValid(token: Int): Boolean = {
+  private[server] def isValid(token: Int): Boolean = {
     val isValid = token != -1 && usersToken.getIfPresent(token) != null
 
     if (isValid)

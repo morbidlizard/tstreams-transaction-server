@@ -20,46 +20,48 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import PutStreamHandler.descriptor
+import CheckStreamExistsProcessor.descriptor
 
 import scala.concurrent.{ExecutionContext, Future}
-private object PutStreamHandler{
-  val descriptor = Protocol.PutStream
+
+private object CheckStreamExistsProcessor {
+  val descriptor = Protocol.CheckStreamExists
 }
 
-class PutStreamHandler(server: TransactionServer,
-                       context: ExecutionContext)
-  extends RequestHandler {
+class CheckStreamExistsProcessor(server: TransactionServer,
+                                 context: ExecutionContext)
+  extends RequestProcessor {
+
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    server.putStream(args.name, args.partitions, args.description, args.ttl)
+    server.checkStreamExists(args.name)
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
     Future {
       val result = process(requestBody)
       descriptor.encodeResponse(
-        TransactionService.PutStream.Result(Some(result))
+        TransactionService.CheckStreamExists.Result(Some(result))
       )
     }(context)
   }
 
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    Future {
-      process(requestBody)
-      ()
-    }(context)
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to check if stream exists according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutStream.Result(
+      TransactionService.CheckStreamExists.Result(
         None,
-        Some(ServerException(message)
-        )
+        Some(ServerException(message))
       )
     )
   }

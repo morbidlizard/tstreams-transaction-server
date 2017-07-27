@@ -20,38 +20,37 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import ScanTransactionsHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
+import GetCommitLogOffsetsProcessor.descriptor
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private object ScanTransactionsHandler {
-  val descriptor = Protocol.ScanTransactions
+private object GetCommitLogOffsetsProcessor {
+  val descriptor = Protocol.GetCommitLogOffsets
 }
 
+class GetCommitLogOffsetsProcessor(server: TransactionServer,
+                                   scheduledCommitLog: ScheduledCommitLog,
+                                   context: ExecutionContext)
+  extends RequestProcessor {
 
-class ScanTransactionsHandler(server: TransactionServer,
-                              context: ExecutionContext)
-  extends RequestHandler{
 
   private def process(requestBody: Array[Byte]) = {
-    val args = descriptor.decodeRequest(requestBody)
-    server.scanTransactions(
-      args.streamID,
-      args.partition,
-      args.from,
-      args.to,
-      args.count,
-      args.states
+    CommitLogInfo(
+      server.getLastProcessedCommitLogFileID,
+      scheduledCommitLog.currentCommitLogFile
     )
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
     Future {
-      val result = process(requestBody)
+      val response = process(requestBody)
       descriptor.encodeResponse(
-        TransactionService.ScanTransactions.Result(Some(result))
+        TransactionService.GetCommitLogOffsets.Result(
+          Some(response)
+        )
       )
     }(context)
   }
@@ -59,17 +58,16 @@ class ScanTransactionsHandler(server: TransactionServer,
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
     Future.failed(
       throw new UnsupportedOperationException(
-        "It doesn't make any sense to scan transactions according to fire and forget policy"
+        "It doesn't make any sense to get commit log offsets according to fire and forget policy"
       )
     )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.ScanTransactions.Result(
+      TransactionService.GetCommitLogOffsets.Result(
         None,
-        Some(ServerException(message)
-        )
+        Some(ServerException(message))
       )
     )
   }

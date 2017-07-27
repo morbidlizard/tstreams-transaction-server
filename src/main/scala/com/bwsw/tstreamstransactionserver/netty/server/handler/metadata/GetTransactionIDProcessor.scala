@@ -20,53 +20,49 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import GetLastCheckpointedTransactionHandler.descriptor
+import GetTransactionIDProcessor.descriptor
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-private object GetLastCheckpointedTransactionHandler {
-  val descriptor = Protocol.GetLastCheckpointedTransaction
+private object GetTransactionIDProcessor {
+  val descriptor = Protocol.GetTransactionID
 }
 
-class GetLastCheckpointedTransactionHandler(server: TransactionServer,
-                                            context: ExecutionContext)
-  extends RequestHandler {
-
+class GetTransactionIDProcessor(server: TransactionServer)
+  extends RequestProcessor {
 
   private def process(requestBody: Array[Byte]) = {
-    val args = descriptor.decodeRequest(requestBody)
-    server.getLastCheckpointedTransaction(args.streamID, args.partition)
+    server.getTransactionID
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    Future {
+    Future.successful {
       val result = process(requestBody)
       descriptor.encodeResponse(
-        TransactionService.GetLastCheckpointedTransaction.Result(result)
+        TransactionService.GetTransactionID.Result(Some(result))
       )
-    }(context)
+    }
   }
 
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
     Future.failed(
       throw new UnsupportedOperationException(
-        "It doesn't make any sense to get last checkpointed state according to fire and forget policy"
+        "It doesn't make any sense to get transaction ID according to fire and forget policy"
       )
     )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.GetLastCheckpointedTransaction.Result(
+      TransactionService.GetTransactionID.Result(
         None,
         Some(ServerException(message)
         )
       )
     )
   }
-
 
   override def name: String = descriptor.name
 

@@ -19,56 +19,46 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import PutTransactionHandler._
+import GetTransactionProcessor.descriptor
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private object PutTransactionHandler {
-  val descriptor = Protocol.PutTransaction
-  val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
-    TransactionService.PutTransaction.Result(Some(true))
-  )
-  val isNotPuttedResponse: Array[Byte] = descriptor.encodeResponse(
-    TransactionService.PutTransaction.Result(Some(false))
-  )
+private object GetTransactionProcessor {
+  val descriptor = Protocol.GetTransaction
 }
 
-class PutTransactionHandler(server: TransactionServer,
-                            scheduledCommitLog: ScheduledCommitLog,
-                            context: ExecutionContext)
-  extends RequestHandler {
+class GetTransactionProcessor(server: TransactionServer,
+                              context: ExecutionContext)
+  extends RequestProcessor{
 
   private def process(requestBody: Array[Byte]) = {
-    scheduledCommitLog.putData(
-      RecordType.PutTransactionType.id.toByte,
-      requestBody
-    )
+    val args = descriptor.decodeRequest(requestBody)
+    server.getTransaction(args.streamID, args.partition, args.transaction)
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
     Future {
-      val isPutted = process(requestBody)
-      if (isPutted)
-        isPuttedResponse
-      else
-        isNotPuttedResponse
+      val result = process(requestBody)
+      descriptor.encodeResponse(
+        TransactionService.GetTransaction.Result(Some(result))
+      )
     }(context)
   }
 
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    Future{
-      process(requestBody)
-      ()
-    }(context)
+    Future.failed(
+      throw new UnsupportedOperationException(
+        "It doesn't make any sense to get producer transaction according to fire and forget policy"
+      )
+    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutTransaction.Result(
+      TransactionService.GetTransaction.Result(
         None,
         Some(ServerException(message)
         )

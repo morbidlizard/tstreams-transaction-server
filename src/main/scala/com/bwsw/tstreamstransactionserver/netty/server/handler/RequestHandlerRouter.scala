@@ -19,12 +19,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.{AuthenticateHandler, IsValidHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateHandler, PutConsumerCheckpointHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataHandler, PutProducerStateWithDataHandler, PutSimpleTransactionAndDataHandler, PutTransactionDataHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.{AuthenticateProcessor, IsValidProcessor}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateProcessor, PutConsumerCheckpointProcessor}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataProcessor, PutProducerStateWithDataProcessor, PutSimpleTransactionAndDataProcessor, PutTransactionDataProcessor}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
-import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsProcessor, DelStreamProcessor, GetStreamProcessor, PutStreamProcessor}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesProcessor
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, ServerRoleOptions, TransportOptions}
@@ -39,42 +39,44 @@ final class RequestHandlerRouter(val server: TransactionServer,
                                  val openTransactionStateNotifier: OpenTransactionStateNotifier,
                                  val serverRoleOptions: ServerRoleOptions) {
 
-  private val handlers: Array[RequestHandler] = Array(
-    new GetCommitLogOffsetsHandler(server, scheduledCommitLog),
 
-    new PutStreamHandler(server),
-    new CheckStreamExistsHandler(server),
-    new GetStreamHandler(server),
-    new DelStreamHandler(server),
 
-    new GetTransactionIDHandler(server),
-    new GetTransactionIDByTimestampHandler(server),
+  private val handlers: Array[RequestProcessor] = Array(
+    new GetCommitLogOffsetsProcessor(server, scheduledCommitLog),
 
-    new PutTransactionHandler(server, scheduledCommitLog),
-    new PutTransactionsHandler(server, scheduledCommitLog),
-    new OpenTransactionHandler(server, scheduledCommitLog),
-    new GetTransactionHandler(server),
-    new GetLastCheckpointedTransactionHandler(server),
-    new ScanTransactionsHandler(server),
+    new PutStreamProcessor(server),
+    new CheckStreamExistsProcessor(server),
+    new GetStreamProcessor(server),
+    new DelStreamProcessor(server),
 
-    new PutProducerStateWithDataHandler(server, scheduledCommitLog),
-    new PutSimpleTransactionAndDataHandler(server, scheduledCommitLog),
-    new PutTransactionDataHandler(server),
-    new GetTransactionDataHandler(server),
+    new GetTransactionIDProcessor(server),
+    new GetTransactionIDByTimestampProcessor(server),
 
-    new PutConsumerCheckpointHandler(server, scheduledCommitLog),
-    new GetConsumerStateHandler(server),
+    new PutTransactionProcessor(server, scheduledCommitLog),
+    new PutTransactionsProcessor(server, scheduledCommitLog),
+    new OpenTransactionProcessor(server, scheduledCommitLog),
+    new GetTransactionProcessor(server),
+    new GetLastCheckpointedTransactionProcessor(server),
+    new ScanTransactionsProcessor(server),
 
-    new AuthenticateHandler(server, packageTransmissionOpts),
-    new IsValidHandler(server),
+    new PutProducerStateWithDataProcessor(server, scheduledCommitLog),
+    new PutSimpleTransactionAndDataProcessor(server, scheduledCommitLog),
+    new PutTransactionDataProcessor(server),
+    new GetTransactionDataProcessor(server),
 
-    new GetMaxPackagesSizesHandler(packageTransmissionOpts),
-    new GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions)
+    new PutConsumerCheckpointProcessor(server, scheduledCommitLog),
+    new GetConsumerStateProcessor(server),
+
+    new AuthenticateProcessor(server, packageTransmissionOpts),
+    new IsValidProcessor(server),
+
+    new GetMaxPackagesSizesProcessor(packageTransmissionOpts),
+    new GetZKCheckpointGroupServerPrefixProcessor(serverRoleOptions)
   ).sorted
 
 
   private val handlersIDs = handlers.map(_.id)
-  def handler(id: Byte): RequestHandler =
+  def handler(id: Byte): RequestProcessor =
     handlersIDs.search(id) match {
       case Found(index) => handlers(index)
       case _ =>

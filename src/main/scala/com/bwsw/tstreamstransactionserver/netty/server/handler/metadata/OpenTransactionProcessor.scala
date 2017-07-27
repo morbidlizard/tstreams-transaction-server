@@ -21,21 +21,21 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc._
-import OpenTransactionHandler.descriptor
+import OpenTransactionProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService.OpenTransaction
 
 import scala.concurrent.Future
 
-private object OpenTransactionHandler {
+private object OpenTransactionProcessor {
   val descriptor = Protocol.OpenTransaction
 }
 
-class OpenTransactionHandler(server: TransactionServer,
-                             scheduledCommitLog: ScheduledCommitLog,
-                             orderedExecutionPool: OrderedExecutionContextPool)
-  extends RequestHandler {
+class OpenTransactionProcessor(server: TransactionServer,
+                               scheduledCommitLog: ScheduledCommitLog,
+                               orderedExecutionPool: OrderedExecutionContextPool)
+  extends RequestProcessor {
 
   private def process(transactionId: Long,
                       args: OpenTransaction.Args): Long = {

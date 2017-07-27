@@ -2,15 +2,15 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.ServerRoleOptions
-import GetZKCheckpointGroupServerPrefixHandler.descriptor
+import GetZKCheckpointGroupServerPrefixProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 
-private object GetZKCheckpointGroupServerPrefixHandler {
+private object GetZKCheckpointGroupServerPrefixProcessor {
   val descriptor = Protocol.GetZKCheckpointGroupServerPrefix
 }
 
-class GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions: ServerRoleOptions)
-  extends RequestHandler {
+class GetZKCheckpointGroupServerPrefixProcessor(serverRoleOptions: ServerRoleOptions)
+  extends RequestProcessor {
 
   private val encodedResponse =  descriptor.encodeResponse(
     TransactionService.GetZKCheckpointGroupServerPrefix.Result(

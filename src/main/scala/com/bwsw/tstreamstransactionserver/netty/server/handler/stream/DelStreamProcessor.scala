@@ -16,52 +16,52 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
+package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import GetTransactionIDHandler.descriptor
+import DelStreamProcessor.descriptor
 
-import scala.concurrent.Future
-
-private object GetTransactionIDHandler {
-  val descriptor = Protocol.GetTransactionID
+import scala.concurrent.{ExecutionContext, Future}
+private object DelStreamProcessor {
+  val descriptor = Protocol.DelStream
 }
 
-class GetTransactionIDHandler(server: TransactionServer)
-  extends RequestHandler {
+class DelStreamProcessor(server: TransactionServer,
+                         context: ExecutionContext)
+  extends RequestProcessor {
 
   private def process(requestBody: Array[Byte]) = {
-    server.getTransactionID
+    val args = descriptor.decodeRequest(requestBody)
+    server.delStream(args.name)
   }
 
   override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    Future.successful {
+    Future {
       val result = process(requestBody)
       descriptor.encodeResponse(
-        TransactionService.GetTransactionID.Result(Some(result))
+        TransactionService.DelStream.Result(Some(result))
       )
-    }
+    }(context)
   }
 
   override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    Future.failed(
-      throw new UnsupportedOperationException(
-        "It doesn't make any sense to get transaction ID according to fire and forget policy"
-      )
-    )
+    Future {
+      process(requestBody)
+      ()
+    }(context)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.GetTransactionID.Result(
+      TransactionService.DelStream.Result(
         None,
-        Some(ServerException(message)
-        )
+        Some(ServerException(message))
       )
     )
+
   }
 
   override def name: String = descriptor.name

@@ -1,19 +1,19 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import GetMaxPackagesSizesHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import GetMaxPackagesSizesProcessor._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService, TransportOptionsInfo}
 
 import scala.concurrent.Future
 
-private object GetMaxPackagesSizesHandler {
+private object GetMaxPackagesSizesProcessor {
   val descriptor = Protocol.GetMaxPackagesSizes
 }
 
-class GetMaxPackagesSizesHandler(packageTransmissionOpts: TransportOptions)
-  extends RequestHandler {
+class GetMaxPackagesSizesProcessor(packageTransmissionOpts: TransportOptions)
+  extends RequestProcessor {
 
   private def process(requestBody: Array[Byte]) = {
     val response = TransportOptionsInfo(

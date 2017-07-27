@@ -37,18 +37,30 @@ case class Message(id: Long,
                    body: Array[Byte],
                    token: Int,
                    methodId: Byte,
-                   isFireAndForgetMethod: Byte)
+                   isFireAndForgetMethod: Boolean)
 {
   /** Serializes a message. */
   def toByteArray: Array[Byte] = {
-    val size = Message.headerFieldSize + Message.lengthFieldSize + body.length
+    val size = {
+      Message.headerFieldSize +
+        Message.lengthFieldSize +
+        body.length
+    }
+
+    val isFireAndForgetMethodToByte = {
+      if (isFireAndForgetMethod)
+        1: Byte
+      else
+        0: Byte
+    }
+
     val buffer = java.nio.ByteBuffer
       .allocate(size)
       .putLong(id)                //0-8
       .put(thriftProtocol)        //8-9
       .putInt(token)              //9-13
       .put(methodId)              //13-14
-      .put(isFireAndForgetMethod) //14-15
+      .put(isFireAndForgetMethodToByte) //14-15
       .putInt(bodyLength)         //15-19
       .put(body)                  //20-size
     buffer.flip()
@@ -75,7 +87,12 @@ object Message {
     val protocol = buffer.get
     val token = buffer.getInt
     val method = buffer.get()
-    val isFireAndForgetMethod = buffer.get()
+    val isFireAndForgetMethod = {
+      if (buffer.get() == (1: Byte))
+        true
+      else
+        false
+    }
     val length = buffer.getInt
     val message = {
       val bytes = new Array[Byte](buffer.limit() - headerFieldSize - lengthFieldSize)
@@ -90,7 +107,12 @@ object Message {
     val protocol = buf.readByte()
     val token    = buf.readInt()
     val method   = buf.readByte()
-    val isFireAndForgetMethod = buf.readByte()
+    val isFireAndForgetMethod = {
+      if (buf.readByte() == (1: Byte))
+        true
+      else
+        false
+    }
     val length   = buf.readInt()
     val message = {
       val bytes = new Array[Byte](buf.readableBytes())

@@ -59,12 +59,9 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                        rocksStorageOpts: RocksStorageOptions,
                        commitLogOptions: CommitLogOptions,
                        packageTransmissionOpts: TransportOptions,
-                       subscribersUpdateOptions: SubscriberUpdateOptions,
-                       serverHandler: (RequestHandlerRouter, ServerExecutionContextGrids, Logger) =>
-               SimpleChannelInboundHandler[ByteBuf] = (handler, executionContext, logger) =>
-                         new ServerHandler(handler, executionContext, logger)) {
+                       subscribersUpdateOptions: SubscriberUpdateOptions) {
 
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+//  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val isShutdown = new AtomicBoolean(false)
 
   private def createTransactionServerExternalSocket() = {
@@ -274,7 +271,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       b.group(bossGroup, workerGroup)
         .channel(determineChannelType())
         .handler(new LoggingHandler(LogLevel.DEBUG))
-        .childHandler(new ServerInitializer(serverHandler(requestHandlerRouter, executionContext, logger)))
+        .childHandler(
+          new ServerInitializer(
+            requestHandlerRouter,
+            executionContext
+          )
+        )
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 

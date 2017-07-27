@@ -19,10 +19,7 @@ class TestSingleNodeServer(authenticationOpts: AuthenticationOptions,
                            rocksStorageOpts: RocksStorageOptions,
                            commitLogOptions: CommitLogOptions,
                            packageTransmissionOpts: TransportOptions,
-                           subscribersUpdateOptions: SubscriberUpdateOptions,
-                           serverHandler: (RequestHandlerRouter, ServerExecutionContextGrids, Logger) =>
-                             SimpleChannelInboundHandler[ByteBuf] = (handler, executionContext, logger) =>
-                             new ServerHandler(handler, executionContext, logger))
+                           subscribersUpdateOptions: SubscriberUpdateOptions)
   extends SingleNodeServer(
     authenticationOpts,
     zookeeperOpts,
@@ -33,8 +30,7 @@ class TestSingleNodeServer(authenticationOpts: AuthenticationOptions,
     rocksStorageOpts,
     commitLogOptions,
     packageTransmissionOpts,
-    subscribersUpdateOptions,
-    serverHandler) {
+    subscribersUpdateOptions) {
 
   private lazy val producerNotifier =
     new Notifier[ProducerTransaction]

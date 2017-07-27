@@ -27,16 +27,18 @@ import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionService, TransactionStates}
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
 
 class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
-                    executionContext:ServerExecutionContextGrids,
-                    logger: Logger)
+                    executionContext: ServerExecutionContextGrids)
   extends SimpleChannelInboundHandler[ByteBuf]
 {
+  private val logger =
+    LoggerFactory.getLogger(this.getClass)
+
   private lazy val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
     s"than maxMetadataPackageSize (${requestHandlerRouter.packageTransmissionOpts.maxMetadataPackageSize}) " +
     s"or maxDataPackageSize (${requestHandlerRouter.packageTransmissionOpts.maxDataPackageSize}).")

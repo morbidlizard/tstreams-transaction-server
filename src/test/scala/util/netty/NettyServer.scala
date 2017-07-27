@@ -3,16 +3,15 @@ package util.netty
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
+import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.{ChannelInitializer, ChannelOption, EventLoopGroup}
-import org.apache.commons.lang.SystemUtils
 import util.netty.NettyServer._
 
 private object NettyServer {
   def createEventLoopGroup(): EventLoopGroup = {
-    if (SystemUtils.IS_OS_LINUX) {
+    if (Epoll.isAvailable) {
       new EpollEventLoopGroup()
     }
     else {
@@ -21,7 +20,7 @@ private object NettyServer {
   }
 
   def createEventLoopGroup(threadNumber: Int): EventLoopGroup = {
-    if (SystemUtils.IS_OS_LINUX) {
+    if (Epoll.isAvailable) {
       new EpollEventLoopGroup(threadNumber)
     }
     else {

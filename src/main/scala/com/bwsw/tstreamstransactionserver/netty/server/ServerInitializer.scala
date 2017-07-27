@@ -18,16 +18,19 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server
 
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
 import io.netty.buffer.ByteBuf
 import io.netty.channel.socket.SocketChannel
-import io.netty.channel.{ChannelInitializer, SimpleChannelInboundHandler}
+import io.netty.channel.ChannelInitializer
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder
 import io.netty.handler.codec.bytes.ByteArrayEncoder
 
 
 
-class ServerInitializer(serverHandler: => SimpleChannelInboundHandler[ByteBuf])
+class ServerInitializer(requestHandlerRouter: RequestHandlerRouter,
+                        executionContext: ServerExecutionContextGrids)
   extends ChannelInitializer[SocketChannel] {
   override def initChannel(ch: SocketChannel): Unit = {
     ch.pipeline()
@@ -38,6 +41,9 @@ class ServerInitializer(serverHandler: => SimpleChannelInboundHandler[ByteBuf])
         Message.headerFieldSize,
         Message.lengthFieldSize)
       )
-      .addLast(serverHandler)
+      .addLast(new ServerHandler(
+        requestHandlerRouter,
+        executionContext
+      ))
   }
 }

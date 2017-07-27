@@ -58,4 +58,14 @@ class TestSingleNodeServer(authenticationOpts: AuthenticationOptions,
 
   final def removeConsumerNotification(id: Long): Boolean =
     consumerNotifier.removeRequest(id)
+
+  override def shutdown(): Unit = {
+    super.shutdown()
+    if (producerNotifier != null) {
+      producerNotifier.close()
+    }
+    if (consumerNotifier != null) {
+      producerNotifier.close()
+    }
+  }
 }

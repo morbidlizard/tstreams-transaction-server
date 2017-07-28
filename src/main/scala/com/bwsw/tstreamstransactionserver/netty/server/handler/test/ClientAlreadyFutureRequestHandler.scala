@@ -1,25 +1,25 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.test
+
 import com.bwsw.tstreamstransactionserver.netty.Message
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class ClientFutureRequestHandler(override final val id: Byte,
-                                          override final val name: String,
-                                          context: ExecutionContext)
+abstract class ClientAlreadyFutureRequestHandler(override final val id: Byte,
+                                                 override final val name: String)
   extends ClientRequestHandler(id, name) {
 
-  protected def fireAndForgetImplementation(message: Message): Unit
+  protected def fireAndForgetImplementation(message: Message): Future[_]
 
   protected def fireAndReplyImplementation(message: Message,
-                                           ctx: ChannelHandlerContext): Unit
+                                           ctx: ChannelHandlerContext): (Future[_], ExecutionContext)
 
 
   private def handleFireAndForgetRequest(message: Message,
                                          ctx: ChannelHandlerContext,
                                          acc: Option[Throwable]) = {
     if (acc.isEmpty) {
-      Future(fireAndForgetImplementation(message))(context)
+      fireAndForgetImplementation(message)
     } else {
       logUnsuccessfulProcessing(
         name,
@@ -34,10 +34,9 @@ abstract class ClientFutureRequestHandler(override final val id: Byte,
                                         ctx: ChannelHandlerContext,
                                         acc: Option[Throwable]) = {
     if (acc.isEmpty) {
-      Future {
+      val (result, context) =
         fireAndReplyImplementation(message, ctx)
-      }(context)
-        .recover { case error =>
+      result.recover { case error =>
           logUnsuccessfulProcessing(name, error, message, ctx)
           val response = createErrorResponse(error.getMessage)
           val responseMessage = message.copy(
@@ -70,3 +69,4 @@ abstract class ClientFutureRequestHandler(override final val id: Byte,
     }
   }
 }
+

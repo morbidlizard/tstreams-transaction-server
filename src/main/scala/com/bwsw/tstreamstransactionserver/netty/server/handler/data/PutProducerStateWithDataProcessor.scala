@@ -3,14 +3,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestWithValidationProcessor
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutProducerStateWithDataProcessor._
-import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFutureRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private object PutProducerStateWithDataProcessor {
   val descriptor = Protocol.PutProducerStateWithData
@@ -18,18 +16,11 @@ private object PutProducerStateWithDataProcessor {
 
 class PutProducerStateWithDataProcessor(server: TransactionServer,
                                         scheduledCommitLog: ScheduledCommitLog,
-                                        context: ExecutionContext,
-                                        authService: AuthService,
-                                        transportService: TransportService)
-  extends RequestWithValidationProcessor(
-    authService,
-    transportService) {
-
-  override val name: String = descriptor.name
-
-  override val id: Byte = descriptor.methodID
-
-
+                                        context: ExecutionContext)
+  extends ClientFutureRequestHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   private def process(requestBody: Array[Byte]): Boolean = {
     val transactionAndData = descriptor.decodeRequest(requestBody)
@@ -68,59 +59,24 @@ class PutProducerStateWithDataProcessor(server: TransactionServer,
     )
   }
 
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
-    val exceptionOpt = validate(message, ctx)
-    if (exceptionOpt.isEmpty) {
-      Future {
-        val response = descriptor.encodeResponse(
-          TransactionService.PutProducerStateWithData.Result(
-            Some(process(message.body))
-          )
-        )
-        val responseMessage = message.copy(
-          bodyLength = response.length,
-          body = response
-        )
-        sendResponseToClient(responseMessage, ctx)
-      }(context)
-        .recover { case error =>
-          logUnsuccessfulProcessing(name, error, message, ctx)
-          val response = createErrorResponse(error.getMessage)
-          val responseMessage = message.copy(
-            bodyLength = response.length,
-            body = response
-          )
-          sendResponseToClient(responseMessage, ctx)
-        }(context)
-    } else {
-      val error = exceptionOpt.get
-      logUnsuccessfulProcessing(name, error, message, ctx)
-      val response = createErrorResponse(error.getMessage)
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
-      )
-      sendResponseToClient(responseMessage, ctx)
-    }
+  override protected def fireAndForgetImplementation(message: Message): Unit = {
+    process(message.body)
   }
 
-  override protected def handle(message: Message,
-                                ctx: ChannelHandlerContext): Unit = {
-    val exceptionOpt = validate(message, ctx)
-    if (exceptionOpt.isEmpty) {
-      process(message.body)
-    }
-    else {
-      logUnsuccessfulProcessing(
-        name,
-        transportService.packageTooBigException,
-        message,
-        ctx
+  override protected def fireAndReplyImplementation(message: Message,
+                                                    ctx: ChannelHandlerContext): Unit = {
+    val response = descriptor.encodeResponse(
+      TransactionService.PutProducerStateWithData.Result(
+        Some(process(message.body))
       )
-    }
-  }
+    )
+    val responseMessage = message.copy(
+      bodyLength = response.length,
+      body = response
+    )
+    sendResponseToClient(responseMessage, ctx)
 
+  }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(

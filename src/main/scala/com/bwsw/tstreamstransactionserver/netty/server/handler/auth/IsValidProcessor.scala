@@ -19,22 +19,22 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
-import IsValidProcessor._
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFireAndForgetReadHandler
 import io.netty.channel.ChannelHandlerContext
+
+import IsValidProcessor.descriptor
 
 private object IsValidProcessor {
   val descriptor = Protocol.IsValid
 }
 
 class IsValidProcessor(authService: AuthService)
-  extends RequestProcessor{
-
-  override val name: String = descriptor.name
-
-  override val id: Byte = descriptor.methodID
+  extends ClientFireAndForgetReadHandler(
+    descriptor.methodID,
+    descriptor.name
+  ){
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -44,8 +44,9 @@ class IsValidProcessor(authService: AuthService)
     )
   }
 
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
+  override protected def fireAndReplyImplementation(message: Message,
+                                                    ctx: ChannelHandlerContext,
+                                                    acc: Option[Throwable]): Unit = {
     val updatedMessage = scala.util.Try(process(message.body)) match {
       case scala.util.Success(authInfo) =>
         message.copy(
@@ -60,13 +61,6 @@ class IsValidProcessor(authService: AuthService)
         )
     }
     sendResponseToClient(updatedMessage, ctx)
-  }
-
-  override protected def handle(message: Message,
-                                ctx: ChannelHandlerContext): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to check if token is valid according to fire and forget policy"
-//    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

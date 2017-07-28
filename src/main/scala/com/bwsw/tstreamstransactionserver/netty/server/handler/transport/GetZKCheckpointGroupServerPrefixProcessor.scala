@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFireAndForgetReadHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetZKCheckpointGroupServerPrefixProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.ServerRoleOptions
@@ -12,10 +12,10 @@ private object GetZKCheckpointGroupServerPrefixProcessor {
 }
 
 class GetZKCheckpointGroupServerPrefixProcessor(serverRoleOptions: ServerRoleOptions)
-  extends RequestProcessor {
-
-  override val name: String = descriptor.name
-  override val id: Byte = descriptor.methodID
+  extends ClientFireAndForgetReadHandler(
+    descriptor.methodID,
+    descriptor.name
+  ){
 
   private val encodedResponse =  descriptor.encodeResponse(
     TransactionService.GetZKCheckpointGroupServerPrefix.Result(
@@ -23,35 +23,16 @@ class GetZKCheckpointGroupServerPrefixProcessor(serverRoleOptions: ServerRoleOpt
         serverRoleOptions.checkpointGroupMasterPrefix
       ))
   )
-
-  override protected def handle(message: Message,
-                                ctx: ChannelHandlerContext): Unit = {
-    ///
-
-  }
-
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
-    val updatedMessage = scala.util.Try(encodedResponse) match {
-      case scala.util.Success(response) =>
-        message.copy(
-          bodyLength = response.length,
-          body = response
-        )
-      case scala.util.Failure(throwable) =>
-        val response = createErrorResponse(throwable.getMessage)
-        message.copy(
-          bodyLength = response.length,
-          body = response
-        )
-    }
+  override protected def fireAndReplyImplementation(message: Message,
+                                                    ctx: ChannelHandlerContext,
+                                                    acc: Option[Throwable]): Unit = {
+    val updatedMessage =
+      message.copy(
+        bodyLength = encodedResponse.length,
+        body = encodedResponse
+      )
     sendResponseToClient(updatedMessage, ctx)
   }
-
-//  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-//    encodedResponse
-//  }
-//
 
   override def createErrorResponse(message: String): Array[Byte] = {
     throw new UnsupportedOperationException(

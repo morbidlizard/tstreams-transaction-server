@@ -21,14 +21,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, RequestWithValidationProcessor}
 import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
 import GetCommitLogOffsetsProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFutureRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private object GetCommitLogOffsetsProcessor {
   val descriptor = Protocol.GetCommitLogOffsets
@@ -36,16 +34,11 @@ private object GetCommitLogOffsetsProcessor {
 
 class GetCommitLogOffsetsProcessor(server: TransactionServer,
                                    scheduledCommitLog: ScheduledCommitLog,
-                                   context: ExecutionContext,
-                                   authService: AuthService,
-                                   transportService: TransportService)
-  extends RequestWithValidationProcessor(
-    authService,
-    transportService) {
-
-  override val name: String = descriptor.name
-
-  override val id: Byte = descriptor.methodID
+                                   context: ExecutionContext)
+  extends ClientFutureRequestHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   private def process(requestBody: Array[Byte]) = {
     CommitLogInfo(
@@ -54,49 +47,22 @@ class GetCommitLogOffsetsProcessor(server: TransactionServer,
     )
   }
 
-  override protected def handle(message: Message,
-                                ctx: ChannelHandlerContext): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to get commit log offsets according to fire and forget policy"
-//    )
+  override protected def fireAndForgetImplementation(message: Message): Unit = {}
+
+  override protected def fireAndReplyImplementation(message: Message,
+                                                    ctx: ChannelHandlerContext): Unit = {
+    val response = descriptor.encodeResponse(
+      TransactionService.GetCommitLogOffsets.Result(
+        Some(process(message.body))
+      )
+    )
+    val responseMessage = message.copy(
+      bodyLength = response.length,
+      body = response
+    )
+    sendResponseToClient(responseMessage, ctx)
   }
 
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
-    val exceptionOpt = validate(message, ctx)
-    if (exceptionOpt.isEmpty) {
-      Future {
-        val response = descriptor.encodeResponse(
-          TransactionService.GetCommitLogOffsets.Result(
-            Some(process(message.body))
-          )
-        )
-        val responseMessage = message.copy(
-          bodyLength = response.length,
-          body = response
-        )
-        sendResponseToClient(responseMessage, ctx)
-      }(context)
-        .recover { case error =>
-          logUnsuccessfulProcessing(name, error, message, ctx)
-          val response = createErrorResponse(error.getMessage)
-          val responseMessage = message.copy(
-            bodyLength = response.length,
-            body = response
-          )
-          sendResponseToClient(responseMessage, ctx)
-        }(context)
-    } else {
-      val error = exceptionOpt.get
-      logUnsuccessfulProcessing(name, error, message, ctx)
-      val response = createErrorResponse(error.getMessage)
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
-      )
-      sendResponseToClient(responseMessage, ctx)
-    }
-  }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(

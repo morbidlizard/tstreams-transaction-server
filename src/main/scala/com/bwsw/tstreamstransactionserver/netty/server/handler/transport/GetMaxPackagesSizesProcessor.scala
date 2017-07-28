@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import GetMaxPackagesSizesProcessor._
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFireAndForgetReadHandler
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
 import io.netty.channel.ChannelHandlerContext
@@ -13,11 +13,10 @@ private object GetMaxPackagesSizesProcessor {
 }
 
 class GetMaxPackagesSizesProcessor(packageTransmissionOpts: TransportOptions)
-  extends RequestProcessor {
-
-  override val name: String = descriptor.name
-
-  override val id: Byte = descriptor.methodID
+  extends ClientFireAndForgetReadHandler(
+    descriptor.methodID,
+    descriptor.name
+  ){
 
   private def process(requestBody: Array[Byte]) = {
     val response = TransportOptionsInfo(
@@ -27,15 +26,9 @@ class GetMaxPackagesSizesProcessor(packageTransmissionOpts: TransportOptions)
     response
   }
 
-  override protected def handle(message: Message,
-                                ctx: ChannelHandlerContext): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to get max packages sizes according to fire and forget policy"
-//    )
-  }
-
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
+  override protected def fireAndReplyImplementation(message: Message,
+                                                    ctx: ChannelHandlerContext,
+                                                    acc: Option[Throwable]): Unit = {
     val updatedMessage = scala.util.Try(process(message.body)) match {
       case scala.util.Success(result) =>
         val response = descriptor.encodeResponse(
@@ -53,6 +46,7 @@ class GetMaxPackagesSizesProcessor(packageTransmissionOpts: TransportOptions)
         )
     }
     sendResponseToClient(updatedMessage, ctx)
+
 
   }
 

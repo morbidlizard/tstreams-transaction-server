@@ -20,14 +20,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, RequestWithValidationProcessor}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import ScanTransactionsProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFutureRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private object ScanTransactionsProcessor {
   val descriptor = Protocol.ScanTransactions
@@ -35,16 +33,11 @@ private object ScanTransactionsProcessor {
 
 
 class ScanTransactionsProcessor(server: TransactionServer,
-                                context: ExecutionContext,
-                                authService: AuthService,
-                                transportService: TransportService)
-  extends RequestWithValidationProcessor(
-    authService,
-    transportService) {
-
-  override val name: String = descriptor.name
-
-  override val id: Byte = descriptor.methodID
+                                context: ExecutionContext)
+  extends ClientFutureRequestHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -58,48 +51,19 @@ class ScanTransactionsProcessor(server: TransactionServer,
     )
   }
 
-  override protected def handle(message: Message,
-                                ctx: ChannelHandlerContext): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to scan transactions according to fire and forget policy"
-//    )
-  }
+  override protected def fireAndForgetImplementation(message: Message): Unit = {}
 
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
-    val exceptionOpt = validate(message, ctx)
-    if (exceptionOpt.isEmpty) {
-      Future {
-        val response = descriptor.encodeResponse(
-          TransactionService.ScanTransactions.Result(
-            Some(process(message.body))
-          )
-        )
-        val responseMessage = message.copy(
-          bodyLength = response.length,
-          body = response
-        )
-        sendResponseToClient(responseMessage, ctx)
-      }(context)
-        .recover { case error =>
-          logUnsuccessfulProcessing(name, error, message, ctx)
-          val response = createErrorResponse(error.getMessage)
-          val responseMessage = message.copy(
-            bodyLength = response.length,
-            body = response
-          )
-          sendResponseToClient(responseMessage, ctx)
-        }(context)
-    } else {
-      val error = exceptionOpt.get
-      logUnsuccessfulProcessing(name, error, message, ctx)
-      val response = createErrorResponse(error.getMessage)
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
+  override protected def fireAndReplyImplementation(message: Message, ctx: ChannelHandlerContext): Unit = {
+    val response = descriptor.encodeResponse(
+      TransactionService.ScanTransactions.Result(
+        Some(process(message.body))
       )
-      sendResponseToClient(responseMessage, ctx)
-    }
+    )
+    val responseMessage = message.copy(
+      bodyLength = response.length,
+      body = response
+    )
+    sendResponseToClient(responseMessage, ctx)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

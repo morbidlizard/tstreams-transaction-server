@@ -20,86 +20,44 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestWithValidationProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import DelStreamProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFutureRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 private object DelStreamProcessor {
   val descriptor = Protocol.DelStream
 }
 
 class DelStreamProcessor(server: TransactionServer,
-                         context: ExecutionContext,
-                         authService: AuthService,
-                         transportService: TransportService)
-  extends RequestWithValidationProcessor(
-    authService,
-    transportService) {
-
-  override val name: String = descriptor.name
-
-  override val id: Byte = descriptor.methodID
+                         context: ExecutionContext)
+  extends ClientFutureRequestHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
     server.delStream(args.name)
   }
 
-  override protected def handle(message: Message,
-                                ctx: ChannelHandlerContext): Unit = {
-    val exceptionOpt = validate(message, ctx)
-    if (exceptionOpt.isEmpty) {
-      process(message.body)
-    }
-    else {
-      logUnsuccessfulProcessing(
-        name,
-        transportService.packageTooBigException,
-        message,
-        ctx
-      )
-    }
+  override protected def fireAndForgetImplementation(message: Message): Unit = {
+    process(message.body)
   }
 
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
-    val exceptionOpt = validate(message, ctx)
-    if (exceptionOpt.isEmpty) {
-      Future {
-        val response = descriptor.encodeResponse(
-          TransactionService.DelStream.Result(
-            Some(process(message.body))
-          )
-        )
-        val responseMessage = message.copy(
-          bodyLength = response.length,
-          body = response
-        )
-        sendResponseToClient(responseMessage, ctx)
-      }(context)
-        .recover { case error =>
-          logUnsuccessfulProcessing(name, error, message, ctx)
-          val response = createErrorResponse(error.getMessage)
-          val responseMessage = message.copy(
-            bodyLength = response.length,
-            body = response
-          )
-          sendResponseToClient(responseMessage, ctx)
-        }(context)
-    } else {
-      val error = exceptionOpt.get
-      logUnsuccessfulProcessing(name, error, message, ctx)
-      val response = createErrorResponse(error.getMessage)
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
+  override protected def fireAndReplyImplementation(message: Message,
+                                                    ctx: ChannelHandlerContext): Unit = {
+    val response = descriptor.encodeResponse(
+      TransactionService.DelStream.Result(
+        Some(process(message.body))
       )
-      sendResponseToClient(responseMessage, ctx)
-    }
+    )
+    val responseMessage = message.copy(
+      bodyLength = response.length,
+      body = response
+    )
+    sendResponseToClient(responseMessage, ctx)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

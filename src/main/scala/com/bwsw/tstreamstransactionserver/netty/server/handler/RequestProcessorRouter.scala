@@ -58,130 +58,91 @@ final class RequestProcessorRouter(server: TransactionServer,
   private val commitLogContext =
     executionContext.commitLogContext
 
-  private val handlers: Array[RequestProcessor] = Array(
+  private val handlers: Array[ClientRequestHandler] = Array(
     new GetCommitLogOffsetsProcessor(
       server,
       scheduledCommitLog,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
 
 
     new PutStreamProcessor(
       server,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
     new CheckStreamExistsProcessor(
       server,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
     new GetStreamProcessor(
       server,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
     new DelStreamProcessor(
       server,
-      serverWriteContext,
-      authService,
-      transportService
+      serverWriteContext
     ),
-
-
 
 
     new GetTransactionIDProcessor(
-      server,
-      authService,
-      transportService
+      server
     ),
     new GetTransactionIDByTimestampProcessor(
-      server,
-      authService,
-      transportService
+      server
     ),
 
-
-
-
+    
     new PutTransactionProcessor(
       server,
       scheduledCommitLog,
-      commitLogContext,
-      authService,
-      transportService
+      commitLogContext
     ),
     new PutTransactionsProcessor(
       server,
       scheduledCommitLog,
-      commitLogContext,
-      authService,
-      transportService
+      commitLogContext
     ),
     new OpenTransactionProcessor(
       server,
       scheduledCommitLog,
       notifier,
       authOptions,
-      orderedExecutionPool,
-      authService,
-      transportService
+      orderedExecutionPool
     ),
     new GetTransactionProcessor(
       server,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
     new GetLastCheckpointedTransactionProcessor(
       server,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
     new ScanTransactionsProcessor(
       server,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
-
 
 
 
     new PutProducerStateWithDataProcessor(
       server,
       scheduledCommitLog,
-      commitLogContext,
-      authService,
-      transportService
+      commitLogContext
     ),
     new PutSimpleTransactionAndDataProcessor(
       server,
       scheduledCommitLog,
       notifier,
       authOptions,
-      orderedExecutionPool,
-      authService,
-      transportService
+      orderedExecutionPool
     ),
     new PutTransactionDataProcessor(
       server,
-      serverWriteContext,
-      authService,
-      transportService
+      serverWriteContext
     ),
     new GetTransactionDataProcessor(
       server,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
 
 
@@ -190,15 +151,11 @@ final class RequestProcessorRouter(server: TransactionServer,
     new PutConsumerCheckpointProcessor(
       server,
       scheduledCommitLog,
-      commitLogContext,
-      authService,
-      transportService
+      commitLogContext
     ),
     new GetConsumerStateProcessor(
       server,
-      serverReadContext,
-      authService,
-      transportService
+      serverReadContext
     ),
 
 

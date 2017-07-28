@@ -18,16 +18,19 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutSimpleTransactionAndDataProcessor.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService.PutSimpleTransactionAndData
+import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.Future
 
@@ -40,11 +43,19 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
                                            scheduledCommitLog: ScheduledCommitLog,
                                            notifier: OpenTransactionStateNotifier,
                                            authOptions: AuthenticationOptions,
-                                           orderedExecutionPool: OrderedExecutionContextPool)
-  extends RequestProcessor {
+                                           orderedExecutionPool: OrderedExecutionContextPool,
+                                           authService: AuthService,
+                                           transportService: TransportService)
+  extends SomeNameRequestProcessor(
+    authService,
+    transportService) {
 
-  private def process(txn: PutSimpleTransactionAndData.Args) = {
-    val transactionID = server.getTransactionID
+  override val name: String = descriptor.name
+
+  override val id: Byte = descriptor.methodID
+
+  private def process(txn: PutSimpleTransactionAndData.Args,
+                      transactionID: Long) = {
 
     server.putTransactionData(
       txn.streamID,
@@ -74,6 +85,7 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
           Long.MaxValue)), None
       )
     )
+
     val messageForPutTransactions =
       Protocol.PutTransactions.encodeRequest(
         TransactionService.PutTransactions.Args(transactions)
@@ -83,48 +95,90 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
       RecordType.PutTransactionsType.id.toByte,
       messageForPutTransactions
     )
-
-    notifier.notifySubscribers(
-      txn.streamID,
-      txn.partition,
-      transactionID,
-      txn.data.size,
-      TransactionState.Status.Instant,
-      Long.MaxValue,
-      authOptions.key,
-      isNotReliable = false
-    )
-
-    transactionID
   }
 
-  private def processFuture[T](requestBody: Array[Byte],
-                               idToEntity: Long => T) = {
-    val args = descriptor.decodeRequest(requestBody)
-    val context = orderedExecutionPool.pool(args.streamID, args.partition)
-    Future {
-      idToEntity(
-        process(args))
-    }(context)
-  }
+  override protected def handle(message: Message,
+                                ctx: ChannelHandlerContext): Unit = {
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
+      val args = descriptor.decodeRequest(message.body)
+      val context = orderedExecutionPool.pool(args.streamID, args.partition)
+      Future {
+        val transactionID =
+          server.getTransactionID
 
+        process(args, transactionID)
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    processFuture[Array[Byte]](
-      requestBody,
-      transactionID => {
-        descriptor.encodeResponse(
-          TransactionService.PutSimpleTransactionAndData.Result(Some(transactionID))
+        val response = descriptor.encodeResponse(
+          TransactionService.PutSimpleTransactionAndData.Result(
+            Some(transactionID)
+          )
         )
-      }
-    )
+
+        val responseMessage = message.copy(
+          bodyLength = response.length,
+          body = response
+        )
+        sendResponseToClient(responseMessage, ctx)
+
+        notifier.notifySubscribers(
+          args.streamID,
+          args.partition,
+          transactionID,
+          args.data.size,
+          TransactionState.Status.Instant,
+          Long.MaxValue,
+          authOptions.key,
+          isNotReliable = false
+        )
+      }(context)
+        .recover { case error =>
+          logUnsuccessfulProcessing(name, error, message, ctx)
+          val response = createErrorResponse(error.getMessage)
+          val responseMessage = message.copy(
+            bodyLength = response.length,
+            body = response
+          )
+          sendResponseToClient(responseMessage, ctx)
+        }(context)
+    }
+    else {
+      val error = exceptionOpt.get
+      logUnsuccessfulProcessing(name, error, message, ctx)
+      val response = createErrorResponse(error.getMessage)
+      val responseMessage = message.copy(
+        bodyLength = response.length,
+        body = response
+      )
+      sendResponseToClient(responseMessage, ctx)
+    }
   }
 
-  override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    processFuture(
-      requestBody,
-      _ => ()
-    )
+
+  override protected def handleAndGetResponse(message: Message,
+                                              ctx: ChannelHandlerContext): Unit = {
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
+      val args = descriptor.decodeRequest(message.body)
+      val context = orderedExecutionPool.pool(args.streamID, args.partition)
+      Future {
+        val transactionID =
+          server.getTransactionID
+
+        process(args, transactionID)
+
+        notifier.notifySubscribers(
+          args.streamID,
+          args.partition,
+          transactionID,
+          args.data.size,
+          TransactionState.Status.Instant,
+          Long.MaxValue,
+          authOptions.key,
+          isNotReliable = false
+        )
+      }(context)
+    }
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
@@ -136,8 +190,4 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
       )
     )
   }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

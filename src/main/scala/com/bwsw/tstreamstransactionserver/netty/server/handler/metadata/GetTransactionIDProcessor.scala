@@ -18,41 +18,69 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import GetTransactionIDProcessor.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
+import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
+import io.netty.channel.ChannelHandlerContext
 
-import scala.concurrent.Future
 
 private object GetTransactionIDProcessor {
   val descriptor = Protocol.GetTransactionID
 }
 
-class GetTransactionIDProcessor(server: TransactionServer)
-  extends RequestProcessor {
+class GetTransactionIDProcessor(server: TransactionServer,
+                                authService: AuthService,
+                                transportService: TransportService)
+  extends SomeNameRequestProcessor(
+    authService,
+    transportService) {
+
+  override val name: String = descriptor.name
+
+  override val id: Byte = descriptor.methodID
 
   private def process(requestBody: Array[Byte]) = {
     server.getTransactionID
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    Future.successful {
-      val result = process(requestBody)
-      descriptor.encodeResponse(
-        TransactionService.GetTransactionID.Result(Some(result))
+
+  override protected def handle(message: Message,
+                                ctx: ChannelHandlerContext): Unit = {
+//    throw new UnsupportedOperationException(
+//      "It doesn't make any sense to get transaction ID according to fire and forget policy"
+//    )
+  }
+
+  override protected def handleAndGetResponse(message: Message,
+                                              ctx: ChannelHandlerContext): Unit = {
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
+        val response = descriptor.encodeResponse(
+          TransactionService.GetTransactionID.Result(
+            Some(process(message.body))
+          )
+        )
+        val responseMessage = message.copy(
+          bodyLength = response.length,
+          body = response
+        )
+        sendResponseToClient(responseMessage, ctx)
+    } else {
+      val error = exceptionOpt.get
+      logUnsuccessfulProcessing(name, error, message, ctx)
+      val response = createErrorResponse(error.getMessage)
+      val responseMessage = message.copy(
+        bodyLength = response.length,
+        body = response
       )
+      sendResponseToClient(responseMessage, ctx)
     }
   }
 
-  override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    Future.failed(
-      throw new UnsupportedOperationException(
-        "It doesn't make any sense to get transaction ID according to fire and forget policy"
-      )
-    )
-  }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -63,8 +91,4 @@ class GetTransactionIDProcessor(server: TransactionServer)
       )
     )
   }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

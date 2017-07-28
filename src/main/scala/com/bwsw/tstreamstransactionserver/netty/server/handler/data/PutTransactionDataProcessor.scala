@@ -18,10 +18,13 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -33,8 +36,16 @@ private object PutTransactionDataProcessor {
 import PutTransactionDataProcessor._
 
 class PutTransactionDataProcessor(server: TransactionServer,
-                                  context: ExecutionContext)
-  extends RequestProcessor {
+                                  context: ExecutionContext,
+                                  authService: AuthService,
+                                  transportService: TransportService)
+  extends SomeNameRequestProcessor(
+    authService,
+    transportService) {
+
+  override val name: String = descriptor.name
+
+  override val id: Byte = descriptor.methodID
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -47,20 +58,57 @@ class PutTransactionDataProcessor(server: TransactionServer,
     )
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    Future {
-      val result = process(requestBody)
-      descriptor.encodeResponse(
-        TransactionService.PutTransactionData.Result(Some(result))
+  override protected def handleAndGetResponse(message: Message,
+                                              ctx: ChannelHandlerContext): Unit = {
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
+      Future {
+        val response = descriptor.encodeResponse(
+          TransactionService.PutTransactionData.Result(
+            Some(process(message.body))
+          )
+        )
+        val responseMessage = message.copy(
+          bodyLength = response.length,
+          body = response
+        )
+        sendResponseToClient(responseMessage, ctx)
+      }(context)
+        .recover { case error =>
+          logUnsuccessfulProcessing(name, error, message, ctx)
+          val response = createErrorResponse(error.getMessage)
+          val responseMessage = message.copy(
+            bodyLength = response.length,
+            body = response
+          )
+          sendResponseToClient(responseMessage, ctx)
+        }(context)
+    } else {
+      val error = exceptionOpt.get
+      logUnsuccessfulProcessing(name, error, message, ctx)
+      val response = createErrorResponse(error.getMessage)
+      val responseMessage = message.copy(
+        bodyLength = response.length,
+        body = response
       )
-    }(context)
+      sendResponseToClient(responseMessage, ctx)
+    }
   }
 
-  override def handle(requestBody: Array[Byte]): Future[Unit] = {
-    Future {
-      process(requestBody)
-      ()
-    }(context)
+  override protected def handle(message: Message,
+                                ctx: ChannelHandlerContext): Unit = {
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
+      process(message.body)
+    }
+    else {
+      logUnsuccessfulProcessing(
+        name,
+        transportService.packageTooBigException,
+        message,
+        ctx
+      )
+    }
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
@@ -72,8 +120,4 @@ class PutTransactionDataProcessor(server: TransactionServer,
       )
     )
   }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

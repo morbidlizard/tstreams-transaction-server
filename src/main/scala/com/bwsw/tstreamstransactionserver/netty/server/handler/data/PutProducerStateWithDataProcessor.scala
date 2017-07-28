@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{SomeNameRequestProcessor}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutProducerStateWithDataProcessor._
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService

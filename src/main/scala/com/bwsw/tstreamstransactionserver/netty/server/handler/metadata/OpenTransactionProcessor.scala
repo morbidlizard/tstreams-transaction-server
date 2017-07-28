@@ -18,13 +18,19 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc._
 import OpenTransactionProcessor.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
+import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService.OpenTransaction
+import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.Future
 
@@ -34,16 +40,30 @@ private object OpenTransactionProcessor {
 
 class OpenTransactionProcessor(server: TransactionServer,
                                scheduledCommitLog: ScheduledCommitLog,
-                               orderedExecutionPool: OrderedExecutionContextPool)
-  extends RequestProcessor {
+                               notifier: OpenTransactionStateNotifier,
+                               authOptions: AuthenticationOptions,
+                               orderedExecutionPool: OrderedExecutionContextPool,
+                               authService: AuthService,
+                               transportService: TransportService)
+  extends SomeNameRequestProcessor(
+    authService,
+    transportService) {
 
-  private def process(transactionId: Long,
-                      args: OpenTransaction.Args): Long = {
+  override val name: String = descriptor.name
+
+  override val id: Byte = descriptor.methodID
+
+  private def process(args: OpenTransaction.Args,
+                      transactionId: Long): Long = {
+
+    val transactionID =
+      server.getTransactionID
+
     val txn = Transaction(Some(
       ProducerTransaction(
         args.streamID,
         args.partition,
-        transactionId,
+        transactionID,
         TransactionStates.Opened,
         quantity = 0,
         ttl = args.transactionTTLMs
@@ -59,36 +79,103 @@ class OpenTransactionProcessor(server: TransactionServer,
       binaryTransaction
     )
 
-    transactionId
+    transactionID
   }
 
-  private def processFuture[T](requestBody: Array[Byte],
-                               idToEntity: Long => T) = {
-    val transactionID = server.getTransactionID
-    val args = descriptor.decodeRequest(requestBody)
-    val context = orderedExecutionPool.pool(args.streamID, args.partition)
-    Future {
-      idToEntity(
-        process(transactionID, args))
-    }(context)
-  }
+  override protected def handle(message: Message,
+                                ctx: ChannelHandlerContext): Unit = {
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
+      val args = descriptor.decodeRequest(message.body)
+      val context = orderedExecutionPool.pool(args.streamID, args.partition)
+      Future {
+        val transactionID =
+          server.getTransactionID
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Future[Array[Byte]] = {
-    processFuture[Array[Byte]](
-      requestBody,
-      transactionID => {
-        descriptor.encodeResponse(
-          TransactionService.OpenTransaction.Result(Some(transactionID))
+        process(args, transactionID)
+
+        val response = descriptor.encodeResponse(
+          TransactionService.OpenTransaction.Result(
+            Some(transactionID)
+          )
         )
-      }
-    )
+
+        val responseMessage = message.copy(
+          bodyLength = response.length,
+          body = response
+        )
+        sendResponseToClient(responseMessage, ctx)
+
+        notifier.notifySubscribers(
+          args.streamID,
+          args.partition,
+          transactionID,
+          count = 0,
+          TransactionState.Status.Opened,
+          args.transactionTTLMs,
+          authOptions.key,
+          isNotReliable = false
+        )
+
+      }(context)
+        .recover { case error =>
+          logUnsuccessfulProcessing(name, error, message, ctx)
+          val response = createErrorResponse(error.getMessage)
+          val responseMessage = message.copy(
+            bodyLength = response.length,
+            body = response
+          )
+          sendResponseToClient(responseMessage, ctx)
+        }(context)
+    }
+    else {
+      val error = exceptionOpt.get
+      logUnsuccessfulProcessing(name, error, message, ctx)
+      val response = createErrorResponse(error.getMessage)
+      val responseMessage = message.copy(
+        bodyLength = response.length,
+        body = response
+      )
+      sendResponseToClient(responseMessage, ctx)
+    }
   }
 
-  override def handle(requestBody: Array[Byte]): Future[Unit]= {
-    processFuture(
-      requestBody,
-      _ => ()
-    )
+  override protected def handleAndGetResponse(message: Message,
+                                              ctx: ChannelHandlerContext): Unit = {
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
+      val args = descriptor.decodeRequest(message.body)
+      val context = orderedExecutionPool.pool(args.streamID, args.partition)
+      Future {
+        val transactionID =
+          server.getTransactionID
+
+        process(args, transactionID)
+
+        val response = descriptor.encodeResponse(
+          TransactionService.OpenTransaction.Result(
+            Some(transactionID)
+          )
+        )
+
+        val responseMessage = message.copy(
+          bodyLength = response.length,
+          body = response
+        )
+        sendResponseToClient(responseMessage, ctx)
+
+        notifier.notifySubscribers(
+          args.streamID,
+          args.partition,
+          transactionID,
+          count = 0,
+          TransactionState.Status.Opened,
+          args.transactionTTLMs,
+          authOptions.key,
+          isNotReliable = false
+        )
+      }(context)
+    }
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
@@ -100,8 +187,4 @@ class OpenTransactionProcessor(server: TransactionServer,
       )
     )
   }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

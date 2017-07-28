@@ -18,6 +18,8 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
+import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.{AuthenticateProcessor, IsValidProcessor}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateProcessor, PutConsumerCheckpointProcessor}
@@ -26,52 +28,195 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsProcessor, DelStreamProcessor, GetStreamProcessor, PutStreamProcessor}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesProcessor
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, ServerRoleOptions, TransportOptions}
 
 import scala.collection.Searching._
+import scala.concurrent.ExecutionContext
 
-final class RequestHandlerRouter(val server: TransactionServer,
-                                 val scheduledCommitLog: ScheduledCommitLog,
-                                 val packageTransmissionOpts: TransportOptions,
-                                 val authOptions: AuthenticationOptions,
-                                 val orderedExecutionPool: OrderedExecutionContextPool,
-                                 val openTransactionStateNotifier: OpenTransactionStateNotifier,
-                                 val serverRoleOptions: ServerRoleOptions) {
+final class RequestHandlerRouter(server: TransactionServer,
+                                 scheduledCommitLog: ScheduledCommitLog,
+                                 packageTransmissionOpts: TransportOptions,
+                                 authOptions: AuthenticationOptions,
+                                 orderedExecutionPool: OrderedExecutionContextPool,
+                                 notifier: OpenTransactionStateNotifier,
+                                 serverRoleOptions: ServerRoleOptions,
+                                 executionContext:ServerExecutionContextGrids) {
+  private val authService =
+    new AuthService(authOptions)
 
+  private val transportService =
+    new TransportService(packageTransmissionOpts)
+
+  private val serverWriteContext: ExecutionContext =
+    executionContext.serverWriteContext
+  private val serverReadContext: ExecutionContext =
+    executionContext.serverReadContext
+  private val commitLogContext =
+    executionContext.commitLogContext
 
 
   private val handlers: Array[RequestProcessor] = Array(
-    new GetCommitLogOffsetsProcessor(server, scheduledCommitLog),
+    new GetCommitLogOffsetsProcessor(
+      server,
+      scheduledCommitLog,
+      serverReadContext,
+      authService,
+      transportService
+    ),
 
-    new PutStreamProcessor(server),
-    new CheckStreamExistsProcessor(server),
-    new GetStreamProcessor(server),
-    new DelStreamProcessor(server),
 
-    new GetTransactionIDProcessor(server),
-    new GetTransactionIDByTimestampProcessor(server),
+    new PutStreamProcessor(
+      server,
+      serverReadContext,
+      authService,
+      transportService
+    ),
+    new CheckStreamExistsProcessor(
+      server,
+      serverReadContext,
+      authService,
+      transportService
+    ),
+    new GetStreamProcessor(
+      server,
+      serverReadContext,
+      authService,
+      transportService
+    ),
+    new DelStreamProcessor(
+      server,
+      serverWriteContext,
+      authService,
+      transportService
+    ),
 
-    new PutTransactionProcessor(server, scheduledCommitLog),
-    new PutTransactionsProcessor(server, scheduledCommitLog),
-    new OpenTransactionProcessor(server, scheduledCommitLog),
-    new GetTransactionProcessor(server),
-    new GetLastCheckpointedTransactionProcessor(server),
-    new ScanTransactionsProcessor(server),
 
-    new PutProducerStateWithDataProcessor(server, scheduledCommitLog),
-    new PutSimpleTransactionAndDataProcessor(server, scheduledCommitLog),
-    new PutTransactionDataProcessor(server),
-    new GetTransactionDataProcessor(server),
 
-    new PutConsumerCheckpointProcessor(server, scheduledCommitLog),
-    new GetConsumerStateProcessor(server),
 
-    new AuthenticateProcessor(server, packageTransmissionOpts),
-    new IsValidProcessor(server),
+    new GetTransactionIDProcessor(
+      server,
+      authService,
+      transportService
+    ),
+    new GetTransactionIDByTimestampProcessor(
+      server,
+      authService,
+      transportService
+    ),
 
-    new GetMaxPackagesSizesProcessor(packageTransmissionOpts),
-    new GetZKCheckpointGroupServerPrefixProcessor(serverRoleOptions)
+
+
+
+    new PutTransactionProcessor(
+      server,
+      scheduledCommitLog,
+      commitLogContext,
+      authService,
+      transportService
+    ),
+    new PutTransactionsProcessor(
+      server,
+      scheduledCommitLog,
+      commitLogContext,
+      authService,
+      transportService
+    ),
+    new OpenTransactionProcessor(
+      server,
+      scheduledCommitLog,
+      notifier,
+      authOptions,
+      orderedExecutionPool,
+      authService,
+      transportService
+    ),
+    new GetTransactionProcessor(
+      server,
+      serverReadContext,
+      authService,
+      transportService
+    ),
+    new GetLastCheckpointedTransactionProcessor(
+      server,
+      serverReadContext,
+      authService,
+      transportService
+    ),
+    new ScanTransactionsProcessor(
+      server,
+      serverReadContext,
+      authService,
+      transportService
+    ),
+
+
+
+
+    new PutProducerStateWithDataProcessor(
+      server,
+      scheduledCommitLog,
+      commitLogContext,
+      authService,
+      transportService
+    ),
+    new PutSimpleTransactionAndDataProcessor(
+      server,
+      scheduledCommitLog,
+      notifier,
+      authOptions,
+      orderedExecutionPool,
+      authService,
+      transportService
+    ),
+    new PutTransactionDataProcessor(
+      server,
+      serverWriteContext,
+      authService,
+      transportService
+    ),
+    new GetTransactionDataProcessor(
+      server,
+      serverReadContext,
+      authService,
+      transportService
+    ),
+
+
+
+
+    new PutConsumerCheckpointProcessor(
+      server,
+      scheduledCommitLog,
+      commitLogContext,
+      authService,
+      transportService
+    ),
+    new GetConsumerStateProcessor(
+      server,
+      serverReadContext,
+      authService,
+      transportService
+    ),
+
+
+
+    new AuthenticateProcessor(
+      authService
+    ),
+    new IsValidProcessor(
+      authService
+    ),
+
+
+
+    new GetMaxPackagesSizesProcessor(
+      packageTransmissionOpts
+    ),
+    new GetZKCheckpointGroupServerPrefixProcessor(
+      serverRoleOptions
+    )
   ).sorted
 
 

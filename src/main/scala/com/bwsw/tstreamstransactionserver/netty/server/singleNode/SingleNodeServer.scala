@@ -236,6 +236,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new SubscriberNotifier
     )
 
+  private val executionContext =
+    new ServerExecutionContextGrids(
+      rocksStorageOpts.readThreadPool,
+      rocksStorageOpts.writeThreadPool
+    )
+
   private val requestHandlerRouter: RequestHandlerRouter =
     new RequestHandlerRouter(
       transactionServer,
@@ -244,7 +250,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       authenticationOpts,
       orderedExecutionPool,
       openTransactionStateNotifier,
-      serverRoleOptions
+      serverRoleOptions,
+      executionContext
     )
 
   private val commonMasterElector =
@@ -259,13 +266,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       transactionServerSocketAddress,
       serverRoleOptions.checkpointGroupMasterPrefix,
       serverRoleOptions.checkpointGroupMasterElectionPrefix
-    )
-
-
-  private val executionContext =
-    new ServerExecutionContextGrids(
-      rocksStorageOpts.readThreadPool,
-      rocksStorageOpts.writeThreadPool
     )
 
   def start(function: => Unit = ()): Unit = {

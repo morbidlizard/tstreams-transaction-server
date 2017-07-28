@@ -63,7 +63,10 @@ object Protocol {
       *
       */
     @inline
-    private final def encode(entity: ThriftStruct, protocol: TProtocolFactory, messageId: Long, token: Int,
+    private final def encode(entity: ThriftStruct,
+                             protocol: TProtocolFactory,
+                             messageId: Long,
+                             token: Int,
                              isFireAndForgetMethod: Boolean): Message = {
       val buffer = new TMemoryBuffer(128)
       val oprot = protocol.getProtocol(buffer)
@@ -71,8 +74,7 @@ object Protocol {
       entity.write(oprot)
 
       val bytes = util.Arrays.copyOfRange(buffer.getArray, 0, buffer.length)
-      val isFireAndForgetMethodProtocolPresentation = if (isFireAndForgetMethod) 1:Byte else 0:Byte
-      Message(messageId, bytes.length, getProtocolIdByName(protocol), bytes, token, methodID, isFireAndForgetMethodProtocolPresentation)
+      Message(messageId, bytes.length, getProtocolIdByName(protocol), bytes, token, methodID, isFireAndForgetMethod)
     }
 
     /** A method for serializing request and adding an id to id. */

@@ -136,6 +136,7 @@ class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
 
   def putTransactions(transactions: Seq[ProducerTransactionRecord],
                       batch: KeyValueDbBatch): Unit = {
+
     val producerTransactions =
       selectInOrderProducerTransactions(transactions, batch)
 

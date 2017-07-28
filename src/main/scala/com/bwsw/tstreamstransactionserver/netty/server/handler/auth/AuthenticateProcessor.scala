@@ -23,6 +23,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import AuthenticateProcessor.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import io.netty.channel.ChannelHandlerContext
 
 
@@ -30,7 +31,7 @@ private object AuthenticateProcessor {
   val descriptor = Protocol.Authenticate
 }
 
-class AuthenticateProcessor(server: TransactionServer)
+class AuthenticateProcessor(authService: AuthService)
   extends RequestProcessor{
 
   override val name: String = descriptor.name
@@ -39,7 +40,7 @@ class AuthenticateProcessor(server: TransactionServer)
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val authInfo = server.authenticate(args.authKey)
+    val authInfo = authService.authenticate(args.authKey)
     descriptor.encodeResponse(
       TransactionService.Authenticate.Result(Some(authInfo))
     )

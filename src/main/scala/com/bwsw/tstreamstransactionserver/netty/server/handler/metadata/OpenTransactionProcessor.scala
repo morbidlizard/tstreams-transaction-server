@@ -54,16 +54,13 @@ class OpenTransactionProcessor(server: TransactionServer,
   override val id: Byte = descriptor.methodID
 
   private def process(args: OpenTransaction.Args,
-                      transactionId: Long): Long = {
-
-    val transactionID =
-      server.getTransactionID
+                      transactionId: Long): Unit = {
 
     val txn = Transaction(Some(
       ProducerTransaction(
         args.streamID,
         args.partition,
-        transactionID,
+        transactionId,
         TransactionStates.Opened,
         quantity = 0,
         ttl = args.transactionTTLMs
@@ -78,8 +75,6 @@ class OpenTransactionProcessor(server: TransactionServer,
       RecordType.PutTransactionType.id.toByte,
       binaryTransaction
     )
-
-    transactionID
   }
 
   override protected def handle(message: Message,

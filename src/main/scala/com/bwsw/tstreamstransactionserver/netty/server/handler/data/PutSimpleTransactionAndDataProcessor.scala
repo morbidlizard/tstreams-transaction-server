@@ -109,6 +109,32 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
 
         process(args, transactionID)
 
+        notifier.notifySubscribers(
+          args.streamID,
+          args.partition,
+          transactionID,
+          args.data.size,
+          TransactionState.Status.Instant,
+          Long.MaxValue,
+          authOptions.key,
+          isNotReliable = false
+        )
+      }(context)
+    }
+  }
+
+  override protected def handleAndGetResponse(message: Message,
+                                              ctx: ChannelHandlerContext): Unit = {
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
+      val args = descriptor.decodeRequest(message.body)
+      val context = orderedExecutionPool.pool(args.streamID, args.partition)
+      Future {
+        val transactionID =
+          server.getTransactionID
+
+        process(args, transactionID)
+
         val response = descriptor.encodeResponse(
           TransactionService.PutSimpleTransactionAndData.Result(
             Some(transactionID)
@@ -151,33 +177,6 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
         body = response
       )
       sendResponseToClient(responseMessage, ctx)
-    }
-  }
-
-
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
-    val exceptionOpt = validate(message, ctx)
-    if (exceptionOpt.isEmpty) {
-      val args = descriptor.decodeRequest(message.body)
-      val context = orderedExecutionPool.pool(args.streamID, args.partition)
-      Future {
-        val transactionID =
-          server.getTransactionID
-
-        process(args, transactionID)
-
-        notifier.notifySubscribers(
-          args.streamID,
-          args.partition,
-          transactionID,
-          args.data.size,
-          TransactionState.Status.Instant,
-          Long.MaxValue,
-          authOptions.key,
-          isNotReliable = false
-        )
-      }(context)
     }
   }
 

@@ -58,10 +58,29 @@ class PutConsumerCheckpointProcessor(server: TransactionServer,
                                 ctx: ChannelHandlerContext): Unit = {
     val exceptionOpt = validate(message, ctx)
     if (exceptionOpt.isEmpty) {
+      process(message.body)
+    }
+    else {
+      logUnsuccessfulProcessing(
+        name,
+        transportService.packageTooBigException,
+        message,
+        ctx
+      )
+    }
+  }
+
+  override protected def handleAndGetResponse(message: Message,
+                                              ctx: ChannelHandlerContext): Unit = {
+
+    val exceptionOpt = validate(message, ctx)
+    if (exceptionOpt.isEmpty) {
       Future {
+        val result = process(message.body)
+
         val response = descriptor.encodeResponse(
           TransactionService.PutConsumerCheckpoint.Result(
-            Some(process(message.body))
+            Some(result)
           )
         )
         val responseMessage = message.copy(
@@ -88,22 +107,6 @@ class PutConsumerCheckpointProcessor(server: TransactionServer,
         body = response
       )
       sendResponseToClient(responseMessage, ctx)
-    }
-  }
-
-  override protected def handleAndGetResponse(message: Message,
-                                              ctx: ChannelHandlerContext): Unit = {
-    val exceptionOpt = validate(message, ctx)
-    if (exceptionOpt.isEmpty) {
-      process(message.body)
-    }
-    else {
-      logUnsuccessfulProcessing(
-        name,
-        transportService.packageTooBigException,
-        message,
-        ctx
-      )
     }
   }
 

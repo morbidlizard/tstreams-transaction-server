@@ -19,17 +19,17 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import IsValidProcessor._
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import io.netty.channel.ChannelHandlerContext
 
 private object IsValidProcessor {
   val descriptor = Protocol.IsValid
 }
 
-class IsValidProcessor(server: TransactionServer)
+class IsValidProcessor(authService: AuthService)
   extends RequestProcessor{
 
   override val name: String = descriptor.name
@@ -38,7 +38,7 @@ class IsValidProcessor(server: TransactionServer)
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.isValid(args.token)
+    val result = authService.isValid(args.token)
     descriptor.encodeResponse(
       TransactionService.IsValid.Result(Some(result))
     )

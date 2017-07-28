@@ -20,7 +20,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestWithValidationProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import GetLastCheckpointedTransactionProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
@@ -37,7 +37,7 @@ class GetLastCheckpointedTransactionProcessor(server: TransactionServer,
                                               context: ExecutionContext,
                                               authService: AuthService,
                                               transportService: TransportService)
-  extends SomeNameRequestProcessor(
+  extends RequestWithValidationProcessor(
     authService,
     transportService) {
 

@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestWithValidationProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import PutConsumerCheckpointProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
@@ -39,7 +39,7 @@ class PutConsumerCheckpointProcessor(server: TransactionServer,
                                      context: ExecutionContext,
                                      authService: AuthService,
                                      transportService: TransportService)
-  extends SomeNameRequestProcessor(
+  extends RequestWithValidationProcessor(
     authService,
     transportService) {
 

@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestWithValidationProcessor
 import com.bwsw.tstreamstransactionserver.rpc._
 import OpenTransactionProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
@@ -45,7 +45,7 @@ class OpenTransactionProcessor(server: TransactionServer,
                                orderedExecutionPool: OrderedExecutionContextPool,
                                authService: AuthService,
                                transportService: TransportService)
-  extends SomeNameRequestProcessor(
+  extends RequestWithValidationProcessor(
     authService,
     transportService) {
 
@@ -89,18 +89,6 @@ class OpenTransactionProcessor(server: TransactionServer,
 
         process(args, transactionID)
 
-        val response = descriptor.encodeResponse(
-          TransactionService.OpenTransaction.Result(
-            Some(transactionID)
-          )
-        )
-
-        val responseMessage = message.copy(
-          bodyLength = response.length,
-          body = response
-        )
-        sendResponseToClient(responseMessage, ctx)
-
         notifier.notifySubscribers(
           args.streamID,
           args.partition,
@@ -109,29 +97,9 @@ class OpenTransactionProcessor(server: TransactionServer,
           TransactionState.Status.Opened,
           args.transactionTTLMs,
           authOptions.key,
-          isNotReliable = false
+          isNotReliable = true
         )
-
       }(context)
-        .recover { case error =>
-          logUnsuccessfulProcessing(name, error, message, ctx)
-          val response = createErrorResponse(error.getMessage)
-          val responseMessage = message.copy(
-            bodyLength = response.length,
-            body = response
-          )
-          sendResponseToClient(responseMessage, ctx)
-        }(context)
-    }
-    else {
-      val error = exceptionOpt.get
-      logUnsuccessfulProcessing(name, error, message, ctx)
-      val response = createErrorResponse(error.getMessage)
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
-      )
-      sendResponseToClient(responseMessage, ctx)
     }
   }
 
@@ -170,6 +138,25 @@ class OpenTransactionProcessor(server: TransactionServer,
           isNotReliable = false
         )
       }(context)
+        .recover { case error =>
+          logUnsuccessfulProcessing(name, error, message, ctx)
+          val response = createErrorResponse(error.getMessage)
+          val responseMessage = message.copy(
+            bodyLength = response.length,
+            body = response
+          )
+          sendResponseToClient(responseMessage, ctx)
+        }(context)
+    }
+    else {
+      val error = exceptionOpt.get
+      logUnsuccessfulProcessing(name, error, message, ctx)
+      val response = createErrorResponse(error.getMessage)
+      val responseMessage = message.copy(
+        bodyLength = response.length,
+        body = response
+      )
+      sendResponseToClient(responseMessage, ctx)
     }
   }
 

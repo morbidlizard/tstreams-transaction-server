@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.singleNode
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksWriter, ServerHandler, StateNotifier, TestRocksWriter}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessorRouter
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
@@ -20,7 +20,7 @@ class SingleNodeTestServer(authenticationOpts: AuthenticationOptions,
                            commitLogOptions: CommitLogOptions,
                            packageTransmissionOpts: TransportOptions,
                            subscribersUpdateOptions: SubscriberUpdateOptions,
-                           serverHandler: (RequestHandlerRouter, ServerExecutionContextGrids, Logger) =>
+                           serverHandler: (RequestProcessorRouter, ServerExecutionContextGrids, Logger) =>
                              SimpleChannelInboundHandler[ByteBuf] = (handler, executionContext, logger) =>
                              new ServerHandler(handler, executionContext, logger))
   extends SingleNodeServer(

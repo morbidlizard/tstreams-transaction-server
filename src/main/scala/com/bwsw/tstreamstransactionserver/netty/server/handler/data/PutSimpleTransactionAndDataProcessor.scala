@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestWithValidationProcessor
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutSimpleTransactionAndDataProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
@@ -46,7 +46,7 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
                                            orderedExecutionPool: OrderedExecutionContextPool,
                                            authService: AuthService,
                                            transportService: TransportService)
-  extends SomeNameRequestProcessor(
+  extends RequestWithValidationProcessor(
     authService,
     transportService) {
 
@@ -117,7 +117,7 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
           TransactionState.Status.Instant,
           Long.MaxValue,
           authOptions.key,
-          isNotReliable = false
+          isNotReliable = true
         )
       }(context)
     }

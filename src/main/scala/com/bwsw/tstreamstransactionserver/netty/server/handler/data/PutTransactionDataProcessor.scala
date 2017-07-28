@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SomeNameRequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestWithValidationProcessor
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
@@ -39,7 +39,7 @@ class PutTransactionDataProcessor(server: TransactionServer,
                                   context: ExecutionContext,
                                   authService: AuthService,
                                   transportService: TransportService)
-  extends SomeNameRequestProcessor(
+  extends RequestWithValidationProcessor(
     authService,
     transportService) {
 

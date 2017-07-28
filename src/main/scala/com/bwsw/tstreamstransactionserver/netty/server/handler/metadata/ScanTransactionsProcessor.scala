@@ -20,7 +20,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, SomeNameRequestProcessor}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, RequestWithValidationProcessor}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import ScanTransactionsProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
@@ -38,7 +38,7 @@ class ScanTransactionsProcessor(server: TransactionServer,
                                 context: ExecutionContext,
                                 authService: AuthService,
                                 transportService: TransportService)
-  extends SomeNameRequestProcessor(
+  extends RequestWithValidationProcessor(
     authService,
     transportService) {
 

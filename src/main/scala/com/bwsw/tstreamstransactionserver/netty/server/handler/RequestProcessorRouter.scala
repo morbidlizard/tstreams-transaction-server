@@ -23,10 +23,11 @@ import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.{AuthenticateProcessor, IsValidProcessor}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateProcessor, PutConsumerCheckpointProcessor}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.data.{GetTransactionDataProcessor, PutProducerStateWithDataProcessor, PutSimpleTransactionAndDataProcessor, PutTransactionDataProcessor}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.data._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsProcessor, DelStreamProcessor, GetStreamProcessor, PutStreamProcessor}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.{AuthValidatorHandler, ClientRequestHandler, DataPackageSizeValidatorHandler, RequestHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMaxPackagesSizesProcessor, GetZKCheckpointGroupServerPrefixProcessor}
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
@@ -35,14 +36,15 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationO
 import scala.collection.Searching._
 import scala.concurrent.ExecutionContext
 
-final class RequestHandlerRouter(server: TransactionServer,
-                                 scheduledCommitLog: ScheduledCommitLog,
-                                 packageTransmissionOpts: TransportOptions,
-                                 authOptions: AuthenticationOptions,
-                                 orderedExecutionPool: OrderedExecutionContextPool,
-                                 notifier: OpenTransactionStateNotifier,
-                                 serverRoleOptions: ServerRoleOptions,
-                                 executionContext:ServerExecutionContextGrids) {
+
+final class RequestProcessorRouter(server: TransactionServer,
+                                   scheduledCommitLog: ScheduledCommitLog,
+                                   packageTransmissionOpts: TransportOptions,
+                                   authOptions: AuthenticationOptions,
+                                   orderedExecutionPool: OrderedExecutionContextPool,
+                                   notifier: OpenTransactionStateNotifier,
+                                   serverRoleOptions: ServerRoleOptions,
+                                   executionContext:ServerExecutionContextGrids) {
   private val authService =
     new AuthService(authOptions)
 
@@ -55,7 +57,6 @@ final class RequestHandlerRouter(server: TransactionServer,
     executionContext.serverReadContext
   private val commitLogContext =
     executionContext.commitLogContext
-
 
   private val handlers: Array[RequestProcessor] = Array(
     new GetCommitLogOffsetsProcessor(

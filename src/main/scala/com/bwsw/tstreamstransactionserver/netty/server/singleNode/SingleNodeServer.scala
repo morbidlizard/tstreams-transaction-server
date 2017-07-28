@@ -30,7 +30,7 @@ import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessorRouter
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenTransactionStateNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
@@ -60,7 +60,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                        commitLogOptions: CommitLogOptions,
                        packageTransmissionOpts: TransportOptions,
                        subscribersUpdateOptions: SubscriberUpdateOptions,
-                       serverHandler: (RequestHandlerRouter, ServerExecutionContextGrids, Logger) =>
+                       serverHandler: (RequestProcessorRouter, ServerExecutionContextGrids, Logger) =>
                SimpleChannelInboundHandler[ByteBuf] = (handler, executionContext, logger) =>
                          new ServerHandler(handler, executionContext, logger)) {
 
@@ -242,8 +242,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       rocksStorageOpts.writeThreadPool
     )
 
-  private val requestHandlerRouter: RequestHandlerRouter =
-    new RequestHandlerRouter(
+  private val requestHandlerRouter: RequestProcessorRouter =
+    new RequestProcessorRouter(
       transactionServer,
       scheduledCommitLogImpl,
       packageTransmissionOpts,

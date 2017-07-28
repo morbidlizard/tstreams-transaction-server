@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, SomeNameRequestProcessor}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, RequestWithValidationProcessor}
 import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
 import GetCommitLogOffsetsProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
@@ -39,7 +39,7 @@ class GetCommitLogOffsetsProcessor(server: TransactionServer,
                                    context: ExecutionContext,
                                    authService: AuthService,
                                    transportService: TransportService)
-  extends SomeNameRequestProcessor(
+  extends RequestWithValidationProcessor(
     authService,
     transportService) {
 

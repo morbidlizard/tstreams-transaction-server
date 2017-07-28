@@ -49,7 +49,7 @@ trait RequestProcessor
         s"$method is failed while processing!", error)
 
   protected final def sendResponseToClient(message: Message,
-                                     ctx: ChannelHandlerContext): Unit = {
+                                           ctx: ChannelHandlerContext): Unit = {
     val binaryResponse = message.toByteArray
     if (ctx.channel().isActive)
       ctx.writeAndFlush(binaryResponse)

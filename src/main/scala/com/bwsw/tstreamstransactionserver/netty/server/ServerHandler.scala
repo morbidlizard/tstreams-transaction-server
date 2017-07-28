@@ -22,7 +22,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToRocksWriter
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, RequestHandlerRouter}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, RequestProcessorRouter}
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionService, TransactionStates}
@@ -33,7 +33,7 @@ import org.slf4j.Logger
 import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 
 
-class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
+class ServerHandler(requestHandlerRouter: RequestProcessorRouter,
                     executionContext:ServerExecutionContextGrids,
                     logger: Logger)
   extends SimpleChannelInboundHandler[ByteBuf]

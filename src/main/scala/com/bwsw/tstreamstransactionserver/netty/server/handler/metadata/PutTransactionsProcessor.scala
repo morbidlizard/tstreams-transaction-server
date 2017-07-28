@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, SomeNameRequestProcessor}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestWithValidationProcessor
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import PutTransactionsProcessor._
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
@@ -45,7 +45,7 @@ class PutTransactionsProcessor(server: TransactionServer,
                                context: ExecutionContext,
                                authService: AuthService,
                                transportService: TransportService)
-  extends SomeNameRequestProcessor(
+  extends RequestWithValidationProcessor(
     authService,
     transportService) {
 

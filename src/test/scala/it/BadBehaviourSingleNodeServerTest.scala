@@ -7,7 +7,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.{Message, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessorRouter
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.netty.server.ServerHandler
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
@@ -48,7 +48,7 @@ class BadBehaviourSingleNodeServerTest
   @volatile private var server: SingleNodeServer = _
   private val serverGotRequest = new AtomicInteger(0)
 
-  private def serverHandler(requestHandlerChooser: RequestHandlerRouter,
+  private def serverHandler(requestHandlerChooser: RequestProcessorRouter,
                             executionContext: ServerExecutionContextGrids,
                             logger: Logger) =
     new ServerHandler(requestHandlerChooser, executionContext, logger)

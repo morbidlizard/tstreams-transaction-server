@@ -1,8 +1,9 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler
+package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetZKCheckpointGroupServerPrefixProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.ServerRoleOptions
-import GetZKCheckpointGroupServerPrefixProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import io.netty.channel.ChannelHandlerContext
 

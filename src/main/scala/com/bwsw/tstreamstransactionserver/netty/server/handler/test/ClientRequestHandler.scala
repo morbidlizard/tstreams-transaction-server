@@ -5,7 +5,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 abstract class ClientRequestHandler(val id: Byte,
                                     val name: String)
-  extends LastRequestHandler
+  extends RequestHandler
     with Ordered[ClientRequestHandler]
 {
   def createErrorResponse(message: String): Array[Byte]

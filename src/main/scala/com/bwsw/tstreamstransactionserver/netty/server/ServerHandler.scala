@@ -48,9 +48,8 @@ class ServerHandler(requestHandlerRouter: RequestProcessorRouter,
     if (logger.isDebugEnabled)
       logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id} method is invoked.")
 
-    val handler = requestHandlerRouter.handler(message.methodId)
+    requestHandlerRouter.process(message, ctx, None)
 
-    handler.process(message, ctx)
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {

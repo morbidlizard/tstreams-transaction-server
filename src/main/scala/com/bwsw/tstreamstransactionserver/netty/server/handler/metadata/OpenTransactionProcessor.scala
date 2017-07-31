@@ -123,7 +123,7 @@ class OpenTransactionProcessor(server: TransactionServer,
         authOptions.key,
         isNotReliable = false
       )
-    }
+    }(context)
     (result, context)
   }
 

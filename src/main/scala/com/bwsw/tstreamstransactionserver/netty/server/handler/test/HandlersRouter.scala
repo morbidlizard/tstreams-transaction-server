@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandlerContext
 import scala.collection.Searching._
 
 abstract class HandlersRouter(handlers: IndexedSeq[ClientRequestHandler])
-  extends LastRequestHandler {
+  extends RequestHandler {
 
   private val sortedHandlersById =
     handlers.sorted

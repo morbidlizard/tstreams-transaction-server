@@ -26,7 +26,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetCons
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsProcessor, DelStreamProcessor, GetStreamProcessor, PutStreamProcessor}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.{AuthValidatorHandler, ClientRequestHandler, DataPackageSizeValidatorHandler, RequestHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMaxPackagesSizesProcessor, GetZKCheckpointGroupServerPrefixProcessor}
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
@@ -35,7 +35,56 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationO
 
 import scala.collection.Searching._
 import scala.concurrent.ExecutionContext
+import RequestProcessorRouter._
+import com.bwsw.tstreamstransactionserver.netty.Message
+import io.netty.channel.ChannelHandlerContext
 
+private object RequestProcessorRouter {
+
+  final def handlerId(clientRequestHandler: ClientRequestHandler): (Byte, RequestHandler) = {
+    val id = clientRequestHandler.id
+    id -> clientRequestHandler
+  }
+
+  final def handlerAuthData(clientRequestHandler: ClientRequestHandler)
+                           (implicit
+                            authService: AuthService,
+                            transportService: TransportService): (Byte, RequestHandler) = {
+    val id = clientRequestHandler.id
+    id -> new AuthValidatorHandler(
+      new DataPackageSizeValidatorHandler(
+        clientRequestHandler,
+        transportService
+      ),
+      authService
+    )
+  }
+
+  final def handlerAuthMetadata(clientRequestHandler: ClientRequestHandler)
+                               (implicit
+                                authService: AuthService,
+                                transportService: TransportService): (Byte, RequestHandler) = {
+    val id = clientRequestHandler.id
+    id -> new AuthValidatorHandler(
+      new MetadataPackageSizeValidatorHandler(
+        clientRequestHandler,
+        transportService
+      ),
+      authService
+    )
+  }
+
+  final def handlerAuth(clientRequestHandler: ClientRequestHandler)
+                       (implicit
+                        authService: AuthService): (Byte, RequestHandler) = {
+    val id = clientRequestHandler.id
+    id -> new AuthValidatorHandler(
+      clientRequestHandler,
+      authService
+    )
+  }
+
+}
 
 final class RequestProcessorRouter(server: TransactionServer,
                                    scheduledCommitLog: ScheduledCommitLog,
@@ -44,11 +93,12 @@ final class RequestProcessorRouter(server: TransactionServer,
                                    orderedExecutionPool: OrderedExecutionContextPool,
                                    notifier: OpenTransactionStateNotifier,
                                    serverRoleOptions: ServerRoleOptions,
-                                   executionContext:ServerExecutionContextGrids) {
-  private val authService =
+                                   executionContext:ServerExecutionContextGrids)
+  extends RequestHandler {
+  private implicit val authService =
     new AuthService(authOptions)
 
-  private val transportService =
+  private implicit val transportService =
     new TransportService(packageTransmissionOpts)
 
   private val serverWriteContext: ExecutionContext =
@@ -58,131 +108,133 @@ final class RequestProcessorRouter(server: TransactionServer,
   private val commitLogContext =
     executionContext.commitLogContext
 
-  private val handlers: Array[ClientRequestHandler] = Array(
-    new GetCommitLogOffsetsProcessor(
+  private val (handlersIDs, handlers) = Array(
+
+    handlerAuth(new GetCommitLogOffsetsProcessor(
       server,
       scheduledCommitLog,
       serverReadContext
-    ),
+    )),
+
+    handlerAuth(new PutStreamProcessor(
+      server,
+      serverReadContext
+    )),
 
 
-    new PutStreamProcessor(
+    handlerAuth(new CheckStreamExistsProcessor(
       server,
       serverReadContext
-    ),
-    new CheckStreamExistsProcessor(
+    )),
+
+    handlerAuth(new GetStreamProcessor(
       server,
       serverReadContext
-    ),
-    new GetStreamProcessor(
-      server,
-      serverReadContext
-    ),
-    new DelStreamProcessor(
+    )),
+    handlerAuth(new DelStreamProcessor(
       server,
       serverWriteContext
-    ),
+    )),
 
 
-    new GetTransactionIDProcessor(
+    handlerAuth(new GetTransactionIDProcessor(
       server
-    ),
-    new GetTransactionIDByTimestampProcessor(
+    )),
+    handlerAuth(new GetTransactionIDByTimestampProcessor(
       server
-    ),
+    )),
 
-    
-    new PutTransactionProcessor(
+
+    handlerAuthMetadata(new PutTransactionProcessor(
       server,
       scheduledCommitLog,
       commitLogContext
-    ),
-    new PutTransactionsProcessor(
+    )),
+    handlerAuthMetadata(new PutTransactionsProcessor(
       server,
       scheduledCommitLog,
       commitLogContext
-    ),
-    new OpenTransactionProcessor(
+    )),
+    handlerAuthData(new OpenTransactionProcessor(
       server,
       scheduledCommitLog,
       notifier,
       authOptions,
       orderedExecutionPool
-    ),
-    new GetTransactionProcessor(
+    )),
+    handlerAuth(new GetTransactionProcessor(
       server,
       serverReadContext
-    ),
-    new GetLastCheckpointedTransactionProcessor(
+    )),
+    handlerAuth(new GetLastCheckpointedTransactionProcessor(
       server,
       serverReadContext
-    ),
-    new ScanTransactionsProcessor(
+    )),
+    handlerAuth(new ScanTransactionsProcessor(
       server,
       serverReadContext
-    ),
+    )),
 
 
-
-    new PutProducerStateWithDataProcessor(
+    handlerAuthData(new PutProducerStateWithDataProcessor(
       server,
       scheduledCommitLog,
       commitLogContext
-    ),
-    new PutSimpleTransactionAndDataProcessor(
+    )),
+    handlerAuthData(new PutSimpleTransactionAndDataProcessor(
       server,
       scheduledCommitLog,
       notifier,
       authOptions,
       orderedExecutionPool
-    ),
-    new PutTransactionDataProcessor(
+    )),
+    handlerAuthData(new PutTransactionDataProcessor(
       server,
       serverWriteContext
-    ),
-    new GetTransactionDataProcessor(
+    )),
+    handlerAuth(new GetTransactionDataProcessor(
       server,
       serverReadContext
-    ),
+    )),
 
 
-
-
-    new PutConsumerCheckpointProcessor(
+    handlerAuthMetadata(new PutConsumerCheckpointProcessor(
       server,
       scheduledCommitLog,
       commitLogContext
-    ),
-    new GetConsumerStateProcessor(
+    )),
+    handlerAuth(new GetConsumerStateProcessor(
       server,
       serverReadContext
-    ),
+    )),
 
 
-
-    new AuthenticateProcessor(
+    handlerId(new AuthenticateProcessor(
       authService
-    ),
-    new IsValidProcessor(
+    )),
+    handlerId(new IsValidProcessor(
       authService
-    ),
+    )),
 
 
-
-    new GetMaxPackagesSizesProcessor(
+    handlerId(new GetMaxPackagesSizesProcessor(
       packageTransmissionOpts
-    ),
-    new GetZKCheckpointGroupServerPrefixProcessor(
+    )),
+    handlerId(new GetZKCheckpointGroupServerPrefixProcessor(
       serverRoleOptions
-    )
-  ).sorted
+    ))
+  ).sortBy(_._1).unzip
 
 
-  private val handlersIDs = handlers.map(_.id)
-  def handler(id: Byte): RequestProcessor =
-    handlersIDs.search(id) match {
-      case Found(index) => handlers(index)
+  override def process(message: Message,
+                       ctx: ChannelHandlerContext,
+                       acc: Option[Throwable]): Unit = {
+    handlersIDs.search(message.methodId) match {
+      case Found(index) =>
+        val handler = handlers(index)
+        handler.process(message, ctx, None)
       case _ =>
-        throw new IllegalArgumentException(s"Not implemented method that has id: $id")
+        throw new IllegalArgumentException(s"Not implemented method that has id: ${message.methodId}")
     }
+  }
 }

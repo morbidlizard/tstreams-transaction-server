@@ -1,4 +1,4 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.test
 
-abstract class IntermidiateRequestHandler(handler: RequestHandler)
+abstract class IntermidiateRequestHandler(nextHandler: RequestHandler)
   extends RequestHandler

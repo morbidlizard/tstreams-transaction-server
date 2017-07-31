@@ -4,10 +4,14 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigExcep
 import com.bwsw.tstreamstransactionserver.netty.Message
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
 import io.netty.channel.ChannelHandlerContext
+import org.slf4j.{Logger, LoggerFactory}
 
 class MetadataPackageSizeValidatorHandler(nextHandler: RequestHandler,
                                           transportService: TransportService)
   extends IntermidiateRequestHandler(nextHandler) {
+  private val logger: Logger =
+    LoggerFactory.getLogger(this.getClass)
+
   private def createError(message: Message) = {
     new PackageTooBigException(
       "A size of client request " +
@@ -19,7 +23,13 @@ class MetadataPackageSizeValidatorHandler(nextHandler: RequestHandler,
                        ctx: ChannelHandlerContext,
                        acc: Option[Throwable]): Unit = {
     if (acc.isDefined) {
-      nextHandler.process(message, ctx, acc)
+      if (message.isFireAndForgetMethod) {
+        if (logger.isDebugEnabled())
+          logger.debug("Client sent big message")
+      }
+      else {
+        nextHandler.process(message, ctx, acc)
+      }
     }
     else {
       val isPackageTooBig = transportService

@@ -1,17 +1,18 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler.test
+package com.bwsw.tstreamstransactionserver.netty.server.handler
+
 import com.bwsw.tstreamstransactionserver.exception.Throwable.TokenInvalidException
-import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import io.netty.channel.ChannelHandlerContext
 import org.slf4j.{Logger, LoggerFactory}
 
 class AuthValidatorHandler(nextHandler: RequestHandler,
                            authService: AuthService)
-  extends IntermidiateRequestHandler(nextHandler) {
+  extends IntermediateRequestHandler(nextHandler) {
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
 
-  override def process(message: Message,
+  override def process(message: RequestMessage,
                        ctx: ChannelHandlerContext,
                        acc: Option[Throwable]): Unit = {
     if (acc.isDefined) {

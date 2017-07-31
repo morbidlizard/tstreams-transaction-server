@@ -18,12 +18,12 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import PutConsumerCheckpointProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFutureRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFutureRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -47,12 +47,12 @@ class PutConsumerCheckpointProcessor(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: Message): Unit = {
+  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
     process(message.body)
   }
 
-  override protected def fireAndReplyImplementation(message: Message,
-                                                    ctx: ChannelHandlerContext): Unit = {
+  override protected def fireAndReplyImplementation(message: RequestMessage,
+                                                    ctx: ChannelHandlerContext): Array[Byte] = {
     val result = process(message.body)
 
     val response = descriptor.encodeResponse(
@@ -60,11 +60,7 @@ class PutConsumerCheckpointProcessor(server: TransactionServer,
         Some(result)
       )
     )
-    val responseMessage = message.copy(
-      bodyLength = response.length,
-      body = response
-    )
-    sendResponseToClient(responseMessage, ctx)
+    response
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
 import io.netty.channel.ChannelHandlerContext
@@ -81,7 +81,7 @@ class PutSimpleTransactionAndData(server: TransactionServer,
   override def getName: String = protocol.name
 
   override def handleAndSendResponse(requestBody: Array[Byte],
-                                     message: Message,
+                                     message: RequestMessage,
                                      connection: ChannelHandlerContext): Unit = {
 
     val callback = new AsyncCallback.AddCallback {

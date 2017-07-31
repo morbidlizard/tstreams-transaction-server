@@ -1,6 +1,8 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler.test
-import com.bwsw.tstreamstransactionserver.netty.Message
+package com.bwsw.tstreamstransactionserver.netty.server.handler
+
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, ResponseMessage}
 import io.netty.channel.ChannelHandlerContext
+import org.apache.bookkeeper.proto.BookkeeperProtocol.Response
 import org.slf4j.{Logger, LoggerFactory}
 
 abstract class ClientRequestHandler(val id: Byte,
@@ -14,7 +16,7 @@ abstract class ClientRequestHandler(val id: Byte,
     LoggerFactory.getLogger(this.getClass)
 
   protected final def logSuccessfulProcession(method: String,
-                                              message: Message,
+                                              message: RequestMessage,
                                               ctx: ChannelHandlerContext): Unit =
     if (logger.isDebugEnabled)
       logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id}: " +
@@ -22,16 +24,18 @@ abstract class ClientRequestHandler(val id: Byte,
 
   protected final def logUnsuccessfulProcessing(method: String,
                                                 error: Throwable,
-                                                message: Message,
+                                                message: RequestMessage,
                                                 ctx: ChannelHandlerContext): Unit =
     if (logger.isDebugEnabled)
       logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id}: " +
         s"$method is failed while processing!", error)
 
 
-  protected final def sendResponseToClient(message: Message,
+  protected final def sendResponseToClient(message: RequestMessage,
+                                           response: Array[Byte],
                                            ctx: ChannelHandlerContext): Unit = {
-    val binaryResponse = message.toByteArray
+    val responseMessage = ResponseMessage(message.id, response)
+    val binaryResponse = responseMessage.toByteArray
     if (ctx.channel().isActive)
       ctx.writeAndFlush(binaryResponse)
   }

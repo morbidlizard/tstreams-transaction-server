@@ -31,19 +31,19 @@ import io.netty.buffer.ByteBuf
   *  @param body a binary representation of information.
   *
   */
-case class Message(id: Long,
-                   bodyLength: Int,
-                   thriftProtocol: Byte,
-                   body: Array[Byte],
-                   token: Int,
-                   methodId: Byte,
-                   isFireAndForgetMethod: Boolean)
+case class RequestMessage(id: Long,
+                          bodyLength: Int,
+                          thriftProtocol: Byte,
+                          body: Array[Byte],
+                          token: Int,
+                          methodId: Byte,
+                          isFireAndForgetMethod: Boolean)
 {
   /** Serializes a message. */
   def toByteArray: Array[Byte] = {
     val size = {
-      Message.headerFieldSize +
-        Message.lengthFieldSize +
+      RequestMessage.headerFieldSize +
+        RequestMessage.lengthFieldSize +
         body.length
     }
 
@@ -70,7 +70,7 @@ case class Message(id: Long,
     binaryMessage
   }
 }
-object Message {
+object RequestMessage {
   val headerFieldSize: Byte = (
       java.lang.Long.BYTES +     //id
       java.lang.Byte.BYTES +     //protocol
@@ -81,7 +81,7 @@ object Message {
   val lengthFieldSize =  java.lang.Integer.BYTES //length
 
   /** Deserializes a binary to message. */
-  def fromByteArray(bytes: Array[Byte]): Message = {
+  def fromByteArray(bytes: Array[Byte]): RequestMessage = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
     val id     = buffer.getLong
     val protocol = buffer.get
@@ -99,10 +99,10 @@ object Message {
       buffer.get(bytes)
       bytes
     }
-    Message(id, length, protocol, message, token, method, isFireAndForgetMethod)
+    RequestMessage(id, length, protocol, message, token, method, isFireAndForgetMethod)
   }
 
-  def fromByteBuf(buf: ByteBuf): Message = {
+  def fromByteBuf(buf: ByteBuf): RequestMessage = {
     val id       = buf.readLong()
     val protocol = buf.readByte()
     val token    = buf.readInt()
@@ -120,7 +120,7 @@ object Message {
       buf.readBytes(bytes)
       bytes
     }
-    Message(id, length, protocol, message, token, method, isFireAndForgetMethod)
+    RequestMessage(id, length, protocol, message, token, method, isFireAndForgetMethod)
   }
 
   def getIdFromByteBuf(buf: ByteBuf): Long = {

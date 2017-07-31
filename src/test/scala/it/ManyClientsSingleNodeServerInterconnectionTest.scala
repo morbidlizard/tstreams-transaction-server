@@ -1,12 +1,11 @@
 package it
 
-import java.util.concurrent.{TimeUnit}
+import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.netty.server.Time
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-import util.Utils
+import util.{Time, Utils}
 import util.Utils.startZkServerAndGetIt
 
 import scala.concurrent.Await

@@ -35,11 +35,9 @@ import com.bwsw.tstreamstransactionserver.rpc._
 import scala.collection.Set
 
 
-class TransactionServer(authOpts: AuthenticationOptions,
-                        streamRepository: StreamRepository,
+class TransactionServer(streamRepository: StreamRepository,
                         rocksWriter: RocksWriter,
                         rocksReader: RocksReader) {
-  private val authService = new AuthService(authOpts)
 
   private val streamService = new StreamService(
     streamRepository
@@ -105,12 +103,5 @@ class TransactionServer(authOpts: AuthenticationOptions,
 
   final def getConsumerState(name: String, streamID: Int, partition: Int): Long = {
     rocksReader.getConsumerState(name, streamID, partition)
-  }
-
-  final def isValid(token: Int): Boolean =
-    authService.isValid(token)
-
-  final def authenticate(authKey: String): Int = {
-    authService.authenticate(authKey)
   }
 }

@@ -1,5 +1,6 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler.test
-import com.bwsw.tstreamstransactionserver.netty.Message
+package com.bwsw.tstreamstransactionserver.netty.server.handler
+
+import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -9,13 +10,13 @@ abstract class ClientFutureRequestHandler(override final val id: Byte,
                                           context: ExecutionContext)
   extends ClientRequestHandler(id, name) {
 
-  protected def fireAndForgetImplementation(message: Message): Unit
+  protected def fireAndForgetImplementation(message: RequestMessage): Unit
 
-  protected def fireAndReplyImplementation(message: Message,
-                                           ctx: ChannelHandlerContext): Unit
+  protected def fireAndReplyImplementation(message: RequestMessage,
+                                           ctx: ChannelHandlerContext): Array[Byte]
 
 
-  private def handleFireAndForgetRequest(message: Message,
+  private def handleFireAndForgetRequest(message: RequestMessage,
                                          ctx: ChannelHandlerContext,
                                          acc: Option[Throwable]) = {
     if (acc.isEmpty) {
@@ -30,36 +31,29 @@ abstract class ClientFutureRequestHandler(override final val id: Byte,
     }
   }
 
-  private def handleFireAndReplyRequest(message: Message,
+  private def handleFireAndReplyRequest(message: RequestMessage,
                                         ctx: ChannelHandlerContext,
-                                        acc: Option[Throwable]) = {
-    if (acc.isEmpty) {
+                                        error: Option[Throwable]) = {
+    if (error.isEmpty) {
       Future {
-        fireAndReplyImplementation(message, ctx)
+        val response = fireAndReplyImplementation(message, ctx)
+        sendResponseToClient(message, response, ctx)
       }(context)
         .recover { case error =>
           logUnsuccessfulProcessing(name, error, message, ctx)
           val response = createErrorResponse(error.getMessage)
-          val responseMessage = message.copy(
-            bodyLength = response.length,
-            body = response
-          )
-          sendResponseToClient(responseMessage, ctx)
+          sendResponseToClient(message, response, ctx)
         }(context)
     } else {
-      val error = acc.get
-      logUnsuccessfulProcessing(name, error, message, ctx)
-      val response = createErrorResponse(error.getMessage)
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
-      )
-      sendResponseToClient(responseMessage, ctx)
+      val throwable = error.get
+      logUnsuccessfulProcessing(name, throwable, message, ctx)
+      val response = createErrorResponse(throwable.getMessage)
+      sendResponseToClient(message, response, ctx)
     }
   }
 
 
-  override final def process(message: Message,
+  override final def process(message: RequestMessage,
                              ctx: ChannelHandlerContext,
                              acc: Option[Throwable]): Unit = {
     if (message.isFireAndForgetMethod) {

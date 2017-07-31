@@ -18,12 +18,12 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutSimpleTransactionAndDataProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientAlreadyFutureRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientAlreadyFutureRequestHandler
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
@@ -89,7 +89,7 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: Message): Future[_] = {
+  override protected def fireAndForgetImplementation(message: RequestMessage): Future[_] = {
     val args = descriptor.decodeRequest(message.body)
     val context = orderedExecutionPool.pool(args.streamID, args.partition)
     Future {
@@ -111,7 +111,7 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
     }(context)
   }
 
-  override protected def fireAndReplyImplementation(message: Message,
+  override protected def fireAndReplyImplementation(message: RequestMessage,
                                                     ctx: ChannelHandlerContext): (Future[_], ExecutionContext) = {
     val args = descriptor.decodeRequest(message.body)
     val context = orderedExecutionPool.pool(args.streamID, args.partition)
@@ -127,11 +127,7 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
         )
       )
 
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
-      )
-      sendResponseToClient(responseMessage, ctx)
+      sendResponseToClient(message, response, ctx)
 
       notifier.notifySubscribers(
         args.streamID,

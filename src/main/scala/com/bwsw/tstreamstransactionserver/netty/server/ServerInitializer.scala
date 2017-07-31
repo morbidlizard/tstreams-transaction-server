@@ -18,8 +18,8 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import com.bwsw.tstreamstransactionserver.netty.Message
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.RequestMessage
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.ChannelInitializer
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder
@@ -35,8 +35,8 @@ class ServerInitializer(requestHandlerRouter: RequestHandler)
       .addLast(new LengthFieldBasedFrameDecoder(
         Int.MaxValue,
         //packageTransmissionOpts.maxDataPackageSize max packageTransmissionOpts.maxMetadataPackageSize,
-        Message.headerFieldSize,
-        Message.lengthFieldSize)
+        RequestMessage.headerFieldSize,
+        RequestMessage.lengthFieldSize)
       )
       .addLast(new ServerHandler(
         requestHandlerRouter

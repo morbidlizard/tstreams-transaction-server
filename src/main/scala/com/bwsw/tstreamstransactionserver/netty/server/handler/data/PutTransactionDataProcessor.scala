@@ -18,9 +18,9 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFutureRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFutureRequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
@@ -51,22 +51,18 @@ class PutTransactionDataProcessor(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: Message): Unit = {
+  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
     process(message.body)
   }
 
-  override protected def fireAndReplyImplementation(message: Message,
-                                                    ctx: ChannelHandlerContext): Unit = {
+  override protected def fireAndReplyImplementation(message: RequestMessage,
+                                                    ctx: ChannelHandlerContext): Array[Byte] = {
     val response = descriptor.encodeResponse(
       TransactionService.PutTransactionData.Result(
         Some(process(message.body))
       )
     )
-    val responseMessage = message.copy(
-      bodyLength = response.length,
-      body = response
-    )
-    sendResponseToClient(responseMessage, ctx)
+    response
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

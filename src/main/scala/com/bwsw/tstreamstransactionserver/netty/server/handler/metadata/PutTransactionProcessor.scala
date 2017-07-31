@@ -18,15 +18,15 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import PutTransactionProcessor._
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFutureRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFutureRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
-import scala.concurrent.{ExecutionContext}
+import scala.concurrent.ExecutionContext
 
 private object PutTransactionProcessor {
   val descriptor = Protocol.PutTransaction
@@ -53,11 +53,11 @@ class PutTransactionProcessor(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: Message): Unit = {
+  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
     process(message.body)
   }
 
-  override protected def fireAndReplyImplementation(message: Message, ctx: ChannelHandlerContext): Unit = {
+  override protected def fireAndReplyImplementation(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
     val response = {
       val isPutted = process(message.body)
       if (isPutted)
@@ -65,12 +65,7 @@ class PutTransactionProcessor(server: TransactionServer,
       else
         isNotPuttedResponse
     }
-
-    val responseMessage = message.copy(
-      bodyLength = response.length,
-      body = response
-    )
-    sendResponseToClient(responseMessage, ctx)
+    response
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

@@ -26,7 +26,6 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetCons
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsProcessor, DelStreamProcessor, GetStreamProcessor, PutStreamProcessor}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMaxPackagesSizesProcessor, GetZKCheckpointGroupServerPrefixProcessor}
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
@@ -36,7 +35,7 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationO
 import scala.collection.Searching._
 import scala.concurrent.ExecutionContext
 import RequestProcessorRouter._
-import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import io.netty.channel.ChannelHandlerContext
 
 private object RequestProcessorRouter {
@@ -226,7 +225,7 @@ final class RequestProcessorRouter(server: TransactionServer,
   ).sortBy(_._1).unzip
 
 
-  override def process(message: Message,
+  override def process(message: RequestMessage,
                        ctx: ChannelHandlerContext,
                        acc: Option[Throwable]): Unit = {
     handlersIDs.search(message.methodId) match {

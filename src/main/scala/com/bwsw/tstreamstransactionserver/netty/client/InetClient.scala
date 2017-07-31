@@ -4,7 +4,7 @@ import java.util.concurrent.{ConcurrentHashMap, CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol, SocketHostPortPair}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol, ResponseMessage, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterInteractor
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -83,8 +83,8 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       new ByteArrayEncoder(),
       new LengthFieldBasedFrameDecoder(
         Int.MaxValue,
-        Message.headerFieldSize,
-        Message.lengthFieldSize
+        ResponseMessage.headerFieldSize,
+        ResponseMessage.lengthFieldSize
       ),
       new ClientHandler(requestIdToResponseMap)
     )
@@ -144,7 +144,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     go(System.currentTimeMillis())
   }
 
-  private def sendRequest[Req <: ThriftStruct, Rep <: ThriftStruct, A](message: Message,
+  private def sendRequest[Req <: ThriftStruct, Rep <: ThriftStruct, A](message: RequestMessage,
                                                                        descriptor: Protocol.Descriptor[Req, Rep],
                                                                        f: Rep => A,
                                                                        previousException: Option[Throwable] = None,

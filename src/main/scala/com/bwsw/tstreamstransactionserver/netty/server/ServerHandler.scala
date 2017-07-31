@@ -19,8 +19,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 
-import com.bwsw.tstreamstransactionserver.netty.Message
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.RequestMessage
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -34,11 +34,11 @@ class ServerHandler(requestHandlerRouter: RequestHandler)
     LoggerFactory.getLogger(this.getClass)
 
   override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
-    val message = Message.fromByteBuf(buf)
+    val message = RequestMessage.fromByteBuf(buf)
     invokeMethod(message, ctx)
   }
 
-  protected def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
+  protected def invokeMethod(message: RequestMessage, ctx: ChannelHandlerContext): Unit = {
 
     if (logger.isDebugEnabled)
       logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id} method is invoked.")

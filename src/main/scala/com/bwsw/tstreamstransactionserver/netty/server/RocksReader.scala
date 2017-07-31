@@ -64,10 +64,6 @@ class RocksReader(rocksStorage: MultiAndSingleNodeRockStorage,
       transaction
     )
 
-  final def getLastCheckpointedTransaction(streamID: Int,
-                                           partition: Int): Option[Long] =
-    lastTransactionReader.getLastTransaction(streamID, partition)
-      .flatMap(_.checkpointed.map(txn => txn.id)).orElse(Some(-1L))
 
   final def getLastTransactionIDAndCheckpointedID(streamID: Int,
                                                   partition: Int): Option[LastTransaction] =

@@ -134,7 +134,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   )
 
   private val transactionServer = new TransactionServer(
-    authenticationOpts,
     zkStreamRepository,
     rocksWriter,
     rocksReader

@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import GetMaxPackagesSizesProcessor._
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFireAndForgetReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
 import io.netty.channel.ChannelHandlerContext
@@ -26,28 +26,19 @@ class GetMaxPackagesSizesProcessor(packageTransmissionOpts: TransportOptions)
     response
   }
 
-  override protected def fireAndReplyImplementation(message: Message,
+  override protected def fireAndReplyImplementation(message: RequestMessage,
                                                     ctx: ChannelHandlerContext,
-                                                    acc: Option[Throwable]): Unit = {
-    val updatedMessage = scala.util.Try(process(message.body)) match {
+                                                    error: Option[Throwable]): Array[Byte] = {
+    scala.util.Try(process(message.body)) match {
       case scala.util.Success(result) =>
         val response = descriptor.encodeResponse(
           TransactionService.GetMaxPackagesSizes.Result(Some(result))
         )
-        message.copy(
-          bodyLength = response.length,
-          body = response
-        )
+        response
       case scala.util.Failure(throwable) =>
         val response = createErrorResponse(throwable.getMessage)
-        message.copy(
-          bodyLength = response.length,
-          body = response
-        )
+        response
     }
-    sendResponseToClient(updatedMessage, ctx)
-
-
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

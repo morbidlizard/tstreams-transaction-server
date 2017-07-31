@@ -18,13 +18,12 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol, ResponseMessage}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFireAndForgetReadHandler
 import io.netty.channel.ChannelHandlerContext
-
 import IsValidProcessor.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
 
 private object IsValidProcessor {
   val descriptor = Protocol.IsValid
@@ -44,23 +43,15 @@ class IsValidProcessor(authService: AuthService)
     )
   }
 
-  override protected def fireAndReplyImplementation(message: Message,
+  override protected def fireAndReplyImplementation(message: RequestMessage,
                                                     ctx: ChannelHandlerContext,
-                                                    acc: Option[Throwable]): Unit = {
-    val updatedMessage = scala.util.Try(process(message.body)) match {
-      case scala.util.Success(authInfo) =>
-        message.copy(
-          bodyLength = authInfo.length,
-          body = authInfo
-        )
+                                                    error: Option[Throwable]): Array[Byte] = {
+    scala.util.Try(process(message.body)) match {
+      case scala.util.Success(isValid) =>
+        isValid
       case scala.util.Failure(throwable) =>
-        val response = createErrorResponse(throwable.getMessage)
-        message.copy(
-          bodyLength = response.length,
-          body = response
-        )
+        createErrorResponse(throwable.getMessage)
     }
-    sendResponseToClient(updatedMessage, ctx)
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

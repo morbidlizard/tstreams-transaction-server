@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transportService
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
-import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 
 final class TransportService(packageTransmissionOpts: TransportOptions) {
@@ -16,11 +16,11 @@ final class TransportService(packageTransmissionOpts: TransportOptions) {
   val maxDataPackageSize: Int =
     packageTransmissionOpts.maxDataPackageSize
 
-  def isTooBigMetadataMessage(message: Message): Boolean = {
+  def isTooBigMetadataMessage(message: RequestMessage): Boolean = {
     message.body.length > maxMetadataPackageSize
   }
 
-  def isTooBigDataMessage(message: Message): Boolean = {
+  def isTooBigDataMessage(message: RequestMessage): Boolean = {
     message.body.length > maxDataPackageSize
   }
 }

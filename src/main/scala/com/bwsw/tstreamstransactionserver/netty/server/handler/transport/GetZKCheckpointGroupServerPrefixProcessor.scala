@@ -1,8 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFireAndForgetReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetZKCheckpointGroupServerPrefixProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.ServerRoleOptions
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import io.netty.channel.ChannelHandlerContext
@@ -23,15 +23,10 @@ class GetZKCheckpointGroupServerPrefixProcessor(serverRoleOptions: ServerRoleOpt
         serverRoleOptions.checkpointGroupMasterPrefix
       ))
   )
-  override protected def fireAndReplyImplementation(message: Message,
+  override protected def fireAndReplyImplementation(message: RequestMessage,
                                                     ctx: ChannelHandlerContext,
-                                                    acc: Option[Throwable]): Unit = {
-    val updatedMessage =
-      message.copy(
-        bodyLength = encodedResponse.length,
-        body = encodedResponse
-      )
-    sendResponseToClient(updatedMessage, ctx)
+                                                    error: Option[Throwable]): Array[Byte] = {
+    encodedResponse
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

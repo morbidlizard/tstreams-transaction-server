@@ -18,11 +18,11 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import GetTransactionIDByTimestampProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientFireAndForgetReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
 import io.netty.channel.ChannelHandlerContext
 
 
@@ -41,31 +41,21 @@ class GetTransactionIDByTimestampProcessor(server: TransactionServer)
     server.getTransactionIDByTimestamp(args.timestamp)
   }
 
-  override protected def fireAndReplyImplementation(message: Message,
+  override protected def fireAndReplyImplementation(message: RequestMessage,
                                                     ctx: ChannelHandlerContext,
-                                                    acc: Option[Throwable]): Unit = {
+                                                    acc: Option[Throwable]): Array[Byte] = {
     if (acc.isEmpty) {
       val response = descriptor.encodeResponse(
         TransactionService.GetTransactionIDByTimestamp.Result(
           Some(process(message.body))
         )
       )
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
-      )
-      sendResponseToClient(responseMessage, ctx)
+      response
     } else {
       val error = acc.get
       logUnsuccessfulProcessing(name, error, message, ctx)
-      val response = createErrorResponse(error.getMessage)
-      val responseMessage = message.copy(
-        bodyLength = response.length,
-        body = response
-      )
-      sendResponseToClient(responseMessage, ctx)
+      createErrorResponse(error.getMessage)
     }
-
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

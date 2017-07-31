@@ -10,13 +10,13 @@ import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, ConsumerTran
 
 class TestRocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
                       transactionDataService: TransactionDataService,
-                      producerTransactionNotifier: StateNotifier[ProducerTransaction],
-                      consumerTransactionNotifier: StateNotifier[ConsumerTransaction])
+                      producerTransactionNotifier: Notifier[ProducerTransaction],
+                      consumerTransactionNotifier: Notifier[ConsumerTransaction])
   extends RocksWriter(
     rocksStorage,
     transactionDataService) {
 
-  override protected val consumerServiceImpl: ConsumerServiceWriter =
+  override protected val consumerService: ConsumerServiceWriter =
     new TestConsumerServiceWriter(
       rocksStorage.getRocksStorage,
       consumerTransactionNotifier
@@ -28,7 +28,7 @@ class TestRocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
       producerTransactionNotifier
     )
 
-  override protected val transactionMetaServiceWriterImpl: TransactionMetaServiceWriter =
+  override protected val transactionMetaServiceWriter: TransactionMetaServiceWriter =
     new TestTransactionMetaServiceWriter(
       rocksStorage.getRocksStorage,
       producerStateMachineCache,

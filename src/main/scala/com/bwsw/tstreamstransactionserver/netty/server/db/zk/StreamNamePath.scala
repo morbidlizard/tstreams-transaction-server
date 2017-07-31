@@ -32,6 +32,7 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val semaphore = new InterProcessSemaphoreMutex(client, path)
+
   private def lock[T](body: => T) = {
     val result =
       try {
@@ -47,7 +48,7 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
   client.getConnectionStateListenable.addListener(
     (_: CuratorFramework, newState: ConnectionState) => newState match {
       case ConnectionState.SUSPENDED => scala.util.Try(semaphore.release())
-      case ConnectionState.LOST      => scala.util.Try(semaphore.release())
+      case ConnectionState.LOST => scala.util.Try(semaphore.release())
       case _ =>
     })
 
@@ -72,7 +73,7 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
     }
 
 
-  def checkExists(streamName: String): Boolean =
+  def exists(streamName: String): Boolean =
     lock {
       Try(client.checkExists().forPath(s"$path/$streamName")) match {
         case scala.util.Success(stat) if stat != null => true

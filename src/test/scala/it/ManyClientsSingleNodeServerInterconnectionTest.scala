@@ -118,7 +118,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
 
       TestTimer.updateTime(System.currentTimeMillis() + maxIdleTimeBetweenRecordsMs)
       //it's required to close a current commit log file
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.berkeleyWriter.run()
 
@@ -167,7 +167,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       TestTimer.updateTime(System.currentTimeMillis() + maxIdleTimeBetweenRecordsMs)
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       transactionServer.berkeleyWriter.run()
 
       val fromID = producerTransactions.head.transactionID
@@ -203,7 +203,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       transactionServer.berkeleyWriter.run()
 
       val canceledTransaction = producerTransaction1.copy(state = TransactionStates.Cancel, quantity = 0, ttl = 0L)
@@ -213,7 +213,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       transactionServer.berkeleyWriter.run()
 
       Await.result(firstClient.getTransaction(streamID, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe canceledTransaction.copy(state = TransactionStates.Invalid)
@@ -244,7 +244,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
 
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       //it's required to close a current commit log file
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.berkeleyWriter.run()
 
@@ -253,7 +253,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       Await.result(secondClient.putProducerState(checkpointedTransaction), secondsWait.seconds) shouldBe true
 
       //it's required to close a current commit log file
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.berkeleyWriter.run()
 
@@ -287,7 +287,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       transactionServer.berkeleyWriter.run()
 
       val invalidTransaction = producerTransaction1.copy(state = TransactionStates.Invalid)
@@ -297,7 +297,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
-      transactionServer.scheduledCommitLogImpl.run()
+      transactionServer.scheduledCommitLog.run()
       transactionServer.berkeleyWriter.run()
 
       Await.result(firstClient.getTransaction(streamID, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe producerTransaction1

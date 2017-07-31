@@ -12,10 +12,10 @@ class ProducerTransactionsCleaner(rocksDB: KeyValueDbManager) {
   private val openedProducerTransactionsDatabase =
     rocksDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
 
-  protected def onProducerTransactionStateChangeDo: ProducerTransactionRecord => Unit =
+  protected def onStateChange: ProducerTransactionRecord => Unit =
     _ => {}
 
-  private def transitProducerTransactionToInvalidState(producerTransactionRecord: ProducerTransactionRecord) = {
+  private def transitProducerTransactionToInvalidState(producerTransactionRecord: ProducerTransactionRecord): ProducerTransactionRecord = {
     val txn = producerTransactionRecord
     ProducerTransactionRecord(
       ProducerTransactionKey(txn.stream, txn.partition, txn.transactionID),
@@ -23,7 +23,7 @@ class ProducerTransactionsCleaner(rocksDB: KeyValueDbManager) {
     )
   }
 
-  def cleanExpiredProducerTransactions(timestampToDeleteTransactions: Long) {
+  def cleanExpiredProducerTransactions(timestampToDeleteTransactions: Long): Unit = {
     def isExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
       scala.math.abs(
         producerTransactionWithoutKey.timestamp +
@@ -61,7 +61,7 @@ class ProducerTransactionsCleaner(rocksDB: KeyValueDbManager) {
             )
           )
 
-        onProducerTransactionStateChangeDo(
+        onStateChange(
           canceledTransactionRecordDueExpiration
         )
 

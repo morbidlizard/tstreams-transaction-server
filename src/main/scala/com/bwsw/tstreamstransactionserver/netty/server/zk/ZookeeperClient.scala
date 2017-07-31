@@ -9,10 +9,10 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepo
 import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.CuratorFrameworkFactory
 
-class ZKClient(endpoints: String,
-               sessionTimeoutMillis: Int,
-               connectionTimeoutMillis: Int,
-               policy: RetryPolicy)
+class ZookeeperClient(endpoints: String,
+                      sessionTimeoutMillis: Int,
+                      connectionTimeoutMillis: Int,
+                      policy: RetryPolicy)
   extends Closeable {
 
   private[server] val client = {
@@ -54,9 +54,8 @@ class ZKClient(endpoints: String,
     )
   }
 
-  override def equals(that: scala.Any): Boolean = that match
-  {
-    case that: ZKClient =>
+  override def equals(that: scala.Any): Boolean = that match {
+    case that: ZookeeperClient =>
       this.client == that.client
     case _ =>
       false

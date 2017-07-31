@@ -24,7 +24,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.Schedule
 import com.bwsw.tstreamstransactionserver.rpc._
 import OpenTransactionProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.handler.test.ClientAlreadyFutureRequestHandler
-import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService.OpenTransaction
@@ -38,7 +38,7 @@ private object OpenTransactionProcessor {
 
 class OpenTransactionProcessor(server: TransactionServer,
                                scheduledCommitLog: ScheduledCommitLog,
-                               notifier: OpenTransactionStateNotifier,
+                               notifier: OpenedTransactionNotifier,
                                authOptions: AuthenticationOptions,
                                orderedExecutionPool: OrderedExecutionContextPool)
   extends ClientAlreadyFutureRequestHandler(

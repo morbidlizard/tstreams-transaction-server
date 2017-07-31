@@ -6,7 +6,7 @@ import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import org.scalatest.{FlatSpec, Matchers}
 import util.{SubscriberUtils, UdpServer, Utils}
 
-class OpenTransactionStateNotifierTest
+class OpenedTransactionNotifierTest
   extends FlatSpec
     with Matchers
 {
@@ -22,7 +22,7 @@ class OpenTransactionStateNotifierTest
       timeToUpdateMs
     )
     val subscriberNotifier = new SubscriberNotifier
-    val notifier = new OpenTransactionStateNotifier(observer, subscriberNotifier)
+    val notifier = new OpenedTransactionNotifier(observer, subscriberNotifier)
 
     val streamBody = StreamValue(0.toString, 100, None, 1000L, None)
     val streamKey   = zookeeperStreamRepository.put(streamBody)
@@ -83,7 +83,7 @@ class OpenTransactionStateNotifierTest
       timeToUpdateMs
     )
     val subscriberNotifier = new SubscriberNotifier
-    val notifier = new OpenTransactionStateNotifier(observer, subscriberNotifier)
+    val notifier = new OpenedTransactionNotifier(observer, subscriberNotifier)
 
     val streamBody = StreamValue(0.toString, 100, None, 1000L, None)
     val streamKey   = zookeeperStreamRepository.put(streamBody)
@@ -141,7 +141,7 @@ class OpenTransactionStateNotifierTest
       timeToUpdateMs
     )
     val subscriberNotifier = new SubscriberNotifier
-    val notifier = new OpenTransactionStateNotifier(observer, subscriberNotifier)
+    val notifier = new OpenedTransactionNotifier(observer, subscriberNotifier)
 
     val streamBody = StreamValue(0.toString, 100, None, 1000L, None)
     val streamKey   = zookeeperStreamRepository.put(streamBody)

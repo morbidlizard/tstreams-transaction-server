@@ -1,16 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.singleNode
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.netty.server.{RocksWriter, ServerHandler, StateNotifier, TestRocksWriter}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessorRouter
+
+import com.bwsw.tstreamstransactionserver.netty.server.{RocksWriter, Notifier, TestRocksWriter}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
-import io.netty.buffer.ByteBuf
-import io.netty.channel.SimpleChannelInboundHandler
-import org.slf4j.Logger
 
-class SingleNodeTestServer(authenticationOpts: AuthenticationOptions,
+
+class TestSingleNodeServer(authenticationOpts: AuthenticationOptions,
                            zookeeperOpts: CommonOptions.ZookeeperOptions,
                            serverOpts: BootstrapOptions,
                            serverRoleOptions: ServerRoleOptions,
@@ -19,10 +16,7 @@ class SingleNodeTestServer(authenticationOpts: AuthenticationOptions,
                            rocksStorageOpts: RocksStorageOptions,
                            commitLogOptions: CommitLogOptions,
                            packageTransmissionOpts: TransportOptions,
-                           subscribersUpdateOptions: SubscriberUpdateOptions,
-                           serverHandler: (RequestProcessorRouter, ServerExecutionContextGrids, Logger) =>
-                             SimpleChannelInboundHandler[ByteBuf] = (handler, executionContext, logger) =>
-                             new ServerHandler(handler, executionContext, logger))
+                           subscribersUpdateOptions: SubscriberUpdateOptions)
   extends SingleNodeServer(
     authenticationOpts,
     zookeeperOpts,
@@ -33,18 +27,17 @@ class SingleNodeTestServer(authenticationOpts: AuthenticationOptions,
     rocksStorageOpts,
     commitLogOptions,
     packageTransmissionOpts,
-    subscribersUpdateOptions,
-    serverHandler) {
+    subscribersUpdateOptions) {
 
   private lazy val producerNotifier =
-    new StateNotifier[ProducerTransaction]
+    new Notifier[ProducerTransaction]
   private lazy val consumerNotifier =
-    new StateNotifier[ConsumerTransaction]
+    new Notifier[ConsumerTransaction]
 
   override protected lazy val rocksWriter: RocksWriter =
     new TestRocksWriter(
       rocksStorage,
-      transactionDataServiceImpl,
+      transactionDataService,
       producerNotifier,
       consumerNotifier
     )
@@ -62,4 +55,14 @@ class SingleNodeTestServer(authenticationOpts: AuthenticationOptions,
 
   final def removeConsumerNotification(id: Long): Boolean =
     consumerNotifier.removeRequest(id)
+
+  override def shutdown(): Unit = {
+    super.shutdown()
+    if (producerNotifier != null) {
+      producerNotifier.close()
+    }
+    if (consumerNotifier != null) {
+      producerNotifier.close()
+    }
+  }
 }

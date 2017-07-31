@@ -1,27 +1,20 @@
 package it
 
-import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.netty.{Message, SocketHostPortPair}
+import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.client.Client
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestProcessorRouter
-import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKClient
-import com.bwsw.tstreamstransactionserver.netty.server.ServerHandler
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
+import com.bwsw.tstreamstransactionserver.netty.server.zk.{ZKMasterElector, ZookeeperClient}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
+import com.bwsw.tstreamstransactionserver.options.{ClientOptions, CommonOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{TransportOptions, _}
-import io.netty.channel.ChannelHandlerContext
-import org.apache.commons.io.FileUtils
+import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
+import io.netty.channel.socket.SocketChannel
 import org.apache.curator.retry.RetryForever
-import org.apache.curator.test.TestingServer
-import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import org.slf4j.Logger
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
+import util.Utils.startZkServerAndGetIt
+import util.netty.NettyServer
 
 import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration._
@@ -29,12 +22,16 @@ import scala.concurrent.duration._
 class BadBehaviourSingleNodeServerTest
   extends FlatSpec
     with Matchers
-    with BeforeAndAfterEach {
+    with BeforeAndAfterAll {
 
-  var zkTestServer: TestingServer = _
+  private lazy val (zkServer, zkClient) =
+    startZkServerAndGetIt
+
+  private val host = "127.0.0.1"
+  private def uuid = util.Utils.uuid
+
 
   private val rand = scala.util.Random
-
   private def getRandomStream = new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
@@ -44,88 +41,71 @@ class BadBehaviourSingleNodeServerTest
   }
 
 
+  private val secondsWait = 3
+
   private val requestTimeoutMs = 500
-  @volatile private var server: SingleNodeServer = _
-  private val serverGotRequest = new AtomicInteger(0)
 
-  private def serverHandler(requestHandlerChooser: RequestProcessorRouter,
-                            executionContext: ServerExecutionContextGrids,
-                            logger: Logger) =
-    new ServerHandler(requestHandlerChooser, executionContext, logger)
-    {
-      override def invokeMethod(message: Message, ctx: ChannelHandlerContext): Unit = {
-        serverGotRequest.getAndIncrement()
-        Thread.sleep(requestTimeoutMs + 10)
-        super.invokeMethod(message, ctx)
-      }
-    }
-
-
-  private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
-  private val bootstrapOptions = BootstrapOptions()
-  private val serverRoleOptions = ServerRoleOptions()
-  private val serverReplicationOptions = ServerReplicationOptions()
-  private val storageOptions = StorageOptions()
-  private val rocksStorageOptions = RocksStorageOptions()
-  private val packageTransmissionOptions = TransportOptions()
-  private val commitLogOptions = CommitLogOptions()
-  private val subscriberUpdateOptions = ServerOptions.SubscriberUpdateOptions()
-  def startTransactionServer(): SingleNodeServer = {
-    val address = zkTestServer.getConnectString
-    val zookeeperOptions = ZookeeperOptions(endpoints = address)
-    server = new SingleNodeServer(
-      authOptions, zookeeperOptions,
-      bootstrapOptions,
-      serverRoleOptions,
-      serverReplicationOptions,
-      storageOptions,
-      rocksStorageOptions,
-      commitLogOptions,
-      packageTransmissionOptions,
-      subscriberUpdateOptions,
-      serverHandler
-    )
-    val latch = new CountDownLatch(1)
-    new Thread(() => {
-      server.start(latch.countDown())
-    }).start()
-
-    latch.await()
-    server
+  override def beforeAll(): Unit = {
+    zkServer
+    zkClient
   }
 
-
-  private val secondsWait = 5
-
-  private val masterElectionPrefix = "/tts/master_election"
-
-
-  override def beforeEach(): Unit = {
-    zkTestServer = new TestingServer(true)
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
-  }
-
-  override def afterEach(): Unit = {
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.dataDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRocksDirectory))
-    FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory))
-    serverGotRequest.set(0)
-    zkTestServer.close()
+  override def afterAll(): Unit = {
+    zkClient.close()
+    zkServer.close()
   }
 
   "Client" should "send request with such ttl that it will never converge to a stable state due to the pipeline." in {
-    startTransactionServer()
+    val port = util.Utils.getRandomPort
+
+    val serverGotRequest = new AtomicInteger(0)
+    val nettyServer = new NettyServer(
+      host,
+      port,
+      (ch: SocketChannel) => {
+        ch.pipeline()
+          .addLast(
+            new ChannelInboundHandlerAdapter {
+              override def channelRead(ctx: ChannelHandlerContext,
+                                       msg: scala.Any): Unit = {
+                serverGotRequest.getAndIncrement()
+              }
+            })
+      }
+    )
+
+    val task = new Thread{
+      override def run(): Unit = {
+        nettyServer.start()
+      }
+    }
+    task.start()
+
+    val socket = SocketHostPortPair
+      .validateAndCreate(host, port)
+      .get
+
+    val masterPrefix = s"/$uuid"
+    val masterElectionPrefix = s"/$uuid"
+    val zKMasterElector = new ZKMasterElector(
+      zkClient,
+      socket,
+      masterPrefix,
+      masterElectionPrefix
+    )
+    zKMasterElector.start()
+
 
     val authOpts: AuthOptions =
-      com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
+      ClientOptions.AuthOptions()
     val address =
-      zkTestServer.getConnectString
+      zkServer.getConnectString
     val zookeeperOpts: ZookeeperOptions =
-      com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = address)
+      CommonOptions.ZookeeperOptions(
+        endpoints = address,
+        prefix = masterPrefix
+      )
+
 
     val retryDelayMsForThat = 100
     val retryCount = 10
@@ -147,25 +127,89 @@ class BadBehaviourSingleNodeServerTest
 
     val stream = getRandomStream
 
-    scala.util.Try(Await.ready(client.putStream(stream), secondsWait.seconds))
+    scala.util.Try(
+      Await.ready(client.putStream(stream), secondsWait.seconds)
+    )
 
-    val serverRequestCounter = serverGotRequest.get()
-    val clientRequestCounter = clientTimeoutRequestCounter.get()
+    val serverRequestCounter = serverGotRequest
+      .get().toDouble
+    val clientRequestCounter = clientTimeoutRequestCounter
+      .get().toDouble
 
-    server.shutdown()
     client.shutdown()
+    zKMasterElector.stop()
+    nettyServer.shutdown()
+    task.interrupt()
 
-    //A Client hook works only on a request, so, if request fails - the hook would stop to work.
-    //Taking in account all of the above, counter of serverRequestCounter may show that the client send one request less.
-    (serverRequestCounter - clientRequestCounter) should be <= 1
+    val error = (serverRequestCounter / 100.0) * 25.0
+    val leftBound  = serverRequestCounter - error
+    val rightBound = serverRequestCounter
+
+    clientRequestCounter should be >= leftBound
+    clientRequestCounter should be <= rightBound
   }
 
   it should "throw an user defined exception on overriding onRequestTimeout method" in {
-    startTransactionServer()
+    val port = util.Utils.getRandomPort
 
-    val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
-    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(requestTimeoutMs = requestTimeoutMs)
+    val serverGotRequest = new AtomicInteger(0)
+    val nettyServer = new NettyServer(
+      host,
+      port,
+      (ch: SocketChannel) => {
+        ch.pipeline()
+          .addLast(
+            new ChannelInboundHandlerAdapter {
+              override def channelRead(ctx: ChannelHandlerContext,
+                                       msg: scala.Any): Unit = {
+                serverGotRequest.getAndIncrement()
+              }
+            })
+      }
+    )
+
+    val task = new Thread{
+      override def run(): Unit = {
+        nettyServer.start()
+      }
+    }
+    task.start()
+
+    val socket = SocketHostPortPair
+      .validateAndCreate(host, port)
+      .get
+
+    val masterPrefix = s"/$uuid"
+    val masterElectionPrefix = s"/$uuid"
+    val zKMasterElector = new ZKMasterElector(
+      zkClient,
+      socket,
+      masterPrefix,
+      masterElectionPrefix
+    )
+    zKMasterElector.start()
+
+
+    val authOpts: AuthOptions =
+      ClientOptions.AuthOptions()
+    val address =
+      zkServer.getConnectString
+    val zookeeperOpts: ZookeeperOptions =
+      CommonOptions.ZookeeperOptions(
+        endpoints = address,
+        prefix = masterPrefix
+      )
+
+
+    val retryDelayMsForThat = 100
+    val retryCount = 10
+    val connectionOpts: ConnectionOptions =
+      com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
+        requestTimeoutMs = requestTimeoutMs,
+        retryDelayMs = retryDelayMsForThat,
+        connectionTimeoutMs = 1000,
+        requestTimeoutRetryCount = retryCount
+      )
 
     class MyThrowable extends Exception("My exception")
 
@@ -179,23 +223,42 @@ class BadBehaviourSingleNodeServerTest
       Await.result(client.putStream(stream), secondsWait.seconds)
     }
 
-    server.shutdown()
     client.shutdown()
+    client.shutdown()
+    zKMasterElector.stop()
+    nettyServer.shutdown()
+    task.interrupt()
   }
 
 
   it should "throw an user defined exception on overriding onServerConnectionLost method" in {
-    val authOpts: AuthOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.AuthOptions()
-    val zookeeperOpts: ZookeeperOptions = com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions(endpoints = zkTestServer.getConnectString)
-    val connectionOpts: ConnectionOptions = com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(connectionTimeoutMs = 100)
+    val masterPrefix = s"/$uuid"
+    val masterElectionPrefix = s"/$uuid"
+
+    val address =
+      zkServer.getConnectString
+
+    val authOpts: AuthOptions =
+      ClientOptions.AuthOptions()
+
+    val zookeeperOpts: ZookeeperOptions =
+      CommonOptions.ZookeeperOptions(
+        endpoints = address,
+        prefix = masterPrefix
+      )
+    val connectionOpts: ConnectionOptions =
+      com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
+        requestTimeoutMs = requestTimeoutMs,
+        connectionTimeoutMs = 100
+      )
 
     val port = Utils.getRandomPort
     val socket = SocketHostPortPair
       .validateAndCreate("127.0.0.1", port)
       .get
 
-    val zKLeaderClientToPutMaster = new ZKClient(
-      endpoints = zkTestServer.getConnectString,
+    val zKLeaderClientToPutMaster = new ZookeeperClient(
+      endpoints = zkServer.getConnectString,
       zookeeperOpts.sessionTimeoutMs,
       zookeeperOpts.connectionTimeoutMs,
       new RetryForever(zookeeperOpts.retryDelayMs)

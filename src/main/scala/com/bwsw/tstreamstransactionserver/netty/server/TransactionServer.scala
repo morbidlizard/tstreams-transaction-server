@@ -22,31 +22,26 @@ import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceWriter, ConsumerTransactionRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.{MultiAndSingleNodeRockStorage, RocksStorage}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamService}
-import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastTransaction, LastTransactionReader}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransaction
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc
 import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.collection.Set
-import scala.collection.mutable.ListBuffer
-
 
 
 class TransactionServer(authOpts: AuthenticationOptions,
                         streamRepository: StreamRepository,
                         rocksWriter: RocksWriter,
-                        rocksReader: RocksReader)
-{
+                        rocksReader: RocksReader) {
   private val authService = new AuthService(authOpts)
 
-  private val streamServiceImpl = new StreamService(
+  private val streamService = new StreamService(
     streamRepository
   )
 
@@ -60,16 +55,16 @@ class TransactionServer(authOpts: AuthenticationOptions,
     rocksReader.getLastProcessedLedgersAndRecordIDs
 
   final def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Int =
-    streamServiceImpl.putStream(stream, partitions, description, ttl)
+    streamService.putStream(stream, partitions, description, ttl)
 
   final def checkStreamExists(name: String): Boolean =
-    streamServiceImpl.checkStreamExists(name)
+    streamService.checkStreamExists(name)
 
   final def getStream(name: String): Option[rpc.Stream] =
-    streamServiceImpl.getStream(name)
+    streamService.getStream(name)
 
   final def delStream(name: String): Boolean =
-    streamServiceImpl.delStream(name)
+    streamService.delStream(name)
 
   final def getTransactionID: Long =
     transactionIDService.getTransaction()
@@ -82,7 +77,7 @@ class TransactionServer(authOpts: AuthenticationOptions,
     rocksWriter.putTransactionData(streamID, partition, transaction, data, from)
 
   final def putTransactions(transactions: Seq[ProducerTransactionRecord],
-                            batch: KeyValueDbBatch) : Unit = {
+                            batch: KeyValueDbBatch): Unit = {
     rocksWriter.putTransactions(transactions, batch)
   }
 

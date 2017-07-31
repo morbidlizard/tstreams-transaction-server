@@ -24,8 +24,8 @@ import com.bwsw.tstreamstransactionserver.protocol._
 
 import scala.util.Random
 
-final class OpenTransactionStateNotifier(observer: SubscribersObserver,
-                                         notifier: SubscriberNotifier) {
+final class OpenedTransactionNotifier(observer: SubscribersObserver,
+                                      notifier: SubscriberNotifier) {
   private val uniqueMasterId =
     Random.nextInt()
 

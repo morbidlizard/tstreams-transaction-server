@@ -28,7 +28,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsProcessor, DelStreamProcessor, GetStreamProcessor, PutStreamProcessor}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.test._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMaxPackagesSizesProcessor, GetZKCheckpointGroupServerPrefixProcessor}
-import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenTransactionStateNotifier
+import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportService
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, ServerRoleOptions, TransportOptions}
@@ -91,7 +91,7 @@ final class RequestProcessorRouter(server: TransactionServer,
                                    packageTransmissionOpts: TransportOptions,
                                    authOptions: AuthenticationOptions,
                                    orderedExecutionPool: OrderedExecutionContextPool,
-                                   notifier: OpenTransactionStateNotifier,
+                                   notifier: OpenedTransactionNotifier,
                                    serverRoleOptions: ServerRoleOptions,
                                    executionContext:ServerExecutionContextGrids)
   extends RequestHandler {

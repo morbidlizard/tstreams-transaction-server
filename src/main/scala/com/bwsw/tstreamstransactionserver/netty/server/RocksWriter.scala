@@ -12,7 +12,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 class RocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
                   transactionDataService: TransactionDataService) {
 
-  protected val consumerServiceImpl =
+  protected val consumerService =
     new ConsumerServiceWriter(
       rocksStorage.getRocksStorage
     )
@@ -25,7 +25,7 @@ class RocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
   protected val producerStateMachineCache =
     new ProducerStateMachineCache(rocksStorage.getRocksStorage)
 
-  protected val transactionMetaServiceWriterImpl =
+  protected val transactionMetaServiceWriter =
     new TransactionMetaServiceWriter(
       rocksStorage.getRocksStorage,
       producerStateMachineCache
@@ -47,7 +47,7 @@ class RocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
 
   final def putTransactions(transactions: Seq[ProducerTransactionRecord],
                             batch: KeyValueDbBatch): Unit = {
-    transactionMetaServiceWriterImpl.putTransactions(
+    transactionMetaServiceWriter.putTransactions(
       transactions,
       batch
     )
@@ -55,7 +55,7 @@ class RocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
 
   final def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
                                     batch: KeyValueDbBatch): Unit = {
-    consumerServiceImpl.putConsumersCheckpoints(consumerTransactions, batch)
+    consumerService.putConsumersCheckpoints(consumerTransactions, batch)
   }
 
   final def getNewBatch: KeyValueDbBatch =

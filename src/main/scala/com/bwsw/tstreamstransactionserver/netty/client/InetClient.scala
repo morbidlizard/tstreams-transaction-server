@@ -162,16 +162,18 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         requestIdToResponseMap.remove(message.id)
         f(descriptor.decodeResponse(response))
       }
-    )(after = clientOpts.requestTimeoutMs.millis, message.id)(methodContext)
+    )(clientOpts.requestTimeoutMs.millis,
+      message.id
+    )(methodContext)
 
     channel.flush()
 
     responseFuture.recoverWith { case error =>
       requestIdToResponseMap.remove(message.id)
-      val (currentException, _, counter) =
+      val (currentException, counter) =
         checkError(error, previousException, retryCount)
       if (counter == 0) {
-        Future.failed(error)
+        Future.failed(currentException)
       }
       else {
         val messageId = requestIDGen.getAndIncrement()
@@ -257,50 +259,54 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     channel.writeAndFlush(message.toByteArray, channel.voidPromise())
   }
 
-  private final def checkError(currentException: Throwable,
+  private final def checkError(currentException:  Throwable,
                                previousException: Option[Throwable],
-                               retryCount: Int): (Throwable, Throwable, Int) = {
+                               retryCount: Int): (Throwable, Int) = {
     currentException match {
       case tokenException: TokenInvalidException =>
         authenticate()
         previousException match {
-          case Some(exception: TokenInvalidException) =>
-            (tokenException, tokenException, retryCount - 1)
+          case Some(_: TokenInvalidException) =>
+            (tokenException, retryCount - 1)
           case _ =>
-            (tokenException, tokenException, clientOpts.requestTimeoutRetryCount)
+            (tokenException, clientOpts.requestTimeoutRetryCount)
         }
 
       case concreteThrowable: ServerUnreachableException =>
-        scala.util.Try(onServerConnectionLostDefaultBehaviour()) match {
-          case scala.util.Success(_) =>
-            (concreteThrowable, concreteThrowable, Int.MaxValue)
+        scala.util.Try(onServerConnectionLostDefaultBehaviour())
+        match {
           case scala.util.Failure(throwable) =>
-            throw throwable
+            (throwable, 0)
+          case scala.util.Success(_) =>
+            (concreteThrowable, Int.MaxValue)
         }
 
       case concreteThrowable: RequestTimeoutException =>
         scala.util.Try(onRequestTimeoutDefaultBehaviour()) match {
+          case scala.util.Failure(throwable) =>
+            (throwable, 0)
           case scala.util.Success(_) =>
             previousException match {
-              case Some(exception: RequestTimeoutException) =>
-                if (retryCount == 0) {
-                  nettyClient.reconnect()
-                  (exception, concreteThrowable, Int.MaxValue)
+              case Some(_: RequestTimeoutException) =>
+                if (retryCount == Int.MaxValue) {
+                  (concreteThrowable, clientOpts.requestTimeoutRetryCount)
                 }
-                else if (retryCount == Int.MaxValue)
-                  (exception, concreteThrowable, clientOpts.requestTimeoutRetryCount)
                 else {
-                  (exception, concreteThrowable, retryCount - 1)
+                  val updatedCounter = retryCount - 1
+                  if (updatedCounter <= 0) {
+                    nettyClient.reconnect()
+                    (concreteThrowable, Int.MaxValue)
+                  } else {
+                    (concreteThrowable, updatedCounter)
+                  }
                 }
               case _ =>
-                (concreteThrowable, concreteThrowable, Int.MaxValue)
+                (concreteThrowable, Int.MaxValue)
             }
-          case scala.util.Failure(throwable) =>
-            throw throwable
         }
 
       case otherThrowable =>
-        throw otherThrowable
+        (otherThrowable, 0)
     }
   }
 

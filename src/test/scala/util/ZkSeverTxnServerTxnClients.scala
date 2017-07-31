@@ -3,16 +3,16 @@ package util
 import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeTestServer
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.TestSingleNodeServer
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import org.apache.commons.io.FileUtils
 
-class ZkSeverTxnServerTxnClients(val transactionServer: SingleNodeTestServer,
+class ZkSeverTxnServerTxnClients(val transactionServer: TestSingleNodeServer,
                                  val clients: Array[TTSClient],
                                  val serverBuilder: SingleNodeServerBuilder)
 {
 
-  def operate(operation: SingleNodeTestServer => Unit): Unit = {
+  def operate(operation: TestSingleNodeServer => Unit): Unit = {
     try {
       operation(transactionServer)
     }

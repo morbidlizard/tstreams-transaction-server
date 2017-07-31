@@ -19,25 +19,20 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.CommitLogToRocksWriter
-import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestProcessor, RequestProcessorRouter}
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
-import com.bwsw.tstreamstransactionserver.protocol.TransactionState
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionService, TransactionStates}
+import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.netty.server.handler.test.RequestHandler
 import io.netty.buffer.ByteBuf
+import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
-
-
-class ServerHandler(requestHandlerRouter: RequestProcessorRouter,
-                    executionContext:ServerExecutionContextGrids,
-                    logger: Logger)
+@Sharable
+class ServerHandler(requestHandlerRouter: RequestHandler)
   extends SimpleChannelInboundHandler[ByteBuf]
 {
+  private val logger =
+    LoggerFactory.getLogger(this.getClass)
+
   override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
     val message = Message.fromByteBuf(buf)
     invokeMethod(message, ctx)

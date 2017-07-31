@@ -22,7 +22,7 @@ import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol, Respo
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import AuthenticateProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
 
@@ -31,7 +31,7 @@ private object AuthenticateProcessor {
 }
 
 class AuthenticateProcessor(authService: AuthService)
-  extends ClientFireAndForgetReadHandler(
+  extends SyncReadClientRequestHandler(
     descriptor.methodID,
     descriptor.name
   ){

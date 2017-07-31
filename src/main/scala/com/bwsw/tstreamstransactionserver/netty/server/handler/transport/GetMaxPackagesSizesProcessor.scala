@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
 import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import GetMaxPackagesSizesProcessor._
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
 import io.netty.channel.ChannelHandlerContext
@@ -13,7 +13,7 @@ private object GetMaxPackagesSizesProcessor {
 }
 
 class GetMaxPackagesSizesProcessor(packageTransmissionOpts: TransportOptions)
-  extends ClientFireAndForgetReadHandler(
+  extends SyncReadClientRequestHandler(
     descriptor.methodID,
     descriptor.name
   ){

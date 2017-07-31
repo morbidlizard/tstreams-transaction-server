@@ -23,7 +23,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
 import GetCommitLogOffsetsProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFutureRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
@@ -35,7 +35,7 @@ private object GetCommitLogOffsetsProcessor {
 class GetCommitLogOffsetsProcessor(server: TransactionServer,
                                    scheduledCommitLog: ScheduledCommitLog,
                                    context: ExecutionContext)
-  extends ClientFutureRequestHandler(
+  extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {

@@ -23,7 +23,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextP
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutSimpleTransactionAndDataProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientAlreadyFutureRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.FutureClientRequestHandler
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
@@ -42,7 +42,7 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
                                            notifier: OpenedTransactionNotifier,
                                            authOptions: AuthenticationOptions,
                                            orderedExecutionPool: OrderedExecutionContextPool)
-  extends ClientAlreadyFutureRequestHandler(
+  extends FutureClientRequestHandler(
     descriptor.methodID,
     descriptor.name) {
 

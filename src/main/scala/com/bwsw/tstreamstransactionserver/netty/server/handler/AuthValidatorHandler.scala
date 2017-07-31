@@ -18,7 +18,8 @@ class AuthValidatorHandler(nextHandler: RequestHandler,
     if (acc.isDefined) {
       if (message.isFireAndForgetMethod) {
         if (logger.isDebugEnabled())
-          logger.debug(s"$message is not valid")
+          logger.debug(s"Client [${ctx.channel().remoteAddress().toString}, " +
+            s"request id: ${message.id}]", acc.get)
       }
       else {
         nextHandler.process(message, ctx, acc)
@@ -28,11 +29,10 @@ class AuthValidatorHandler(nextHandler: RequestHandler,
       if (isValid)
         nextHandler.process(message, ctx, acc)
       else {
-        if (message.isFireAndForgetMethod) {
-          if (logger.isDebugEnabled())
-            logger.debug(s"$message is not valid")
-        }
-        else {
+        if (logger.isDebugEnabled())
+          logger.debug(s"Client [${ctx.channel().remoteAddress().toString}, request id: ${message.id}] " +
+            s"Token ${message.token} is not valid")
+        if (!message.isFireAndForgetMethod) {
           nextHandler.process(
             message,
             ctx,

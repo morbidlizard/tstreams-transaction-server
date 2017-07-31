@@ -23,14 +23,14 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import io.netty.channel.ChannelHandlerContext
 import IsValidProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
 
 private object IsValidProcessor {
   val descriptor = Protocol.IsValid
 }
 
 class IsValidProcessor(authService: AuthService)
-  extends ClientFireAndForgetReadHandler(
+  extends SyncReadClientRequestHandler(
     descriptor.methodID,
     descriptor.name
   ){

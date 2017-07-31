@@ -22,7 +22,7 @@ import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import GetTransactionIDByTimestampProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
 
@@ -31,7 +31,7 @@ private object GetTransactionIDByTimestampProcessor {
 }
 
 class GetTransactionIDByTimestampProcessor(server: TransactionServer)
-  extends ClientFireAndForgetReadHandler(
+  extends SyncReadClientRequestHandler(
     descriptor.methodID,
     descriptor.name
   ){

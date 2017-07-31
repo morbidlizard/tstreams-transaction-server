@@ -5,8 +5,8 @@ import io.netty.channel.ChannelHandlerContext
 
 
 
-abstract class ClientFireAndForgetReadHandler(override final val id: Byte,
-                                              override final val name: String)
+abstract class SyncReadClientRequestHandler(override final val id: Byte,
+                                            override final val name: String)
   extends ClientRequestHandler(id, name) {
 
 

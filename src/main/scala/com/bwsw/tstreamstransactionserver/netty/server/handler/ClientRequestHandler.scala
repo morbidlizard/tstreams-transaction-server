@@ -2,7 +2,6 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler
 
 import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, ResponseMessage}
 import io.netty.channel.ChannelHandlerContext
-import org.apache.bookkeeper.proto.BookkeeperProtocol.Response
 import org.slf4j.{Logger, LoggerFactory}
 
 abstract class ClientRequestHandler(val id: Byte,
@@ -19,7 +18,7 @@ abstract class ClientRequestHandler(val id: Byte,
                                               message: RequestMessage,
                                               ctx: ChannelHandlerContext): Unit =
     if (logger.isDebugEnabled)
-      logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id}: " +
+      logger.debug(s"Client [${ctx.channel().remoteAddress().toString}, request id ${message.id}]: " +
         s"$method is successfully processed!")
 
   protected final def logUnsuccessfulProcessing(method: String,
@@ -27,7 +26,7 @@ abstract class ClientRequestHandler(val id: Byte,
                                                 message: RequestMessage,
                                                 ctx: ChannelHandlerContext): Unit =
     if (logger.isDebugEnabled)
-      logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id}: " +
+      logger.debug(s"Client [${ctx.channel().remoteAddress().toString}, request id ${message.id}]: " +
         s"$method is failed while processing!", error)
 
 

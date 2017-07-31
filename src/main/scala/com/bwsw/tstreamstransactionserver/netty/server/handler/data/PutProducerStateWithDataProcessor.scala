@@ -5,7 +5,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionS
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutProducerStateWithDataProcessor._
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFutureRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
@@ -17,7 +17,7 @@ private object PutProducerStateWithDataProcessor {
 class PutProducerStateWithDataProcessor(server: TransactionServer,
                                         scheduledCommitLog: ScheduledCommitLog,
                                         context: ExecutionContext)
-  extends ClientFutureRequestHandler(
+  extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {

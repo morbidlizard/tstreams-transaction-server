@@ -1,12 +1,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, ResponseMessage}
+import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class ClientAlreadyFutureRequestHandler(override final val id: Byte,
-                                                 override final val name: String)
+abstract class FutureClientRequestHandler(override final val id: Byte,
+                                          override final val name: String)
   extends ClientRequestHandler(id, name) {
 
   protected def fireAndForgetImplementation(message: RequestMessage): Future[_]

@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFireAndForgetReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetZKCheckpointGroupServerPrefixProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.ServerRoleOptions
@@ -12,7 +12,7 @@ private object GetZKCheckpointGroupServerPrefixProcessor {
 }
 
 class GetZKCheckpointGroupServerPrefixProcessor(serverRoleOptions: ServerRoleOptions)
-  extends ClientFireAndForgetReadHandler(
+  extends SyncReadClientRequestHandler(
     descriptor.methodID,
     descriptor.name
   ){

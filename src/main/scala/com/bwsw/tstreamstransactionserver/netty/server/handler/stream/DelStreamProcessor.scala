@@ -22,7 +22,7 @@ import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import DelStreamProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientFutureRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
@@ -32,7 +32,7 @@ private object DelStreamProcessor {
 
 class DelStreamProcessor(server: TransactionServer,
                          context: ExecutionContext)
-  extends ClientFutureRequestHandler(
+  extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {

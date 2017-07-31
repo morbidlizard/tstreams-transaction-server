@@ -5,9 +5,9 @@ import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class ClientFutureRequestHandler(override final val id: Byte,
-                                          override final val name: String,
-                                          context: ExecutionContext)
+abstract class AsyncClientRequestHandler(override final val id: Byte,
+                                         override final val name: String,
+                                         context: ExecutionContext)
   extends ClientRequestHandler(id, name) {
 
   protected def fireAndForgetImplementation(message: RequestMessage): Unit

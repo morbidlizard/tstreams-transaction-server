@@ -9,8 +9,7 @@ class LeaderSelector(client: CuratorFramework,
                      electionPath: String)
   extends LeaderSelectorListenerAdapter
     with Closeable
-    with Electable
-{
+    with Electable {
 
   private val leaderSelector = {
     val leader =
@@ -32,7 +31,7 @@ class LeaderSelector(client: CuratorFramework,
   override def takeLeadership(client: CuratorFramework): Unit = {
     this.synchronized {
       try {
-        while(true) this.wait()
+        while (true) this.wait()
       }
       catch {
         case _: InterruptedException =>
@@ -41,8 +40,8 @@ class LeaderSelector(client: CuratorFramework,
     }
   }
 
+  override def close(): Unit = stopParticipateInElection()
+
   override def stopParticipateInElection(): Unit =
     leaderSelector.close()
-
-  override def close(): Unit = stopParticipateInElection()
 }

@@ -25,10 +25,10 @@ import io.netty.buffer.ByteBuf
 
 /** Message is a placeholder for some binary information.
   *
-  *  @constructor create a new message with body, the size of body, and a protocol to serialize/deserialize the body.
-  *  @param bodyLength a size of body.
-  *  @param thriftProtocol a protocol to serialize/deserialize the body.
-  *  @param body a binary representation of information.
+  * @constructor create a new message with body, the size of body, and a protocol to serialize/deserialize the body.
+  * @param bodyLength     a size of body.
+  * @param thriftProtocol a protocol to serialize/deserialize the body.
+  * @param body           a binary representation of information.
   *
   */
 case class RequestMessage(id: Long,
@@ -37,8 +37,7 @@ case class RequestMessage(id: Long,
                           body: Array[Byte],
                           token: Int,
                           methodId: Byte,
-                          isFireAndForgetMethod: Boolean)
-{
+                          isFireAndForgetMethod: Boolean) {
   /** Serializes a message. */
   def toByteArray: Array[Byte] = {
     val size = {
@@ -56,13 +55,13 @@ case class RequestMessage(id: Long,
 
     val buffer = java.nio.ByteBuffer
       .allocate(size)
-      .putLong(id)                //0-8
-      .put(thriftProtocol)        //8-9
-      .putInt(token)              //9-13
-      .put(methodId)              //13-14
+      .putLong(id) //0-8
+      .put(thriftProtocol) //8-9
+      .putInt(token) //9-13
+      .put(methodId) //13-14
       .put(isFireAndForgetMethodToByte) //14-15
-      .putInt(bodyLength)         //15-19
-      .put(body)                  //20-size
+      .putInt(bodyLength) //15-19
+      .put(body) //20-size
     buffer.flip()
 
     val binaryMessage = new Array[Byte](size)
@@ -70,20 +69,21 @@ case class RequestMessage(id: Long,
     binaryMessage
   }
 }
+
 object RequestMessage {
   val headerFieldSize: Byte = (
-      java.lang.Long.BYTES +     //id
-      java.lang.Byte.BYTES +     //protocol
-      java.lang.Integer.BYTES +  //token
-      java.lang.Byte.BYTES +     //method
-      java.lang.Byte.BYTES       //isFireAndForgetMethod
+    java.lang.Long.BYTES + //id
+      java.lang.Byte.BYTES + //protocol
+      java.lang.Integer.BYTES + //token
+      java.lang.Byte.BYTES + //method
+      java.lang.Byte.BYTES //isFireAndForgetMethod
     ).toByte
-  val lengthFieldSize =  java.lang.Integer.BYTES //length
+  val lengthFieldSize = java.lang.Integer.BYTES //length
 
   /** Deserializes a binary to message. */
   def fromByteArray(bytes: Array[Byte]): RequestMessage = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
-    val id     = buffer.getLong
+    val id = buffer.getLong
     val protocol = buffer.get
     val token = buffer.getInt
     val method = buffer.get()
@@ -103,17 +103,17 @@ object RequestMessage {
   }
 
   def fromByteBuf(buf: ByteBuf): RequestMessage = {
-    val id       = buf.readLong()
+    val id = buf.readLong()
     val protocol = buf.readByte()
-    val token    = buf.readInt()
-    val method   = buf.readByte()
+    val token = buf.readInt()
+    val method = buf.readByte()
     val isFireAndForgetMethod = {
       if (buf.readByte() == (1: Byte))
         true
       else
         false
     }
-    val length   = buf.readInt()
+    val length = buf.readInt()
     val message = {
       val bytes = new Array[Byte](buf.readableBytes())
       buf.slice()

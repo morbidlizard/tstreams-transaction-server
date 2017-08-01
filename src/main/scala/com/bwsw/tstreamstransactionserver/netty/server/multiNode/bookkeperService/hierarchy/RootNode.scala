@@ -10,6 +10,32 @@ private object RootNode {
 class RootNode(client: CuratorFramework,
                rootPath: String) {
 
+  private var nodeData = init()
+
+  final def getData: RootNodeData = nodeData
+
+  final def setFirstAndLastIDInRootNode(first: Array[Byte],
+                                        second: Array[Byte]): Unit = {
+    val buf = java.nio.ByteBuffer
+      .allocate(RootNode.delimiterIndexFieldSize)
+      .putInt(first.length)
+    buf.flip()
+
+
+    val binaryIndex = new Array[Byte](RootNode.delimiterIndexFieldSize)
+    buf.get(binaryIndex)
+
+    val data = first ++ binaryIndex ++ second
+
+    client.setData()
+      .forPath(rootPath, data)
+
+    nodeData = RootNodeData(
+      first,
+      second
+    )
+  }
+
   private def init(): RootNodeData = {
     scala.util.Try {
       client.getData
@@ -50,31 +76,5 @@ class RootNode(client: CuratorFramework,
             )
         }
     }
-  }
-
-  private var nodeData = init()
-
-  final def getData: RootNodeData = nodeData
-
-  final def setFirstAndLastIDInRootNode(first: Array[Byte],
-                                        second: Array[Byte]): Unit = {
-    val buf = java.nio.ByteBuffer
-      .allocate(RootNode.delimiterIndexFieldSize)
-      .putInt(first.length)
-    buf.flip()
-
-
-    val binaryIndex = new Array[Byte](RootNode.delimiterIndexFieldSize)
-    buf.get(binaryIndex)
-
-    val data = first ++ binaryIndex ++ second
-
-    client.setData()
-      .forPath(rootPath, data)
-
-    nodeData = RootNodeData(
-      first,
-      second
-    )
   }
 }

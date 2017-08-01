@@ -7,7 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{Consumer
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionsCleaner, ProducerStateMachineCache, ProducerTransactionRecord, TransactionMetaServiceWriter}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerStateMachineCache, ProducerTransactionRecord, ProducerTransactionsCleaner, TransactionMetaServiceWriter}
 
 class RocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
                   transactionDataService: TransactionDataService) {

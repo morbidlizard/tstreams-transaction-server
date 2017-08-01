@@ -23,8 +23,7 @@ import org.rocksdb._
 
 class RocksDb(client: TtlDB,
               databaseHandler: ColumnFamilyHandle)
-  extends KeyValueDb
-{
+  extends KeyValueDb {
   RocksDB.loadLibrary()
 
   def get(key: Array[Byte]): Array[Byte] = client.get(databaseHandler, key)
@@ -56,25 +55,25 @@ class RocksDb(client: TtlDB,
 
   def iterator: KeyValueDbIterator = new RocksDbIteratorWrapper(client.newIterator(databaseHandler))
 
-//  def newBatch = new Batch
-//  class Batch() {
-//    private val batch  = new WriteBatch()
-//
-//    def put(key: Array[Byte], data: Array[Byte]): Unit = batch.put(databaseHandler, key, data)
-//    def remove(key: Array[Byte]): Unit = batch.remove(databaseHandler, key)
-//
-//    def write(): Boolean = {
-//      val writeOptions = new WriteOptions()
-//      val status = scala.util.Try(client.write(writeOptions, batch)) match {
-//        case scala.util.Success(_) => true
-//        case scala.util.Failure(throwable) =>
-//          throwable.printStackTrace()
-//          false
-//      }
-//      writeOptions.close()
-//      batch.close()
-//      status
-//    }
-//  }
+  //  def newBatch = new Batch
+  //  class Batch() {
+  //    private val batch  = new WriteBatch()
+  //
+  //    def put(key: Array[Byte], data: Array[Byte]): Unit = batch.put(databaseHandler, key, data)
+  //    def remove(key: Array[Byte]): Unit = batch.remove(databaseHandler, key)
+  //
+  //    def write(): Boolean = {
+  //      val writeOptions = new WriteOptions()
+  //      val status = scala.util.Try(client.write(writeOptions, batch)) match {
+  //        case scala.util.Success(_) => true
+  //        case scala.util.Failure(throwable) =>
+  //          throwable.printStackTrace()
+  //          false
+  //      }
+  //      writeOptions.close()
+  //      batch.close()
+  //      status
+  //    }
+  //  }
 
 }

@@ -16,52 +16,59 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
+package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import CheckStreamExistsProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.ScanTransactionsHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
 
-private object CheckStreamExistsProcessor {
-  val descriptor = Protocol.CheckStreamExists
+private object ScanTransactionsHandler {
+  val descriptor = Protocol.ScanTransactions
 }
 
-class CheckStreamExistsProcessor(server: TransactionServer,
-                                 context: ExecutionContext)
+
+class ScanTransactionsHandler(server: TransactionServer,
+                              context: ExecutionContext)
   extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
 
-
-  private def process(requestBody: Array[Byte]) = {
-    val args = descriptor.decodeRequest(requestBody)
-    server.checkStreamExists(args.name)
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.ScanTransactions.Result(
+        None,
+        Some(ServerException(message)
+        )
+      )
+    )
   }
 
   override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {}
 
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext): Array[Byte] = {
+  override protected def responseImplementation(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
     val response = descriptor.encodeResponse(
-      TransactionService.CheckStreamExists.Result(
+      TransactionService.ScanTransactions.Result(
         Some(process(message.body))
       )
     )
     response
   }
 
-  override def createErrorResponse(message: String): Array[Byte] = {
-    descriptor.encodeResponse(
-      TransactionService.CheckStreamExists.Result(
-        None,
-        Some(ServerException(message))
-      )
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.scanTransactions(
+      args.streamID,
+      args.partition,
+      args.from,
+      args.to,
+      args.count,
+      args.states
     )
   }
 }

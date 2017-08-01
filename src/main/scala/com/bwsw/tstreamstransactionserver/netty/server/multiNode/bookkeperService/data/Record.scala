@@ -7,8 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.RecordType
 class Record(val recordType: RecordType.Value,
              val timestamp: Long,
              val body: Array[Byte])
-  extends Ordered[Record]
-{
+  extends Ordered[Record] {
   def toByteArray: Array[Byte] = {
     val size = Record.recordTypeSizeField +
       Record.timestampSizeField +
@@ -53,13 +52,13 @@ class Record(val recordType: RecordType.Value,
 
 object Record {
   private val recordTypeSizeField = java.lang.Byte.BYTES
-  private val timestampSizeField  = java.lang.Long.BYTES
+  private val timestampSizeField = java.lang.Long.BYTES
 
   def fromByteArray(bytes: Array[Byte]): Record = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
 
     val recordType = RecordType(buffer.get)
-    val timestamp  = buffer.getLong
+    val timestamp = buffer.getLong
     val body = new Array[Byte](buffer.remaining())
     buffer.get(body)
 

@@ -1,13 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
-import io.netty.channel.ChannelHandlerContext
-import com.bwsw.tstreamstransactionserver.rpc._
-import PutSimpleTransactionAndDataHandler._
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutSimpleTransactionAndDataHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc._
+import io.netty.channel.ChannelHandlerContext
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 
 private object PutSimpleTransactionAndDataHandler {
@@ -24,8 +24,59 @@ private object PutSimpleTransactionAndDataHandler {
 
 class PutSimpleTransactionAndData(server: TransactionServer,
                                   gateway: BookKeeperGateway)
-  extends RequestHandler
-{
+  extends RequestHandler {
+  override def getName: String = protocol.name
+
+  override def handleAndSendResponse(requestBody: Array[Byte],
+                                     message: RequestMessage,
+                                     connection: ChannelHandlerContext): Unit = {
+
+    val callback = new AsyncCallback.AddCallback {
+      override def addComplete(operationCode: Int,
+                               ledgerHandle: LedgerHandle,
+                               recordID: Long,
+                               transactionIDCtx: scala.Any): Unit = {
+        val transactionID = transactionIDCtx.asInstanceOf[scala.Long]
+        val response =
+          if (BKException.Code.OK == operationCode) {
+            val response = protocol.encodeResponse(
+              TransactionService.PutSimpleTransactionAndData.Result(
+                Some(transactionID)
+              )
+            )
+            message.copy(
+              bodyLength = response.length,
+              body = response
+            )
+          }
+          else {
+            val response =
+              createErrorResponse(BKException.getMessage(operationCode))
+            message.copy(
+              bodyLength = response.length,
+              body = response
+            )
+          }
+        connection.writeAndFlush(response.toByteArray)
+      }
+    }
+
+    process(requestBody, callback)
+  }
+
+  override def createErrorResponse(message: String): Array[Byte] = {
+    protocol.encodeResponse(
+      TransactionService.PutSimpleTransactionAndData.Result(
+        None,
+        Some(ServerException(message))
+      )
+    )
+  }
+
+  override def handleFireAndForget(requestBody: Array[Byte]): Unit = {
+    process(requestBody, fireAndForgetCallback)
+  }
+
   private def process(requestBody: Array[Byte],
                       callback: AsyncCallback.AddCallback) = {
     val transactionID = server.getTransactionID
@@ -76,57 +127,5 @@ class PutSimpleTransactionAndData(server: TransactionServer,
         transactionID
       )
     }
-  }
-
-  override def getName: String = protocol.name
-
-  override def handleAndSendResponse(requestBody: Array[Byte],
-                                     message: RequestMessage,
-                                     connection: ChannelHandlerContext): Unit = {
-
-    val callback = new AsyncCallback.AddCallback {
-      override def addComplete(operationCode: Int,
-                               ledgerHandle: LedgerHandle,
-                               recordID: Long,
-                               transactionIDCtx: scala.Any): Unit = {
-        val transactionID = transactionIDCtx.asInstanceOf[scala.Long]
-        val response =
-          if (BKException.Code.OK == operationCode) {
-            val response = protocol.encodeResponse(
-              TransactionService.PutSimpleTransactionAndData.Result(
-                Some(transactionID)
-              )
-            )
-            message.copy(
-              bodyLength = response.length,
-              body = response
-            )
-          }
-          else {
-            val response =
-              createErrorResponse(BKException.getMessage(operationCode))
-            message.copy(
-              bodyLength = response.length,
-              body = response
-            )
-          }
-        connection.writeAndFlush(response.toByteArray)
-      }
-    }
-
-    process(requestBody, callback)
-  }
-
-  override def handleFireAndForget(requestBody: Array[Byte]): Unit = {
-    process(requestBody, fireAndForgetCallback)
-  }
-
-  override def createErrorResponse(message: String): Array[Byte] = {
-    protocol.encodeResponse(
-      TransactionService.PutSimpleTransactionAndData.Result(
-        None,
-        Some(ServerException(message))
-      )
-    )
   }
 }

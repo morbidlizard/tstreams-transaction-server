@@ -18,50 +18,27 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import PutConsumerCheckpointProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.PutConsumerCheckpointHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-private object PutConsumerCheckpointProcessor {
+private object PutConsumerCheckpointHandler {
   val descriptor = Protocol.PutConsumerCheckpoint
 }
 
-class PutConsumerCheckpointProcessor(server: TransactionServer,
-                                     scheduledCommitLog: ScheduledCommitLog,
-                                     context: ExecutionContext)
+class PutConsumerCheckpointHandler(server: TransactionServer,
+                                   scheduledCommitLog: ScheduledCommitLog,
+                                   context: ExecutionContext)
   extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
-
-  private def process(requestBody: Array[Byte]): Boolean = {
-    scheduledCommitLog.putData(
-      RecordType.PutConsumerCheckpointType.id.toByte,
-      requestBody
-    )
-  }
-
-  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
-    process(message.body)
-  }
-
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext): Array[Byte] = {
-    val result = process(message.body)
-
-    val response = descriptor.encodeResponse(
-      TransactionService.PutConsumerCheckpoint.Result(
-        Some(result)
-      )
-    )
-    response
-  }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -71,5 +48,28 @@ class PutConsumerCheckpointProcessor(server: TransactionServer,
         )
       )
     )
+  }
+
+  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
+    process(message.body)
+  }
+
+  private def process(requestBody: Array[Byte]): Boolean = {
+    scheduledCommitLog.putData(
+      RecordType.PutConsumerCheckpointType.id.toByte,
+      requestBody
+    )
+  }
+
+  override protected def responseImplementation(message: RequestMessage,
+                                                ctx: ChannelHandlerContext): Array[Byte] = {
+    val result = process(message.body)
+
+    val response = descriptor.encodeResponse(
+      TransactionService.PutConsumerCheckpoint.Result(
+        Some(result)
+      )
+    )
+    response
   }
 }

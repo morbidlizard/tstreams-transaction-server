@@ -9,11 +9,16 @@ abstract class FutureClientRequestHandler(override final val id: Byte,
                                           override final val name: String)
   extends ClientRequestHandler(id, name) {
 
-  protected def fireAndForgetImplementation(message: RequestMessage): Future[_]
-
-  protected def fireAndReplyImplementation(message: RequestMessage,
-                                           ctx: ChannelHandlerContext): (Future[_], ExecutionContext)
-
+  override final def handle(message: RequestMessage,
+                            ctx: ChannelHandlerContext,
+                            acc: Option[Throwable]): Unit = {
+    if (message.isFireAndForgetMethod) {
+      handleFireAndForgetRequest(message, ctx, acc)
+    }
+    else {
+      handleRequest(message, ctx, acc)
+    }
+  }
 
   private def handleFireAndForgetRequest(message: RequestMessage,
                                          ctx: ChannelHandlerContext,
@@ -30,12 +35,11 @@ abstract class FutureClientRequestHandler(override final val id: Byte,
     }
   }
 
-  private def handleFireAndReplyRequest(message: RequestMessage,
-                                        ctx: ChannelHandlerContext,
-                                        acc: Option[Throwable]) = {
+  private def handleRequest(message: RequestMessage,
+                            ctx: ChannelHandlerContext,
+                            acc: Option[Throwable]) = {
     if (acc.isEmpty) {
-      val (result, context) =
-        fireAndReplyImplementation(message, ctx)
+      val (result, context) = responseImplementation(message, ctx)
       result.recover { case error =>
         logUnsuccessfulProcessing(name, error, message, ctx)
         val response =
@@ -50,16 +54,9 @@ abstract class FutureClientRequestHandler(override final val id: Byte,
     }
   }
 
+  protected def fireAndForgetImplementation(message: RequestMessage): Unit
 
-  override final def process(message: RequestMessage,
-                             ctx: ChannelHandlerContext,
-                             acc: Option[Throwable]): Unit = {
-    if (message.isFireAndForgetMethod) {
-      handleFireAndForgetRequest(message, ctx, acc)
-    }
-    else {
-      handleFireAndReplyRequest(message, ctx, acc)
-    }
-  }
+  protected def responseImplementation(message: RequestMessage,
+                                       ctx: ChannelHandlerContext): (Future[_], ExecutionContext)
 }
 

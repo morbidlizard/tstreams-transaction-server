@@ -18,17 +18,17 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import PutTransactionProcessor._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.PutTransactionHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
 
-private object PutTransactionProcessor {
+private object PutTransactionHandler {
   val descriptor = Protocol.PutTransaction
   val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
     TransactionService.PutTransaction.Result(Some(true))
@@ -38,18 +38,21 @@ private object PutTransactionProcessor {
   )
 }
 
-class PutTransactionProcessor(server: TransactionServer,
-                              scheduledCommitLog: ScheduledCommitLog,
-                              context: ExecutionContext)
+class PutTransactionHandler(server: TransactionServer,
+                            scheduledCommitLog: ScheduledCommitLog,
+                            context: ExecutionContext)
   extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
 
-  private def process(requestBody: Array[Byte]) = {
-    scheduledCommitLog.putData(
-      RecordType.PutTransactionType.id.toByte,
-      requestBody
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.PutTransaction.Result(
+        None,
+        Some(ServerException(message)
+        )
+      )
     )
   }
 
@@ -57,7 +60,7 @@ class PutTransactionProcessor(server: TransactionServer,
     process(message.body)
   }
 
-  override protected def fireAndReplyImplementation(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
+  override protected def responseImplementation(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
     val response = {
       val isPutted = process(message.body)
       if (isPutted)
@@ -68,13 +71,10 @@ class PutTransactionProcessor(server: TransactionServer,
     response
   }
 
-  override def createErrorResponse(message: String): Array[Byte] = {
-    descriptor.encodeResponse(
-      TransactionService.PutTransaction.Result(
-        None,
-        Some(ServerException(message)
-        )
-      )
+  private def process(requestBody: Array[Byte]) = {
+    scheduledCommitLog.putData(
+      RecordType.PutTransactionType.id.toByte,
+      requestBody
     )
   }
 }

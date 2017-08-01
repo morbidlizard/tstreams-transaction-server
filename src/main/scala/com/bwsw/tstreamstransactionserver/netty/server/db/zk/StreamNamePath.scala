@@ -33,25 +33,6 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
 
   private val semaphore = new InterProcessSemaphoreMutex(client, path)
 
-  private def lock[T](body: => T) = {
-    val result =
-      try {
-        semaphore.acquire()
-        body
-      }
-      finally {
-        scala.util.Try(semaphore.release())
-      }
-    result
-  }
-
-  client.getConnectionStateListenable.addListener(
-    (_: CuratorFramework, newState: ConnectionState) => newState match {
-      case ConnectionState.SUSPENDED => scala.util.Try(semaphore.release())
-      case ConnectionState.LOST => scala.util.Try(semaphore.release())
-      case _ =>
-    })
-
   def put(streamRecord: streamService.StreamRecord): Unit =
     lock {
       client.create()
@@ -72,6 +53,24 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
         )
     }
 
+  client.getConnectionStateListenable.addListener(
+    (_: CuratorFramework, newState: ConnectionState) => newState match {
+      case ConnectionState.SUSPENDED => scala.util.Try(semaphore.release())
+      case ConnectionState.LOST => scala.util.Try(semaphore.release())
+      case _ =>
+    })
+
+  private def lock[T](body: => T) = {
+    val result =
+      try {
+        semaphore.acquire()
+        body
+      }
+      finally {
+        scala.util.Try(semaphore.release())
+      }
+    result
+  }
 
   def exists(streamName: String): Boolean =
     lock {

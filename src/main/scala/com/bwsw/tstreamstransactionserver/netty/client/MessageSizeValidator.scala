@@ -1,10 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 
-import scala.collection.Searching.search
-import scala.collection.Searching.Found
+import scala.collection.Searching.{Found, search}
 
 private object MessageSizeValidator {
 
@@ -43,6 +42,10 @@ private object MessageSizeValidator {
 final class MessageSizeValidator(maxMetadataPackageSize: Int,
                                  maxDataPackageSize: Int) {
 
+  def validateMessageSize(message: RequestMessage): Unit = {
+    notValidateSomeMessageTypesSize(message)
+  }
+
   private def notValidateSomeMessageTypesSize(message: RequestMessage) = {
     if (MessageSizeValidator.notValidateMessageProtocolIds
       .search(message.methodId).isInstanceOf[Found]) {
@@ -80,10 +83,5 @@ final class MessageSizeValidator(maxMetadataPackageSize: Int,
     else {
       //do nothing
     }
-  }
-
-
-  def validateMessageSize(message: RequestMessage): Unit = {
-    notValidateSomeMessageTypesSize(message)
   }
 }

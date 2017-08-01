@@ -7,12 +7,15 @@ import org.slf4j.{Logger, LoggerFactory}
 abstract class ClientRequestHandler(val id: Byte,
                                     val name: String)
   extends RequestHandler
-    with Ordered[ClientRequestHandler]
-{
-  def createErrorResponse(message: String): Array[Byte]
-
+    with Ordered[ClientRequestHandler] {
   protected final val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
+
+  override final def compare(that: ClientRequestHandler): Int = {
+    java.lang.Byte.compare(this.id, that.id)
+  }
+
+  def createErrorResponse(message: String): Array[Byte]
 
   protected final def logSuccessfulProcession(method: String,
                                               message: RequestMessage,
@@ -29,7 +32,6 @@ abstract class ClientRequestHandler(val id: Byte,
       logger.debug(s"Client [${ctx.channel().remoteAddress().toString}, request id ${message.id}]: " +
         s"$method is failed while processing!", error)
 
-
   protected final def sendResponseToClient(message: RequestMessage,
                                            response: Array[Byte],
                                            ctx: ChannelHandlerContext): Unit = {
@@ -37,9 +39,5 @@ abstract class ClientRequestHandler(val id: Byte,
     val binaryResponse = responseMessage.toByteArray
     if (ctx.channel().isActive)
       ctx.writeAndFlush(binaryResponse)
-  }
-
-  override final def compare(that: ClientRequestHandler): Int = {
-    java.lang.Byte.compare(this.id, that.id)
   }
 }

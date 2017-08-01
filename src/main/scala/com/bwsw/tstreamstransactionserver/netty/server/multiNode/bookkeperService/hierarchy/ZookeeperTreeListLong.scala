@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 import org.apache.curator.framework.CuratorFramework
 
 class ZookeeperTreeListLong(client: CuratorFramework, rootPath: String)
-  extends ZookeeperTreeList[Long](client, rootPath){
+  extends ZookeeperTreeList[Long](client, rootPath) {
 
 
   override def entityToPath(entity: Long): Array[String] = {
@@ -20,6 +20,7 @@ class ZookeeperTreeListLong(client: CuratorFramework, rootPath: String)
       )
       bytes
     }
+
     splitLongToHexes
   }
 

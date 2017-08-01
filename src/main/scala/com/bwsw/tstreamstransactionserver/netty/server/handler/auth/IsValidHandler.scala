@@ -18,22 +18,33 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol, ResponseMessage}
-import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import io.netty.channel.ChannelHandlerContext
-import IsValidProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.IsValidHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc.TransactionService
+import io.netty.channel.ChannelHandlerContext
 
-private object IsValidProcessor {
+private object IsValidHandler {
   val descriptor = Protocol.IsValid
 }
 
-class IsValidProcessor(authService: AuthService)
+class IsValidHandler(authService: AuthService)
   extends SyncReadClientRequestHandler(
     descriptor.methodID,
     descriptor.name
-  ){
+  ) {
+
+  override protected def responseImplementation(message: RequestMessage,
+                                                ctx: ChannelHandlerContext,
+                                                error: Option[Throwable]): Array[Byte] = {
+    scala.util.Try(process(message.body)) match {
+      case scala.util.Success(isValid) =>
+        isValid
+      case scala.util.Failure(throwable) =>
+        createErrorResponse(throwable.getMessage)
+    }
+  }
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
@@ -41,17 +52,6 @@ class IsValidProcessor(authService: AuthService)
     descriptor.encodeResponse(
       TransactionService.IsValid.Result(Some(result))
     )
-  }
-
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext,
-                                                    error: Option[Throwable]): Array[Byte] = {
-    scala.util.Try(process(message.body)) match {
-      case scala.util.Success(isValid) =>
-        isValid
-      case scala.util.Failure(throwable) =>
-        createErrorResponse(throwable.getMessage)
-    }
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

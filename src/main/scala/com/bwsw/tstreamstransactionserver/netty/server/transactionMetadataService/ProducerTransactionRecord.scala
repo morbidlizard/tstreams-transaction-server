@@ -24,19 +24,9 @@ case class ProducerTransactionRecord(key: ProducerTransactionKey,
                                      producerTransaction: ProducerTransactionValue)
   extends ProducerTransaction
     with Ordered[ProducerTransactionRecord] {
-  override def stream: Int = key.stream
-
-  override def partition: Int = key.partition
-
-  override def transactionID: Long = key.transactionID
-
-  override def state: TransactionStates = producerTransaction.state
-
   override def quantity: Int = producerTransaction.quantity
 
   override def ttl: Long = producerTransaction.ttl
-
-  def timestamp: Long = producerTransaction.timestamp
 
   def this(stream: Int,
            partition: Int,
@@ -64,6 +54,16 @@ case class ProducerTransactionRecord(key: ProducerTransactionKey,
     else if (this.state.value > that.state.value) 1
     else 0
   }
+
+  override def stream: Int = key.stream
+
+  override def partition: Int = key.partition
+
+  override def transactionID: Long = key.transactionID
+
+  override def state: TransactionStates = producerTransaction.state
+
+  def timestamp: Long = producerTransaction.timestamp
 }
 
 object ProducerTransactionRecord {

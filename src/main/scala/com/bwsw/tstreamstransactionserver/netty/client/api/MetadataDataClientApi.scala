@@ -4,7 +4,7 @@ import scala.concurrent.{Future => ScalaFuture}
 
 trait MetadataDataClientApi
   extends MetadataClientApi
-    with  DataClientApi {
+    with DataClientApi {
   def putProducerStateWithData(producerTransaction: com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction, data: Seq[Array[Byte]], from: Int): ScalaFuture[Boolean]
 
   def putSimpleTransactionAndData(streamID: Int, partition: Int, data: Seq[Array[Byte]]): ScalaFuture[Long]

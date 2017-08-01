@@ -18,7 +18,6 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.client.zk
 
-import java.io.Closeable
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ZkNoConnectionException
@@ -29,16 +28,6 @@ import org.slf4j.LoggerFactory
 
 
 object ZKClient {
-  private def createListener(client: CuratorFramework,
-                             onConnectionStateChangeDo: ConnectionState => Unit) = {
-    new ConnectionStateListener {
-      override def stateChanged(client: CuratorFramework,
-                                newState: ConnectionState): Unit = {
-        onConnectionStateChangeDo(newState)
-      }
-    }
-  }
-
   def addConnectionListener(client: CuratorFramework,
                             onConnectionStateChangeDo: ConnectionState => Unit): ConnectionStateListener = {
     val listener = createListener(
@@ -50,6 +39,16 @@ object ZKClient {
       .addListener(listener)
 
     listener
+  }
+
+  private def createListener(client: CuratorFramework,
+                             onConnectionStateChangeDo: ConnectionState => Unit) = {
+    new ConnectionStateListener {
+      override def stateChanged(client: CuratorFramework,
+                                newState: ConnectionState): Unit = {
+        onConnectionStateChangeDo(newState)
+      }
+    }
   }
 
   def removeConnectionListener(client: CuratorFramework,
@@ -64,8 +63,6 @@ class ZKClient(endpoints: String,
                connectionTimeoutMillis: Int,
                policy: RetryPolicy,
                prefix: String) {
-
-  private val logger = LoggerFactory.getLogger(this.getClass)
 
   val client: CuratorFramework = {
     val connection = CuratorFrameworkFactory.builder()
@@ -89,6 +86,7 @@ class ZKClient(endpoints: String,
     else
       throw new ZkNoConnectionException(endpoints)
   }
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   def close(): Unit = {
     client.close()

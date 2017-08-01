@@ -16,52 +16,52 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
+package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import GetStreamProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.GetLastCheckpointedTransactionHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
 
-private object GetStreamProcessor {
-  val descriptor = Protocol.GetStream
+private object GetLastCheckpointedTransactionHandler {
+  val descriptor = Protocol.GetLastCheckpointedTransaction
 }
 
-class GetStreamProcessor(server: TransactionServer,
-                         context: ExecutionContext)
+class GetLastCheckpointedTransactionHandler(server: TransactionServer,
+                                            context: ExecutionContext)
   extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
 
-  private def process(requestBody: Array[Byte]) = {
-    val args = descriptor.decodeRequest(requestBody)
-    server.getStream(args.name)
+
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.GetLastCheckpointedTransaction.Result(
+        None,
+        Some(ServerException(message)
+        )
+      )
+    )
   }
 
   override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {}
 
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext): Array[Byte] = {
+  override protected def responseImplementation(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
     val response = descriptor.encodeResponse(
-      TransactionService.GetStream.Result(
+      TransactionService.GetLastCheckpointedTransaction.Result(
         process(message.body)
       )
     )
     response
   }
 
-  override def createErrorResponse(message: String): Array[Byte] = {
-    descriptor.encodeResponse(
-      TransactionService.GetStream.Result(
-        None,
-        Some(ServerException(message)
-        )
-      )
-    )
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.getLastCheckpointedTransaction(args.streamID, args.partition)
   }
 }

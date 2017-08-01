@@ -1,37 +1,38 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
 import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
-import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetZKCheckpointGroupServerPrefixProcessor.descriptor
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetZKCheckpointGroupServerPrefixHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.ServerRoleOptions
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import io.netty.channel.ChannelHandlerContext
 
-private object GetZKCheckpointGroupServerPrefixProcessor {
+private object GetZKCheckpointGroupServerPrefixHandler {
   val descriptor = Protocol.GetZKCheckpointGroupServerPrefix
 }
 
-class GetZKCheckpointGroupServerPrefixProcessor(serverRoleOptions: ServerRoleOptions)
+class GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions: ServerRoleOptions)
   extends SyncReadClientRequestHandler(
     descriptor.methodID,
     descriptor.name
-  ){
+  ) {
 
-  private val encodedResponse =  descriptor.encodeResponse(
+  private val encodedResponse = descriptor.encodeResponse(
     TransactionService.GetZKCheckpointGroupServerPrefix.Result(
       Some(
         serverRoleOptions.checkpointGroupMasterPrefix
       ))
   )
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext,
-                                                    error: Option[Throwable]): Array[Byte] = {
-    encodedResponse
-  }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     throw new UnsupportedOperationException(
       s"$name method doesn't imply error at all!"
     )
+  }
+
+  override protected def responseImplementation(message: RequestMessage,
+                                                ctx: ChannelHandlerContext,
+                                                error: Option[Throwable]): Array[Byte] = {
+    encodedResponse
   }
 }

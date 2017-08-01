@@ -28,13 +28,12 @@ class RocksDbConnection(rocksStorageOpts: RocksStorageOptions,
                         absolutePath: String,
                         ttl: Int = -1,
                         readOnly: Boolean = false)
-  extends Closeable
-{
+  extends Closeable {
   RocksDB.loadLibrary()
 
   private val options = rocksStorageOpts.createOptions()
   private val file = new File(absolutePath)
-  private val client =  {
+  private val client = {
     FileUtils.forceMkdir(file)
     TtlDB.open(options, file.getAbsolutePath, ttl, readOnly)
   }
@@ -60,6 +59,7 @@ class RocksDbConnection(rocksStorageOpts: RocksStorageOptions,
   }
 
   def iterator: RocksIterator = client.newIterator()
+
   override def close(): Unit = client.close()
 
   final def closeAndDeleteFolder(): Unit = {
@@ -69,13 +69,16 @@ class RocksDbConnection(rocksStorageOpts: RocksStorageOptions,
   }
 
   def newBatch = new Batch
+
   class Batch() {
-    private val batch  = new WriteBatch()
+    private val batch = new WriteBatch()
+
     def put(key: Array[Byte], data: Array[Byte]): Unit = {
-      batch.put(key,data)
+      batch.put(key, data)
     }
 
     def remove(key: Array[Byte]): Unit = batch.remove(key)
+
     def write(): Boolean = {
       val writeOptions = new WriteOptions()
       val status = scala.util.Try(client.write(writeOptions, batch)) match {
@@ -90,19 +93,19 @@ class RocksDbConnection(rocksStorageOpts: RocksStorageOptions,
     }
   }
 
-//  def newFileWriter = new FileWriter
-//  class FileWriter {
-//    private val sstFileWriter = new SstFileWriter(new EnvOptions(), options, RocksDbConnection.comparator)
-//    private val fileNew = new File(file.getAbsolutePath, "sst_file.sst")
-//    sstFileWriter.open(fileNew.getAbsolutePath)
-//
-//    def putData(data: Array[Byte]): Unit = sstFileWriter.add(new Slice(data), new Slice(Array[Byte]()))
-//    def finish(): Unit = {
-//      sstFileWriter.finish()
-//      client.compactRange()
-//      client.addFileWithFilePath(fileNew.getAbsolutePath, true)
-//    }
-//  }
+  //  def newFileWriter = new FileWriter
+  //  class FileWriter {
+  //    private val sstFileWriter = new SstFileWriter(new EnvOptions(), options, RocksDbConnection.comparator)
+  //    private val fileNew = new File(file.getAbsolutePath, "sst_file.sst")
+  //    sstFileWriter.open(fileNew.getAbsolutePath)
+  //
+  //    def putData(data: Array[Byte]): Unit = sstFileWriter.add(new Slice(data), new Slice(Array[Byte]()))
+  //    def finish(): Unit = {
+  //      sstFileWriter.finish()
+  //      client.compactRange()
+  //      client.addFileWithFilePath(fileNew.getAbsolutePath, true)
+  //    }
+  //  }
 }
 
 //private object RocksDbConnection extends App {

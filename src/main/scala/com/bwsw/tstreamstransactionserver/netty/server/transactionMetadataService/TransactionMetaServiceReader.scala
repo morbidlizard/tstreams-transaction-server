@@ -17,6 +17,7 @@ class TransactionMetaServiceReader(rocksDB: KeyValueDbManager) {
 
   private val lastTransactionReader =
     new LastTransactionReader(rocksDB)
+  private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
 
   final def getTransaction(streamID: Int, partition: Int, transaction: Long): com.bwsw.tstreamstransactionserver.rpc.TransactionInfo = {
     val lastTransaction = lastTransactionReader.getLastTransaction(streamID, partition)
@@ -38,7 +39,6 @@ class TransactionMetaServiceReader(rocksDB: KeyValueDbManager) {
     }
   }
 
-  private val comparator = com.bwsw.tstreamstransactionserver.`implicit`.Implicits.ByteArray
   def scanTransactions(streamID: Int,
                        partition: Int,
                        from: Long,
@@ -47,26 +47,27 @@ class TransactionMetaServiceReader(rocksDB: KeyValueDbManager) {
                        states: collection.Set[TransactionStates]): com.bwsw.tstreamstransactionserver.rpc.ScanTransactionsInfo = {
     val (lastOpenedTransactionID, toTransactionID) =
       lastTransactionReader.getLastTransaction(streamID, partition) match {
-      case Some(lastTransaction) => lastTransaction.opened.id match {
-        case lt if lt < from => (lt, from - 1L)
-        case lt if from <= lt && lt < to => (lt, lt)
-        case lt if lt >= to => (lt, to)
+        case Some(lastTransaction) => lastTransaction.opened.id match {
+          case lt if lt < from => (lt, from - 1L)
+          case lt if from <= lt && lt < to => (lt, lt)
+          case lt if lt >= to => (lt, to)
+        }
+        case None => (-1L, from - 1L)
       }
-      case None => (-1L, from - 1L)
-    }
 
     if (logger.isDebugEnabled)
       logger.debug(s"Trying to retrieve transactions " +
         s"on stream $streamID, " +
         s"partition: $partition " +
         s"in range [$from, $to]." +
-      s"Actually as lt ${if (lastOpenedTransactionID == -1) "doesn't exist" else s"is $lastOpenedTransactionID"} the range is [$from, $toTransactionID].")
+        s"Actually as lt ${if (lastOpenedTransactionID == -1) "doesn't exist" else s"is $lastOpenedTransactionID"} the range is [$from, $toTransactionID].")
 
     if (toTransactionID < from || count == 0) ScanTransactionsInfo(lastOpenedTransactionID, Seq())
     else {
       val iterator = producerTransactionsDatabase.iterator
 
       val lastTransactionID = new ProducerTransactionKey(streamID, partition, toTransactionID).toByteArray
+
       def moveCursorToKey: Option[ProducerTransactionRecord] = {
         val keyFrom = new ProducerTransactionKey(streamID, partition, from)
 

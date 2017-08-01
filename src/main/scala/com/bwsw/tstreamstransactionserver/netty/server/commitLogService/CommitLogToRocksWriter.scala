@@ -28,7 +28,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerT
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{CommitLogKey, ProducerTransactionRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.{BigCommit, RecordType, RocksWriter, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.{BigCommit, RecordType, RocksWriter}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
 import org.slf4j.LoggerFactory
 
@@ -43,10 +43,19 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val processAccordingToPolicy = createProcessingFunction()
 
-  final def getBigCommit(fileID: Long): BigCommit = {
-    val value = CommitLogKey(fileID).toByteArray
-    new BigCommit(rocksWriter, RocksStorage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
+  override def run(): Unit = {
+    val commitLogEntity = pathsToClosedCommitLogFiles.poll()
+    if (commitLogEntity != null) {
+      scala.util.Try {
+        processAccordingToPolicy(commitLogEntity)
+      } match {
+        case scala.util.Success(_) =>
+        case scala.util.Failure(error) => error.printStackTrace()
+      }
+    }
   }
+
+  final def closeRocksDB(): Unit = rocksDb.close()
 
   private def createProcessingFunction() = { (commitLogEntity: CommitLogStorage) =>
     incompleteCommitLogReadPolicy match {
@@ -115,18 +124,6 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
             throw new InterruptedException(s"MD5 doesn't exist in a commit log file (id: '${binary.getID}').")
         }
     }
-  }
-
-  private def readRecordsFromCommitLogFile(iter: CommitLogIterator,
-                                           recordsToReadNumber: Int): (ArrayBuffer[CommitLogRecord], CommitLogIterator) = {
-    val buffer = ArrayBuffer[CommitLogRecord]()
-    var recordsToRead = recordsToReadNumber
-    while (iter.hasNext() && recordsToRead > 0) {
-      val record = iter.next()
-      record.right.map(buffer += _)
-      recordsToRead = recordsToRead - 1
-    }
-    (buffer, iter)
   }
 
   @throws[Exception]
@@ -217,17 +214,20 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
     result
   }
 
-  override def run(): Unit = {
-    val commitLogEntity = pathsToClosedCommitLogFiles.poll()
-    if (commitLogEntity != null) {
-      scala.util.Try {
-        processAccordingToPolicy(commitLogEntity)
-      } match {
-        case scala.util.Success(_) =>
-        case scala.util.Failure(error) => error.printStackTrace()
-      }
-    }
+  final def getBigCommit(fileID: Long): BigCommit = {
+    val value = CommitLogKey(fileID).toByteArray
+    new BigCommit(rocksWriter, RocksStorage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
   }
 
-  final def closeRocksDB(): Unit = rocksDb.close()
+  private def readRecordsFromCommitLogFile(iter: CommitLogIterator,
+                                           recordsToReadNumber: Int): (ArrayBuffer[CommitLogRecord], CommitLogIterator) = {
+    val buffer = ArrayBuffer[CommitLogRecord]()
+    var recordsToRead = recordsToReadNumber
+    while (iter.hasNext() && recordsToRead > 0) {
+      val record = iter.next()
+      record.right.map(buffer += _)
+      recordsToRead = recordsToRead - 1
+    }
+    (buffer, iter)
+  }
 }

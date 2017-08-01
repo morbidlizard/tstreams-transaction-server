@@ -28,7 +28,7 @@ class CommitLogFileIterator(path: String) extends CommitLogIterator {
   private val fileInputStream = new FileInputStream(new File(path))
   override protected val stream = new BufferedInputStream(fileInputStream)
 
-  override def close():Unit = {
+  override def close(): Unit = {
     stream.close()
     fileInputStream.close()
   }

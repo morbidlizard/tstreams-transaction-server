@@ -26,13 +26,17 @@ import org.json4s._
 import org.json4s.jackson.JsonMethods.{parse, pretty, render}
 
 case class StreamRecord(key: StreamKey, stream: streamService.StreamValue)
-  extends rpc.Stream
-{
+  extends rpc.Stream {
   override def id: Int = key.id
+
   override def name: String = stream.name
+
   override def partitions: Int = stream.partitions
+
   override def ttl: Long = stream.ttl
+
   override def description: Option[String] = stream.description
+
   override def zkPath: String = stream.zkPath.get
 
   def toBinaryJson: Array[Byte] = {

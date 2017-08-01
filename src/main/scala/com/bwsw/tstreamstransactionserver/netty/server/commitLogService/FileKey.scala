@@ -26,6 +26,7 @@ class FileKey(val id: Long) extends AnyVal {
 
 object FileKey {
   def apply(id: Long): FileKey = new FileKey(id)
+
   final def fromByteArray(bytes: Array[Byte]) = new FileKey(java.nio.ByteBuffer.wrap(bytes).getLong)
 }
 

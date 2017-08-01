@@ -18,51 +18,52 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import PutStreamProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.DelStreamHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
-private object PutStreamProcessor{
-  val descriptor = Protocol.PutStream
+
+private object DelStreamHandler {
+  val descriptor = Protocol.DelStream
 }
 
-class PutStreamProcessor(server: TransactionServer,
-                         context: ExecutionContext)
+class DelStreamHandler(server: TransactionServer,
+                       context: ExecutionContext)
   extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
 
-  private def process(requestBody: Array[Byte]) = {
-    val args = descriptor.decodeRequest(requestBody)
-    server.putStream(args.name, args.partitions, args.description, args.ttl)
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.DelStream.Result(
+        None,
+        Some(ServerException(message))
+      )
+    )
+
   }
 
   override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
     process(message.body)
   }
 
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext): Array[Byte] = {
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.delStream(args.name)
+  }
+
+  override protected def responseImplementation(message: RequestMessage,
+                                                ctx: ChannelHandlerContext): Array[Byte] = {
     val response = descriptor.encodeResponse(
-      TransactionService.PutStream.Result(
+      TransactionService.DelStream.Result(
         Some(process(message.body))
       )
     )
     response
-  }
-
-  override def createErrorResponse(message: String): Array[Byte] = {
-    descriptor.encodeResponse(
-      TransactionService.PutStream.Result(
-        None,
-        Some(ServerException(message)
-        )
-      )
-    )
   }
 }

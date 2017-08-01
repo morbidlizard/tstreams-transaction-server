@@ -3,28 +3,13 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord, ProducerTransactionValue}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Invalid, Opened}
 
-abstract sealed class ProducerTransactionState(val producerTransactionRecord: ProducerTransactionRecord)
-{
+abstract sealed class ProducerTransactionState(val producerTransactionRecord: ProducerTransactionRecord) {
   def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState
 }
 
 
 class OpenedTransactionState(producerTransactionRecord: ProducerTransactionRecord)
-  extends ProducerTransactionState(producerTransactionRecord)
-{
-
-  private def transitProducerTransactionToInvalidState() = {
-    val txn = producerTransactionRecord
-    ProducerTransactionRecord(
-      ProducerTransactionKey(txn.stream, txn.partition, txn.transactionID),
-      ProducerTransactionValue(Invalid, 0, 0L, txn.timestamp)
-    )
-  }
-
-  private def isThisProducerTransactionExpired(that: ProducerTransactionRecord): Boolean = {
-    val expirationPoint = producerTransactionRecord.timestamp + producerTransactionRecord.ttl
-    scala.math.abs(expirationPoint) <= that.timestamp
-  }
+  extends ProducerTransactionState(producerTransactionRecord) {
 
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
     producerTransactionState match {
@@ -60,10 +45,23 @@ class OpenedTransactionState(producerTransactionRecord: ProducerTransactionRecor
       case that =>
         new UndefinedTransactionState(that.producerTransactionRecord)
     }
+
+  private def transitProducerTransactionToInvalidState() = {
+    val txn = producerTransactionRecord
+    ProducerTransactionRecord(
+      ProducerTransactionKey(txn.stream, txn.partition, txn.transactionID),
+      ProducerTransactionValue(Invalid, 0, 0L, txn.timestamp)
+    )
+  }
+
+  private def isThisProducerTransactionExpired(that: ProducerTransactionRecord): Boolean = {
+    val expirationPoint = producerTransactionRecord.timestamp + producerTransactionRecord.ttl
+    scala.math.abs(expirationPoint) <= that.timestamp
+  }
 }
 
 class UpdatedTransactionState(producerTransactionRecord: ProducerTransactionRecord)
-  extends ProducerTransactionState(producerTransactionRecord){
+  extends ProducerTransactionState(producerTransactionRecord) {
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
     producerTransactionState match {
       case that =>
@@ -72,7 +70,7 @@ class UpdatedTransactionState(producerTransactionRecord: ProducerTransactionReco
 }
 
 class CanceledTransactionState(producerTransactionRecord: ProducerTransactionRecord)
-  extends ProducerTransactionState(producerTransactionRecord){
+  extends ProducerTransactionState(producerTransactionRecord) {
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
     producerTransactionState match {
       case that =>
@@ -81,19 +79,19 @@ class CanceledTransactionState(producerTransactionRecord: ProducerTransactionRec
 }
 
 class InvalidTransactionState(producerTransactionRecord: ProducerTransactionRecord)
-  extends ProducerTransactionState(producerTransactionRecord){
+  extends ProducerTransactionState(producerTransactionRecord) {
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
     this
 }
 
 class CheckpointedTransactionState(producerTransactionRecord: ProducerTransactionRecord)
-  extends ProducerTransactionState(producerTransactionRecord){
+  extends ProducerTransactionState(producerTransactionRecord) {
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
     this
 }
 
 class UndefinedTransactionState(producerTransactionRecord: ProducerTransactionRecord)
-  extends ProducerTransactionState(producerTransactionRecord){
+  extends ProducerTransactionState(producerTransactionRecord) {
   override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
     producerTransactionState match {
       case that =>

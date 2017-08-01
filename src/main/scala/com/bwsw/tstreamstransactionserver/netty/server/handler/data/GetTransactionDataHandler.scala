@@ -16,56 +16,59 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
+package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
-import GetCommitLogOffsetsProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.data.GetTransactionDataHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
 
-private object GetCommitLogOffsetsProcessor {
-  val descriptor = Protocol.GetCommitLogOffsets
+private object GetTransactionDataHandler {
+  val descriptor = Protocol.GetTransactionData
 }
 
-class GetCommitLogOffsetsProcessor(server: TransactionServer,
-                                   scheduledCommitLog: ScheduledCommitLog,
-                                   context: ExecutionContext)
+class GetTransactionDataHandler(server: TransactionServer,
+                                context: ExecutionContext)
   extends AsyncClientRequestHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
 
-  private def process(requestBody: Array[Byte]) = {
-    CommitLogInfo(
-      server.getLastProcessedCommitLogFileID,
-      scheduledCommitLog.currentCommitLogFile
+
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.GetTransactionData.Result(
+        None,
+        Some(ServerException(message)
+        )
+      )
     )
   }
 
   override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {}
 
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext): Array[Byte] = {
+  override protected def responseImplementation(message: RequestMessage,
+                                                ctx: ChannelHandlerContext): Array[Byte] = {
     val response = descriptor.encodeResponse(
-      TransactionService.GetCommitLogOffsets.Result(
+      TransactionService.GetTransactionData.Result(
         Some(process(message.body))
       )
     )
     response
   }
 
-
-  override def createErrorResponse(message: String): Array[Byte] = {
-    descriptor.encodeResponse(
-      TransactionService.GetCommitLogOffsets.Result(
-        None,
-        Some(ServerException(message))
-      )
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.getTransactionData(
+      args.streamID,
+      args.partition,
+      args.transaction,
+      args.from,
+      args.to
     )
   }
 }

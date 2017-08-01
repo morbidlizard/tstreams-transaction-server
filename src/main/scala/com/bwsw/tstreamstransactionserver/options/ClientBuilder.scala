@@ -29,8 +29,7 @@ import org.apache.curator.framework.CuratorFramework
 class ClientBuilder private(authOpts: AuthOptions,
                             zookeeperOpts: ZookeeperOptions,
                             connectionOpts: ConnectionOptions,
-                            curatorOpt: Option[CuratorFramework])
-{
+                            curatorOpt: Option[CuratorFramework]) {
   private val authOptions = authOpts
   private val zookeeperOptions = zookeeperOpts
   private val connectionOptions = connectionOpts

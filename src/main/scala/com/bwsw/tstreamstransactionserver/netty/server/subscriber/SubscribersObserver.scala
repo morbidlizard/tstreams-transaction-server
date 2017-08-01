@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.subscriber
 import java.util
 import java.util.concurrent.{Executors, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamKey}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRepository}
 import org.apache.curator.framework.CuratorFramework
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -33,16 +33,11 @@ private object SubscribersObserver {
 
 private[server] final class SubscribersObserver(curatorClient: CuratorFramework,
                                                 streamInteractor: StreamRepository,
-                                                updatePeriodMs: Int)
-{
-  @volatile private var isStopped = false
-
+                                                updatePeriodMs: Int) {
   private val scheduledExecutor = Executors
     .newSingleThreadScheduledExecutor()
-
   private val partitionSubscribers =
     new java.util.concurrent.ConcurrentHashMap[StreamPartitionUnit, java.util.List[String]]()
-
   private val updateSubscribersTask = new Runnable {
     override def run(): Unit = {
       val keys = partitionSubscribers.keys()
@@ -55,19 +50,7 @@ private[server] final class SubscribersObserver(curatorClient: CuratorFramework,
       }
     }
   }
-
-  private def runSubscriberUpdateTask(): Unit = {
-    scheduledExecutor.scheduleWithFixedDelay(
-      updateSubscribersTask,
-      0L,
-      updatePeriodMs,
-      TimeUnit.MILLISECONDS
-    )
-  }
-
-  //Notify subscribers every 1 sec
-  runSubscriberUpdateTask()
-
+  @volatile private var isStopped = false
 
   def addSteamPartition(stream: Int, partition: Int): Unit = {
     val streamPartition = StreamPartitionUnit(stream, partition)
@@ -76,11 +59,8 @@ private[server] final class SubscribersObserver(curatorClient: CuratorFramework,
     }
   }
 
-  def getStreamPartitionSubscribers(stream: Int, partition: Int): Option[util.List[String]] = {
-    val streamPartition = StreamPartitionUnit(stream, partition)
-    Option(partitionSubscribers.get(streamPartition))
-  }
-
+  //Notify subscribers every 1 sec
+  runSubscriberUpdateTask()
 
   /**
     * Update subscribers on specific partition
@@ -101,6 +81,11 @@ private[server] final class SubscribersObserver(curatorClient: CuratorFramework,
     }
   }
 
+  def getStreamPartitionSubscribers(stream: Int, partition: Int): Option[util.List[String]] = {
+    val streamPartition = StreamPartitionUnit(stream, partition)
+    Option(partitionSubscribers.get(streamPartition))
+  }
+
   /**
     * Stop this Subscriber client
     */
@@ -119,6 +104,15 @@ private[server] final class SubscribersObserver(curatorClient: CuratorFramework,
       ))
       partitionSubscribers.clear()
     }
+  }
+
+  private def runSubscriberUpdateTask(): Unit = {
+    scheduledExecutor.scheduleWithFixedDelay(
+      updateSubscribersTask,
+      0L,
+      updatePeriodMs,
+      TimeUnit.MILLISECONDS
+    )
   }
 }
 

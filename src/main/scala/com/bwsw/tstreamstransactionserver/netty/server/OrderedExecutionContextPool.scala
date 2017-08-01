@@ -33,7 +33,7 @@ final class OrderedExecutionContextPool(poolNumber: Int) {
   }
 
   def close(): Unit = {
-    singleThreadPools.foreach{pool =>
+    singleThreadPools.foreach { pool =>
       pool.stopAccessNewTasks()
       pool.awaitAllCurrentTasksAreCompleted()
     }

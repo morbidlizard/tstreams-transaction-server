@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty
-import ResponseMessage._
+
+import com.bwsw.tstreamstransactionserver.netty.ResponseMessage._
 import io.netty.buffer.ByteBuf
 
 case class ResponseMessage(id: Long, body: Array[Byte]) {
@@ -31,7 +32,7 @@ case class ResponseMessage(id: Long, body: Array[Byte]) {
 
 object ResponseMessage {
   val headerFieldSize: Int =
-      java.lang.Long.BYTES  //id
+    java.lang.Long.BYTES //id
 
   val lengthFieldSize =
     java.lang.Integer.BYTES //length

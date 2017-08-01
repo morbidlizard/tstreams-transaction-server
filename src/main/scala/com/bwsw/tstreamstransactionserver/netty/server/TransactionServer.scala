@@ -21,14 +21,12 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
-import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamService}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransaction
-import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc
 import com.bwsw.tstreamstransactionserver.rpc._
 

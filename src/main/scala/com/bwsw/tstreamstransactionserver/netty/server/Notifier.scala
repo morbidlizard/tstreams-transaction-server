@@ -18,28 +18,21 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import java.util.concurrent.{Executors, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.{Executors, TimeUnit}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Promise}
-import scala.util.Try
 
 
 final class Notifier[T] {
-  private case class Notification(notifyOn: T => Boolean,
-                                  notificationPromise: scala.concurrent.Promise[Unit])
-
   private val executor = Executors.newSingleThreadExecutor()
-  private implicit val executionContext: ExecutionContext =
-    scala.concurrent.ExecutionContext.fromExecutorService(executor)
-
   private val requestIdGenerator =
     new AtomicLong(0L)
-
+  private implicit val executionContext: ExecutionContext =
+    scala.concurrent.ExecutionContext.fromExecutorService(executor)
   private val requests =
     scala.collection.concurrent.TrieMap.empty[Long, Notification]
-
   private val notifications =
     ArrayBuffer.empty[Promise[Unit]]
 
@@ -92,4 +85,7 @@ final class Notifier[T] {
       executor.awaitTermination(0L, TimeUnit.NANOSECONDS)
     }
   }
+
+  private case class Notification(notifyOn: T => Boolean,
+                                  notificationPromise: scala.concurrent.Promise[Unit])
 }

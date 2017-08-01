@@ -9,9 +9,6 @@ class ZKMasterInteractor(connection: CuratorFramework,
                          onMasterChangeDo: Either[Throwable, Option[SocketHostPortPair]] => Unit,
                          onConnectionStateChangeDo: ConnectionState => Unit)
   extends ZKInteractor(onMasterChangeDo) {
-  @volatile private var master: Either[Throwable, Option[SocketHostPortPair]] =
-    Right(None)
-
   private val (listener, zkMasterPathMonitor) = {
     val listener =
       ZKClient.addConnectionListener(
@@ -34,6 +31,8 @@ class ZKMasterInteractor(connection: CuratorFramework,
 
     (listener, monitor)
   }
+  @volatile private var master: Either[Throwable, Option[SocketHostPortPair]] =
+    Right(None)
 
   def getCurrentMaster: Either[Throwable, Option[SocketHostPortPair]] = {
     master

@@ -18,33 +18,65 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.rpc._
-import PutSimpleTransactionAndDataProcessor.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.handler.FutureClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.data.PutSimpleTransactionAndDataHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
+import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService.PutSimpleTransactionAndData
+import com.bwsw.tstreamstransactionserver.rpc._
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private object PutSimpleTransactionAndDataProcessor {
+private object PutSimpleTransactionAndDataHandler {
   val descriptor = Protocol.PutSimpleTransactionAndData
 }
 
 
-class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
-                                           scheduledCommitLog: ScheduledCommitLog,
-                                           notifier: OpenedTransactionNotifier,
-                                           authOptions: AuthenticationOptions,
-                                           orderedExecutionPool: OrderedExecutionContextPool)
+class PutSimpleTransactionAndDataHandler(server: TransactionServer,
+                                         scheduledCommitLog: ScheduledCommitLog,
+                                         notifier: OpenedTransactionNotifier,
+                                         authOptions: AuthenticationOptions,
+                                         orderedExecutionPool: OrderedExecutionContextPool)
   extends FutureClientRequestHandler(
     descriptor.methodID,
     descriptor.name) {
+
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.PutSimpleTransactionAndData.Result(
+        None,
+        Some(ServerException(message)
+        )
+      )
+    )
+  }
+
+  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
+    val args = descriptor.decodeRequest(message.body)
+    val context = orderedExecutionPool.pool(args.streamID, args.partition)
+    Future {
+      val transactionID =
+        server.getTransactionID
+
+      process(args, transactionID)
+
+      notifier.notifySubscribers(
+        args.streamID,
+        args.partition,
+        transactionID,
+        args.data.size,
+        TransactionState.Status.Instant,
+        Long.MaxValue,
+        authOptions.key,
+        isNotReliable = true
+      )
+    }(context)
+  }
 
   private def process(txn: PutSimpleTransactionAndData.Args,
                       transactionID: Long) = {
@@ -89,30 +121,8 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: RequestMessage): Future[_] = {
-    val args = descriptor.decodeRequest(message.body)
-    val context = orderedExecutionPool.pool(args.streamID, args.partition)
-    Future {
-      val transactionID =
-        server.getTransactionID
-
-      process(args, transactionID)
-
-      notifier.notifySubscribers(
-        args.streamID,
-        args.partition,
-        transactionID,
-        args.data.size,
-        TransactionState.Status.Instant,
-        Long.MaxValue,
-        authOptions.key,
-        isNotReliable = true
-      )
-    }(context)
-  }
-
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext): (Future[_], ExecutionContext) = {
+  override protected def responseImplementation(message: RequestMessage,
+                                                ctx: ChannelHandlerContext): (Future[_], ExecutionContext) = {
     val args = descriptor.decodeRequest(message.body)
     val context = orderedExecutionPool.pool(args.streamID, args.partition)
     val result = Future {
@@ -141,15 +151,5 @@ class PutSimpleTransactionAndDataProcessor(server: TransactionServer,
       )
     }(context)
     (result, context)
-  }
-
-  override def createErrorResponse(message: String): Array[Byte] = {
-    descriptor.encodeResponse(
-      TransactionService.PutSimpleTransactionAndData.Result(
-        None,
-        Some(ServerException(message)
-        )
-      )
-    )
   }
 }

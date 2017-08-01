@@ -46,19 +46,12 @@ object ConsumerTransactionRecord {
 case class ConsumerTransactionRecord(key: ConsumerTransactionKey,
                                      consumerTransaction: ConsumerTransactionValue)
   extends ConsumerTransaction
-    with Ordered[ConsumerTransactionRecord]
-{
-  override def transactionID: Long = consumerTransaction.transactionId
-  override def name: String = key.name
-  override def stream: Int = key.streamID
-  override def partition: Int = key.partition
-  def timestamp: Long = Long2long(consumerTransaction.timestamp)
-
+    with Ordered[ConsumerTransactionRecord] {
   def this(name: String,
            streamID: Int,
            partition: Int,
            transactionID: Long,
-           timestamp:Long) = {
+           timestamp: Long) = {
     this(
       ConsumerTransactionKey(name, streamID, partition),
       ConsumerTransactionValue(transactionID, timestamp)
@@ -78,4 +71,14 @@ case class ConsumerTransactionRecord(key: ConsumerTransactionKey,
     else if (this.transactionID > that.transactionID) 1
     else 0
   }
+
+  override def transactionID: Long = consumerTransaction.transactionId
+
+  override def name: String = key.name
+
+  override def stream: Int = key.streamID
+
+  override def partition: Int = key.partition
+
+  def timestamp: Long = Long2long(consumerTransaction.timestamp)
 }

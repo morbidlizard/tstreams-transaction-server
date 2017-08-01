@@ -4,11 +4,10 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigExcep
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 
-final class TransportService(packageTransmissionOpts: TransportOptions) {
+final class TransportValidator(packageTransmissionOpts: TransportOptions) {
   lazy val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +
     s"than maxMetadataPackageSize (${packageTransmissionOpts.maxMetadataPackageSize}) " +
     s"or maxDataPackageSize (${packageTransmissionOpts.maxDataPackageSize}).")
-
 
   val maxMetadataPackageSize: Int =
     packageTransmissionOpts.maxMetadataPackageSize

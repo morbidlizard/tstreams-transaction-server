@@ -24,7 +24,7 @@ case class ConsumerTransactionKey(name: String,
                                   streamID: Int,
                                   partition: Int) {
   def toByteArray: Array[Byte] = {
-    val nameBinary    = name.getBytes(ConsumerTransactionKey.charset)
+    val nameBinary = name.getBytes(ConsumerTransactionKey.charset)
     val nameFieldSize = java.lang.Integer.BYTES
 
     val size = nameFieldSize +
@@ -50,7 +50,7 @@ object ConsumerTransactionKey {
   val charset = StandardCharsets.UTF_8
 
   def fromByteArray(bytes: Array[Byte]): ConsumerTransactionKey = {
-    val buffer     = java.nio.ByteBuffer.wrap(bytes)
+    val buffer = java.nio.ByteBuffer.wrap(bytes)
     val nameLength = buffer.getInt
     val name = {
       val bytes = new Array[Byte](nameLength)

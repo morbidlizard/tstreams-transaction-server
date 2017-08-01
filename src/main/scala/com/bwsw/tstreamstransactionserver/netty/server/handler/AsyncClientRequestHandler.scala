@@ -10,11 +10,16 @@ abstract class AsyncClientRequestHandler(override final val id: Byte,
                                          context: ExecutionContext)
   extends ClientRequestHandler(id, name) {
 
-  protected def fireAndForgetImplementation(message: RequestMessage): Unit
-
-  protected def fireAndReplyImplementation(message: RequestMessage,
-                                           ctx: ChannelHandlerContext): Array[Byte]
-
+  override final def handle(message: RequestMessage,
+                            ctx: ChannelHandlerContext,
+                            acc: Option[Throwable]): Unit = {
+    if (message.isFireAndForgetMethod) {
+      handleFireAndForgetRequest(message, ctx, acc)
+    }
+    else {
+      handleRequest(message, ctx, acc)
+    }
+  }
 
   private def handleFireAndForgetRequest(message: RequestMessage,
                                          ctx: ChannelHandlerContext,
@@ -31,12 +36,12 @@ abstract class AsyncClientRequestHandler(override final val id: Byte,
     }
   }
 
-  private def handleFireAndReplyRequest(message: RequestMessage,
-                                        ctx: ChannelHandlerContext,
-                                        error: Option[Throwable]) = {
+  private def handleRequest(message: RequestMessage,
+                            ctx: ChannelHandlerContext,
+                            error: Option[Throwable]) = {
     if (error.isEmpty) {
       Future {
-        val response = fireAndReplyImplementation(message, ctx)
+        val response = responseImplementation(message, ctx)
         sendResponseToClient(message, response, ctx)
       }(context)
         .recover { case error =>
@@ -52,15 +57,8 @@ abstract class AsyncClientRequestHandler(override final val id: Byte,
     }
   }
 
+  protected def fireAndForgetImplementation(message: RequestMessage): Unit
 
-  override final def process(message: RequestMessage,
-                             ctx: ChannelHandlerContext,
-                             acc: Option[Throwable]): Unit = {
-    if (message.isFireAndForgetMethod) {
-      handleFireAndForgetRequest(message, ctx, acc)
-    }
-    else {
-      handleFireAndReplyRequest(message, ctx, acc)
-    }
-  }
+  protected def responseImplementation(message: RequestMessage,
+                                       ctx: ChannelHandlerContext): Array[Byte]
 }

@@ -1,21 +1,20 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata
 
-object LedgerIDAndItsLastRecordID{
-  val sizeInBytes: Int = java.lang.Long.BYTES*2
-
-  def apply(ledgerID: Long, ledgerLastRecordID: Long): LedgerIDAndItsLastRecordID =
-    new LedgerIDAndItsLastRecordID(ledgerID, ledgerLastRecordID)
+object LedgerIDAndItsLastRecordID {
+  val sizeInBytes: Int = java.lang.Long.BYTES * 2
 
   def fromByteArray(bytes: Array[Byte]): LedgerIDAndItsLastRecordID = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
 
     LedgerIDAndItsLastRecordID(buffer.getLong(), buffer.getLong())
   }
+
+  def apply(ledgerID: Long, ledgerLastRecordID: Long): LedgerIDAndItsLastRecordID =
+    new LedgerIDAndItsLastRecordID(ledgerID, ledgerLastRecordID)
 }
 
 
-final class LedgerIDAndItsLastRecordID(val ledgerID: Long, val ledgerLastRecordID: Long)
-{
+final class LedgerIDAndItsLastRecordID(val ledgerID: Long, val ledgerLastRecordID: Long) {
   def toByteArray: Array[Byte] = {
     val buffer = java.nio.ByteBuffer.allocate(LedgerIDAndItsLastRecordID.sizeInBytes)
       .putLong(ledgerID)

@@ -19,15 +19,14 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import io.netty.channel.socket.SocketChannel
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestRouter
 import io.netty.channel.ChannelInitializer
+import io.netty.channel.socket.SocketChannel
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder
 import io.netty.handler.codec.bytes.ByteArrayEncoder
 
 
-
-class ServerInitializer(requestHandlerRouter: RequestHandler)
+class ServerInitializer(requestRouter: RequestRouter)
   extends ChannelInitializer[SocketChannel] {
   override def initChannel(ch: SocketChannel): Unit = {
     ch.pipeline()
@@ -39,7 +38,7 @@ class ServerInitializer(requestHandlerRouter: RequestHandler)
         RequestMessage.lengthFieldSize)
       )
       .addLast(new ServerHandler(
-        requestHandlerRouter
+        requestRouter
       ))
   }
 }

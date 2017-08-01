@@ -27,112 +27,13 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.mutable.ArrayBuffer
 
 
-
 class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
-                                   producerStateMachineCache: ProducerStateMachineCache)
-{
+                                   producerStateMachineCache: ProducerStateMachineCache) {
+
   import producerStateMachineCache._
 
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
-
-  private final def selectInOrderProducerTransactions(transactions: Seq[ProducerTransactionRecord],
-                                                                       batch: KeyValueDbBatch) = {
-    val producerTransactions = ArrayBuffer[ProducerTransactionRecord]()
-    transactions foreach { txn =>
-      val key = KeyStreamPartition(txn.stream, txn.partition)
-      if (txn.state != TransactionStates.Opened) {
-        producerTransactions += txn
-      } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
-        // updating RAM table, and last opened transaction database.
-
-        updateLastOpenedTransactionID(
-          key,
-          txn.transactionID
-        )
-
-        putLastOpenedTransactionID(
-          key,
-          txn.transactionID,
-          batch
-        )
-
-        if (logger.isDebugEnabled)
-          logger.debug(
-            s"On stream:${key.stream} partition:${key.partition} " +
-              s"last opened transaction is ${txn.transactionID} now."
-          )
-        producerTransactions += txn
-      }
-    }
-    producerTransactions
-  }
-
-
-  private final def groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions: Seq[ProducerTransactionRecord]) =
-    producerTransactions.groupBy(txn => txn.key)
-
-  private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
-                                                                      producerTransactionWithNewState: ProducerTransactionRecord,
-                                                                      batch: KeyValueDbBatch): Unit = {
-    updateLastCheckpointedTransactionID(
-      key,
-      producerTransactionWithNewState.transactionID
-    )
-
-    putLastCheckpointedTransactionID(
-      key,
-      producerTransactionWithNewState.transactionID,
-      batch
-    )
-    if (logger.isDebugEnabled())
-      logger.debug(
-        s"On stream:${key.stream} partition:${key.partition} " +
-        s"last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now."
-      )
-  }
-
-  private def putTransactionToAllAndOpenedTables(producerTransactionRecord: ProducerTransactionRecord,
-                                                 batch: KeyValueDbBatch) =
-  {
-
-    if (producerTransactionRecord.state == TransactionStates.Checkpointed) {
-      updateLastCheckpointedTransactionAndPutToDatabase(
-        stateHandler.KeyStreamPartition(
-          producerTransactionRecord.stream,
-          producerTransactionRecord.partition
-        ),
-        producerTransactionRecord,
-        batch
-      )
-    }
-
-    val binaryTxn = producerTransactionRecord.producerTransaction.toByteArray
-    val binaryKey = producerTransactionRecord.key.toByteArray
-
-    producerStateMachineCache.updateProducerTransaction(
-      producerTransactionRecord.key,
-      producerTransactionRecord.producerTransaction
-    )
-
-    if (producerTransactionRecord.state == TransactionStates.Opened) {
-      batch.put(RocksStorage.TRANSACTION_OPEN_STORE, binaryKey, binaryTxn)
-    }
-    else {
-      batch.remove(RocksStorage.TRANSACTION_OPEN_STORE, binaryKey)
-    }
-    batch.put(RocksStorage.TRANSACTION_ALL_STORE, binaryKey, binaryTxn)
-
-    if (logger.isDebugEnabled)
-      logger.debug(s"Producer transaction on stream: ${producerTransactionRecord.stream}" +
-        s"partition ${producerTransactionRecord.partition}, transactionId ${producerTransactionRecord.transactionID} " +
-        s"with state ${producerTransactionRecord.state} is ready for commit"
-    )
-  }
-
-  protected def onStateChange: ProducerTransactionRecord => Unit =
-    _ => {}
-
 
   def putTransactions(transactions: Seq[ProducerTransactionRecord],
                       batch: KeyValueDbBatch): Unit = {
@@ -168,4 +69,99 @@ class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
         }
     }
   }
+
+  private final def selectInOrderProducerTransactions(transactions: Seq[ProducerTransactionRecord],
+                                                      batch: KeyValueDbBatch) = {
+    val producerTransactions = ArrayBuffer[ProducerTransactionRecord]()
+    transactions foreach { txn =>
+      val key = KeyStreamPartition(txn.stream, txn.partition)
+      if (txn.state != TransactionStates.Opened) {
+        producerTransactions += txn
+      } else if (!isThatTransactionOutOfOrder(key, txn.transactionID)) {
+        // updating RAM table, and last opened transaction database.
+
+        updateLastOpenedTransactionID(
+          key,
+          txn.transactionID
+        )
+
+        putLastOpenedTransactionID(
+          key,
+          txn.transactionID,
+          batch
+        )
+
+        if (logger.isDebugEnabled)
+          logger.debug(
+            s"On stream:${key.stream} partition:${key.partition} " +
+              s"last opened transaction is ${txn.transactionID} now."
+          )
+        producerTransactions += txn
+      }
+    }
+    producerTransactions
+  }
+
+  private final def groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions: Seq[ProducerTransactionRecord]) =
+    producerTransactions.groupBy(txn => txn.key)
+
+  private def putTransactionToAllAndOpenedTables(producerTransactionRecord: ProducerTransactionRecord,
+                                                 batch: KeyValueDbBatch) = {
+
+    if (producerTransactionRecord.state == TransactionStates.Checkpointed) {
+      updateLastCheckpointedTransactionAndPutToDatabase(
+        stateHandler.KeyStreamPartition(
+          producerTransactionRecord.stream,
+          producerTransactionRecord.partition
+        ),
+        producerTransactionRecord,
+        batch
+      )
+    }
+
+    val binaryTxn = producerTransactionRecord.producerTransaction.toByteArray
+    val binaryKey = producerTransactionRecord.key.toByteArray
+
+    producerStateMachineCache.updateProducerTransaction(
+      producerTransactionRecord.key,
+      producerTransactionRecord.producerTransaction
+    )
+
+    if (producerTransactionRecord.state == TransactionStates.Opened) {
+      batch.put(RocksStorage.TRANSACTION_OPEN_STORE, binaryKey, binaryTxn)
+    }
+    else {
+      batch.remove(RocksStorage.TRANSACTION_OPEN_STORE, binaryKey)
+    }
+    batch.put(RocksStorage.TRANSACTION_ALL_STORE, binaryKey, binaryTxn)
+
+    if (logger.isDebugEnabled)
+      logger.debug(s"Producer transaction on stream: ${producerTransactionRecord.stream}" +
+        s"partition ${producerTransactionRecord.partition}, transactionId ${producerTransactionRecord.transactionID} " +
+        s"with state ${producerTransactionRecord.state} is ready for commit"
+      )
+  }
+
+  private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
+                                                                      producerTransactionWithNewState: ProducerTransactionRecord,
+                                                                      batch: KeyValueDbBatch): Unit = {
+    updateLastCheckpointedTransactionID(
+      key,
+      producerTransactionWithNewState.transactionID
+    )
+
+    putLastCheckpointedTransactionID(
+      key,
+      producerTransactionWithNewState.transactionID,
+      batch
+    )
+    if (logger.isDebugEnabled())
+      logger.debug(
+        s"On stream:${key.stream} partition:${key.partition} " +
+          s"last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now."
+      )
+  }
+
+  protected def onStateChange: ProducerTransactionRecord => Unit =
+    _ => {}
 }

@@ -1,34 +1,26 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
-import com.bwsw.tstreamstransactionserver.netty.{RequestMessage, Protocol}
-import GetMaxPackagesSizesProcessor._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesHandler._
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
 import io.netty.channel.ChannelHandlerContext
 
 
-private object GetMaxPackagesSizesProcessor {
+private object GetMaxPackagesSizesHandler {
   val descriptor = Protocol.GetMaxPackagesSizes
 }
 
-class GetMaxPackagesSizesProcessor(packageTransmissionOpts: TransportOptions)
+class GetMaxPackagesSizesHandler(packageTransmissionOpts: TransportOptions)
   extends SyncReadClientRequestHandler(
     descriptor.methodID,
     descriptor.name
-  ){
+  ) {
 
-  private def process(requestBody: Array[Byte]) = {
-    val response = TransportOptionsInfo(
-      packageTransmissionOpts.maxMetadataPackageSize,
-      packageTransmissionOpts.maxDataPackageSize
-    )
-    response
-  }
-
-  override protected def fireAndReplyImplementation(message: RequestMessage,
-                                                    ctx: ChannelHandlerContext,
-                                                    error: Option[Throwable]): Array[Byte] = {
+  override protected def responseImplementation(message: RequestMessage,
+                                                ctx: ChannelHandlerContext,
+                                                error: Option[Throwable]): Array[Byte] = {
     scala.util.Try(process(message.body)) match {
       case scala.util.Success(result) =>
         val response = descriptor.encodeResponse(
@@ -39,6 +31,14 @@ class GetMaxPackagesSizesProcessor(packageTransmissionOpts: TransportOptions)
         val response = createErrorResponse(throwable.getMessage)
         response
     }
+  }
+
+  private def process(requestBody: Array[Byte]) = {
+    val response = TransportOptionsInfo(
+      packageTransmissionOpts.maxMetadataPackageSize,
+      packageTransmissionOpts.maxDataPackageSize
+    )
+    response
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {

@@ -21,6 +21,7 @@ package com.bwsw.commitlog.filesystem
 import java.io.File
 
 class CommitLogCatalogue(path: String) {
+
   import com.bwsw.commitlog.filesystem.FilePathManager._
 
   val dataFolder: File = {

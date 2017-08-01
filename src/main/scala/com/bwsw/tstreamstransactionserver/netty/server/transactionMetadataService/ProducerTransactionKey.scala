@@ -19,12 +19,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 
-
 case class ProducerTransactionKey(stream: Int,
                                   partition: Int,
                                   transactionID: Long)
-  extends Ordered[ProducerTransactionKey]
-{
+  extends Ordered[ProducerTransactionKey] {
 
   override def compare(that: ProducerTransactionKey): Int = {
     if (this.stream < that.stream) -1

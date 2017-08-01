@@ -6,7 +6,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNod
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.test.{TestProducerTransactionsCleaner, TestTransactionMetaServiceWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionsCleaner, TransactionMetaServiceWriter}
-import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, ConsumerTransaction}
+import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 
 class TestRocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
                       transactionDataService: TransactionDataService,

@@ -1,10 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
+import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
-import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
 
 import scala.collection.JavaConverters._
@@ -13,53 +13,13 @@ import scala.collection.mutable.ArrayBuffer
 class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTreeListReader,
                                         rocksReader: RocksReader,
                                         rocksWriter: RocksWriter)
-  extends Runnable
-{
+  extends Runnable {
 
-  private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit = {
-    val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
-    new BigCommit(rocksWriter, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
-  }
-
-
-  private def putConsumerTransaction(consumerRecords: java.util.Map[ConsumerTransactionKey, ConsumerTransactionRecord],
-                                     consumerTransactionRecord: ConsumerTransactionRecord): Unit = {
-    Option(
-      consumerRecords.computeIfPresent(
-        consumerTransactionRecord.key,
-        (_, oldConsumerTransactionRecord) => {
-          if (consumerTransactionRecord.timestamp < oldConsumerTransactionRecord.timestamp)
-            oldConsumerTransactionRecord
-          else
-            consumerTransactionRecord
-        }
-      )
-    ).getOrElse(
-      consumerRecords.put(
-        consumerTransactionRecord.key,
-        consumerTransactionRecord)
-    )
-  }
-
-  private def putProducerTransaction(producerRecords: ArrayBuffer[ProducerTransactionRecord],
-                                     producerTransactionRecord: ProducerTransactionRecord) = {
-    producerRecords += producerTransactionRecord
-  }
-
-  private def decomposeTransaction(producerRecords: ArrayBuffer[ProducerTransactionRecord],
-                                   consumerRecords: java.util.Map[ConsumerTransactionKey, ConsumerTransactionRecord],
-                                   transaction: Transaction,
-                                   timestamp: Long) = {
-    transaction.consumerTransaction.foreach { consumerTransaction =>
-      val consumerTransactionRecord =
-        ConsumerTransactionRecord(consumerTransaction, timestamp)
-      putConsumerTransaction(consumerRecords, consumerTransactionRecord)
-    }
-
-    transaction.producerTransaction.foreach { producerTransaction =>
-      val producerTransactionRecord =
-        ProducerTransactionRecord(producerTransaction, timestamp)
-      putProducerTransaction(producerRecords, producerTransactionRecord)
+  override def run(): Unit = {
+    var doReadNextRecords = true
+    while (doReadNextRecords) {
+      val info = processAndPersistRecords()
+      doReadNextRecords = info.doReadNextRecords
     }
   }
 
@@ -78,8 +38,7 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
         doReadNextRecords = false
       )
     }
-    else
-    {
+    else {
       val bigCommit = getBigCommit(ledgerIDsAndTheirLastRecordIDs)
 
       val recordsByType = records.groupBy(record => record.recordType)
@@ -177,11 +136,49 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
     }
   }
 
-  override def run(): Unit = {
-    var doReadNextRecords = true
-    while (doReadNextRecords) {
-      val info = processAndPersistRecords()
-      doReadNextRecords = info.doReadNextRecords
+  private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommit = {
+    val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
+    new BigCommit(rocksWriter, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
+  }
+
+  private def decomposeTransaction(producerRecords: ArrayBuffer[ProducerTransactionRecord],
+                                   consumerRecords: java.util.Map[ConsumerTransactionKey, ConsumerTransactionRecord],
+                                   transaction: Transaction,
+                                   timestamp: Long) = {
+    transaction.consumerTransaction.foreach { consumerTransaction =>
+      val consumerTransactionRecord =
+        ConsumerTransactionRecord(consumerTransaction, timestamp)
+      putConsumerTransaction(consumerRecords, consumerTransactionRecord)
     }
+
+    transaction.producerTransaction.foreach { producerTransaction =>
+      val producerTransactionRecord =
+        ProducerTransactionRecord(producerTransaction, timestamp)
+      putProducerTransaction(producerRecords, producerTransactionRecord)
+    }
+  }
+
+  private def putConsumerTransaction(consumerRecords: java.util.Map[ConsumerTransactionKey, ConsumerTransactionRecord],
+                                     consumerTransactionRecord: ConsumerTransactionRecord): Unit = {
+    Option(
+      consumerRecords.computeIfPresent(
+        consumerTransactionRecord.key,
+        (_, oldConsumerTransactionRecord) => {
+          if (consumerTransactionRecord.timestamp < oldConsumerTransactionRecord.timestamp)
+            oldConsumerTransactionRecord
+          else
+            consumerTransactionRecord
+        }
+      )
+    ).getOrElse(
+      consumerRecords.put(
+        consumerTransactionRecord.key,
+        consumerTransactionRecord)
+    )
+  }
+
+  private def putProducerTransaction(producerRecords: ArrayBuffer[ProducerTransactionRecord],
+                                     producerTransactionRecord: ProducerTransactionRecord) = {
+    producerRecords += producerTransactionRecord
   }
 }

@@ -20,16 +20,15 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestRouter
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import org.slf4j.LoggerFactory
 
 @Sharable
-class ServerHandler(requestHandlerRouter: RequestHandler)
-  extends SimpleChannelInboundHandler[ByteBuf]
-{
+class ServerHandler(requestRouter: RequestRouter)
+  extends SimpleChannelInboundHandler[ByteBuf] {
   private val logger =
     LoggerFactory.getLogger(this.getClass)
 
@@ -43,7 +42,7 @@ class ServerHandler(requestHandlerRouter: RequestHandler)
     if (logger.isDebugEnabled)
       logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id} method is invoked.")
 
-    requestHandlerRouter.process(message, ctx, None)
+    requestRouter.route(message, ctx, None)
 
   }
 

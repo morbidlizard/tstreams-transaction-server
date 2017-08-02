@@ -119,7 +119,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       //it's required to close a current commit log file
       transactionServer.scheduledCommitLog.run()
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val fromID = producerTransactions.minBy(_.transactionID).transactionID
       val toID = producerTransactions.maxBy(_.transactionID).transactionID
@@ -167,7 +167,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val fromID = producerTransactions.head.transactionID
       val toID = producerTransactions.last.transactionID
@@ -203,7 +203,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val canceledTransaction = producerTransaction1.copy(state = TransactionStates.Cancel, quantity = 0, ttl = 0L)
       Await.result(secondClient.putProducerState(canceledTransaction), secondsWait.seconds) shouldBe true
@@ -213,7 +213,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       Await.result(firstClient.getTransaction(streamID, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe canceledTransaction.copy(state = TransactionStates.Invalid)
       Await.result(secondClient.getTransaction(streamID, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe canceledTransaction.copy(state = TransactionStates.Invalid)
@@ -245,7 +245,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       //it's required to close a current commit log file
       transactionServer.scheduledCommitLog.run()
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       val checkpointedTransaction = producerTransaction1.copy(state = TransactionStates.Checkpointed)
@@ -254,7 +254,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       //it's required to close a current commit log file
       transactionServer.scheduledCommitLog.run()
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       Await.result(firstClient.getTransaction(streamID, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe checkpointedTransaction
       Await.result(secondClient.getTransaction(streamID, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe checkpointedTransaction
@@ -287,7 +287,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val invalidTransaction = producerTransaction1.copy(state = TransactionStates.Invalid)
       Await.result(secondClient.putProducerState(invalidTransaction), secondsWait.seconds) shouldBe true
@@ -297,7 +297,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       Await.result(firstClient.getTransaction(streamID, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe producerTransaction1
       Await.result(secondClient.getTransaction(streamID, stream.partitions, producerTransaction1.transactionID), secondsWait.seconds).transaction.get shouldBe producerTransaction1

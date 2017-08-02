@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data
 
 
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 
 class Record(val recordType: Byte,
              val timestamp: Long,

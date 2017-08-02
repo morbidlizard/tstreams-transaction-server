@@ -108,7 +108,7 @@ class SingleNodeServerLastCheckpointedTransactionTest
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       Await.result(firstClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
       Await.result(secondClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction1.transactionID
@@ -127,7 +127,7 @@ class SingleNodeServerLastCheckpointedTransactionTest
       Await.result(firstClient.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       Await.result(firstClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
       Await.result(secondClient.getLastCheckpointedTransaction(streamID, stream.partitions), secondsWait.seconds) shouldBe producerTransaction2.transactionID
@@ -168,7 +168,7 @@ class SingleNodeServerLastCheckpointedTransactionTest
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
 
       val retrievedTransaction = Await.result(client.getLastCheckpointedTransaction(streamID, partition), secondsWait.seconds)

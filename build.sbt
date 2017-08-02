@@ -2,7 +2,7 @@ name := "tstreams-transaction-server"
 
 version := "1.4.0-SNAPSHOT"
 
-scalaVersion := "2.12.2"
+scalaVersion := "2.12.3"
 
 pomExtra :=
   <scm>
@@ -80,6 +80,11 @@ libraryDependencies ++= Seq(
   "org.rocksdb" % "rocksdbjni" % "5.4.5",
   "org.scalactic" %% "scalactic" % "3.0.3",
   "org.scalatest" %% "scalatest" % "3.0.3" % "test",
+
+  ("io.netty" % "netty" % "3.10.6.Final")
+    .exclude("log4j", "log4j")
+    .exclude("org.slf4j", "slf4j-api"),
+
   ("io.netty" % "netty-all" % "4.1.13.Final")
     .exclude("log4j", "log4j")
     .exclude("org.slf4j", "slf4j-api"),

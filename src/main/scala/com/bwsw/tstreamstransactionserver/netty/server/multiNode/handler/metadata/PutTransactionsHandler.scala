@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionServi
 import io.netty.channel.ChannelHandlerContext
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 import PutTransactionsHandler._
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 

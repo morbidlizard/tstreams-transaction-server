@@ -1,8 +1,9 @@
-package com.bwsw.tstreamstransactionserver.netty.server
+package com.bwsw.tstreamstransactionserver.netty.server.batch
 
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
+import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import org.slf4j.{Logger, LoggerFactory}

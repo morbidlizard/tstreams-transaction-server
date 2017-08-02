@@ -1,5 +1,6 @@
-package com.bwsw.tstreamstransactionserver.netty.server.commitLogReader
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 
 class BookKeeperRecordFrame(record: Record)

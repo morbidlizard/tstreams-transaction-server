@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
 
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.ArgsDependentContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data.PutSimpleTransactionAndDataHandler.descriptor

@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{LedgerHandle, ReplicationConfig, StorageManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{LedgerHandle, ReplicationConfig, LedgerManager}
 import org.apache.bookkeeper.client.BookKeeper
 
 import scala.util.Try
@@ -8,7 +8,7 @@ import scala.util.Try
 class BookKeeperWrapper(bookKeeper: BookKeeper,
                         replicationConfig: ReplicationConfig,
                         password: Array[Byte])
-  extends StorageManager {
+  extends LedgerManager {
 
   override def createLedger(): LedgerHandle = {
     val ledgerHandle = bookKeeper.createLedger(

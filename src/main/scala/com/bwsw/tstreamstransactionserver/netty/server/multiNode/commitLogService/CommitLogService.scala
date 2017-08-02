@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService
 
-import com.bwsw.tstreamstransactionserver.netty.server.BigCommit
+import com.bwsw.tstreamstransactionserver.netty.server.batch.BigCommit
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage

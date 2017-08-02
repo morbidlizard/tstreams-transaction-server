@@ -36,9 +36,13 @@ case class ProducerTransactionValue(state: TransactionStates,
       .putLong(timestamp)
     buffer.flip()
 
-    val bytes = new Array[Byte](size)
-    buffer.get(bytes)
-    bytes
+    if (buffer.hasArray)
+      buffer.array()
+    else {
+      val bytes = new Array[Byte](size)
+      buffer.get(bytes)
+      bytes
+    }
   }
 
   override def compare(that: ProducerTransactionValue): Int = {

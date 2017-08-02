@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.StorageManager
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZkMultipleTreeListReader.{NoLedgerExist, NoRecordRead}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
@@ -11,11 +11,11 @@ private object ZkMultipleTreeListReader {
 }
 
 class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
-                               storageManager: StorageManager) {
+                               storageManager: LedgerManager) {
 
   private type Timestamp = Long
 
-  def process(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): (Array[Record], Array[LedgerIDAndItsLastRecordID]) = {
+  def read(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): (Array[Record], Array[LedgerIDAndItsLastRecordID]) = {
     val processedLastRecordIDsAcrossLedgersCopy =
       java.util.Arrays.copyOf(
         processedLastRecordIDsAcrossLedgers,

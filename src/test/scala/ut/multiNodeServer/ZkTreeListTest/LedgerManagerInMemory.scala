@@ -2,10 +2,10 @@ package ut.multiNodeServer.ZkTreeListTest
 
 import java.util.concurrent.atomic.AtomicLong
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{LedgerHandle, StorageManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{LedgerHandle, LedgerManager}
 
-class StorageManagerInMemory
-  extends StorageManager{
+class LedgerManagerInMemory
+  extends LedgerManager{
 
   private val ledgerIDGen = new AtomicLong(0L)
 

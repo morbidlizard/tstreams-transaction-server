@@ -23,7 +23,7 @@ import java.io.File
 
 import com.bwsw.commitlog.filesystem.CommitLogBinary
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{FileKey, FileValue}
 import org.apache.commons.io.FileUtils
 import org.json4s._

@@ -21,12 +21,29 @@
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
 class FileKey(val id: Long) extends AnyVal {
-  final def toByteArray = java.nio.ByteBuffer.allocate(java.lang.Long.BYTES).putLong(id).array()
+  final def toByteArray(): Array[Byte] = {
+    val size = java.lang.Long.BYTES
+
+    val buffer = java.nio.ByteBuffer
+      .allocate(size)
+      .putLong(id)
+    buffer.flip()
+
+    if (buffer.hasArray)
+      buffer.array()
+    else {
+      val bytes = new Array[Byte](size)
+      buffer.get(bytes)
+      bytes
+    }
+  }
 }
 
 object FileKey {
-  def apply(id: Long): FileKey = new FileKey(id)
+  def apply(id: Long): FileKey =
+    new FileKey(id)
 
-  final def fromByteArray(bytes: Array[Byte]) = new FileKey(java.nio.ByteBuffer.wrap(bytes).getLong)
+  final def fromByteArray(bytes: Array[Byte]) =
+    new FileKey(java.nio.ByteBuffer.wrap(bytes).getLong)
 }
 

@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.commitLogReader
+package com.bwsw.tstreamstransactionserver.netty.server.batch
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService._

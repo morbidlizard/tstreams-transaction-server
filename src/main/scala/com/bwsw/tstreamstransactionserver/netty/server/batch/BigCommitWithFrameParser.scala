@@ -1,13 +1,12 @@
-package com.bwsw.tstreamstransactionserver.netty.server.commitLogReader
+package com.bwsw.tstreamstransactionserver.netty.server.batch
 
-import com.bwsw.tstreamstransactionserver.netty.server.BigCommit
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
 import com.bwsw.tstreamstransactionserver.rpc.Transaction
 
 import scala.collection.mutable
 
-class BigCommitWrapper(bigCommit: BigCommit) {
+class BigCommitWithFrameParser(bigCommit: BigCommit) {
 
   private val producerRecords =
     mutable.ArrayBuffer.empty[ProducerTransactionRecord]

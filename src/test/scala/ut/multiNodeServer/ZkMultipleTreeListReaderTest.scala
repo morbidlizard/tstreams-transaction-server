@@ -3,9 +3,9 @@ package ut.multiNodeServer
 import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ZkMultipleTreeListReader, ZookeeperTreeListLong}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ReplicationConfig, StorageManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ReplicationConfig, LedgerManager}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookKeeperWrapper
@@ -15,7 +15,7 @@ import org.apache.bookkeeper.client.BookKeeper
 import org.apache.bookkeeper.conf.ClientConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-import ut.multiNodeServer.ZkTreeListTest.StorageManagerInMemory
+import ut.multiNodeServer.ZkTreeListTest.LedgerManagerInMemory
 import util.Utils
 
 class ZkMultipleTreeListReaderTest
@@ -96,7 +96,7 @@ class ZkMultipleTreeListReaderTest
 
 
   "ZkMultipleTreeListReader" should "not retrieve records from database ZkTreeListLong objects don't have entities" in {
-    val storage = new StorageManagerInMemory
+    val storage = new LedgerManagerInMemory
 
     val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
     val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
@@ -109,7 +109,7 @@ class ZkMultipleTreeListReaderTest
 
     val ledgerRecordIDs = Array.empty[LedgerIDAndItsLastRecordID]
     val (records, updatedLedgersWithTheirLastRecords) =
-      testReader.process(ledgerRecordIDs)
+      testReader.read(ledgerRecordIDs)
 
     records shouldBe empty
     ledgerRecordIDs should contain theSameElementsAs updatedLedgersWithTheirLastRecords
@@ -117,7 +117,7 @@ class ZkMultipleTreeListReaderTest
 
 
   it should "not retrieve records as one of ZkTreeListLong objects doesn't have entities" in {
-    val storage = new StorageManagerInMemory
+    val storage = new LedgerManagerInMemory
 
     val firstLedger = storage.createLedger()
 
@@ -134,14 +134,14 @@ class ZkMultipleTreeListReaderTest
 
     val ledgerRecordIDs = Array.empty[LedgerIDAndItsLastRecordID]
     val (records, updatedLedgersWithTheirLastRecords) =
-      testReader.process(ledgerRecordIDs)
+      testReader.read(ledgerRecordIDs)
 
     records shouldBe empty
     ledgerRecordIDs should contain theSameElementsAs updatedLedgersWithTheirLastRecords
   }
 
 
-  private def test1(storage: StorageManager) = {
+  private def test1(storage: LedgerManager) = {
     val stream = generateStream
 
     val producerTransactionsNumber = 50
@@ -224,10 +224,10 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
-      testReader.process(updatedLedgersWithTheirLastRecords1)
+      testReader.read(updatedLedgersWithTheirLastRecords1)
 
     records1.length shouldBe producerTransactionsNumber * 2 + 2
     records2 shouldBe empty
@@ -253,14 +253,14 @@ class ZkMultipleTreeListReaderTest
       passwordBookKeeper
     )
 
-    val storage = new StorageManagerInMemory
+    val storage = new LedgerManagerInMemory
 
     test1(storage)
     test1(bookKeeperStorage)
   }
 
 
-  private def test2(storage: StorageManager) = {
+  private def test2(storage: LedgerManager) = {
     val stream = generateStream
 
     val producerTransactionsNumber = 99
@@ -343,10 +343,10 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
-      testReader.process(updatedLedgersWithTheirLastRecords1)
+      testReader.read(updatedLedgersWithTheirLastRecords1)
 
     records1.length shouldBe 150
     records2.length shouldBe 0
@@ -372,7 +372,7 @@ class ZkMultipleTreeListReaderTest
       passwordBookKeeper
     )
 
-    val storage = new StorageManagerInMemory
+    val storage = new LedgerManagerInMemory
 
     test2(storage)
     test2(bookKeeperStorage)
@@ -467,7 +467,7 @@ class ZkMultipleTreeListReaderTest
     )
 
 
-    val storage = new StorageManagerInMemory
+    val storage = new LedgerManagerInMemory
 
     val firstLedger = storage.createLedger()
     firstLedgerRecords.foreach(record => firstLedger.addRecord(record))
@@ -499,10 +499,10 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
-      testReader.process(updatedLedgersWithTheirLastRecords1)
+      testReader.read(updatedLedgersWithTheirLastRecords1)
 
     records1.length shouldBe 150
     records2.length shouldBe 80
@@ -589,7 +589,7 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndIncrement()
     )
 
-    val storage = new StorageManagerInMemory
+    val storage = new LedgerManagerInMemory
 
     val firstLedger = storage.createLedger()
     firstTreeRecords.foreach(record => firstLedger.addRecord(record))
@@ -612,10 +612,10 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
-      testReader.process(updatedLedgersWithTheirLastRecords1)
+      testReader.read(updatedLedgersWithTheirLastRecords1)
 
     records1.length shouldBe 150
     records2.length shouldBe 0
@@ -653,7 +653,7 @@ class ZkMultipleTreeListReaderTest
       atomicLong.getAndSet(400L)
     )
 
-    val storage = new StorageManagerInMemory
+    val storage = new LedgerManagerInMemory
 
     val firstLedger = storage.createLedger()
     firstLedger.addRecord(firstTimestampRecord)
@@ -689,7 +689,7 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.process(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
 
     records1.length shouldBe 1
     updatedLedgersWithTheirLastRecords1.head.ledgerID shouldBe forthLedger.id
@@ -698,7 +698,7 @@ class ZkMultipleTreeListReaderTest
     updatedLedgersWithTheirLastRecords1.tail.head.ledgerLastRecordID shouldBe 0L
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
-      testReader.process(updatedLedgersWithTheirLastRecords1)
+      testReader.read(updatedLedgersWithTheirLastRecords1)
 
     records2.length shouldBe 1
     updatedLedgersWithTheirLastRecords2.head.ledgerID shouldBe forthLedger.id
@@ -707,7 +707,7 @@ class ZkMultipleTreeListReaderTest
     updatedLedgersWithTheirLastRecords2.tail.head.ledgerLastRecordID shouldBe 0L
 
     val (records3, updatedLedgersWithTheirLastRecords3) =
-      testReader.process(updatedLedgersWithTheirLastRecords2)
+      testReader.read(updatedLedgersWithTheirLastRecords2)
 
     records3.length shouldBe 1
     updatedLedgersWithTheirLastRecords3.head.ledgerID shouldBe forthLedger.id
@@ -716,7 +716,7 @@ class ZkMultipleTreeListReaderTest
     updatedLedgersWithTheirLastRecords3.tail.head.ledgerLastRecordID shouldBe 0L
 
     val (records4, updatedLedgersWithTheirLastRecords4) =
-      testReader.process(updatedLedgersWithTheirLastRecords3)
+      testReader.read(updatedLedgersWithTheirLastRecords3)
 
     records4 shouldBe empty
     updatedLedgersWithTheirLastRecords4.head.ledgerID shouldBe forthLedger.id

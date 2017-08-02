@@ -24,9 +24,11 @@ import java.io.{BufferedInputStream, File, FileInputStream}
   *
   * @param path full path to file
   */
-class CommitLogFileIterator(path: String) extends CommitLogIterator {
+class CommitLogFileIterator(path: String)
+  extends CommitLogIterator {
+
   private val fileInputStream = new FileInputStream(new File(path))
-  override protected val stream = new BufferedInputStream(fileInputStream)
+  override final protected val stream = new BufferedInputStream(fileInputStream)
 
   override def close(): Unit = {
     stream.close()

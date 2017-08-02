@@ -21,9 +21,19 @@ package com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 class StreamKey(val id: Int) extends AnyVal {
   def toByteArray: Array[Byte] = {
-    java.nio.ByteBuffer.allocate(java.lang.Integer.BYTES)
+    val size = java.lang.Integer.BYTES
+    val buffer = java.nio.ByteBuffer
+      .allocate(size)
       .putInt(id)
-      .array()
+    buffer.flip()
+
+    if (buffer.hasArray)
+      buffer.array()
+    else {
+      val bytes = new Array[Byte](size)
+      buffer.get(bytes)
+      bytes
+    }
   }
 }
 

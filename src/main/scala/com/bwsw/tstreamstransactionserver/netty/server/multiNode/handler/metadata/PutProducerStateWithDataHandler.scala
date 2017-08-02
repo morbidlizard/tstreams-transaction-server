@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metada
 
 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutSimpleTransactionAndDataHandler._

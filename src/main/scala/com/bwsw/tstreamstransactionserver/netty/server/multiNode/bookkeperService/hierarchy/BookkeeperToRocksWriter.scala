@@ -4,19 +4,20 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server._
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.{BigCommitWrapper, BookKeeperRecordFrame}
+import com.bwsw.tstreamstransactionserver.netty.server.batch.{BigCommit, BigCommitWithFrameParser}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperRecordFrame
 
 
-class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTreeListReader,
-                                        rocksReader: RocksReader,
-                                        rocksWriter: RocksWriter)
+class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader,
+                              rocksReader: RocksReader,
+                              rocksWriter: RocksWriter)
   extends Runnable
 {
 
-  private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommitWrapper = {
+  private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommitWithFrameParser = {
     val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
     val bigCommit = new BigCommit(rocksWriter, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
-    new BigCommitWrapper(bigCommit)
+    new BigCommitWithFrameParser(bigCommit)
   }
 
   def processAndPersistRecords(): PersistedCommitAndMoveToNextRecordsInfo = {
@@ -26,7 +27,7 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
 
 
     val (records, ledgerIDsAndTheirLastRecordIDs) =
-      zkMultipleTreeListReader.process(ledgerRecordIDs)
+      zkMultipleTreeListReader.read(ledgerRecordIDs)
 
     if (records.isEmpty) {
       PersistedCommitAndMoveToNextRecordsInfo(

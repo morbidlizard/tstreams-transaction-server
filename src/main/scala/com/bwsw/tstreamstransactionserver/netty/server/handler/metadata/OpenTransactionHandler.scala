@@ -19,12 +19,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.OpenTransactionHandler._
 import com.bwsw.tstreamstransactionserver.rpc._
 import OpenTransactionHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 
 private object OpenTransactionHandler {
   val descriptor = Protocol.OpenTransaction
@@ -54,7 +54,7 @@ class OpenTransactionHandler(server: TransactionServer,
     )
 
     scheduledCommitLog.putData(
-      RecordType.PutTransactionType.id.toByte,
+      Frame.PutTransactionType.id.toByte,
       binaryTransaction
     )
 

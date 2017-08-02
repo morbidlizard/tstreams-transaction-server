@@ -21,6 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.exception.Throwable.{PackageTooBigException, TokenInvalidException}
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestHandlerRouter}
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
@@ -245,7 +246,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
             )
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              RecordType.PutTransactionType.id.toByte,
+              Frame.PutTransactionType.id.toByte,
               binaryTransaction
             )
 
@@ -322,7 +323,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
 
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              RecordType.PutTransactionsType.id.toByte,
+              Frame.PutTransactionsType.id.toByte,
               messageForPutTransactions
             )
 
@@ -468,7 +469,7 @@ class ServerHandler(requestHandlerRouter: RequestHandlerRouter,
               )
 
             requestHandlerRouter.scheduledCommitLog.putData(
-              RecordType.PutTransactionsType.id.toByte,
+              Frame.PutTransactionsType.id.toByte,
               messageForPutTransactions
             )
 

@@ -58,9 +58,6 @@ class CommitLog(seconds: Int,
         .append(FilePathManager.DATAEXTENSION)
         .toString
 
-    private val recordIDGen =
-      new AtomicLong(0L)
-
     private val md5: MessageDigest =
       MessageDigest.getInstance("MD5")
 
@@ -93,8 +90,8 @@ class CommitLog(seconds: Int,
     private[CommitLog] def put(messageType: Byte, message: Array[Byte]): Unit = {
       val commitLogRecord =
         CommitLogRecord(
-          recordIDGen.getAndIncrement(),
-          messageType, message,
+          messageType,
+          message,
           System.currentTimeMillis()
         )
 

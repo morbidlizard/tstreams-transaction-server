@@ -1,12 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 import PutTransactionHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 
@@ -37,7 +38,7 @@ class PutTransactionHandler(server: TransactionServer,
     gateway.doOperationWithCurrentWriteLedger { currentLedger =>
 
       val record = new Record(
-        RecordType.PutTransactionsType,
+        Frame.PutTransactionsType,
         System.currentTimeMillis(),
         requestBody
       )

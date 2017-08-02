@@ -20,33 +20,36 @@
 
 package com.bwsw.tstreamstransactionserver.netty.server.commitLogService
 
+import java.util
 import java.util.concurrent.PriorityBlockingQueue
 
 import com.bwsw.commitlog.CommitLogRecord
 import com.bwsw.commitlog.filesystem.{CommitLogBinary, CommitLogFile, CommitLogIterator, CommitLogStorage}
-import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.{BigCommitWrapper, CommitLogRecordFrame}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{CommitLogKey, ProducerTransactionRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.{BigCommit, RecordType, RocksWriter, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.CommitLogKey
+import com.bwsw.tstreamstransactionserver.netty.server.{BigCommit, RocksWriter}
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
+import CommitLogToRocksWriter.recordsToReadNumber
+
+private object CommitLogToRocksWriter {
+  val recordsToReadNumber = 1
+}
+
 class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
                              pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],
                              rocksWriter: => RocksWriter,
                              incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
   extends Runnable {
+
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val processAccordingToPolicy = createProcessingFunction()
-
-  final def getBigCommit(fileID: Long): BigCommit = {
-    val value = CommitLogKey(fileID).toByteArray
-    new BigCommit(rocksWriter, RocksStorage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
-  }
 
   private def createProcessingFunction() = { (commitLogEntity: CommitLogStorage) =>
     incompleteCommitLogReadPolicy match {
@@ -117,100 +120,69 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
     }
   }
 
+  private final def getRecordsReader(fileID: Long): BigCommitWrapper = {
+    val value =
+      CommitLogKey(fileID).toByteArray
+    val bigCommit =
+      new BigCommit(rocksWriter, RocksStorage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
+    new BigCommitWrapper(bigCommit)
+  }
+
   private def readRecordsFromCommitLogFile(iter: CommitLogIterator,
-                                           recordsToReadNumber: Int): (ArrayBuffer[CommitLogRecord], CommitLogIterator) = {
-    val buffer = ArrayBuffer[CommitLogRecord]()
+                                           recordsToReadNumber: Int): (ArrayBuffer[CommitLogRecordFrame], CommitLogIterator) = {
+    val buffer = ArrayBuffer.empty[CommitLogRecordFrame]
     var recordsToRead = recordsToReadNumber
     while (iter.hasNext() && recordsToRead > 0) {
       val record = iter.next()
-      record.right.map(buffer += _)
+      record.right.foreach(buffer += new CommitLogRecordFrame(_))
       recordsToRead = recordsToRead - 1
     }
     (buffer, iter)
   }
 
+  @tailrec
+  private final def processOneRecord(iterator: CommitLogIterator,
+                                     commitLogReader: BigCommitWrapper,
+                                     lastTransactionTimestamp: Option[Long]): Option[Long] = {
+
+    val (commitLogRecords, iter) =
+      readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
+
+    commitLogReader.addFrames(commitLogRecords)
+
+    val isAnyElements = iter.hasNext()
+    if (isAnyElements) {
+      val lastTransactionTimestampInRecord =
+        commitLogRecords
+          .lastOption.map(_.timestamp)
+          .orElse(lastTransactionTimestamp)
+
+      processOneRecord(
+        iter,
+        commitLogReader,
+        lastTransactionTimestampInRecord
+      )
+    }
+    else
+      lastTransactionTimestamp
+  }
+
   @throws[Exception]
   private def processCommitLogFile(file: CommitLogStorage): Boolean = {
-    val recordsToReadNumber = 1
-    val bigCommit = getBigCommit(file.getID)
+    val commitLogReader: BigCommitWrapper =
+      getRecordsReader(file.getID)
 
-    @tailrec
-    def helper(iterator: CommitLogIterator, lastTransactionTimestamp: Option[Long]): Option[Long] = {
-      val (commitLogRecords, iter) = readRecordsFromCommitLogFile(iterator, recordsToReadNumber)
+    val iterator =
+      file.getIterator
+    val lastTransactionTimestamp =
+      processOneRecord(iterator, commitLogReader, None)
 
-      val producerTransactionsRecords = new ArrayBuffer[ProducerTransactionRecord]()
-      val consumerTransactionsRecords = new ArrayBuffer[ConsumerTransactionRecord]()
-      commitLogRecords.foreach { record =>
-        RecordType(record.messageType) match {
-          case RecordType.PutConsumerCheckpointType =>
-            val consumerTransactionAsStruct =
-              RecordType.deserializePutConsumerCheckpoint(record.message)
-
-            consumerTransactionsRecords += {
-              import consumerTransactionAsStruct._
-              ConsumerTransactionRecord(name,
-                streamID,
-                partition,
-                transaction,
-                record.timestamp
-              )
-            }
-
-          case RecordType.PutTransactionType =>
-            val transactionAsStruct =
-              RecordType.deserializePutTransaction(record.message)
-                .transaction
-
-            transactionAsStruct.producerTransaction.foreach(producerTransaction =>
-              producerTransactionsRecords += ProducerTransactionRecord(producerTransaction, record.timestamp)
-            )
-
-            transactionAsStruct.consumerTransaction.foreach(consumerTransaction =>
-              consumerTransactionsRecords += ConsumerTransactionRecord(consumerTransaction, record.timestamp)
-            )
-          case RecordType.PutTransactionsType =>
-            val transactionsAsStructs =
-              RecordType.deserializePutTransactions(record.message)
-                .transactions
-
-            transactionsAsStructs.foreach { transactionAsStruct =>
-              transactionAsStruct.producerTransaction.foreach(producerTransaction =>
-                producerTransactionsRecords += ProducerTransactionRecord(producerTransaction, record.timestamp)
-              )
-
-              transactionAsStruct.consumerTransaction.foreach(consumerTransaction =>
-                consumerTransactionsRecords += ConsumerTransactionRecord(consumerTransaction, record.timestamp)
-              )
-            }
-          case _ =>
-        }
-      }
-
-      bigCommit.putProducerTransactions(producerTransactionsRecords)
-      bigCommit.putConsumerTransactions(consumerTransactionsRecords)
-
-      val isAnyElements = iter.hasNext()
-      if (isAnyElements) {
-        val lastTransactionTimestampInRecord =
-          commitLogRecords.lastOption.map(_.timestamp)
-
-        helper(
-          iter,
-          lastTransactionTimestampInRecord.
-            orElse(lastTransactionTimestamp)
-        )
-      }
-      else
-        lastTransactionTimestamp
-    }
-
-    val iterator = file.getIterator
-    val lastTransactionTimestamp = helper(iterator, None)
     iterator.close()
 
-    val result = bigCommit.commit()
+    val result = commitLogReader.commit()
 
-    val timestamp = lastTransactionTimestamp.getOrElse(System.currentTimeMillis())
+    val timestamp =
+      lastTransactionTimestamp.getOrElse(System.currentTimeMillis())
     rocksWriter.createAndExecuteTransactionsToDeleteTask(timestamp)
 
     rocksWriter.clearProducerTransactionCache()
@@ -218,15 +190,16 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
   }
 
   override def run(): Unit = {
-    val commitLogEntity = pathsToClosedCommitLogFiles.poll()
-    if (commitLogEntity != null) {
+    val commitLogFiles = new util.LinkedList[CommitLogStorage]()
+    pathsToClosedCommitLogFiles.drainTo(commitLogFiles)
+    commitLogFiles.forEach(commitLogEntity =>
       scala.util.Try {
         processAccordingToPolicy(commitLogEntity)
       } match {
         case scala.util.Success(_) =>
         case scala.util.Failure(error) => error.printStackTrace()
       }
-    }
+    )
   }
 
   final def closeRocksDB(): Unit = rocksDb.close()

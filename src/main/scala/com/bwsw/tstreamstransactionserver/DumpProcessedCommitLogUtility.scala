@@ -23,7 +23,7 @@ import java.io.File
 
 import com.bwsw.commitlog.filesystem.CommitLogBinary
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.RecordType
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{FileKey, FileValue}
 import org.apache.commons.io.FileUtils
 import org.json4s._
@@ -39,10 +39,10 @@ object DumpProcessedCommitLogUtility {
   sealed trait Transaction
   case class ProducerTransaction(stream: Int, partition: Int, transactionID: Long, state: String, ttl: Long) extends Transaction
   case class ConsumerTransaction(stream: Int, partition: Int, transactionID: Long, name: String) extends Transaction
-  case class CommitLogRecord(id: Long, timestamp: Long, transactions: Seq[Transaction])
+  case class CommitLogRecord(timestamp: Long, transactions: Seq[Transaction])
   case class CommitLogFile(id: Long, md5: Option[Seq[Byte]], transactions: Seq[CommitLogRecord])
 
-  implicit val formatsTransaction = Serialization.formats(ShortTypeHints(List(classOf[Transaction])))
+  private implicit val formatsTransaction = Serialization.formats(ShortTypeHints(List(classOf[Transaction])))
 
   def main(args: Array[String]): Unit = {
     if (args.isEmpty) throw new IllegalArgumentException("Path to rocksdb folder should be provided.")
@@ -78,14 +78,14 @@ object DumpProcessedCommitLogUtility {
     Protocol.PutConsumerCheckpoint.decodeRequest(message)
 
   private def retrieveTransactions(record: com.bwsw.commitlog.CommitLogRecord): Seq[(com.bwsw.tstreamstransactionserver.rpc.Transaction, Long)] =
-    RecordType(record.messageType) match {
-      case RecordType.PutTransactionType =>
+    Frame(record.messageType.toInt) match {
+      case Frame.PutTransactionType =>
         val txn = deserializePutTransaction(record.message)
         Seq((txn.transaction, record.timestamp))
-      case RecordType.PutTransactionsType =>
+      case Frame.PutTransactionsType =>
         val txns = deserializePutTransactions(record.message)
         txns.transactions.map(txn => (txn, record.timestamp))
-      case RecordType.PutConsumerCheckpointType =>
+      case Frame.PutConsumerCheckpointType =>
         val args = deserializeSetConsumerState(record.message)
         val consumerTransaction = com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction(args.streamID, args.partition, args.transaction, args.name)
         Seq((com.bwsw.tstreamstransactionserver.rpc.Transaction(None, Some(consumerTransaction)), record.timestamp))
@@ -112,7 +112,7 @@ object DumpProcessedCommitLogUtility {
           }
           transactionJson
         }
-        recordsBuffer += CommitLogRecord(record.id, record.timestamp, transactionsJson)
+        recordsBuffer += CommitLogRecord(record.timestamp, transactionsJson)
       }
     }
     CommitLogFile(fileKey.id, fileValue.fileMD5Content.map(_.toSeq), recordsBuffer)

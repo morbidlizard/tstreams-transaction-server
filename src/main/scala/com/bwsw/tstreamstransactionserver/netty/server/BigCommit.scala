@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
@@ -15,6 +16,9 @@ class BigCommit(rocksWriter: RocksWriter,
                 key: Array[Byte],
                 value: Array[Byte]) {
 
+  private val isFixed =
+    new AtomicBoolean(false)
+
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
 
@@ -23,26 +27,36 @@ class BigCommit(rocksWriter: RocksWriter,
   }
 
   def putProducerTransactions(producerTransactions: Seq[ProducerTransactionRecord]): Unit = {
-    if (logger.isDebugEnabled) {
-      logger.debug(s"[batch] " +
-        s"Adding producer transactions to commit.")
+    val isFixedNow =
+      isFixed.get()
+
+    if (!isFixedNow) {
+      if (logger.isDebugEnabled) {
+        logger.debug(s"[batch] " +
+          s"Adding producer transactions to commit.")
+      }
+      rocksWriter.putTransactions(
+        producerTransactions,
+        batch
+      )
     }
-    rocksWriter.putTransactions(
-      producerTransactions,
-      batch
-    )
   }
 
   def putConsumerTransactions(consumerTransactions: Seq[ConsumerTransactionRecord]): Unit = {
-    if (logger.isDebugEnabled) {
-      logger.debug(s"[batch] " +
-        s"Adding consumer transactions to commit.")
-    }
+    val isFixedNow =
+      isFixed.get()
 
-    rocksWriter.putConsumersCheckpoints(
-      consumerTransactions,
-      batch
-    )
+    if (!isFixedNow) {
+      if (logger.isDebugEnabled) {
+        logger.debug(s"[batch] " +
+          s"Adding consumer transactions to commit.")
+      }
+
+      rocksWriter.putConsumersCheckpoints(
+        consumerTransactions,
+        batch
+      )
+    }
   }
 
   def putProducerData(streamID: Int,
@@ -50,28 +64,45 @@ class BigCommit(rocksWriter: RocksWriter,
                       transaction: Long,
                       data: Seq[ByteBuffer],
                       from: Int): Boolean = {
-    val isDataPersisted = rocksWriter.putTransactionData(
-      streamID,
-      partition,
-      transaction,
-      data,
-      from
-    )
+    val isFixedNow =
+      isFixed.get()
 
-    if (logger.isDebugEnabled) {
-      logger.debug(s"[batch] " +
-        s"Persisting producer transactions data on stream: $streamID, partition: $partition, transaction: $transaction, " +
-        s"from: $from.")
+    if (!isFixedNow) {
+      val isDataPersisted =
+        scala.util.Try {
+          rocksWriter.putTransactionData(
+            streamID,
+            partition,
+            transaction,
+            data,
+            from
+          )
+        }.getOrElse(false)
+
+      if (logger.isDebugEnabled) {
+        logger.debug(s"[batch] " +
+          s"Persisting producer transactions data on stream: $streamID, partition: $partition, transaction: $transaction, " +
+          s"from: $from.")
+      }
+
+      isDataPersisted
+    } else {
+      isFixedNow
     }
-
-    isDataPersisted
   }
 
   def commit(): Boolean = {
-    batch.put(databaseIndex, key, value)
-    if (batch.write()) {
-      if (logger.isDebugEnabled) logger.debug(s"commit is successfully fixed.")
-      true
+    val isFixedNow =
+      isFixed.getAndSet(true)
+
+    if (!isFixedNow) {
+      batch.put(databaseIndex, key, value)
+      if (batch.write()) {
+        if (logger.isDebugEnabled) logger.debug(s"commit is successfully fixed.")
+        true
+      } else {
+        false
+      }
     } else {
       false
     }

@@ -45,7 +45,7 @@ abstract class CommitLogIterator extends Iterator[Either[NoSuchElementException,
         val message = new Array[Byte](header.messageLength)
         byte = stream.read(message)
         if (byte != EOF && byte == header.messageLength) {
-          Right(CommitLogRecord(header.id, header.messageType, message, header.timestamp))
+          Right(CommitLogRecord(header.messageType, message, header.timestamp))
         } else {
           Left(new NoSuchElementException("There is no next commit log record!"))
         }

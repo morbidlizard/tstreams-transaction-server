@@ -3,7 +3,7 @@ package ut.multiNodeServer
 import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.RecordType
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ZkMultipleTreeListReader, ZookeeperTreeListLong}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ReplicationConfig, StorageManager}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
@@ -163,7 +163,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )
@@ -190,7 +190,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )
@@ -282,7 +282,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )
@@ -309,7 +309,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )
@@ -400,7 +400,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )
@@ -427,7 +427,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )
@@ -454,7 +454,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )
@@ -550,7 +550,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )
@@ -577,7 +577,7 @@ class ZkMultipleTreeListReaderTest
             TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
           )
           new Record(
-            RecordType.PutTransactionType,
+            Frame.PutTransactionType,
             atomicLong.getAndIncrement(),
             binaryTransaction
           )

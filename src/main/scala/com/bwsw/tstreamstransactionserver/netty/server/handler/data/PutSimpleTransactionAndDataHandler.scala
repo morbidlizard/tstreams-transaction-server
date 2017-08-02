@@ -19,11 +19,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.{CommitLogToRocksWriter, ScheduledCommitLog}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutSimpleTransactionAndDataHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 
 private object PutSimpleTransactionAndDataHandler {
   val descriptor = Protocol.PutSimpleTransactionAndData
@@ -70,7 +71,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
     )
 
     scheduledCommitLog.putData(
-      RecordType.PutTransactionsType.id.toByte,
+      Frame.PutTransactionsType.id.toByte,
       messageForPutTransactions
     )
     transactionID

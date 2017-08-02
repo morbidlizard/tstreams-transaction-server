@@ -19,11 +19,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import PutTransactionsHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 
 private object PutTransactionsHandler {
   val descriptor = Protocol.PutTransactions
@@ -41,7 +42,7 @@ class PutTransactionsHandler(server: TransactionServer,
 
   private def process(requestBody: Array[Byte]) = {
     scheduledCommitLog.putData(
-      RecordType.PutTransactionsType.id.toByte,
+      Frame.PutTransactionsType.id.toByte,
       requestBody
     )
   }

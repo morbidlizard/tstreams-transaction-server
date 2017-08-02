@@ -1,11 +1,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
 import com.bwsw.tstreamstransactionserver.rpc._
 import PutProducerStateWithDataHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 
 private object PutProducerStateWithDataHandler {
   val descriptor = Protocol.PutProducerStateWithData
@@ -47,7 +48,7 @@ class PutProducerStateWithDataHandler(server: TransactionServer,
     )
 
     scheduledCommitLog.putData(
-      RecordType.PutTransactionType.id.toByte,
+      Frame.PutTransactionType.id.toByte,
       binaryTransaction
     )
   }

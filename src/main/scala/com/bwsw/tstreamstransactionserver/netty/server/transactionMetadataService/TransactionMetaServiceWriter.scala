@@ -27,17 +27,51 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.mutable.ArrayBuffer
 
 
-
 class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
-                                   producerStateMachineCache: ProducerStateMachineCache)
-{
+                                   producerStateMachineCache: ProducerStateMachineCache) {
+
   import producerStateMachineCache._
 
   private val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
 
+  def putTransactions(transactions: Seq[ProducerTransactionRecord],
+                      batch: KeyValueDbBatch): Unit = {
+
+    val producerTransactions =
+      selectInOrderProducerTransactions(transactions, batch)
+
+    val groupedProducerTransactions =
+      groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions)
+
+    groupedProducerTransactions.foreach { case (key, txns) =>
+      //retrieving an opened transaction from opened transaction database if it exist
+      val openedTransactionOpt = producerStateMachineCache.getProducerTransaction(key)
+
+      val sortedTransactions = txns.sorted
+      val transactionsToProcess = openedTransactionOpt
+        .map(data =>
+          ProducerTransactionRecord(key, data) +: sortedTransactions
+        )
+        .getOrElse(sortedTransactions)
+
+      val finalStateOpt = ProducerTransactionStateMachine
+        .transiteTransactionsToFinalState(
+          transactionsToProcess,
+          onStateChange
+        )
+
+      finalStateOpt
+        .filter(ProducerTransactionStateMachine.checkFinalStateBeStoredInDB)
+        .foreach { finalState =>
+          val transaction = finalState.producerTransactionRecord
+          putTransactionToAllAndOpenedTables(transaction, batch)
+        }
+    }
+  }
+
   private final def selectInOrderProducerTransactions(transactions: Seq[ProducerTransactionRecord],
-                                                                       batch: KeyValueDbBatch) = {
+                                                      batch: KeyValueDbBatch) = {
     val producerTransactions = ArrayBuffer[ProducerTransactionRecord]()
     transactions foreach { txn =>
       val key = KeyStreamPartition(txn.stream, txn.partition)
@@ -68,33 +102,11 @@ class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
     producerTransactions
   }
 
-
   private final def groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions: Seq[ProducerTransactionRecord]) =
     producerTransactions.groupBy(txn => txn.key)
 
-  private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
-                                                                      producerTransactionWithNewState: ProducerTransactionRecord,
-                                                                      batch: KeyValueDbBatch): Unit = {
-    updateLastCheckpointedTransactionID(
-      key,
-      producerTransactionWithNewState.transactionID
-    )
-
-    putLastCheckpointedTransactionID(
-      key,
-      producerTransactionWithNewState.transactionID,
-      batch
-    )
-    if (logger.isDebugEnabled())
-      logger.debug(
-        s"On stream:${key.stream} partition:${key.partition} " +
-        s"last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now."
-      )
-  }
-
   private def putTransactionToAllAndOpenedTables(producerTransactionRecord: ProducerTransactionRecord,
-                                                 batch: KeyValueDbBatch) =
-  {
+                                                 batch: KeyValueDbBatch) = {
 
     if (producerTransactionRecord.state == TransactionStates.Checkpointed) {
       updateLastCheckpointedTransactionAndPutToDatabase(
@@ -127,44 +139,29 @@ class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
       logger.debug(s"Producer transaction on stream: ${producerTransactionRecord.stream}" +
         s"partition ${producerTransactionRecord.partition}, transactionId ${producerTransactionRecord.transactionID} " +
         s"with state ${producerTransactionRecord.state} is ready for commit"
+      )
+  }
+
+  private final def updateLastCheckpointedTransactionAndPutToDatabase(key: stateHandler.KeyStreamPartition,
+                                                                      producerTransactionWithNewState: ProducerTransactionRecord,
+                                                                      batch: KeyValueDbBatch): Unit = {
+    updateLastCheckpointedTransactionID(
+      key,
+      producerTransactionWithNewState.transactionID
     )
+
+    putLastCheckpointedTransactionID(
+      key,
+      producerTransactionWithNewState.transactionID,
+      batch
+    )
+    if (logger.isDebugEnabled())
+      logger.debug(
+        s"On stream:${key.stream} partition:${key.partition} " +
+          s"last checkpointed transaction is ${producerTransactionWithNewState.transactionID} now."
+      )
   }
 
   protected def onStateChange: ProducerTransactionRecord => Unit =
     _ => {}
-
-
-  def putTransactions(transactions: Seq[ProducerTransactionRecord],
-                      batch: KeyValueDbBatch): Unit = {
-    val producerTransactions =
-      selectInOrderProducerTransactions(transactions, batch)
-
-    val groupedProducerTransactions =
-      groupProducerTransactionsByStreamPartitionTransactionID(producerTransactions)
-
-    groupedProducerTransactions.foreach { case (key, txns) =>
-      //retrieving an opened transaction from opened transaction database if it exist
-      val openedTransactionOpt = producerStateMachineCache.getProducerTransaction(key)
-
-      val sortedTransactions = txns.sorted
-      val transactionsToProcess = openedTransactionOpt
-        .map(data =>
-          ProducerTransactionRecord(key, data) +: sortedTransactions
-        )
-        .getOrElse(sortedTransactions)
-
-      val finalStateOpt = ProducerTransactionStateMachine
-        .transiteTransactionsToFinalState(
-          transactionsToProcess,
-          onStateChange
-        )
-
-      finalStateOpt
-        .filter(ProducerTransactionStateMachine.checkFinalStateBeStoredInDB)
-        .foreach { finalState =>
-          val transaction = finalState.producerTransactionRecord
-          putTransactionToAllAndOpenedTables(transaction, batch)
-        }
-    }
-  }
 }

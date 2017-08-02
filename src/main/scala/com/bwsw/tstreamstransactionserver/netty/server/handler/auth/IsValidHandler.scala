@@ -18,40 +18,43 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.IsValidHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
-
-import IsValidHandler._
+import io.netty.channel.ChannelHandlerContext
 
 private object IsValidHandler {
   val descriptor = Protocol.IsValid
 }
 
-class IsValidHandler(server: TransactionServer)
-  extends RequestHandler{
+class IsValidHandler(authService: AuthService)
+  extends SyncReadHandler(
+    descriptor.methodID,
+    descriptor.name
+  ) {
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext,
+                                     error: Option[Throwable]): Array[Byte] = {
+    scala.util.Try(process(message.body)) match {
+      case scala.util.Success(isValid) =>
+        isValid
+      case scala.util.Failure(throwable) =>
+        createErrorResponse(throwable.getMessage)
+    }
+  }
+
+  private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    val result = server.isValid(args.token)
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
+    val result = authService.isValid(args.token)
     descriptor.encodeResponse(
       TransactionService.IsValid.Result(Some(result))
     )
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to check if token is valid according to fire and forget policy"
-    //    )
-  }
-
   override def createErrorResponse(message: String): Array[Byte] = {
-    throw new UnsupportedOperationException("isValid method can't throw error at all!")
+    throw new UnsupportedOperationException("IsValid method doesn't imply error at all!")
   }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

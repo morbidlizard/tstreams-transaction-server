@@ -16,8 +16,14 @@ class Master(bookKeeper: BookKeeper,
              password: Array[Byte],
              timeBetweenCreationOfLedgers: Int,
              openedLedgers: BlockingQueue[org.apache.bookkeeper.client.LedgerHandle])
-  extends Runnable
-{
+  extends Runnable {
+
+  override def run(): Unit = {
+    while (true) {
+      if (master.hasLeadership)
+        lead()
+    }
+  }
 
   def lead(): Unit = {
     closeLastLedger()
@@ -45,40 +51,25 @@ class Master(bookKeeper: BookKeeper,
     }
   }
 
-  private def ledgerHandleToWrite(ensembleNumber: Int,
-                                  writeQuorumNumber: Int,
-                                  ackQuorumNumber: Int,
-                                  digestType: DigestType
-                                 ) = {
-    bookKeeper.createLedger(
-      ensembleNumber,
-      writeQuorumNumber,
-      ackQuorumNumber,
-      digestType,
-      password
-    )
-  }
-
-  private final def whileLeaderDo() =
-  {
+  private final def whileLeaderDo() = {
 
     var lastAccessTimes = 0L
+
     @tailrec
-    def onBeingLeaderDo(): Unit =
-    {
+    def onBeingLeaderDo(): Unit = {
       if (master.hasLeadership) {
         if ((System.currentTimeMillis() - lastAccessTimes) <= timeBetweenCreationOfLedgers) {
           onBeingLeaderDo()
         }
         else {
           lastAccessTimes = System.currentTimeMillis()
-          scala.util.Try{
+          scala.util.Try {
             ledgerHandleToWrite(
-            replicationConfig.ensembleNumber,
-            replicationConfig.writeQuorumNumber,
-            replicationConfig.ackQuorumNumber,
-            BookKeeper.DigestType.MAC
-          )
+              replicationConfig.ensembleNumber,
+              replicationConfig.writeQuorumNumber,
+              replicationConfig.ackQuorumNumber,
+              BookKeeper.DigestType.MAC
+            )
           }.map { ledgerHandle =>
             val timestampRecord =
               new TimestampRecord(System.currentTimeMillis())
@@ -95,13 +86,21 @@ class Master(bookKeeper: BookKeeper,
         }
       }
     }
+
     onBeingLeaderDo()
   }
 
-  override def run(): Unit = {
-    while (true) {
-      if (master.hasLeadership)
-        lead()
-    }
+  private def ledgerHandleToWrite(ensembleNumber: Int,
+                                  writeQuorumNumber: Int,
+                                  ackQuorumNumber: Int,
+                                  digestType: DigestType
+                                 ) = {
+    bookKeeper.createLedger(
+      ensembleNumber,
+      writeQuorumNumber,
+      ackQuorumNumber,
+      digestType,
+      password
+    )
   }
 }

@@ -18,15 +18,14 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
-import java.io.{Closeable, File}
-import java.util.concurrent.atomic.AtomicLong
+import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.RocksStorageOptions
 import org.apache.commons.io.FileUtils
 import org.rocksdb._
 
-import scala.collection.{JavaConverters, mutable}
+import scala.collection.JavaConverters
 
 class RocksDbManager(absolutePath: String,
                      rocksStorageOpts: RocksStorageOptions,

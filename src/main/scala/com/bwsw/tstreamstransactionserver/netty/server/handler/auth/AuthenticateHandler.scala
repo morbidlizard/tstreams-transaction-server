@@ -18,39 +18,41 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
+import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.AuthenticateHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
+import io.netty.channel.ChannelHandlerContext
 
-import AuthenticateHandler.descriptor
 
 private object AuthenticateHandler {
   val descriptor = Protocol.Authenticate
 }
 
-class AuthenticateHandler(server: TransactionServer,
-                          packageTransmissionOpts: TransportOptions)
-  extends RequestHandler{
+class AuthenticateHandler(authService: AuthService)
+  extends SyncReadHandler(
+    descriptor.methodID,
+    descriptor.name
+  ) {
+
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext,
+                                     error: Option[Throwable]): Array[Byte] = {
+    scala.util.Try(process(message.body)) match {
+      case scala.util.Success(authInfo) =>
+        authInfo
+      case scala.util.Failure(throwable) =>
+        createErrorResponse(throwable.getMessage)
+    }
+  }
 
   private def process(requestBody: Array[Byte]) = {
     val args = descriptor.decodeRequest(requestBody)
-    server.authenticate(args.authKey)
-  }
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val authInfo = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
+    val authInfo = authService.authenticate(args.authKey)
     descriptor.encodeResponse(
       TransactionService.Authenticate.Result(Some(authInfo))
     )
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to authenticate to fire and forget policy"
-//    )
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
@@ -58,8 +60,4 @@ class AuthenticateHandler(server: TransactionServer,
       "Authenticate method doesn't imply error at all!"
     )
   }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

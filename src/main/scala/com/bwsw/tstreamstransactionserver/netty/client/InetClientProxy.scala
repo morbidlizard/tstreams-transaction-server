@@ -18,7 +18,6 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
 import io.netty.channel.nio.NioEventLoopGroup
-import org.apache.commons.lang.SystemUtils
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.ConnectionState
 import org.apache.curator.retry.RetryForever
@@ -36,15 +35,27 @@ class InetClientProxy(clientOpts: ConnectionOptions,
                       externalCuratorClient: Option[CuratorFramework] = None)
   extends TTSInetClient {
 
+  private final val executionContext =
+    new ClientExecutionContextGrid(clientOpts.threadPool)
+  private final val context =
+    executionContext.context
+  private final val processTransactionsPutOperationPool =
+    ExecutionContextGrid("ClientTransactionPool-%d")
+  private final val contextForProducerTransactions =
+    processTransactionsPutOperationPool.getContext
+  private final val requestIdToResponseCommonMap =
+    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+      20000,
+      1.0f,
+      clientOpts.threadPool
+    )
+  private final val requestIDGen = new AtomicLong(1L)
   private val logger =
     LoggerFactory.getLogger(this.getClass)
-
   private val isZKClientExternal =
     externalCuratorClient.isDefined
-
   private val isShutdown =
     new AtomicBoolean(false)
-
   private val workerGroup: EventLoopGroup =
     if (Epoll.isAvailable) {
       new EpollEventLoopGroup()
@@ -53,18 +64,12 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       new NioEventLoopGroup()
     }
 
-
-  private final val executionContext =
-    new ClientExecutionContextGrid(clientOpts.threadPool)
-
-  private final val context =
-    executionContext.context
-
-  private final val processTransactionsPutOperationPool =
-    ExecutionContextGrid("ClientTransactionPool-%d")
-  private final val contextForProducerTransactions =
-    processTransactionsPutOperationPool.getContext
-
+  //  private final val requestIdToResponseCheckpointGroupMap =
+  //    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+  //      20000,
+  //      1.0f,
+  //      clientOpts.threadPool
+  //    )
   private val zkConnection =
     externalCuratorClient.getOrElse {
       new ZKClient(
@@ -75,32 +80,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         zookeeperOptions.prefix
       ).client
     }
-
-
-  private final val requestIdToResponseCommonMap =
-    new ConcurrentHashMap[Long, Promise[ByteBuf]](
-      20000,
-      1.0f,
-      clientOpts.threadPool
-    )
-
-//  private final val requestIdToResponseCheckpointGroupMap =
-//    new ConcurrentHashMap[Long, Promise[ByteBuf]](
-//      20000,
-//      1.0f,
-//      clientOpts.threadPool
-//    )
-
-  override protected def onZKConnectionStateChanged(newState: ConnectionState): Unit =
-    onZKConnectionStateChangedFunc(newState)
-
-  override protected def onServerConnectionLost(): Unit =
-    onServerConnectionLostFunc
-
-  override protected def onRequestTimeout(): Unit =
-    onRequestTimeoutFunc
-
-  private final val requestIDGen = new AtomicLong(1L)
   private val commonInetClient =
     new InetClient(
       zookeeperOptions,
@@ -116,53 +95,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       requestIdToResponseCommonMap,
       context
     )
-
-
-//  private val isRetrievingCheckpointGroupServerPrefix =
-//    new AtomicBoolean(false)
-//
-//  @volatile private var checkpointGroupInetClient: InetClient = _
-//  private final def getCheckpointGroupInetClient: InetClient = {
-//    def getClientIfPossible: Option[InetClient] =
-//      commonInetClient
-//        .getZKCheckpointGroupServerPrefix()
-//        .map { prefix =>
-//          val checkpointGroupZookeeperOptions =
-//            zookeeperOptions.copy(prefix = prefix)
-//
-//          new InetClient(
-//            checkpointGroupZookeeperOptions,
-//            clientOpts,
-//            authOpts,
-//            onServerConnectionLost(),
-//            onRequestTimeout(),
-//            onZKConnectionStateChangedFunc,
-//            workerGroup,
-//            isShutdown.get(),
-//            zkConnection,
-//            requestIDGen,
-//            requestIdToResponseCheckpointGroupMap,
-//            context
-//          )
-//        }
-//
-//    val isNotRetrieving = isRetrievingCheckpointGroupServerPrefix
-//      .compareAndSet(false, true)
-//
-//    if (isNotRetrieving) {
-//      while (checkpointGroupInetClient == null) {
-//        getClientIfPossible.foreach(checkpointGroupInetClient = _)
-//      }
-//      isRetrievingCheckpointGroupServerPrefix.set(false)
-//      checkpointGroupInetClient
-//    } else {
-//      while (!isRetrievingCheckpointGroupServerPrefix.get()) {}
-//      checkpointGroupInetClient
-//    }
-//  }
-
-  private def onShutdownThrowException(): Unit =
-    if (isShutdown.get()) throw ClientIllegalOperationAfterShutdown
 
   /** Retrieving an offset between last processed commit log file and current commit log file where a server writes data.
     *
@@ -187,6 +119,8 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     )(context)
   }
 
+  private def onShutdownThrowException(): Unit =
+    if (isShutdown.get()) throw ClientIllegalOperationAfterShutdown
 
   /** Putting a stream on a server by primitive type parameters.
     *
@@ -211,6 +145,50 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
+
+
+  //  private val isRetrievingCheckpointGroupServerPrefix =
+  //    new AtomicBoolean(false)
+  //
+  //  @volatile private var checkpointGroupInetClient: InetClient = _
+  //  private final def getCheckpointGroupInetClient: InetClient = {
+  //    def getClientIfPossible: Option[InetClient] =
+  //      commonInetClient
+  //        .getZKCheckpointGroupServerPrefix()
+  //        .map { prefix =>
+  //          val checkpointGroupZookeeperOptions =
+  //            zookeeperOptions.copy(prefix = prefix)
+  //
+  //          new InetClient(
+  //            checkpointGroupZookeeperOptions,
+  //            clientOpts,
+  //            authOpts,
+  //            onServerConnectionLost(),
+  //            onRequestTimeout(),
+  //            onZKConnectionStateChangedFunc,
+  //            workerGroup,
+  //            isShutdown.get(),
+  //            zkConnection,
+  //            requestIDGen,
+  //            requestIdToResponseCheckpointGroupMap,
+  //            context
+  //          )
+  //        }
+  //
+  //    val isNotRetrieving = isRetrievingCheckpointGroupServerPrefix
+  //      .compareAndSet(false, true)
+  //
+  //    if (isNotRetrieving) {
+  //      while (checkpointGroupInetClient == null) {
+  //        getClientIfPossible.foreach(checkpointGroupInetClient = _)
+  //      }
+  //      isRetrievingCheckpointGroupServerPrefix.set(false)
+  //      checkpointGroupInetClient
+  //    } else {
+  //      while (!isRetrievingCheckpointGroupServerPrefix.get()) {}
+  //      checkpointGroupInetClient
+  //    }
+  //  }
 
   /** Putting a stream on a server by Thrift Stream structure.
     *
@@ -258,7 +236,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     )(context)
   }
 
-
   /** Retrieving a stream from a server by it's name.
     *
     * @param name a name of stream.
@@ -281,7 +258,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success
     )(context)
   }
-
 
   /** Checks by a stream's name that stream saved in database on server.
     *
@@ -330,7 +306,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     )(context)
   }
 
-
   /** retrieving transaction id that is multiplied by timestamp
     *
     * @param timestamp multiplier(100000) to current transaction id.
@@ -356,7 +331,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(contextForProducerTransactions)
   }
-
 
   /** Puts producer and consumer transactions on a server.
     *
@@ -464,7 +438,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     )(contextForProducerTransactions)
   }
 
-
   /** Puts in fire and forget policy manner 'simplified' producer transaction that already has Chekpointed state with it's data.
     *
     * @param streamID  an id of stream.
@@ -480,7 +453,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data.map(java.nio.ByteBuffer.wrap))
     )
   }
-
 
   /** Puts producer 'opened' transaction.
     *
@@ -534,7 +506,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     )(context)
   }
 
-
   /** Retrieves last checkpointed transaction in a specific stream on certain partition; If the result is -1 it will mean there is no checkpointed transaction at all.
     *
     * @param streamID  an id of stream.
@@ -559,7 +530,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
-
 
   /** Retrieves all producer transactions in a specific range [from, to]; it's assumed that "from" and "to" are both positive.
     *
@@ -601,7 +571,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       )(context)
     }
   }
-
 
   /** Putting any binary data on server to a specific stream, partition, transaction id of producer transaction.
     *
@@ -665,7 +634,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     )(contextForProducerTransactions)
   }
 
-
   /** Retrieves all producer transactions binary data in a specific range [from, to]; it's assumed that "from" and "to" are both positive.
     *
     * @param streamID    an id of stream
@@ -701,7 +669,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       )(context)
     }
   }
-
 
   /** Puts/Updates a consumer state on a specific stream, partition, transaction id on a server.
     *
@@ -767,8 +734,8 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         if (commonInetClient != null)
           commonInetClient.shutdown()
 
-//        if (checkpointGroupInetClient != null)
-//          checkpointGroupInetClient.shutdown()
+        //        if (checkpointGroupInetClient != null)
+        //          checkpointGroupInetClient.shutdown()
 
         if (isZKClientExternal && zkConnection != null)
           zkConnection.close()
@@ -784,4 +751,13 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         isShutdown.set(true)
       }
     }
+
+  override protected def onZKConnectionStateChanged(newState: ConnectionState): Unit =
+    onZKConnectionStateChangedFunc(newState)
+
+  override protected def onServerConnectionLost(): Unit =
+    onServerConnectionLostFunc
+
+  override protected def onRequestTimeout(): Unit =
+    onRequestTimeoutFunc
 }

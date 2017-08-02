@@ -4,8 +4,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbIterator
 import org.rocksdb.RocksIterator
 
 private[rocks] final class RocksDbIteratorWrapper(iterator: RocksIterator)
-  extends KeyValueDbIterator
-{
+  extends KeyValueDbIterator {
   override def key(): Array[Byte] = iterator.key()
 
   override def value(): Array[Byte] = iterator.value()

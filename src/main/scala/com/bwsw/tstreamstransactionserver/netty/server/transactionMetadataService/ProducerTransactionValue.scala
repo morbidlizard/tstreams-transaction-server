@@ -24,8 +24,7 @@ case class ProducerTransactionValue(state: TransactionStates,
                                     quantity: Int,
                                     ttl: Long,
                                     timestamp: Long)
-  extends Ordered[ProducerTransactionValue]
-{
+  extends Ordered[ProducerTransactionValue] {
 
   def toByteArray: Array[Byte] = {
     val size = ProducerTransactionValue.sizeInBytes
@@ -51,8 +50,7 @@ case class ProducerTransactionValue(state: TransactionStates,
   }
 }
 
-object ProducerTransactionValue
-{
+object ProducerTransactionValue {
   private val sizeInBytes = java.lang.Integer.BYTES +
     java.lang.Integer.BYTES +
     java.lang.Long.BYTES +

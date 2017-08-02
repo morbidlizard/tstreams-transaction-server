@@ -4,11 +4,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{ChannelInitializer, _}
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioSocketChannel
+import io.netty.channel.{ChannelInitializer, _}
 import org.slf4j.LoggerFactory
 
 
@@ -17,12 +17,36 @@ class NettyConnection(workerGroup: EventLoopGroup,
                       connectionTimeoutMs: Int,
                       reconnectDelayMs: Int,
                       getConnectionAddress: => SocketHostPortPair,
-                      onConnectionLostDo:   => Unit) {
+                      onConnectionLostDo: => Unit) {
   private val logger =
     LoggerFactory.getLogger(this.getClass)
 
   private val isStopped =
     new AtomicBoolean(false)
+  @volatile private var channel: ChannelFuture = {
+    val socket = getConnectionAddress
+    bootstrap.connect(socket.address, socket.port)
+  }
+
+  final def reconnect(): Unit = {
+    channel.channel().deregister()
+  }
+
+  def getChannel(): Channel = {
+    channel.channel()
+  }
+
+  def stop(): Unit = {
+    val isNotStopped =
+      isStopped.compareAndSet(false, true)
+    if (isNotStopped) {
+      scala.util.Try(
+        channel.channel()
+          .close()
+          .cancel(true)
+      )
+    }
+  }
 
   private def bootstrap: Bootstrap = {
     new Bootstrap()
@@ -54,12 +78,6 @@ class NettyConnection(workerGroup: EventLoopGroup,
       })
   }
 
-
-  @volatile private var channel: ChannelFuture = {
-    val socket = getConnectionAddress
-    bootstrap.connect(socket.address, socket.port)
-  }
-
   private def determineChannelType(): Class[_ <: SocketChannel] =
     workerGroup match {
       case _: EpollEventLoopGroup => classOf[EpollSocketChannel]
@@ -84,26 +102,6 @@ class NettyConnection(workerGroup: EventLoopGroup,
           logger.debug(s"Connected to: ${futureChannel.channel().remoteAddress()}")
         channel = futureChannel
       }
-    }
-  }
-
-  final def reconnect(): Unit = {
-    channel.channel().deregister()
-  }
-
-  def getChannel(): Channel= {
-    channel.channel()
-  }
-
-  def stop(): Unit = {
-    val isNotStopped =
-      isStopped.compareAndSet(false, true)
-    if (isNotStopped) {
-      scala.util.Try(
-        channel.channel()
-          .close()
-          .cancel(true)
-      )
     }
   }
 }

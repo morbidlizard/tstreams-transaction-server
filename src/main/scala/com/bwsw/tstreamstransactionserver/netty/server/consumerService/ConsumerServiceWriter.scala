@@ -26,14 +26,6 @@ import org.slf4j.LoggerFactory
 class ConsumerServiceWriter(rocksMetaServiceDB: KeyValueDbManager) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private final def getLastTransaction(commitLogTransactions: Seq[ConsumerTransactionRecord]): ConsumerTransactionRecord = {
-    commitLogTransactions.maxBy(_.timestamp)
-  }
-
-  protected def onStateChange: ConsumerTransactionRecord => Unit = {
-    _ => {}
-  }
-
   def putConsumersCheckpoints(consumerTransactions: Seq[ConsumerTransactionRecord],
                               batch: KeyValueDbBatch): Unit = {
     if (logger.isDebugEnabled())
@@ -55,5 +47,13 @@ class ConsumerServiceWriter(rocksMetaServiceDB: KeyValueDbManager) {
 
         onStateChange(lastTransaction)
     }
+  }
+
+  private final def getLastTransaction(commitLogTransactions: Seq[ConsumerTransactionRecord]): ConsumerTransactionRecord = {
+    commitLogTransactions.maxBy(_.timestamp)
+  }
+
+  protected def onStateChange: ConsumerTransactionRecord => Unit = {
+    _ => {}
   }
 }

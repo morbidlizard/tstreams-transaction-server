@@ -208,7 +208,6 @@ object Utils {
 
     val transactionServer =
       new TransactionServer(
-        authOptions,
         zkStreamRepository,
         rocksWriter,
         rocksReader

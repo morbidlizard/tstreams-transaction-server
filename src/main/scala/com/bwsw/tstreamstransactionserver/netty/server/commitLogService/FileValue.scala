@@ -29,11 +29,11 @@ class FileValue(val fileContent: Array[Byte], val fileMD5Content: Option[Array[B
 
   override def hashCode(): Int = {
     val prime = 31
-    val md5HashCode =  if (fileMD5Content.isDefined)
+    val md5HashCode = if (fileMD5Content.isDefined)
       java.util.Arrays.hashCode(fileMD5Content.get)
     else
       1
-    prime*java.util.Arrays.hashCode(fileContent) + md5HashCode
+    prime * java.util.Arrays.hashCode(fileContent) + md5HashCode
   }
 
   override def equals(that: scala.Any): Boolean = that match {

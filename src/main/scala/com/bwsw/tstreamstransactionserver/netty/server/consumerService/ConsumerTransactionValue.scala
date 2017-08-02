@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 case class ConsumerTransactionValue(transactionId: Long,
-                                    timestamp:Long) {
+                                    timestamp: Long) {
   def toByteArray: Array[Byte] = {
     val buffer = java.nio.ByteBuffer
       .allocate(ConsumerTransactionValue.size)

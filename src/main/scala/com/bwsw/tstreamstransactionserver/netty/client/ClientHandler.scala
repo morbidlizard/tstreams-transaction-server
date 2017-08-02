@@ -20,7 +20,7 @@ package com.bwsw.tstreamstransactionserver.netty.client
 
 import java.util.concurrent.ConcurrentMap
 
-import com.bwsw.tstreamstransactionserver.netty.Message
+import com.bwsw.tstreamstransactionserver.netty.ResponseMessage
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -33,10 +33,14 @@ class ClientHandler(reqIdToRep: ConcurrentMap[Long, Promise[ByteBuf]])
   extends SimpleChannelInboundHandler[ByteBuf] {
 
   override def channelRead0(ctx: ChannelHandlerContext, buf: ByteBuf): Unit = {
-    val id = Message.getIdFromByteBuf(buf)
+    val id = ResponseMessage.getIdFromByteBuf(buf)
     val request = reqIdToRep.get(id)
     if (request != null) {
-      request.trySuccess(buf.copy())
+      val bufferToRead =
+        buf.readRetainedSlice(
+          buf.readableBytes()
+        )
+      request.trySuccess(bufferToRead)
     }
   }
 

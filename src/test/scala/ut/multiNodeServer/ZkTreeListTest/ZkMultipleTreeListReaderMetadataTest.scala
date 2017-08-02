@@ -6,8 +6,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 class ZkMultipleTreeListReaderMetadataTest
   extends FlatSpec
     with Matchers
-    with BeforeAndAfterAll
-{
+    with BeforeAndAfterAll {
   "Metadata record" should "contain timestamp without records" in {
     val metadataRecord = new MetadataRecord(
       Array.empty[LedgerIDAndItsLastRecordID]

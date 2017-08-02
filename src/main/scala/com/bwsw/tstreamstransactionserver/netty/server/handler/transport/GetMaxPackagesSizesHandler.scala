@@ -1,17 +1,37 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import GetMaxPackagesSizesHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesHandler._
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
+import io.netty.channel.ChannelHandlerContext
+
 
 private object GetMaxPackagesSizesHandler {
   val descriptor = Protocol.GetMaxPackagesSizes
 }
 
 class GetMaxPackagesSizesHandler(packageTransmissionOpts: TransportOptions)
-  extends RequestHandler {
+  extends SyncReadHandler(
+    descriptor.methodID,
+    descriptor.name
+  ) {
+
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext,
+                                     error: Option[Throwable]): Array[Byte] = {
+    scala.util.Try(process(message.body)) match {
+      case scala.util.Success(result) =>
+        val response = descriptor.encodeResponse(
+          TransactionService.GetMaxPackagesSizes.Result(Some(result))
+        )
+        response
+      case scala.util.Failure(throwable) =>
+        val response = createErrorResponse(throwable.getMessage)
+        response
+    }
+  }
 
   private def process(requestBody: Array[Byte]) = {
     val response = TransportOptionsInfo(
@@ -21,21 +41,7 @@ class GetMaxPackagesSizesHandler(packageTransmissionOpts: TransportOptions)
     response
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val transportInfo = process(requestBody)
-    descriptor.encodeResponse(
-      TransactionService.GetMaxPackagesSizes.Result(Some(transportInfo))
-    )
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {}
-
   override def createErrorResponse(message: String): Array[Byte] = {
-    throw new UnsupportedOperationException(
-      s"$name method doesn't imply error at all!"
-    )
+    throw new UnsupportedOperationException("IsValid method doesn't imply error at all!")
   }
-
-  override def name: String = descriptor.name
-  override def id: Byte = descriptor.methodID
 }

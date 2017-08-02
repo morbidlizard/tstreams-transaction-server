@@ -34,11 +34,11 @@ class TransactionId(val id: Long) extends AnyVal {
 }
 
 object TransactionId {
-  def apply(id: Long): TransactionId = new TransactionId(id)
-
   def fromByteArray(bytes: Array[Byte]): TransactionId = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
     val id = buffer.getLong
     TransactionId(id)
   }
+
+  def apply(id: Long): TransactionId = new TransactionId(id)
 }

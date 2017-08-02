@@ -54,13 +54,13 @@ abstract class RocksStorage(storageOpts: StorageOptions,
 
   protected val commonDescriptors =
     scala.collection.immutable.Seq(
-      RocksDbDescriptor(lastOpenedTransactionStorageDescriptorInfo,       columnFamilyOptions),
+      RocksDbDescriptor(lastOpenedTransactionStorageDescriptorInfo, columnFamilyOptions),
       RocksDbDescriptor(lastCheckpointedTransactionStorageDescriptorInfo, columnFamilyOptions),
-      RocksDbDescriptor(consumerStoreDescriptorInfo,                      columnFamilyOptions),
-      RocksDbDescriptor(transactionAllStoreDescriptorInfo,                columnFamilyOptions,
+      RocksDbDescriptor(consumerStoreDescriptorInfo, columnFamilyOptions),
+      RocksDbDescriptor(transactionAllStoreDescriptorInfo, columnFamilyOptions,
         TimeUnit.MINUTES.toSeconds(rocksOpts.transactionExpungeDelayMin).toInt
       ),
-      RocksDbDescriptor(transactionOpenStoreDescriptorInfo,               columnFamilyOptions)
+      RocksDbDescriptor(transactionOpenStoreDescriptorInfo, columnFamilyOptions)
     )
 
   def getRocksStorage: KeyValueDbManager

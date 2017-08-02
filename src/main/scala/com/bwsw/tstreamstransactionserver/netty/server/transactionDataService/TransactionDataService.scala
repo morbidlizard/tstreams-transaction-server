@@ -23,10 +23,10 @@ import java.nio.ByteBuffer
 import com.bwsw.tstreamstransactionserver.`implicit`.Implicits._
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamKey, StreamRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamRepository}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService._
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
-import TransactionDataService._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -35,43 +35,12 @@ class TransactionDataService(storageOpts: StorageOptions,
                              streamCache: StreamRepository) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val ttlToAdd: Int = rocksStorageOpts.transactionTtlAppendMs
-
-  private def calculateTTL(ttl: Long): Int = scala.math.abs((ttl + ttlToAdd).toInt)
-
-
   private val rocksDBStorageToStream = new java.util.concurrent.ConcurrentHashMap[StorageName, RocksDbConnection]()
+  private val pathForData = s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.dataDirectory}${java.io.File.separatorChar}"
 
   final def removeRocksDBDatabaseAndDeleteFolder(stream: Long): Unit = {
     val key = StorageName(stream.toString)
     Option(rocksDBStorageToStream.get(key)) foreach (x => x.closeAndDeleteFolder())
-  }
-
-  private val pathForData = s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.dataDirectory}${java.io.File.separatorChar}"
-
-  private def getStorageOrCreateIt(streamRecord: StreamRecord) = {
-    val key = StorageName(streamRecord.key.id.toString)
-    rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
-      val calculatedTTL = calculateTTL(streamRecord.ttl)
-      if (logger.isDebugEnabled())
-        logger.debug(prefixName + s"Creating new database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] " +
-          s"for persisting and reading transactions data.")
-      new RocksDbConnection(rocksStorageOpts, s"$pathForData${key.toString}", calculatedTTL)
-    })
-  }
-
-  @throws[StreamDoesNotExist]
-  private def getStorageOrThrowError(streamRecord: StreamRecord) = {
-    val key = StorageName(streamRecord.key.id.toString)
-    Option(rocksDBStorageToStream.get(key))
-      .getOrElse {
-        if (logger.isDebugEnabled()) {
-          val calculatedTTL = calculateTTL(streamRecord.ttl)
-          logger.debug(prefixName +
-            s"Database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] doesn't exits!"
-          )
-        }
-        throw new StreamDoesNotExist(streamRecord.name)
-      }
   }
 
   @throws[StreamDoesNotExist]
@@ -125,6 +94,17 @@ class TransactionDataService(storageOpts: StorageOptions,
     }
   }
 
+  private def getStorageOrCreateIt(streamRecord: StreamRecord) = {
+    val key = StorageName(streamRecord.key.id.toString)
+    rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
+      val calculatedTTL = calculateTTL(streamRecord.ttl)
+      if (logger.isDebugEnabled())
+        logger.debug(prefixName + s"Creating new database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] " +
+          s"for persisting and reading transactions data.")
+      new RocksDbConnection(rocksStorageOpts, s"$pathForData${key.toString}", calculatedTTL)
+    })
+  }
+
   def getTransactionData(streamID: Int,
                          partition: Int,
                          transaction: Long,
@@ -158,6 +138,23 @@ class TransactionDataService(storageOpts: StorageOptions,
 
     data
   }
+
+  @throws[StreamDoesNotExist]
+  private def getStorageOrThrowError(streamRecord: StreamRecord) = {
+    val key = StorageName(streamRecord.key.id.toString)
+    Option(rocksDBStorageToStream.get(key))
+      .getOrElse {
+        if (logger.isDebugEnabled()) {
+          val calculatedTTL = calculateTTL(streamRecord.ttl)
+          logger.debug(prefixName +
+            s"Database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] doesn't exits!"
+          )
+        }
+        throw new StreamDoesNotExist(streamRecord.name)
+      }
+  }
+
+  private def calculateTTL(ttl: Long): Int = scala.math.abs((ttl + ttlToAdd).toInt)
 
   def closeTransactionDataDatabases(): Unit =
     rocksDBStorageToStream.values().forEach(_.close())

@@ -26,12 +26,7 @@ import com.bwsw.commitlog.{CommitLogRecord, CommitLogRecordHeader}
 abstract class CommitLogIterator extends Iterator[Either[NoSuchElementException, CommitLogRecord]] {
   protected val stream: BufferedInputStream
 
-  override def hasNext(): Boolean = {
-    if (stream.available() > 0) true
-    else false
-  }
-
-  def close():Unit = {
+  def close(): Unit = {
     stream.close()
   }
 
@@ -54,8 +49,13 @@ abstract class CommitLogIterator extends Iterator[Either[NoSuchElementException,
       }
     }
   }
+
+  override def hasNext(): Boolean = {
+    if (stream.available() > 0) true
+    else false
+  }
 }
 
 private object CommitLogIterator {
-  val EOF:Int = -1
+  val EOF: Int = -1
 }

@@ -28,18 +28,6 @@ final class ZKMasterElector(curatorClient: CuratorFramework,
     )
   leaderLatch.addListener(this)
 
-  private def putSocketAddress(): Try[String] = {
-    scala.util.Try(curatorClient.delete().forPath(masterPrefix))
-    scala.util.Try {
-      val permissions = new util.ArrayList[ACL]()
-      permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
-      curatorClient.create().creatingParentsIfNeeded()
-        .withMode(CreateMode.EPHEMERAL)
-        .withACL(permissions)
-        .forPath(masterPrefix, socket.toString.getBytes())
-    }
-  }
-
   def leaderID: String =
     leaderLatch.getLeader.getId
 
@@ -64,6 +52,18 @@ final class ZKMasterElector(curatorClient: CuratorFramework,
 
   override def isLeader(): Unit = {
     putSocketAddress()
+  }
+
+  private def putSocketAddress(): Try[String] = {
+    scala.util.Try(curatorClient.delete().forPath(masterPrefix))
+    scala.util.Try {
+      val permissions = new util.ArrayList[ACL]()
+      permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
+      curatorClient.create().creatingParentsIfNeeded()
+        .withMode(CreateMode.EPHEMERAL)
+        .withACL(permissions)
+        .forPath(masterPrefix, socket.toString.getBytes())
+    }
   }
 
   override def notLeader(): Unit = {

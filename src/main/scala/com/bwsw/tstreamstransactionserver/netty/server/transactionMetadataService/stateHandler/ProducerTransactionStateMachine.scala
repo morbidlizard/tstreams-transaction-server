@@ -1,29 +1,12 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler
 
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord, ProducerTransactionValue}
-import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Cancel, Checkpointed, Invalid, Opened, Updated}
+import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.ProducerTransactionRecord
+import com.bwsw.tstreamstransactionserver.rpc.TransactionStates._
 
 import scala.annotation.tailrec
 
 
 object ProducerTransactionStateMachine {
-  def apply(producerTransactionRecord: ProducerTransactionRecord): ProducerTransactionState = {
-    producerTransactionRecord.state match {
-      case Opened =>
-        new OpenedTransactionState(producerTransactionRecord)
-      case Updated =>
-        new UpdatedTransactionState(producerTransactionRecord)
-      case Cancel =>
-        new CanceledTransactionState(producerTransactionRecord)
-      case Invalid =>
-        new InvalidTransactionState(producerTransactionRecord)
-      case Checkpointed =>
-        new CheckpointedTransactionState(producerTransactionRecord)
-      case _ =>
-        new UndefinedTransactionState(producerTransactionRecord)
-    }
-  }
-
   def checkFinalStateBeStoredInDB(producerTransactionState: ProducerTransactionState): Boolean = {
     producerTransactionState match {
       case _: OpenedTransactionState =>
@@ -35,6 +18,10 @@ object ProducerTransactionStateMachine {
       case _ =>
         false
     }
+  }
+
+  final def transiteTransactionsToFinalState(records: Seq[ProducerTransactionRecord]): Option[ProducerTransactionState] = {
+    transiteTransactionsToFinalState(records, _ => {})
   }
 
   final def transiteTransactionsToFinalState(records: Seq[ProducerTransactionRecord],
@@ -70,7 +57,20 @@ object ProducerTransactionStateMachine {
       )
   }
 
-  final def transiteTransactionsToFinalState(records: Seq[ProducerTransactionRecord]): Option[ProducerTransactionState] = {
-    transiteTransactionsToFinalState(records, _ => {})
+  def apply(producerTransactionRecord: ProducerTransactionRecord): ProducerTransactionState = {
+    producerTransactionRecord.state match {
+      case Opened =>
+        new OpenedTransactionState(producerTransactionRecord)
+      case Updated =>
+        new UpdatedTransactionState(producerTransactionRecord)
+      case Cancel =>
+        new CanceledTransactionState(producerTransactionRecord)
+      case Invalid =>
+        new InvalidTransactionState(producerTransactionRecord)
+      case Checkpointed =>
+        new CheckpointedTransactionState(producerTransactionRecord)
+      case _ =>
+        new UndefinedTransactionState(producerTransactionRecord)
+    }
   }
 }

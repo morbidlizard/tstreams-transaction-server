@@ -1,23 +1,44 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.data.PutProducerStateWithDataHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc._
-import PutProducerStateWithDataHandler._
+import io.netty.channel.ChannelHandlerContext
+
+import scala.concurrent.ExecutionContext
 
 private object PutProducerStateWithDataHandler {
   val descriptor = Protocol.PutProducerStateWithData
 }
 
 class PutProducerStateWithDataHandler(server: TransactionServer,
-                                      scheduledCommitLog: ScheduledCommitLog)
-  extends RequestHandler {
+                                      scheduledCommitLog: ScheduledCommitLog,
+                                      context: ExecutionContext)
+  extends PredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
-  private def process(requestBody: Array[Byte]) = {
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.PutProducerStateWithData.Result(
+        None,
+        Some(ServerException(message)
+        )
+      )
+    )
+  }
+
+  override protected def fireAndForget(message: RequestMessage): Unit = {
+    process(message.body)
+  }
+
+  private def process(requestBody: Array[Byte]): Boolean = {
     val transactionAndData = descriptor.decodeRequest(requestBody)
-    val txn  = transactionAndData.transaction
+    val txn = transactionAndData.transaction
     val data = transactionAndData.data
     val from = transactionAndData.from
 
@@ -52,30 +73,13 @@ class PutProducerStateWithDataHandler(server: TransactionServer,
     )
   }
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val isPutted = process(requestBody)
-    descriptor.encodeResponse(
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = descriptor.encodeResponse(
       TransactionService.PutProducerStateWithData.Result(
-        Some(isPutted)
+        Some(process(message.body))
       )
     )
+    response
   }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
-  }
-
-  override def createErrorResponse(message: String): Array[Byte] = {
-    descriptor.encodeResponse(
-      TransactionService.PutProducerStateWithData.Result(
-        None,
-        Some(ServerException(message)
-        )
-      )
-    )
-  }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

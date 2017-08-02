@@ -76,24 +76,6 @@ final class ProducerStateMachineCache(rocksDB: KeyValueDbManager) {
   //    lastCheckpointedTransactionDatabaseIterator.close()
   //  }
 
-  private def putLastTransaction(key: KeyStreamPartition,
-                                 transactionId: Long,
-                                 batch: KeyValueDbBatch,
-                                 databaseIndex: Int): Boolean = {
-    val updatedTransactionID =
-      new TransactionId(transactionId)
-    val binaryKey =
-      key.toByteArray
-    val binaryTransactionID =
-      updatedTransactionID.toByteArray
-
-    batch.put(
-      databaseIndex,
-      binaryKey,
-      binaryTransactionID
-    )
-  }
-
   def putLastOpenedTransactionID(key: KeyStreamPartition,
                                  transactionId: Long,
                                  batch: KeyValueDbBatch): Boolean = {
@@ -116,6 +98,23 @@ final class ProducerStateMachineCache(rocksDB: KeyValueDbManager) {
     )
   }
 
+  private def putLastTransaction(key: KeyStreamPartition,
+                                 transactionId: Long,
+                                 batch: KeyValueDbBatch,
+                                 databaseIndex: Int): Boolean = {
+    val updatedTransactionID =
+      new TransactionId(transactionId)
+    val binaryKey =
+      key.toByteArray
+    val binaryTransactionID =
+      updatedTransactionID.toByteArray
+
+    batch.put(
+      databaseIndex,
+      binaryKey,
+      binaryTransactionID
+    )
+  }
 
   def updateLastOpenedTransactionID(key: KeyStreamPartition,
                                     transaction: Long): Unit = {

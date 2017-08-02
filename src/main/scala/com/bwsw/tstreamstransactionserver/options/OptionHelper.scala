@@ -23,14 +23,6 @@ package com.bwsw.tstreamstransactionserver.options
 import java.util.Properties
 
 class OptionHelper(properties: Properties) {
-  def checkPropertyExists(property: String)(classType: Class[_]): String = {
-    Option(properties.getProperty(property))
-      .getOrElse(throw new NoSuchElementException(
-        s"No property by key: '$property' has been found for '${classType.getSimpleName}'." +
-          s"You should define it and restart the program.")
-      )
-  }
-
   def castCheck[T](property: String,
                    constructor: String => T
                   )(implicit classType: Class[_]): T = {
@@ -43,5 +35,13 @@ class OptionHelper(properties: Properties) {
           s"Property '$property' has got an invalid format, but expected another type."
         )
     }
+  }
+
+  def checkPropertyExists(property: String)(classType: Class[_]): String = {
+    Option(properties.getProperty(property))
+      .getOrElse(throw new NoSuchElementException(
+        s"No property by key: '$property' has been found for '${classType.getSimpleName}'." +
+          s"You should define it and restart the program.")
+      )
   }
 }

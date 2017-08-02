@@ -18,32 +18,43 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.GetTransactionIDHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import GetTransactionIDHandler.descriptor
+import io.netty.channel.ChannelHandlerContext
+
 
 private object GetTransactionIDHandler {
   val descriptor = Protocol.GetTransactionID
 }
 
 class GetTransactionIDHandler(server: TransactionServer)
-  extends RequestHandler {
+  extends SyncReadHandler(
+    descriptor.methodID,
+    descriptor.name
+  ) {
 
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = server.getTransactionID
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
-    descriptor.encodeResponse(
-      TransactionService.GetTransactionID.Result(Some(result))
-    )
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext,
+                                     acc: Option[Throwable]): Array[Byte] = {
+    if (acc.isEmpty) {
+      val response = descriptor.encodeResponse(
+        TransactionService.GetTransactionID.Result(
+          Some(process(message.body))
+        )
+      )
+      response
+    } else {
+      val error = acc.get
+      logUnsuccessfulProcessing(name, error, message, ctx)
+      createErrorResponse(error.getMessage)
+    }
   }
 
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to get transaction ID according to fire and forget policy"
-    //    )
+  private def process(requestBody: Array[Byte]) = {
+    server.getTransactionID
   }
 
   override def createErrorResponse(message: String): Array[Byte] = {
@@ -55,8 +66,4 @@ class GetTransactionIDHandler(server: TransactionServer)
       )
     )
   }
-
-  override def name: String = descriptor.name
-
-  override def id: Byte = descriptor.methodID
 }

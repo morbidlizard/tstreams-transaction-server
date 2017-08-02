@@ -6,13 +6,13 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionService._
 object RecordType
   extends Enumeration {
 
-  val Timestamp                       = Value(0)
-  val PutTransactionDataType          = Value(1)
+  val Timestamp = Value(0)
+  val PutTransactionDataType = Value(1)
   val PutSimpleTransactionAndDataType = Value(2)
-  val PutProducerStateWithDataType    = Value(3)
-  val PutTransactionType              = Value(4)
-  val PutTransactionsType             = Value(5)
-  val PutConsumerCheckpointType       = Value(6)
+  val PutProducerStateWithDataType = Value(3)
+  val PutTransactionType = Value(4)
+  val PutTransactionsType = Value(5)
+  val PutConsumerCheckpointType = Value(6)
 
   def deserializePutTransactionData(message: Array[Byte]): PutTransactionData.Args =
     Protocol.PutTransactionData.decodeRequest(message)

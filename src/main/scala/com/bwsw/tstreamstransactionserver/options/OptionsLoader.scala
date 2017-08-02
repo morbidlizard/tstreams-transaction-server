@@ -132,16 +132,16 @@ class OptionsLoader {
       helper.castCheck("rocksdb.write-thread-pool", prop => prop.toInt)
 
     val readThreadPool =
-      helper.castCheck("rocksdb.read-thread-pool",  prop => prop.toInt)
+      helper.castCheck("rocksdb.read-thread-pool", prop => prop.toInt)
 
     val transactionTtlAppendMs =
-      helper.castCheck("rocksdb.transaction-ttl-append-ms",  prop => prop.toInt)
+      helper.castCheck("rocksdb.transaction-ttl-append-ms", prop => prop.toInt)
 
     val transactionExpungeDelayMin =
-      helper.castCheck("rocksdb.transaction-expunge-delay-min",  prop => prop.toInt)
+      helper.castCheck("rocksdb.transaction-expunge-delay-min", prop => prop.toInt)
 
     val maxBackgroundCompactions =
-      helper.castCheck("rocksdb.max-background-compactions",  prop => prop.toInt)
+      helper.castCheck("rocksdb.max-background-compactions", prop => prop.toInt)
 
     val compressionType =
       helper.castCheck("rocksdb.compression-type", prop => CompressionType.getCompressionType(prop))

@@ -26,8 +26,7 @@ import com.bwsw.commitlog.CommitLogRecord._
 final class CommitLogRecord(val id: Long,
                             val messageType: Byte,
                             val message: Array[Byte],
-                            val timestamp: Long = System.currentTimeMillis())
-{
+                            val timestamp: Long = System.currentTimeMillis()) {
   @inline
   def toByteArray: Array[Byte] = {
     ByteBuffer.allocate(size)
@@ -39,6 +38,8 @@ final class CommitLogRecord(val id: Long,
       .array()
   }
 
+  def size: Int = headerSize + message.length
+
   override def equals(obj: scala.Any): Boolean = obj match {
     case commitLogRecord: CommitLogRecord =>
       id == commitLogRecord.id &&
@@ -46,15 +47,14 @@ final class CommitLogRecord(val id: Long,
         message.sameElements(commitLogRecord.message)
     case _ => false
   }
-
-  def size: Int = headerSize + message.length
 }
+
 object CommitLogRecord {
   val headerSize: Int =
-    java.lang.Long.BYTES +     //id
-    java.lang.Byte.BYTES +     //messageType
-    java.lang.Integer.BYTES +  //messageLength
-    java.lang.Long.BYTES       //timestamp
+    java.lang.Long.BYTES + //id
+      java.lang.Byte.BYTES + //messageType
+      java.lang.Integer.BYTES + //messageLength
+      java.lang.Long.BYTES //timestamp
 
 
   final def apply(id: Long, messageType: Byte, message: Array[Byte], timestamp: Long): CommitLogRecord = new CommitLogRecord(id, messageType, message, timestamp)
@@ -62,11 +62,11 @@ object CommitLogRecord {
   final def fromByteArray(bytes: Array[Byte]): Either[IllegalArgumentException, CommitLogRecord] = {
     scala.util.Try {
       val buffer = ByteBuffer.wrap(bytes)
-      val id     = buffer.getLong()
-      val messageType   = buffer.get()
+      val id = buffer.getLong()
+      val messageType = buffer.get()
       val messageLength = buffer.getInt()
-      val timestamp     = buffer.getLong()
-      val message       = {
+      val timestamp = buffer.getLong()
+      val message = {
         val binaryMessage = new Array[Byte](messageLength)
         buffer.get(binaryMessage)
         binaryMessage

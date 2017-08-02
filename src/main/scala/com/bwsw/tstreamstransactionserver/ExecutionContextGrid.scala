@@ -28,15 +28,13 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 /** Context is a wrapper for java executors
   *
-  *  @constructor creates a context with a number of executors services.
-  *  @param nContexts a number of executors services
-  *  @param f an executor service.
+  * @constructor creates a context with a number of executors services.
+  * @param nContexts a number of executors services
+  * @param f         an executor service.
   *
   */
 class ExecutionContextGrid(nContexts: Int, f: => java.util.concurrent.ExecutorService) {
   require(nContexts > 0)
-
-  private def newExecutionContext = ExecutionContext.fromExecutorService(f)
 
   private val contexts = Array.fill(nContexts)(newExecutionContext)
 
@@ -45,6 +43,8 @@ class ExecutionContextGrid(nContexts: Int, f: => java.util.concurrent.ExecutorSe
   def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
 
   def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContextGrid.TASK_TERMINATION_MAX_WAIT_MS, TimeUnit.MILLISECONDS))
+
+  private def newExecutionContext = ExecutionContext.fromExecutorService(f)
 }
 
 class SinglePoolExecutionContextGrid(f: => java.util.concurrent.ExecutorService) extends ExecutionContextGrid(1, f) {
@@ -59,7 +59,8 @@ object ExecutionContextGrid {
   def apply(nameFormat: String) = new SinglePoolExecutionContextGrid(
     new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
   )
-  /** Creates FixedThreadPool with defined threadNumber*/
+
+  /** Creates FixedThreadPool with defined threadNumber */
   def apply(threadNumber: Int, nameFormat: String) = new SinglePoolExecutionContextGrid(
     new ThreadPoolExecutor(threadNumber, threadNumber, 0L, TimeUnit.MILLISECONDS,
       new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())

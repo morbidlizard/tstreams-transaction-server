@@ -10,8 +10,7 @@ import scala.annotation.tailrec
 final class ZKIDGenerator(curatorClient: CuratorFramework,
                           retryPolicy: RetryPolicy,
                           path: String)
-  extends IDGenerator[Long]
-{
+  extends IDGenerator[Long] {
 
   private val distributedAtomicLong =
     new DistributedAtomicLong(

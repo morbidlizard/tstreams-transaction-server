@@ -8,8 +8,7 @@ import com.bwsw.tstreamstransactionserver.rpc.ProducerTransaction
 class TestTransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
                                        producerStateMachine: ProducerStateMachineCache,
                                        notifier: Notifier[ProducerTransaction])
-  extends TransactionMetaServiceWriter(rocksDB, producerStateMachine)
-{
+  extends TransactionMetaServiceWriter(rocksDB, producerStateMachine) {
   override protected def onStateChange: (ProducerTransactionRecord) => Unit = {
     transaction => {
       notifier.tryCompleteRequests(transaction)

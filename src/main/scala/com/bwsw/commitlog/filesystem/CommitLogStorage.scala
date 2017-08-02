@@ -18,7 +18,7 @@
  */
 package com.bwsw.commitlog.filesystem
 
-trait CommitLogStorage extends Ordered[CommitLogStorage]{
+trait CommitLogStorage extends Ordered[CommitLogStorage] {
   def compare(that: CommitLogStorage): Int = java.lang.Long.compare(getID, that.getID)
 
   /** Returns an iterator over records */

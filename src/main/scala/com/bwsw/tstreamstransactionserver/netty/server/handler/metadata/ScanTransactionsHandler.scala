@@ -18,42 +18,26 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.ScanTransactionsHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import io.netty.channel.ChannelHandlerContext
 
-import ScanTransactionsHandler.descriptor
+import scala.concurrent.ExecutionContext
 
 private object ScanTransactionsHandler {
   val descriptor = Protocol.ScanTransactions
 }
 
 
-class ScanTransactionsHandler (server: TransactionServer)
-  extends RequestHandler{
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val args = descriptor.decodeRequest(requestBody)
-    val result = server.scanTransactions(
-      args.streamID,
-      args.partition,
-      args.from,
-      args.to,
-      args.count,
-      args.states
-    )
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
-    descriptor.encodeResponse(
-      TransactionService.ScanTransactions.Result(Some(result))
-    )
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to scan transactions according to fire and forget policy"
-    //    )
-  }
+class ScanTransactionsHandler(server: TransactionServer,
+                              context: ExecutionContext)
+  extends PredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -65,7 +49,26 @@ class ScanTransactionsHandler (server: TransactionServer)
     )
   }
 
-  override def name: String = descriptor.name
+  override protected def fireAndForget(message: RequestMessage): Unit = {}
 
-  override def id: Byte = descriptor.methodID
+  override protected def getResponse(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = descriptor.encodeResponse(
+      TransactionService.ScanTransactions.Result(
+        Some(process(message.body))
+      )
+    )
+    response
+  }
+
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.scanTransactions(
+      args.streamID,
+      args.partition,
+      args.from,
+      args.to,
+      args.count,
+      args.states
+    )
+  }
 }

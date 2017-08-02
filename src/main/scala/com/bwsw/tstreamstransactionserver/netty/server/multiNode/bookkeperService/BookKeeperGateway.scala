@@ -4,8 +4,8 @@ import java.util.concurrent._
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
-import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.bookkeeper.client.BookKeeper
 import org.apache.bookkeeper.conf.ClientConfiguration
@@ -25,13 +25,12 @@ final class BookKeeperGateway(rocksReader: RocksReader,
                               timeBetweenCreationOfLedgersMs: Int)
   extends Runnable {
 
+  private type Timestamp = Long
   private val myZkTreeList = zkTress.head
-
   private val bookKeeperExecutor =
     Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("bookkeeper-close-ledger-scheduler-%d").build()
     )
-
   private val bookKeeper: BookKeeper = {
     val lowLevelZkClient = zkClient.getZookeeperClient
     val configuration = new ClientConfiguration()
@@ -46,10 +45,8 @@ final class BookKeeperGateway(rocksReader: RocksReader,
 
     new BookKeeper(configuration)
   }
-
   private val ledgersToWriteTo =
     new LinkedBlockingQueue[org.apache.bookkeeper.client.LedgerHandle](10)
-
   private val master = new Master(
     bookKeeper,
     selector,
@@ -59,7 +56,6 @@ final class BookKeeperGateway(rocksReader: RocksReader,
     timeBetweenCreationOfLedgersMs,
     ledgersToWriteTo
   )
-
   private val slave = new Slave(
     bookKeeper,
     replicationConfig,
@@ -68,19 +64,16 @@ final class BookKeeperGateway(rocksReader: RocksReader,
     rocksWriter,
     bookKeeperLedgerPassword
   )
-
   private val masterTask =
     new Thread(
       master,
       "bookkeeper-master-%d"
     )
-
-
   private val bookKeeperSlaveExecutor =
     Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("bookkeeper-slave-%d").build()
     )
-
+  private val lock = new ReentrantReadWriteLock()
 
   def init(): Unit = {
     masterTask.start()
@@ -92,9 +85,6 @@ final class BookKeeperGateway(rocksReader: RocksReader,
     )
   }
 
-  private val lock = new ReentrantReadWriteLock()
-
-  private type Timestamp = Long
   @throws[Exception]
   def doOperationWithCurrentWriteLedger(operate: org.apache.bookkeeper.client.LedgerHandle => Unit): Unit = {
 

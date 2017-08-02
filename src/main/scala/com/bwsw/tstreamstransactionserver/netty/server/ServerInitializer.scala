@@ -18,19 +18,15 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server
 
-import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.netty.Message
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
-import io.netty.buffer.ByteBuf
-import io.netty.channel.socket.SocketChannel
+import com.bwsw.tstreamstransactionserver.netty.RequestMessage
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestRouter
 import io.netty.channel.ChannelInitializer
+import io.netty.channel.socket.SocketChannel
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder
 import io.netty.handler.codec.bytes.ByteArrayEncoder
 
 
-
-class ServerInitializer(requestHandlerRouter: RequestHandlerRouter,
-                        executionContext: ServerExecutionContextGrids)
+class ServerInitializer(requestRouter: RequestRouter)
   extends ChannelInitializer[SocketChannel] {
   override def initChannel(ch: SocketChannel): Unit = {
     ch.pipeline()
@@ -38,12 +34,11 @@ class ServerInitializer(requestHandlerRouter: RequestHandlerRouter,
       .addLast(new LengthFieldBasedFrameDecoder(
         Int.MaxValue,
         //packageTransmissionOpts.maxDataPackageSize max packageTransmissionOpts.maxMetadataPackageSize,
-        Message.headerFieldSize,
-        Message.lengthFieldSize)
+        RequestMessage.headerFieldSize,
+        RequestMessage.lengthFieldSize)
       )
       .addLast(new ServerHandler(
-        requestHandlerRouter,
-        executionContext
+        requestRouter
       ))
   }
 }

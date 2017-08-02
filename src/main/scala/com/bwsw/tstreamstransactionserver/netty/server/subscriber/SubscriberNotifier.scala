@@ -29,10 +29,9 @@ private object SubscriberNotifier {
 
 
 private[server] class SubscriberNotifier {
-  @volatile private var isStopped = false
-
   private val clientSocket =
     new DatagramSocket()
+  @volatile private var isStopped = false
 
   def broadcast(subscribers: java.util.Collection[String],
                 message: TransactionState): Unit = {

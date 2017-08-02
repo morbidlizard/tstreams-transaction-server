@@ -28,10 +28,10 @@ class StreamKey(val id: Int) extends AnyVal {
 }
 
 object StreamKey {
-  def apply(id: Int): StreamKey = new StreamKey(id)
-
-  def fromByteArray(bytes: Array[Byte]) : StreamKey = {
+  def fromByteArray(bytes: Array[Byte]): StreamKey = {
     val id = java.nio.ByteBuffer.wrap(bytes).getInt
     StreamKey(id)
   }
+
+  def apply(id: Int): StreamKey = new StreamKey(id)
 }

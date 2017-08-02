@@ -30,7 +30,7 @@ import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandlerRouter
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestRouter
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
@@ -39,15 +39,13 @@ import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.buffer.ByteBuf
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.ServerSocketChannel
 import io.netty.channel.socket.nio.NioServerSocketChannel
-import io.netty.channel.{ChannelOption, EventLoopGroup, SimpleChannelInboundHandler}
+import io.netty.channel.{ChannelOption, EventLoopGroup}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
-import org.slf4j.{Logger, LoggerFactory}
 
 
 class SingleNodeServer(authenticationOpts: AuthenticationOptions,
@@ -61,7 +59,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                        packageTransmissionOpts: TransportOptions,
                        subscribersUpdateOptions: SubscriberUpdateOptions) {
 
-//  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+  //  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val isShutdown = new AtomicBoolean(false)
 
   private def createTransactionServerExternalSocket() = {
@@ -89,8 +87,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       }
   }
 
-  if (!SocketHostPortPair.isValid(serverOpts.bindHost, serverOpts.bindPort))
-  {
+  if (!SocketHostPortPair.isValid(serverOpts.bindHost, serverOpts.bindPort)) {
     throw new InvalidSocketAddress(
       s"Address ${serverOpts.bindHost}:${serverOpts.bindPort} is not a correct socket address pair."
     )
@@ -134,7 +131,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   )
 
   private val transactionServer = new TransactionServer(
-    authenticationOpts,
     zkStreamRepository,
     rocksWriter,
     rocksReader
@@ -233,15 +229,22 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new SubscriberNotifier
     )
 
-  private val requestHandlerRouter: RequestHandlerRouter =
-    new RequestHandlerRouter(
+  private val executionContext =
+    new ServerExecutionContextGrids(
+      rocksStorageOpts.readThreadPool,
+      rocksStorageOpts.writeThreadPool
+    )
+
+  private val requestRouter: RequestRouter =
+    new RequestRouter(
       transactionServer,
       scheduledCommitLog,
       packageTransmissionOpts,
       authenticationOpts,
       orderedExecutionPool,
       openedTransactionNotifier,
-      serverRoleOptions
+      serverRoleOptions,
+      executionContext
     )
 
   private val commonMasterElector =
@@ -258,13 +261,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       serverRoleOptions.checkpointGroupMasterElectionPrefix
     )
 
-
-  private val executionContext =
-    new ServerExecutionContextGrids(
-      rocksStorageOpts.readThreadPool,
-      rocksStorageOpts.writeThreadPool
-    )
-
   def start(function: => Unit = ()): Unit = {
     try {
       val b = new ServerBootstrap()
@@ -272,10 +268,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .channel(determineChannelType())
         .handler(new LoggingHandler(LogLevel.DEBUG))
         .childHandler(
-          new ServerInitializer(
-            requestHandlerRouter,
-            executionContext
-          )
+          new ServerInitializer(requestRouter)
         )
         .option[java.lang.Integer](ChannelOption.SO_BACKLOG, 128)
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
@@ -369,7 +362,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
 
       if (berkeleyWriter != null) {
         berkeleyWriter.run()
-        berkeleyWriter.closeRocksDB()
+        rocksDBCommitLog.close()
       }
 
       if (orderedExecutionPool != null) {
@@ -409,7 +402,7 @@ class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatal
     if (allFilesIDsToProcess.nonEmpty) {
       import scala.collection.JavaConverters.asJavaCollectionConverter
       val filesToProcess: util.Collection[CommitLogFile] = allFilesIDsToProcess
-        .map{case (id, _) => new CommitLogFile(allFiles(id).getFile.getPath)}
+        .map { case (id, _) => new CommitLogFile(allFiles(id).getFile.getPath) }
         .asJavaCollection
 
       val maxSize = scala.math.max(filesToProcess.size, queueSize)

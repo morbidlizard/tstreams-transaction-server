@@ -23,6 +23,7 @@ import com.bwsw.tstreamstransactionserver.`implicit`.Implicits.intToByteArray
 
 case class Key(partition: Int, transaction: Long) {
   lazy private val binaryKey: Array[Byte] = toByteArray()
+
   final def toByteArray(): Array[Byte] = {
     val size = java.lang.Integer.BYTES + java.lang.Long.BYTES
     val buffer = java.nio.ByteBuffer
@@ -37,6 +38,7 @@ case class Key(partition: Int, transaction: Long) {
   }
 
   final def toByteArray(dataID: Int): Array[Byte] = binaryKey ++: intToByteArray(dataID)
+
   override def toString: String = s"$partition $transaction"
 }
 

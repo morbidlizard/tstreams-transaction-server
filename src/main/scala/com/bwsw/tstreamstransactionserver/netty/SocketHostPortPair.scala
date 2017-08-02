@@ -21,10 +21,12 @@
 package com.bwsw.tstreamstransactionserver.netty
 
 import org.apache.commons.validator.routines.{DomainValidator, InetAddressValidator}
+
 import scala.util.Try
 
-case class SocketHostPortPair(address: String, port: Int){
+case class SocketHostPortPair(address: String, port: Int) {
   override def toString: String = s"$address:$port"
+
   def get = s"$address:$port"
 }
 
@@ -46,6 +48,13 @@ object SocketHostPortPair {
       }
   }
 
+  def validateAndCreate(ipAddress: String, port: Int): Option[SocketHostPortPair] = {
+    if (isValid(ipAddress, port))
+      Some(SocketHostPortPair(ipAddress, port))
+    else
+      None
+  }
+
   def isValid(inetAddress: String, port: Int): Boolean = {
     val isHostname = domainValidator.isValid(inetAddress)
     val isIPAddress = inetAddressValidator.isValid(inetAddress)
@@ -56,12 +65,5 @@ object SocketHostPortPair {
       true
     else
       false
-  }
-
-  def validateAndCreate(ipAddress: String, port: Int): Option[SocketHostPortPair] = {
-    if (isValid(ipAddress, port))
-      Some(SocketHostPortPair(ipAddress, port))
-    else
-      None
   }
 }

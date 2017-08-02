@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
 
 private[commitlog] case class CommitLogRecordHeader(messageType: Byte, messageLength: Int, timestamp: Long)
 
-object CommitLogRecordHeader{
+object CommitLogRecordHeader {
   private[commitlog] def fromByteArray(binaryHeader: Array[Byte]) = {
     val buffer = ByteBuffer.wrap(binaryHeader)
     val messageType   = buffer.get()

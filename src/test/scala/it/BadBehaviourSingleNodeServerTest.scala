@@ -40,8 +40,8 @@ class BadBehaviourSingleNodeServerTest
     override def zkPath: Option[String] = None
   }
 
-  private val secondsWait = 3
 
+  private val secondsWait = 3
 
   private val requestTimeoutMs = 500
 

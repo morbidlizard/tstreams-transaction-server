@@ -3,12 +3,8 @@ package it.packageTooBig
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
-import com.bwsw.tstreamstransactionserver.netty.client.InetClientProxy
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
-import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
-import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
-import org.apache.curator.test.TestingServer
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
 import util.Utils.startZkServerAndGetIt
@@ -49,10 +45,12 @@ class ClientPackageTooBigTest
     bundle.operate { _ =>
       val client = bundle.client
       assertThrows[PackageTooBigException] {
-        Await.result(client.putStream(
-          "Too big message",
+        Await.result(client.putTransactionData(
           1,
-          Some(new String(new Array[Byte](packageTransmissionOptions.maxMetadataPackageSize))), 1
+          1,
+          1L,
+          Array.fill(2)(new Array[Byte](packageTransmissionOptions.maxMetadataPackageSize)),
+          1
         ), Duration(5, TimeUnit.SECONDS))
       }
 

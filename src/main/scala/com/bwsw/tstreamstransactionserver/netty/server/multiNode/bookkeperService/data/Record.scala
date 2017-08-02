@@ -1,6 +1,5 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data
 
-import java.util
 
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 
@@ -14,7 +13,6 @@ class Record(val recordType: Byte,
            body: Array[Byte]) = {
     this(recordType.id.toByte, timestamp, body)
   }
-
 
   def toByteArray: Array[Byte] = {
     val size = Record.recordTypeSizeField +
@@ -46,7 +44,7 @@ class Record(val recordType: Byte,
       31 * (
         31 + timestamp.hashCode()
         ) + recordType.hashCode()
-      ) + util.Arrays.hashCode(body)
+      ) + java.util.Arrays.hashCode(body)
   }
 
   override def compare(that: Record): Int = {
@@ -60,13 +58,14 @@ class Record(val recordType: Byte,
 
 object Record {
   private val recordTypeSizeField = java.lang.Byte.BYTES
-  private val timestampSizeField  = java.lang.Long.BYTES
+  private val timestampSizeField = java.lang.Long.BYTES
 
   def fromByteArray(bytes: Array[Byte]): Record = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
 
     val recordType = buffer.get
     val timestamp  = buffer.getLong
+
     val body = new Array[Byte](buffer.remaining())
     buffer.get(body)
 

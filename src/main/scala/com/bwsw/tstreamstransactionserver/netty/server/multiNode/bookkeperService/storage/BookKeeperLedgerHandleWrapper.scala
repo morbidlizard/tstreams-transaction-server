@@ -14,28 +14,24 @@ class BookKeeperLedgerHandleWrapper(ledgerHandler: org.apache.bookkeeper.client.
     ledgerHandler.addEntry(bytes)
   }
 
-  private def callback(onSuccessDo: => Unit,
-                       onFailureDo: => Unit) = {
-    new AsyncCallback.AddCallback() {
-      override def addComplete(code: Int,
-                               ledgerHandle: client.LedgerHandle,
-                               entryID: Long,
-                               context: scala.Any): Unit =
-      {
-        if (BKException.Code.OK == code)
-          onSuccessDo
-        else
-          onFailureDo
-      }
-    }
-  }
-
   override def getRecord(id: Long): Record = {
     val entry = ledgerHandler.readEntries(id, id)
     if (entry.hasMoreElements)
       Record.fromByteArray(entry.nextElement().getEntry)
     else
       null: Record
+  }
+
+  override def getOrderedRecords(from: Long): Array[RecordWithIndex] = {
+    val lo = math.max(from, 0)
+    val hi = lastRecordID()
+
+    val indexes = lo to hi
+    readRecords(lo, hi)
+      .zip(indexes).sortBy(_._1.timestamp)
+      .map { case (record, index) =>
+        RecordWithIndex(index, record)
+      }
   }
 
   override def readRecords(from: Long, to: Long): Array[Record] = {
@@ -58,17 +54,8 @@ class BookKeeperLedgerHandleWrapper(ledgerHandler: org.apache.bookkeeper.client.
     }
   }
 
-  override def getOrderedRecords(from: Long): Array[RecordWithIndex] = {
-    val lo = math.max(from, 0)
-    val hi = lastRecordID()
-
-    val indexes = lo to hi
-    readRecords(lo, hi)
-      .zip(indexes).sortBy(_._1.timestamp)
-      .map { case (record, index) =>
-        RecordWithIndex(index, record)
-      }
-  }
+  override def lastRecordID(): Long =
+    ledgerHandler.getLastAddConfirmed
 
   override def lastRecord(): Option[Record] = {
     val lastID = lastRecordID()
@@ -79,9 +66,6 @@ class BookKeeperLedgerHandleWrapper(ledgerHandler: org.apache.bookkeeper.client.
       None
   }
 
-  override def lastRecordID(): Long =
-    ledgerHandler.getLastAddConfirmed
-
   override def close(): Unit =
     ledgerHandler.close()
 
@@ -89,5 +73,20 @@ class BookKeeperLedgerHandleWrapper(ledgerHandler: org.apache.bookkeeper.client.
                                             onFailureDo: => Unit): Unit = {
     val bytes = data.toByteArray
     ledgerHandler.asyncAddEntry(bytes, callback(onSuccessDo, onFailureDo), null)
+  }
+
+  private def callback(onSuccessDo: => Unit,
+                       onFailureDo: => Unit) = {
+    new AsyncCallback.AddCallback() {
+      override def addComplete(code: Int,
+                               ledgerHandle: client.LedgerHandle,
+                               entryID: Long,
+                               context: scala.Any): Unit = {
+        if (BKException.Code.OK == code)
+          onSuccessDo
+        else
+          onFailureDo
+      }
+    }
   }
 }

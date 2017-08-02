@@ -18,34 +18,25 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.PutStreamHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import PutStreamHandler.descriptor
-private object PutStreamHandler{
+import io.netty.channel.ChannelHandlerContext
+
+import scala.concurrent.ExecutionContext
+
+private object PutStreamHandler {
   val descriptor = Protocol.PutStream
 }
 
-class PutStreamHandler(server: TransactionServer)
-  extends RequestHandler {
-
-  private def process(requestBody: Array[Byte]) = {
-    val args = descriptor.decodeRequest(requestBody)
-    server.putStream(args.name, args.partitions, args.description, args.ttl)
-  }
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.PutStream.name)
-    descriptor.encodeResponse(
-      TransactionService.PutStream.Result(Some(result))
-    )
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
-  }
+class PutStreamHandler(server: TransactionServer,
+                       context: ExecutionContext)
+  extends PredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -57,7 +48,22 @@ class PutStreamHandler(server: TransactionServer)
     )
   }
 
-  override def name: String = descriptor.name
+  override protected def fireAndForget(message: RequestMessage): Unit = {
+    process(message.body)
+  }
 
-  override def id: Byte = descriptor.methodID
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = descriptor.encodeResponse(
+      TransactionService.PutStream.Result(
+        Some(process(message.body))
+      )
+    )
+    response
+  }
+
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.putStream(args.name, args.partitions, args.description, args.ttl)
+  }
 }

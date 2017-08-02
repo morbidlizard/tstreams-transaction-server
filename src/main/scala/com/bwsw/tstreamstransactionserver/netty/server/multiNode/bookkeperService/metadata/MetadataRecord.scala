@@ -4,26 +4,25 @@ object MetadataRecord {
   private val recordsNumberFieldSize =
     java.lang.Integer.BYTES
 
-  def apply(records: Array[LedgerIDAndItsLastRecordID]): MetadataRecord =
-    new MetadataRecord(records)
-
   def fromByteArray(bytes: Array[Byte]): MetadataRecord = {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
 
     val recordNumber = buffer.getInt
     val recordSize = LedgerIDAndItsLastRecordID.sizeInBytes
     val record = new Array[Byte](recordSize)
-    val records = Array.fill(recordNumber){
+    val records = Array.fill(recordNumber) {
       buffer.get(record)
       LedgerIDAndItsLastRecordID.fromByteArray(record)
     }
 
     MetadataRecord(records)
   }
+
+  def apply(records: Array[LedgerIDAndItsLastRecordID]): MetadataRecord =
+    new MetadataRecord(records)
 }
 
-final class MetadataRecord(val records: Array[LedgerIDAndItsLastRecordID])
-{
+final class MetadataRecord(val records: Array[LedgerIDAndItsLastRecordID]) {
   def toByteArray: Array[Byte] = {
     import MetadataRecord._
     val size = recordsNumberFieldSize +

@@ -18,42 +18,27 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.GetCommitLogOffsetsHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
-import GetCommitLogOffsetsHandler.descriptor
+import io.netty.channel.ChannelHandlerContext
+
+import scala.concurrent.ExecutionContext
 
 private object GetCommitLogOffsetsHandler {
   val descriptor = Protocol.GetCommitLogOffsets
 }
 
 class GetCommitLogOffsetsHandler(server: TransactionServer,
-                                 scheduledCommitLog: ScheduledCommitLog
-                                )
-  extends RequestHandler {
-
-
-  private def process(requestBody: Array[Byte]) = {
-    TransactionService.GetCommitLogOffsets.Result(
-      Some(CommitLogInfo(
-        server.getLastProcessedCommitLogFileID,
-        scheduledCommitLog.currentCommitLogFile)
-      )
-    )
-  }
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val response = process(requestBody)
-    descriptor.encodeResponse(response)
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to get commit log offsets according to fire and forget policy"
-//    )
-  }
+                                 scheduledCommitLog: ScheduledCommitLog,
+                                 context: ExecutionContext)
+  extends PredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -64,7 +49,22 @@ class GetCommitLogOffsetsHandler(server: TransactionServer,
     )
   }
 
-  override def name: String = descriptor.name
+  override protected def fireAndForget(message: RequestMessage): Unit = {}
 
-  override def id: Byte = descriptor.methodID
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = descriptor.encodeResponse(
+      TransactionService.GetCommitLogOffsets.Result(
+        Some(process(message.body))
+      )
+    )
+    response
+  }
+
+  private def process(requestBody: Array[Byte]) = {
+    CommitLogInfo(
+      server.getLastProcessedCommitLogFileID,
+      scheduledCommitLog.currentCommitLogFile
+    )
+  }
 }

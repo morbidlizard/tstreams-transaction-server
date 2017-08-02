@@ -20,10 +20,10 @@ package com.bwsw.commitlog.filesystem
 
 import java.io.{BufferedInputStream, InputStream}
 
-class CommitLogBinaryIterator(inputStream: InputStream) extends CommitLogIterator{
+class CommitLogBinaryIterator(inputStream: InputStream) extends CommitLogIterator {
   protected val stream = new BufferedInputStream(inputStream)
 
-  override def close():Unit = {
+  override def close(): Unit = {
     stream.close()
     inputStream.close()
   }

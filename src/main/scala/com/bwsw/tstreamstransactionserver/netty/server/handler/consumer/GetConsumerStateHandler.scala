@@ -18,38 +18,26 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.GetConsumerStateHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import io.netty.channel.ChannelHandlerContext
 
-import GetConsumerStateHandler.descriptor
+import scala.concurrent.ExecutionContext
 
 private object GetConsumerStateHandler {
   val descriptor = Protocol.GetConsumerState
 }
 
-class GetConsumerStateHandler (server: TransactionServer)
-  extends RequestHandler {
+class GetConsumerStateHandler(server: TransactionServer,
+                              context: ExecutionContext)
+  extends PredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val args = descriptor.decodeRequest(requestBody)
-    val result = server.getConsumerState(
-      args.name,
-      args.streamID,
-      args.partition
-    )
-    //    logSuccessfulProcession(Descriptors.GetConsumerState.name)
-    descriptor.encodeResponse(
-      TransactionService.GetConsumerState.Result(Some(result))
-    )
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-    //    throw new UnsupportedOperationException(
-    //      "It doesn't make any sense to get consumer state according to fire and forget policy"
-    //    )
-  }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -61,7 +49,24 @@ class GetConsumerStateHandler (server: TransactionServer)
     )
   }
 
-  override def name: String = descriptor.name
+  override protected def fireAndForget(message: RequestMessage): Unit = {}
 
-  override def id: Byte = descriptor.methodID
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = descriptor.encodeResponse(
+      TransactionService.GetConsumerState.Result(
+        Some(process(message.body))
+      )
+    )
+    response
+  }
+
+  private def process(requestBody: Array[Byte]): Long = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.getConsumerState(
+      args.name,
+      args.streamID,
+      args.partition
+    )
+  }
 }

@@ -21,14 +21,15 @@ package com.bwsw.tstreamstransactionserver.configProperties
 import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 
 class ClientExecutionContextGrid(nThreads: Int) {
+  lazy val context = contextGrid.getContext
   private lazy val contextGrid = ExecutionContextGrid(nThreads, "ClientExecutionContextGrid-%d")
 
-  lazy val context = contextGrid.getContext
-
-  def stopAccessNewTasks(): Unit = contextGrid.stopAccessNewTasks()
-  def awaitAllCurrentTasksAreCompleted(): Unit = contextGrid.awaitAllCurrentTasksAreCompleted()
   def stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted(): Unit = {
     stopAccessNewTasks()
     awaitAllCurrentTasksAreCompleted()
   }
+
+  def stopAccessNewTasks(): Unit = contextGrid.stopAccessNewTasks()
+
+  def awaitAllCurrentTasksAreCompleted(): Unit = contextGrid.awaitAllCurrentTasksAreCompleted()
 }

@@ -45,14 +45,14 @@ final class CommitLogRecord(val messageType: Byte,
     }
   }
 
+  def size: Int = headerSize + message.length
+
   override def equals(obj: scala.Any): Boolean = obj match {
     case commitLogRecord: CommitLogRecord =>
       messageType == commitLogRecord.messageType &&
         message.sameElements(commitLogRecord.message)
     case _ => false
   }
-
-  def size: Int = headerSize + message.length
 }
 
 object CommitLogRecord {
@@ -73,8 +73,8 @@ object CommitLogRecord {
       val buffer = ByteBuffer.wrap(bytes)
       val messageType   = buffer.get()
       val messageLength = buffer.getInt()
-      val timestamp     = buffer.getLong()
-      val message       = {
+      val timestamp = buffer.getLong()
+      val message = {
         val binaryMessage = new Array[Byte](messageLength)
         buffer.get(binaryMessage)
         binaryMessage

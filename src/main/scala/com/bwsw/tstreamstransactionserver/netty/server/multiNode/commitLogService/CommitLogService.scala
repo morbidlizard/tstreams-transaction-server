@@ -7,6 +7,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 
 class CommitLogService(rocksDB: KeyValueDbManager) {
   private val bookkeeperLogDatabase = rocksDB.getDatabase(RocksStorage.BOOKKEEPER_LOG_STORE)
+
   private[server] final def getLastProcessedLedgerAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] = {
     val iterator = bookkeeperLogDatabase.iterator
     iterator.seek(BigCommit.bookkeeperKey)

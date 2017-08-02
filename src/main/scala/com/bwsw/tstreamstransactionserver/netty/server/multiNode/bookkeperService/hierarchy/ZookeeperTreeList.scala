@@ -8,21 +8,11 @@ import scala.annotation.tailrec
 abstract class ZookeeperTreeList[T](client: CuratorFramework,
                                     rootPath: String)
   extends EntityPathConverter[T]
-    with  EntityIDSerializable[T]
-{
+    with EntityIDSerializable[T] {
   private val rootNode = new RootNode(client, rootPath)
-  private def rootNodeData = rootNode.getData
 
   def firstEntityID: Option[T] = {
     val binaryID = rootNodeData.firstID
-    if (binaryID.isEmpty)
-      None
-    else
-      Some(bytesToEntityID(binaryID))
-  }
-
-  def lastEntityID: Option[T] = {
-    val binaryID = rootNodeData.lastID
     if (binaryID.isEmpty)
       None
     else
@@ -64,6 +54,47 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
         rootNodeData.firstID, lastID
       )
     }
+  }
+
+  private def rootNodeData = rootNode.getData
+
+  private def traverseToLastNode: Option[T] = {
+    @tailrec
+    def go(node: Option[T]): Option[T] = {
+      val nodeID = node.flatMap(id =>
+        getNextNode(id)
+      )
+
+      if (nodeID.isDefined)
+        go(nodeID)
+      else
+        node
+    }
+
+    go(lastEntityID)
+  }
+
+  def lastEntityID: Option[T] = {
+    val binaryID = rootNodeData.lastID
+    if (binaryID.isEmpty)
+      None
+    else
+      Some(bytesToEntityID(binaryID))
+  }
+
+  def getNextNode(entity: T): Option[T] = {
+    val path = buildPath(entity)
+    val data = client.getData
+      .forPath(path)
+
+    if (data.isEmpty)
+      None
+    else
+      Some(bytesToEntityID(data))
+  }
+
+  private def buildPath(entity: T) = {
+    s"$rootPath/${entityToPath(entity).mkString("/")}"
   }
 
   def deleteNode(id: T): Boolean = {
@@ -116,17 +147,6 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
     }
   }
 
-  def getNextNode(entity: T): Option[T] = {
-    val path = buildPath(entity)
-    val data = client.getData
-      .forPath(path)
-
-    if (data.isEmpty)
-      None
-    else
-      Some(bytesToEntityID(data))
-  }
-
   def getPreviousNode(entity: T): Option[T] = {
     @tailrec
     def go(node: Option[T]): Option[T] = {
@@ -147,11 +167,6 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
     )
   }
 
-
-  private def buildPath(entity: T) = {
-    s"$rootPath/${entityToPath(entity).mkString("/")}"
-  }
-
   private def deleteFirstNode(firstEntityID: T, nextEntityID: T): Boolean = {
     val newFirstID = entityIDtoBytes(nextEntityID)
 
@@ -165,7 +180,6 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
       client.delete().forPath(buildPath(firstEntityID))
     ).isSuccess
   }
-
 
   private def deleteLastNode(lastEntityID: T, previousEntityID: T): Boolean = {
     val newLastID = entityIDtoBytes(previousEntityID)
@@ -191,22 +205,6 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
     scala.util.Try(
       client.delete().forPath(buildPath(id))
     ).isSuccess
-  }
-
-
-  private def traverseToLastNode: Option[T] = {
-    @tailrec
-    def go(node: Option[T]): Option[T] = {
-      val nodeID = node.flatMap(id =>
-        getNextNode(id)
-      )
-
-      if (nodeID.isDefined)
-        go(nodeID)
-      else
-        node
-    }
-    go(lastEntityID)
   }
 
   private def updateNode(nodeID: T, nextNodeID: T): Boolean = {

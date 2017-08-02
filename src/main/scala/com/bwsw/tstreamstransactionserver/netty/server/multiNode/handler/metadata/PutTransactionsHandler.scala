@@ -1,8 +1,9 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol}
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
@@ -10,6 +11,7 @@ import PutTransactionsHandler._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
+
 
 private object PutTransactionsHandler {
   val protocol = Protocol.PutTransactions
@@ -51,10 +53,11 @@ class PutTransactionsHandler(server: TransactionServer,
     }
   }
 
+
   override def getName: String = protocol.name
 
   override def handleAndSendResponse(requestBody: Array[Byte],
-                                     message: Message,
+                                     message: RequestMessage,
                                      connection: ChannelHandlerContext): Unit = {
 
     val callback = new AsyncCallback.AddCallback {
@@ -82,6 +85,7 @@ class PutTransactionsHandler(server: TransactionServer,
 
     process(requestBody, callback)
   }
+
 
   override def handleFireAndForget(requestBody: Array[Byte]): Unit = {
     process(requestBody, fireAndForgetCallback)

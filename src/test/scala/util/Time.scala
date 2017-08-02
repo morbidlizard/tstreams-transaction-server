@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server
+package util
 
 trait Time {
   def getCurrentTime: Long = System.currentTimeMillis()

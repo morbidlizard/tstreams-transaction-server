@@ -18,34 +18,25 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.DelStreamHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import DelStreamHandler.descriptor
+import io.netty.channel.ChannelHandlerContext
+
+import scala.concurrent.ExecutionContext
+
 private object DelStreamHandler {
   val descriptor = Protocol.DelStream
 }
 
-class DelStreamHandler(server: TransactionServer)
-  extends RequestHandler {
-
-  private def process(requestBody: Array[Byte]) = {
-    val args = descriptor.decodeRequest(requestBody)
-    server.delStream(args.name)
-  }
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.GetStream.name)
-    descriptor.encodeResponse(
-      TransactionService.DelStream.Result(Some(result))
-    )
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
-  }
+class DelStreamHandler(server: TransactionServer,
+                       context: ExecutionContext)
+  extends PredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -57,7 +48,22 @@ class DelStreamHandler(server: TransactionServer)
 
   }
 
-  override def name: String = descriptor.name
+  override protected def fireAndForget(message: RequestMessage): Unit = {
+    process(message.body)
+  }
 
-  override def id: Byte = descriptor.methodID
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.delStream(args.name)
+  }
+
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = descriptor.encodeResponse(
+      TransactionService.DelStream.Result(
+        Some(process(message.body))
+      )
+    )
+    response
+  }
 }

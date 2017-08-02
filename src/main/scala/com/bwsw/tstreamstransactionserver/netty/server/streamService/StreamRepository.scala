@@ -22,8 +22,12 @@ import com.bwsw.tstreamstransactionserver.netty.server.streamService
 
 trait StreamRepository {
   def put(streamValue: streamService.StreamValue): streamService.StreamKey
+
   def exists(name: String): Boolean
+
   def get(streamKey: streamService.StreamKey): Option[streamService.StreamRecord]
+
   def get(name: String): Option[streamService.StreamRecord]
+
   def delete(name: String): Boolean
 }

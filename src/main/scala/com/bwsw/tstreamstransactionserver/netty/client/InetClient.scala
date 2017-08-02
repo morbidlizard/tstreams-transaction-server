@@ -1,17 +1,17 @@
 package com.bwsw.tstreamstransactionserver.netty.client
 
-import java.util.concurrent.{ConcurrentHashMap, CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.{ConcurrentHashMap, CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.{Message, Protocol, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterInteractor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage, ResponseMessage, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
 import com.twitter.scrooge.ThriftStruct
 import io.netty.buffer.ByteBuf
-import io.netty.channel.{ChannelHandlerContext, EventLoopGroup}
+import io.netty.channel.EventLoopGroup
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder
 import io.netty.handler.codec.bytes.ByteArrayEncoder
 import org.apache.curator.framework.CuratorFramework
@@ -19,9 +19,8 @@ import org.apache.curator.framework.state.ConnectionState
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContextExecutorService, Future, Promise}
 import scala.concurrent.duration._
-import scala.util.Try
+import scala.concurrent.{ExecutionContextExecutorService, Future, Promise}
 
 class InetClient(zookeeperOptions: ZookeeperOptions,
                  clientOpts: ConnectionOptions,
@@ -39,26 +38,103 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
   private val logger =
     LoggerFactory.getLogger(this.getClass)
 
-  private val isAuthenticating  =
+  private val isAuthenticating =
     new java.util.concurrent.atomic.AtomicBoolean(false)
-
+  private val zkInteractor = new ZKMasterInteractor(
+    zkConnection,
+    zookeeperOptions.prefix,
+    _ => {} /*reconnectToServer()*/ ,
+    onZKConnectionStateChanged
+  )
+  private val nettyClient = new NettyConnection(
+    workerGroup,
+    handlers,
+    clientOpts.connectionTimeoutMs,
+    clientOpts.retryDelayMs,
+    retrieveCurrentMaster(), {
+      onServerConnectionLost
+      Future {
+        onServerConnectionLostDefaultBehaviour()
+      }(context)
+    }
+  )
   @volatile private var currentToken: Int = -1
   @volatile private var messageSizeValidator: MessageSizeValidator =
     new MessageSizeValidator(Int.MaxValue, Int.MaxValue)
 
+  /** A general method for sending requests to a server and getting a response back.
+    *
+    * @param descriptor look at [[com.bwsw.tstreamstransactionserver.netty.Protocol]].
+    * @param request    a request that client would like to send.
+    * @return a response from server(however, it may return an exception from server).
+    *
+    */
+  final def method[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Protocol.Descriptor[Req, Rep],
+                                                                request: Req,
+                                                                f: Rep => A
+                                                               )(implicit methodContext: concurrent.ExecutionContext): Future[A] = {
+    methodWithMessageSizeValidation(
+      descriptor,
+      request,
+      f
+    )
+  }
 
+  @throws[TokenInvalidException]
+  @throws[PackageTooBigException]
+  final def methodFireAndForget[Req <: ThriftStruct](descriptor: Protocol.Descriptor[Req, _],
+                                                     request: Req): Unit = {
+
+    if (getToken == -1)
+      authenticate()
+
+    val messageId = requestIDGen.getAndIncrement()
+    val message = descriptor.encodeRequestToMessage(request)(messageId, getToken, isFireAndForgetMethod = true)
+
+    if (logger.isDebugEnabled) logger.debug(Protocol.methodWithArgsToString(messageId, request))
+    messageSizeValidator.validateMessageSize(message)
+
+    val channel = nettyClient.getChannel()
+    channel.writeAndFlush(message.toByteArray, channel.voidPromise())
+  }
+
+  final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] =
+    zkInteractor.getCurrentMaster
+
+  //  private def reconnectToServer() = {
+  //    if (nettyClient != null)
+  //      nettyClient.reconnect()
+  //  }
+
+  final def getZKCheckpointGroupServerPrefix(): Option[String] = {
+    if (logger.isInfoEnabled)
+      logger.info("getMaxPackagesSizes method is invoked.")
+
+    onShutdownThrowException()
+
+    var prefix = Option.empty[String]
+
+    val latch = new CountDownLatch(1)
+    methodWithoutMessageSizeValidation[TransactionService.GetZKCheckpointGroupServerPrefix.Args, TransactionService.GetZKCheckpointGroupServerPrefix.Result, Unit](
+      Protocol.GetZKCheckpointGroupServerPrefix,
+      TransactionService.GetZKCheckpointGroupServerPrefix.Args(),
+      x => {
+        prefix = x.success
+        latch.countDown()
+      }
+    )(context)
+
+    latch.await(
+      clientOpts.requestTimeoutMs,
+      TimeUnit.MILLISECONDS
+    )
+    prefix
+  }
 
   private final def onRequestTimeoutDefaultBehaviour(): Unit = {
     TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
     onRequestTimeout
   }
-
-  private val zkInteractor = new ZKMasterInteractor(
-    zkConnection,
-    zookeeperOptions.prefix,
-    _ => {} /*reconnectToServer()*/,
-    onZKConnectionStateChanged
-  )
 
   private final def onServerConnectionLostDefaultBehaviour(): Unit = {
     val connectionSocket = zkInteractor.getCurrentMaster
@@ -83,31 +159,12 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       new ByteArrayEncoder(),
       new LengthFieldBasedFrameDecoder(
         Int.MaxValue,
-        Message.headerFieldSize,
-        Message.lengthFieldSize
+        ResponseMessage.headerFieldSize,
+        ResponseMessage.lengthFieldSize
       ),
       new ClientHandler(requestIdToResponseMap)
     )
   }
-
-  private val nettyClient = new NettyConnection(
-    workerGroup,
-    handlers,
-    clientOpts.connectionTimeoutMs,
-    clientOpts.retryDelayMs,
-    retrieveCurrentMaster(),
-    {
-      onServerConnectionLost
-      Future {
-        onServerConnectionLostDefaultBehaviour()
-      }(context)
-    }
-  )
-
-//  private def reconnectToServer() = {
-//    if (nettyClient != null)
-//      nettyClient.reconnect()
-//  }
 
   private def onShutdownThrowException(): Unit =
     if (isShutdown) throw ClientIllegalOperationAfterShutdown
@@ -134,17 +191,24 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
               go(timestamp)
           }
           else {
-            val master =  masterOpt.get
+            val master = masterOpt.get
             master
           }
 
 
       }
     }
+
     go(System.currentTimeMillis())
   }
 
-  private def sendRequest[Req <: ThriftStruct, Rep <: ThriftStruct, A](message: Message,
+  /** It Disconnects client from server slightly */
+  def shutdown(): Unit = {
+    if (nettyClient != null) nettyClient.stop()
+    if (zkInteractor != null) zkInteractor.stop()
+  }
+
+  private def sendRequest[Req <: ThriftStruct, Rep <: ThriftStruct, A](message: RequestMessage,
                                                                        descriptor: Protocol.Descriptor[Req, Rep],
                                                                        f: Rep => A,
                                                                        previousException: Option[Throwable] = None,
@@ -206,7 +270,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     sendRequest(message, descriptor, f)
   }
 
-
   private def methodWithoutMessageSizeValidation[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Protocol.Descriptor[Req, Rep],
                                                                                               request: Req,
                                                                                               f: Rep => A)
@@ -222,44 +285,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     sendRequest(message, descriptor, f)
   }
 
-
-  /** A general method for sending requests to a server and getting a response back.
-    *
-    * @param descriptor look at [[com.bwsw.tstreamstransactionserver.netty.Protocol]].
-    * @param request    a request that client would like to send.
-    * @return a response from server(however, it may return an exception from server).
-    *
-    */
-  final def method[Req <: ThriftStruct, Rep <: ThriftStruct, A](descriptor: Protocol.Descriptor[Req, Rep],
-                                                                request: Req,
-                                                                f: Rep => A
-                                                               )(implicit methodContext: concurrent.ExecutionContext): Future[A] = {
-    methodWithMessageSizeValidation(
-      descriptor,
-      request,
-      f
-    )
-  }
-
-  @throws[TokenInvalidException]
-  @throws[PackageTooBigException]
-  final def methodFireAndForget[Req <: ThriftStruct](descriptor: Protocol.Descriptor[Req, _],
-                                                     request: Req): Unit = {
-
-    if (getToken == -1)
-      authenticate()
-
-    val messageId = requestIDGen.getAndIncrement()
-    val message = descriptor.encodeRequestToMessage(request)(messageId, getToken, isFireAndForgetMethod = true)
-
-    if (logger.isDebugEnabled) logger.debug(Protocol.methodWithArgsToString(messageId, request))
-    messageSizeValidator.validateMessageSize(message)
-
-    val channel = nettyClient.getChannel()
-    channel.writeAndFlush(message.toByteArray, channel.voidPromise())
-  }
-
-  private final def checkError(currentException:  Throwable,
+  private final def checkError(currentException: Throwable,
                                previousException: Option[Throwable],
                                retryCount: Int): (Throwable, Int) = {
     currentException match {
@@ -309,12 +335,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
         (otherThrowable, 0)
     }
   }
-
-
-
-  final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] =
-    zkInteractor.getCurrentMaster
-
 
   private final def getToken: Int = {
     currentToken
@@ -393,36 +413,5 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       TimeUnit.MILLISECONDS
     )
     transportOptionsInfo
-  }
-
-  final def getZKCheckpointGroupServerPrefix(): Option[String] = {
-    if (logger.isInfoEnabled)
-      logger.info("getMaxPackagesSizes method is invoked.")
-
-    onShutdownThrowException()
-
-    var prefix = Option.empty[String]
-
-    val latch = new CountDownLatch(1)
-    methodWithoutMessageSizeValidation[TransactionService.GetZKCheckpointGroupServerPrefix.Args, TransactionService.GetZKCheckpointGroupServerPrefix.Result, Unit](
-      Protocol.GetZKCheckpointGroupServerPrefix,
-      TransactionService.GetZKCheckpointGroupServerPrefix.Args(),
-      x => {
-        prefix = x.success
-        latch.countDown()
-      }
-    )(context)
-
-    latch.await(
-      clientOpts.requestTimeoutMs,
-      TimeUnit.MILLISECONDS
-    )
-    prefix
-  }
-
-  /** It Disconnects client from server slightly */
-  def shutdown(): Unit = {
-    if (nettyClient != null) nettyClient.stop()
-    if (zkInteractor != null) zkInteractor.stop()
   }
 }

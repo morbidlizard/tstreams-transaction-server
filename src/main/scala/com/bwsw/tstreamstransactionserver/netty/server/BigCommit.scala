@@ -1,4 +1,5 @@
 package com.bwsw.tstreamstransactionserver.netty.server
+
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 

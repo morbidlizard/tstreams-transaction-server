@@ -30,13 +30,6 @@ final class StreamIdPath(client: CuratorFramework, path: String) {
   private val seqPrefix = "id"
   private val streamsIdsPath = s"$path/$seqPrefix"
 
-  private def buildPath(streamID: Int): String = f"$streamsIdsPath$streamID%010d"
-
-  private def getIDFromPath(pathWithId: String): String = pathWithId.splitAt(
-    path.length + seqPrefix.length + 1
-  )._2
-
-
   def put(streamValue: streamService.StreamValue): streamService.StreamRecord = {
     val id = client.create()
       .creatingParentsIfNeeded()
@@ -60,10 +53,16 @@ final class StreamIdPath(client: CuratorFramework, path: String) {
     streamRecord
   }
 
+  private def getIDFromPath(pathWithId: String): String = pathWithId.splitAt(
+    path.length + seqPrefix.length + 1
+  )._2
+
   def exists(streamKey: streamService.StreamKey): Boolean = {
     Option(client.checkExists().forPath(buildPath(streamKey.id)))
       .exists(_ => true)
   }
+
+  private def buildPath(streamID: Int): String = f"$streamsIdsPath$streamID%010d"
 
   def get(streamKey: streamService.StreamKey): Option[streamService.StreamRecord] = {
     val streamValueOpt = scala.util.Try(client.getData.forPath(buildPath(streamKey.id)))

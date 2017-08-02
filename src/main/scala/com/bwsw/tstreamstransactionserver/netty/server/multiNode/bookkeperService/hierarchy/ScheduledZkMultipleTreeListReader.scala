@@ -1,5 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
+
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server._
@@ -33,8 +34,7 @@ class ScheduledZkMultipleTreeListReader(zkMultipleTreeListReader: ZkMultipleTree
         doReadNextRecords = false
       )
     }
-    else
-    {
+    else {
       val bigCommit = getBigCommit(ledgerIDsAndTheirLastRecordIDs)
       val frames = records.map(record => new BookKeeperRecordFrame(record))
       bigCommit.addFrames(frames)

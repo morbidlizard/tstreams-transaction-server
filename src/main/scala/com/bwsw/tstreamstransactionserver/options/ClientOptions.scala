@@ -21,6 +21,7 @@
 package com.bwsw.tstreamstransactionserver.options
 
 object ClientOptions {
+
   /** The options are applied as filters on establishing connection to a server.
     *
     * @param connectionTimeoutMs the time to wait while trying to establish a connection to a server.
@@ -37,4 +38,5 @@ object ClientOptions {
     * @param key the key to authorize.
     */
   case class AuthOptions(key: String = "") extends AnyVal
+
 }

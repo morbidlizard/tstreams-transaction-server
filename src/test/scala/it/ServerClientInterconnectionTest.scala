@@ -6,7 +6,6 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.netty.client.InetClient
-import com.bwsw.tstreamstransactionserver.netty.server.Time
 import com.bwsw.tstreamstransactionserver.options._
 import com.bwsw.tstreamstransactionserver.rpc._
 import io.netty.buffer.ByteBuf
@@ -16,7 +15,7 @@ import io.netty.channel.nio.NioEventLoopGroup
 import org.apache.commons.lang.SystemUtils
 import org.apache.curator.retry.RetryForever
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-import util.Utils
+import util.{Time, Utils}
 import util.Utils.startZkServerAndGetIt
 
 import scala.collection.mutable

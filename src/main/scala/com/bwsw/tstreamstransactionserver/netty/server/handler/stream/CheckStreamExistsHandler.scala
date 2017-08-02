@@ -18,39 +18,26 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.CheckStreamExistsHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import io.netty.channel.ChannelHandlerContext
 
-import CheckStreamExistsHandler.descriptor
+import scala.concurrent.ExecutionContext
 
 private object CheckStreamExistsHandler {
   val descriptor = Protocol.CheckStreamExists
 }
 
-class CheckStreamExistsHandler(server: TransactionServer)
-  extends RequestHandler {
+class CheckStreamExistsHandler(server: TransactionServer,
+                               context: ExecutionContext)
+  extends PredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
-
-  private def process(requestBody: Array[Byte]) = {
-    val args = descriptor.decodeRequest(requestBody)
-    server.checkStreamExists(args.name)
-  }
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val result = process(requestBody)
-    //    logSuccessfulProcession(Descriptors.CheckStreamExists.name)
-    descriptor.encodeResponse(
-      TransactionService.CheckStreamExists.Result(Some(result))
-    )
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-//    throw new UnsupportedOperationException(
-//      "It doesn't make any sense to check if stream exists according to fire and forget policy"
-//    )
-  }
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -61,7 +48,20 @@ class CheckStreamExistsHandler(server: TransactionServer)
     )
   }
 
-  override def name: String = descriptor.name
+  override protected def fireAndForget(message: RequestMessage): Unit = {}
 
-  override def id: Byte = descriptor.methodID
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = descriptor.encodeResponse(
+      TransactionService.CheckStreamExists.Result(
+        Some(process(message.body))
+      )
+    )
+    response
+  }
+
+  private def process(requestBody: Array[Byte]) = {
+    val args = descriptor.decodeRequest(requestBody)
+    server.checkStreamExists(args.name)
+  }
 }

@@ -363,6 +363,7 @@ class ZkMultipleTreeListReaderTest
 
     updatedLedgersWithTheirLastRecords1 should contain theSameElementsInOrderAs updatedLedgersWithTheirLastRecords2
   }
+
   it should "retrieve records from database ZkTreeListLong objects called 'treeList1' and 'treeList2' have ledgers ids and a storage contains records within the ledgers," +
     " first ledger(belongs to 'treeList1') is closed earlier than second ledger(belongs to 'treeList2')" in {
     val bookKeeperStorage = new BookKeeperWrapper(

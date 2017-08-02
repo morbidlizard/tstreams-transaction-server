@@ -120,6 +120,7 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
     }
   }
 
+
   private final def getRecordsReader(fileID: Long): BigCommitWrapper = {
     val value =
       CommitLogKey(fileID).toByteArray
@@ -189,6 +190,7 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
     result
   }
 
+
   override def run(): Unit = {
     val commitLogFiles = new util.LinkedList[CommitLogStorage]()
     pathsToClosedCommitLogFiles.drainTo(commitLogFiles)
@@ -201,6 +203,4 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
       }
     )
   }
-
-  final def closeRocksDB(): Unit = rocksDb.close()
 }

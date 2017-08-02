@@ -22,15 +22,15 @@ import java.io.ByteArrayInputStream
 import java.security.MessageDigest
 import javax.xml.bind.DatatypeConverter
 
-class CommitLogBinary(id: Long, content: Array[Byte], md5: Option[Array[Byte]]) extends CommitLogStorage{
+class CommitLogBinary(id: Long, content: Array[Byte], md5: Option[Array[Byte]]) extends CommitLogStorage {
   require(if (md5.isDefined) md5.get.length == 32 else true)
+
+  /** bytes to read from this file */
+  private val chunkSize = 100000
 
   override def getID: Long = id
 
   override def getContent: Array[Byte] = content
-
-  /** Returns true if md5-file exists. */
-  override def md5Exists(): Boolean = md5.isDefined
 
   /** Returns an iterator over records */
   override def getIterator: CommitLogIterator = new CommitLogBinaryIterator(new ByteArrayInputStream(content))
@@ -38,8 +38,8 @@ class CommitLogBinary(id: Long, content: Array[Byte], md5: Option[Array[Byte]]) 
   /** Returns existing MD5 of this file. Throws an exception otherwise. */
   override def getMD5: Array[Byte] = if (!md5Exists()) throw new IllegalArgumentException("There is no md5 sum!") else md5.get
 
-  /** bytes to read from this file */
-  private val chunkSize = 100000
+  /** Returns true if md5-file exists. */
+  override def md5Exists(): Boolean = md5.isDefined
 
   /** Returns calculated MD5 of this file. */
   override def calculateMD5(): Array[Byte] = {

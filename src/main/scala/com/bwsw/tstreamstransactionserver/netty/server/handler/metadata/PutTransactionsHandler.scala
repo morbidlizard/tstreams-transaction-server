@@ -18,13 +18,17 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.Protocol
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestHandler
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import PutTransactionsHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.PutTransactionsHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogReader.Frame
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import io.netty.channel.ChannelHandlerContext
+
+import scala.concurrent.ExecutionContext
 
 private object PutTransactionsHandler {
   val descriptor = Protocol.PutTransactions
@@ -37,27 +41,12 @@ private object PutTransactionsHandler {
 }
 
 class PutTransactionsHandler(server: TransactionServer,
-                             scheduledCommitLog: ScheduledCommitLog)
-  extends RequestHandler {
-
-  private def process(requestBody: Array[Byte]) = {
-    scheduledCommitLog.putData(
-      Frame.PutTransactionsType.id.toByte,
-      requestBody
-    )
-  }
-
-  override def handleAndGetResponse(requestBody: Array[Byte]): Array[Byte] = {
-    val isPutted = process(requestBody)
-    if (isPutted)
-      isPuttedResponse
-    else
-      isNotPuttedResponse
-  }
-
-  override def handle(requestBody: Array[Byte]): Unit = {
-    process(requestBody)
-  }
+                             scheduledCommitLog: ScheduledCommitLog,
+                             context: ExecutionContext)
+  extends PredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
@@ -69,7 +58,26 @@ class PutTransactionsHandler(server: TransactionServer,
     )
   }
 
-  override def name: String = descriptor.name
+  override protected def fireAndForget(message: RequestMessage): Unit = {
+    process(message.body)
+  }
 
-  override def id: Byte = descriptor.methodID
+  override protected def getResponse(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = {
+      val isPutted = process(message.body)
+      if (isPutted)
+        isPuttedResponse
+      else
+        isNotPuttedResponse
+    }
+
+    response
+  }
+
+  private def process(requestBody: Array[Byte]) = {
+    scheduledCommitLog.putData(
+      Frame.PutTransactionsType.id.toByte,
+      requestBody
+    )
+  }
 }

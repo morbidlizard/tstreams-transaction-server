@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.stream
 
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.CheckStreamExistsHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
@@ -33,7 +33,7 @@ private object CheckStreamExistsHandler {
 
 class CheckStreamExistsHandler(server: TransactionServer,
                                context: ExecutionContext)
-  extends AsyncClientRequestHandler(
+  extends PredefinedContextHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
@@ -48,10 +48,10 @@ class CheckStreamExistsHandler(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {}
+  override protected def fireAndForget(message: RequestMessage): Unit = {}
 
-  override protected def responseImplementation(message: RequestMessage,
-                                                ctx: ChannelHandlerContext): Array[Byte] = {
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
     val response = descriptor.encodeResponse(
       TransactionService.CheckStreamExists.Result(
         Some(process(message.body))

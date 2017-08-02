@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.data
 
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data.GetTransactionDataHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
@@ -33,7 +33,7 @@ private object GetTransactionDataHandler {
 
 class GetTransactionDataHandler(server: TransactionServer,
                                 context: ExecutionContext)
-  extends AsyncClientRequestHandler(
+  extends PredefinedContextHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
@@ -49,10 +49,10 @@ class GetTransactionDataHandler(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {}
+  override protected def fireAndForget(message: RequestMessage): Unit = {}
 
-  override protected def responseImplementation(message: RequestMessage,
-                                                ctx: ChannelHandlerContext): Array[Byte] = {
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
     val response = descriptor.encodeResponse(
       TransactionService.GetTransactionData.Result(
         Some(process(message.body))

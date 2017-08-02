@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.auth
 
 import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.IsValidHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
@@ -30,14 +30,14 @@ private object IsValidHandler {
 }
 
 class IsValidHandler(authService: AuthService)
-  extends SyncReadClientRequestHandler(
+  extends SyncReadHandler(
     descriptor.methodID,
     descriptor.name
   ) {
 
-  override protected def responseImplementation(message: RequestMessage,
-                                                ctx: ChannelHandlerContext,
-                                                error: Option[Throwable]): Array[Byte] = {
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext,
+                                     error: Option[Throwable]): Array[Byte] = {
     scala.util.Try(process(message.body)) match {
       case scala.util.Success(isValid) =>
         isValid

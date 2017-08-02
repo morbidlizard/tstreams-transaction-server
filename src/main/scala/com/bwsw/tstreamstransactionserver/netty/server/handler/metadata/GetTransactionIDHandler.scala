@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.GetTransactionIDHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
@@ -31,14 +31,14 @@ private object GetTransactionIDHandler {
 }
 
 class GetTransactionIDHandler(server: TransactionServer)
-  extends SyncReadClientRequestHandler(
+  extends SyncReadHandler(
     descriptor.methodID,
     descriptor.name
   ) {
 
-  override protected def responseImplementation(message: RequestMessage,
-                                                ctx: ChannelHandlerContext,
-                                                acc: Option[Throwable]): Array[Byte] = {
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext,
+                                     acc: Option[Throwable]): Array[Byte] = {
     if (acc.isEmpty) {
       val response = descriptor.encodeResponse(
         TransactionService.GetTransactionID.Result(

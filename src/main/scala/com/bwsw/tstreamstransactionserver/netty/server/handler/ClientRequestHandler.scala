@@ -32,9 +32,9 @@ abstract class ClientRequestHandler(val id: Byte,
       logger.debug(s"Client [${ctx.channel().remoteAddress().toString}, request id ${message.id}]: " +
         s"$method is failed while processing!", error)
 
-  protected final def sendResponseToClient(message: RequestMessage,
-                                           response: Array[Byte],
-                                           ctx: ChannelHandlerContext): Unit = {
+  protected final def sendResponse(message: RequestMessage,
+                                   response: Array[Byte],
+                                   ctx: ChannelHandlerContext): Unit = {
     val responseMessage = ResponseMessage(message.id, response)
     val binaryResponse = responseMessage.toByteArray
     if (ctx.channel().isActive)

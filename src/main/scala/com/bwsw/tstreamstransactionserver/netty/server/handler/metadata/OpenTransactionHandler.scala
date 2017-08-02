@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.FutureClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.ArgsDependentContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.OpenTransactionHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, RecordType, TransactionServer}
@@ -41,9 +41,10 @@ class OpenTransactionHandler(server: TransactionServer,
                              notifier: OpenedTransactionNotifier,
                              authOptions: AuthenticationOptions,
                              orderedExecutionPool: OrderedExecutionContextPool)
-  extends FutureClientRequestHandler(
+  extends ArgsDependentContextHandler(
     descriptor.methodID,
-    descriptor.name) {
+    descriptor.name,
+    orderedExecutionPool) {
 
 
   override def createErrorResponse(message: String): Array[Byte] = {
@@ -56,9 +57,9 @@ class OpenTransactionHandler(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
+  override protected def fireAndForget(message: RequestMessage): Unit = {
     val args = descriptor.decodeRequest(message.body)
-    val context = orderedExecutionPool.pool(args.streamID, args.partition)
+    val context = getContext(args.streamID, args.partition)
     Future {
       val transactionID =
         server.getTransactionID
@@ -78,7 +79,7 @@ class OpenTransactionHandler(server: TransactionServer,
     }(context)
   }
 
-  override protected def responseImplementation(message: RequestMessage, ctx: ChannelHandlerContext): (Future[_], ExecutionContext) = {
+  override protected def getResponse(message: RequestMessage, ctx: ChannelHandlerContext): (Future[_], ExecutionContext) = {
     val args = descriptor.decodeRequest(message.body)
     val context = orderedExecutionPool.pool(args.streamID, args.partition)
     val result = Future {
@@ -93,7 +94,7 @@ class OpenTransactionHandler(server: TransactionServer,
         )
       )
 
-      sendResponseToClient(message, response, ctx)
+      sendResponse(message, response, ctx)
 
       notifier.notifySubscribers(
         args.streamID,

@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.AsyncClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.PutConsumerCheckpointHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
@@ -35,7 +35,7 @@ private object PutConsumerCheckpointHandler {
 class PutConsumerCheckpointHandler(server: TransactionServer,
                                    scheduledCommitLog: ScheduledCommitLog,
                                    context: ExecutionContext)
-  extends AsyncClientRequestHandler(
+  extends PredefinedContextHandler(
     descriptor.methodID,
     descriptor.name,
     context) {
@@ -50,7 +50,7 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
     )
   }
 
-  override protected def fireAndForgetImplementation(message: RequestMessage): Unit = {
+  override protected def fireAndForget(message: RequestMessage): Unit = {
     process(message.body)
   }
 
@@ -61,8 +61,8 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
     )
   }
 
-  override protected def responseImplementation(message: RequestMessage,
-                                                ctx: ChannelHandlerContext): Array[Byte] = {
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
     val result = process(message.body)
 
     val response = descriptor.encodeResponse(

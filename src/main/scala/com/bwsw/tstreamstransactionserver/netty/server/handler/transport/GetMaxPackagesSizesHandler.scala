@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesHandler._
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
@@ -13,14 +13,14 @@ private object GetMaxPackagesSizesHandler {
 }
 
 class GetMaxPackagesSizesHandler(packageTransmissionOpts: TransportOptions)
-  extends SyncReadClientRequestHandler(
+  extends SyncReadHandler(
     descriptor.methodID,
     descriptor.name
   ) {
 
-  override protected def responseImplementation(message: RequestMessage,
-                                                ctx: ChannelHandlerContext,
-                                                error: Option[Throwable]): Array[Byte] = {
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext,
+                                     error: Option[Throwable]): Array[Byte] = {
     scala.util.Try(process(message.body)) match {
       case scala.util.Success(result) =>
         val response = descriptor.encodeResponse(

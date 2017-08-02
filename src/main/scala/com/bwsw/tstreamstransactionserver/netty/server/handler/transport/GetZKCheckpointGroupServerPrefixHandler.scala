@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 
-import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadClientRequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetZKCheckpointGroupServerPrefixHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.ServerRoleOptions
@@ -12,7 +12,7 @@ private object GetZKCheckpointGroupServerPrefixHandler {
 }
 
 class GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions: ServerRoleOptions)
-  extends SyncReadClientRequestHandler(
+  extends SyncReadHandler(
     descriptor.methodID,
     descriptor.name
   ) {
@@ -30,9 +30,9 @@ class GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions: ServerRoleOptio
     )
   }
 
-  override protected def responseImplementation(message: RequestMessage,
-                                                ctx: ChannelHandlerContext,
-                                                error: Option[Throwable]): Array[Byte] = {
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext,
+                                     error: Option[Throwable]): Array[Byte] = {
     encodedResponse
   }
 }

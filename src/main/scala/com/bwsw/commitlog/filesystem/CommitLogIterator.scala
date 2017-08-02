@@ -23,9 +23,14 @@ import java.io.BufferedInputStream
 import com.bwsw.commitlog.filesystem.CommitLogIterator.EOF
 import com.bwsw.commitlog.{CommitLogRecord, CommitLogRecordHeader}
 
-abstract class CommitLogIterator extends Iterator[Either[NoSuchElementException, CommitLogRecord]] {
-  protected val stream: BufferedInputStream
+private object CommitLogIterator {
+  val EOF: Int = -1
+}
 
+abstract class CommitLogIterator
+  extends Iterator[Either[NoSuchElementException, CommitLogRecord]] {
+
+  protected val stream: BufferedInputStream
   def close(): Unit = {
     stream.close()
   }
@@ -40,7 +45,7 @@ abstract class CommitLogIterator extends Iterator[Either[NoSuchElementException,
         val message = new Array[Byte](header.messageLength)
         byte = stream.read(message)
         if (byte != EOF && byte == header.messageLength) {
-          Right(CommitLogRecord(header.id, header.messageType, message, header.timestamp))
+          Right(CommitLogRecord(header.messageType, message, header.timestamp))
         } else {
           Left(new NoSuchElementException("There is no next commit log record!"))
         }
@@ -54,8 +59,4 @@ abstract class CommitLogIterator extends Iterator[Either[NoSuchElementException,
     if (stream.available() > 0) true
     else false
   }
-}
-
-private object CommitLogIterator {
-  val EOF: Int = -1
 }

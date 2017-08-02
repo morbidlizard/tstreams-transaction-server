@@ -64,9 +64,14 @@ case class RequestMessage(id: Long,
       .put(body) //20-size
     buffer.flip()
 
-    val binaryMessage = new Array[Byte](size)
-    buffer.get(binaryMessage)
-    binaryMessage
+    if (buffer.hasArray) {
+      buffer.array()
+    }
+    else {
+      val binaryMessage = new Array[Byte](size)
+      buffer.get(binaryMessage)
+      binaryMessage
+    }
   }
 }
 

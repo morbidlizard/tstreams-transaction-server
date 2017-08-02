@@ -9,7 +9,6 @@ object Services extends Installer {
   def main(args: Array[String]) {
     clearDB()
     startTransactionServer()
-    Thread.sleep(1000L)
     createStream(streamName, clients)
   }
 }

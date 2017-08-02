@@ -50,6 +50,7 @@ class CommitLog(seconds: Int,
 
   private val pathWithSeparator =
     s"$path${java.io.File.separatorChar}"
+
   private val currentCommitLogFileToPut =
     new AtomicReference[CommitLogFile](
       new CommitLogFile(iDGenerator.nextID)
@@ -139,7 +140,6 @@ class CommitLog(seconds: Int,
     private[CommitLog] def put(messageType: Byte, message: Array[Byte]): Unit = {
       val commitLogRecord =
         CommitLogRecord(
-          recordIDGen.getAndIncrement(),
           messageType, message,
           System.currentTimeMillis()
         )

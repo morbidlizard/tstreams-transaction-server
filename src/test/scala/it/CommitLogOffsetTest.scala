@@ -103,7 +103,7 @@ class CommitLogOffsetTest
 
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val result = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
       result.currentProcessedCommitLog shouldBe >= (0L)

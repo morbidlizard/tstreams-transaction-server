@@ -1,9 +1,9 @@
-package com.bwsw.tstreamstransactionserver.netty.server
+package com.bwsw.tstreamstransactionserver.netty.server.batch
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService._
 
-object RecordType
+object Frame
   extends Enumeration {
 
   val Timestamp = Value(0)
@@ -28,4 +28,35 @@ object RecordType
 
   def deserializePutProducerStateWithData(message: Array[Byte]): PutProducerStateWithData.Args =
     Protocol.PutProducerStateWithData.decodeRequest(message)
+}
+
+abstract class Frame(val typeId: Byte,
+                     val timestamp: Long,
+                     val body: Array[Byte])
+  extends Ordered[Frame] {
+
+  override def equals(obj: scala.Any): Boolean = obj match {
+    case that: Frame =>
+      typeId == that.typeId &&
+        timestamp == that.timestamp &&
+        body.sameElements(that.body)
+    case _ =>
+      false
+  }
+
+  override def hashCode(): Int = {
+    31 * (
+      31 * (
+        31 + timestamp.hashCode()
+        ) + typeId.hashCode()
+      ) + java.util.Arrays.hashCode(body)
+  }
+
+  override def compare(that: Frame): Int = {
+    if (this.timestamp < that.timestamp) -1
+    else if (this.timestamp > that.timestamp) 1
+    else if (this.typeId < that.typeId) -1
+    else if (this.typeId > that.typeId) 1
+    else 0
+  }
 }

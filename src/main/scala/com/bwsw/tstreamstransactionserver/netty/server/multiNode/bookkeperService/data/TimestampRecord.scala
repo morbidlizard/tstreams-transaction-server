@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data
 
-import com.bwsw.tstreamstransactionserver.netty.server.RecordType
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 
 class TimestampRecord(override val timestamp: Long)
-  extends Record(RecordType.Timestamp, timestamp, Array.emptyByteArray) {
+  extends Record(Frame.Timestamp.id.toByte, timestamp, Array.emptyByteArray) {
 }

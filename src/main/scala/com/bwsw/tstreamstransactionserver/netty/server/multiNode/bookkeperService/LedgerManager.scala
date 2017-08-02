@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
-abstract class StorageManager() {
+abstract class LedgerManager() {
   def createLedger(): LedgerHandle
 
   def openLedger(id: Long): Option[LedgerHandle]

@@ -18,10 +18,12 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
+
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.PutTransactionsHandler._
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
@@ -74,7 +76,7 @@ class PutTransactionsHandler(server: TransactionServer,
 
   private def process(requestBody: Array[Byte]) = {
     scheduledCommitLog.putData(
-      RecordType.PutTransactionsType.id.toByte,
+      Frame.PutTransactionsType.id.toByte,
       requestBody
     )
   }

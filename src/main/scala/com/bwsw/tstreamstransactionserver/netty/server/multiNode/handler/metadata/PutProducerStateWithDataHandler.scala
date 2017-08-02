@@ -1,10 +1,13 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
 
+
+
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutSimpleTransactionAndDataHandler._
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc._
 import io.netty.channel.ChannelHandlerContext
@@ -116,7 +119,7 @@ class PutSimpleTransactionAndData(server: TransactionServer,
 
     gateway.doOperationWithCurrentWriteLedger { currentLedger =>
       val record = new Record(
-        RecordType.PutTransactionsType,
+        Frame.PutTransactionsType.id.toByte,
         System.currentTimeMillis(),
         messageForPutTransactions
       )

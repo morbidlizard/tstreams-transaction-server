@@ -1,14 +1,17 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
 
+
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutTransactionHandler._
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
+import PutTransactionHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
+
 
 private object PutTransactionHandler {
   val protocol = Protocol.PutTransaction
@@ -29,7 +32,27 @@ private object PutTransactionHandler {
 
 class PutTransactionHandler(server: TransactionServer,
                             gateway: BookKeeperGateway)
-  extends RequestHandler {
+  extends RequestHandler
+{
+
+  private def process(requestBody: Array[Byte],
+                      callback: AsyncCallback.AddCallback) = {
+    gateway.doOperationWithCurrentWriteLedger { currentLedger =>
+
+      val record = new Record(
+        Frame.PutTransactionsType,
+        System.currentTimeMillis(),
+        requestBody
+      )
+
+      currentLedger.asyncAddEntry(
+        record.toByteArray,
+        callback,
+        null
+      )
+    }
+  }
+
 
   override def getName: String = protocol.name
 
@@ -61,23 +84,6 @@ class PutTransactionHandler(server: TransactionServer,
     process(requestBody, callback)
   }
 
-  private def process(requestBody: Array[Byte],
-                      callback: AsyncCallback.AddCallback) = {
-    gateway.doOperationWithCurrentWriteLedger { currentLedger =>
-
-      val record = new Record(
-        RecordType.PutTransactionsType,
-        System.currentTimeMillis(),
-        requestBody
-      )
-
-      currentLedger.asyncAddEntry(
-        record.toByteArray,
-        callback,
-        null
-      )
-    }
-  }
 
   override def handleFireAndForget(requestBody: Array[Byte]): Unit = {
     process(requestBody, fireAndForgetCallback)

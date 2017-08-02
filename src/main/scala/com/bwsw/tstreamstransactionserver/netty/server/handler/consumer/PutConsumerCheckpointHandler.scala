@@ -18,10 +18,12 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
 
+
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.PutConsumerCheckpointHandler.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
@@ -56,7 +58,7 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
 
   private def process(requestBody: Array[Byte]): Boolean = {
     scheduledCommitLog.putData(
-      RecordType.PutConsumerCheckpointType.id.toByte,
+      Frame.PutConsumerCheckpointType.id.toByte,
       requestBody
     )
   }

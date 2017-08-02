@@ -155,10 +155,11 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   /**
     * this variable is public for testing purposes only
     */
-  val berkeleyWriter = new CommitLogToRocksWriter(
+  val commitLogToRocksWriter = new CommitLogToRocksWriter(
     rocksDBCommitLog,
     commitLogQueue,
     rocksWriter,
+    rocksReader,
     commitLogOptions.incompleteReadPolicy
   )
 
@@ -284,7 +285,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         java.util.concurrent.TimeUnit.MILLISECONDS
       )
       rocksWriterExecutor.scheduleWithFixedDelay(
-        berkeleyWriter,
+        commitLogToRocksWriter,
         0L,
         10L,
         java.util.concurrent.TimeUnit.MILLISECONDS
@@ -360,9 +361,9 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         )
       }
 
-      if (berkeleyWriter != null) {
-        berkeleyWriter.run()
-        berkeleyWriter.closeRocksDB()
+      if (commitLogToRocksWriter != null) {
+        commitLogToRocksWriter.run()
+        rocksDBCommitLog.close()
       }
 
       if (orderedExecutionPool != null) {

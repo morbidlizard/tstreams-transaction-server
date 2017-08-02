@@ -280,7 +280,7 @@ class ServerClientInterconnectionTest
 
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val fromID = producerTransactions.minBy(_.transactionID).transactionID
       val toID = producerTransactions.maxBy(_.transactionID).transactionID
@@ -405,7 +405,7 @@ class ServerClientInterconnectionTest
 
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val successResponse = Await.result(
         client.getTransaction(streamID, stream.partitions, openedProducerTransaction.transactionID
@@ -454,7 +454,7 @@ class ServerClientInterconnectionTest
 
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
 
       val resFrom_1From = Await.result(client.scanTransactions(streamID, stream.partitions, from - 1, from, Int.MaxValue, Set()), secondsWait.seconds)
@@ -525,7 +525,7 @@ class ServerClientInterconnectionTest
 
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val successResponse = Await.result(client.getTransaction(streamID, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
       val failedResponse = Await.result(client.getTransaction(streamID, stream.partitions, fakeTransactionID), secondsWait.seconds)
@@ -557,7 +557,7 @@ class ServerClientInterconnectionTest
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val successResponse = Await.result(client.getTransaction(streamID, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
       val failedResponse = Await.result(client.getTransaction(streamID, stream.partitions, fakeTransactionID), secondsWait.seconds)
@@ -588,7 +588,7 @@ class ServerClientInterconnectionTest
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val response = Await.result(client.getTransaction(streamID, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
 
@@ -613,7 +613,7 @@ class ServerClientInterconnectionTest
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val consumerState = Await.result(client.getConsumerState(consumerTransaction.name, streamID, consumerTransaction.partition), secondsWait.seconds)
 
@@ -694,7 +694,7 @@ class ServerClientInterconnectionTest
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       TestTimer.updateTime(TestTimer.getCurrentTime + 1L)
       Await.result(client.putProducerState(ProducerTransaction(streamID, partition, TestTimer.getCurrentTime, TransactionStates.Opened, 1, 120L)), secondsWait.seconds)
@@ -702,7 +702,7 @@ class ServerClientInterconnectionTest
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       transactionServer.scheduledCommitLog.run()
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val transactions2 = for (i <- FIRST until LAST) yield {
         TestTimer.updateTime(TestTimer.getCurrentTime + 1L)
@@ -718,7 +718,7 @@ class ServerClientInterconnectionTest
 
       TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
-      transactionServer.berkeleyWriter.run()
+      transactionServer.commitLogToRocksWriter.run()
 
       val transactions = transactions1 ++ transactions2
       val firstTransaction = transactions.head

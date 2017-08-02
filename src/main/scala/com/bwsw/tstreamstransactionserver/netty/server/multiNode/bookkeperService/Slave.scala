@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ScheduledZkMultipleTreeListReader, ZkMultipleTreeListReader, ZookeeperTreeListLong}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{BookkeeperToRocksWriter, ZkMultipleTreeListReader, ZookeeperTreeListLong}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookKeeperWrapper
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
 import org.apache.bookkeeper.client.BookKeeper
@@ -27,7 +27,7 @@ class Slave(bookKeeper: BookKeeper,
         bk
       )
 
-    new ScheduledZkMultipleTreeListReader(
+    new BookkeeperToRocksWriter(
       multipleTree,
       rocksReader,
       rocksWriter

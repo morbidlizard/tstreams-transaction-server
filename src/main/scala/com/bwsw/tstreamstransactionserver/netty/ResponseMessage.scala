@@ -21,12 +21,13 @@ case class ResponseMessage(id: Long, body: Array[Byte]) {
         .put(body)
     buffer.flip()
 
-    val bytes: Array[Byte] = {
+    if (buffer.hasArray) {
+      buffer.array()
+    } else {
       val array = new Array[Byte](size)
       buffer.get(array)
       array
     }
-    bytes
   }
 }
 
@@ -57,10 +58,16 @@ object ResponseMessage {
     val bodyLength = buf.readInt()
 
     val bodyInBytes = {
-      val bytes = new Array[Byte](bodyLength)
-      buf.slice()
-      buf.readBytes(bytes)
-      bytes
+      if (buf.hasArray) {
+        val bytes = buf.array()
+        bytes.slice(buf.readerIndex(), bytes.length)
+      }
+      else {
+        val bytes = new Array[Byte](bodyLength)
+        buf.slice()
+        buf.readBytes(bytes)
+        bytes
+      }
     }
 
     ResponseMessage(id, bodyInBytes)

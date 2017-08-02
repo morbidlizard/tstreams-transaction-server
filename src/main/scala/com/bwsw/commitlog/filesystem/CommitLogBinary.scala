@@ -22,39 +22,52 @@ import java.io.ByteArrayInputStream
 import java.security.MessageDigest
 import javax.xml.bind.DatatypeConverter
 
-class CommitLogBinary(id: Long, content: Array[Byte], md5: Option[Array[Byte]]) extends CommitLogStorage {
-  require(if (md5.isDefined) md5.get.length == 32 else true)
+class CommitLogBinary(override val id: Long,
+                      override val content: Array[Byte],
+                      md5: Option[Array[Byte]])
+  extends CommitLogStorage {
+
+  require(md5.exists(_.length == 32))
 
   /** bytes to read from this file */
   private val chunkSize = 100000
 
-  override def getID: Long = id
 
-  override def getContent: Array[Byte] = content
+  override final lazy val calculateMD5: Array[Byte] = {
+    val stream =
+      new ByteArrayInputStream(content)
 
-  /** Returns an iterator over records */
-  override def getIterator: CommitLogIterator = new CommitLogBinaryIterator(new ByteArrayInputStream(content))
-
-  /** Returns existing MD5 of this file. Throws an exception otherwise. */
-  override def getMD5: Array[Byte] = if (!md5Exists()) throw new IllegalArgumentException("There is no md5 sum!") else md5.get
-
-  /** Returns true if md5-file exists. */
-  override def md5Exists(): Boolean = md5.isDefined
-
-  /** Returns calculated MD5 of this file. */
-  override def calculateMD5(): Array[Byte] = {
-    val stream = new ByteArrayInputStream(content)
-
-    val md5: MessageDigest = MessageDigest.getInstance("MD5")
+    val md5: MessageDigest =
+      MessageDigest.getInstance("MD5")
     md5.reset()
+
+    val chunk = new Array[Byte](chunkSize)
     while (stream.available() > 0) {
-      val chunk = new Array[Byte](chunkSize)
       val bytesRead = stream.read(chunk)
       md5.update(chunk.take(bytesRead))
     }
 
     stream.close()
 
-    DatatypeConverter.printHexBinary(md5.digest()).getBytes
+    DatatypeConverter
+      .printHexBinary(md5.digest())
+      .getBytes
+  }
+
+
+  /** Returns an iterator over records */
+  override final def getIterator: CommitLogIterator =
+    new CommitLogBinaryIterator(new ByteArrayInputStream(content))
+
+  override final def getMD5: Array[Byte] =
+    md5.getOrElse(throw new IllegalArgumentException("There is no md5 sum!"))
+
+  override final def md5Exists(): Boolean =
+    md5.isDefined
+
+  override final def delete(): Unit = {}
+
+  override final def toString: String = {
+    s"Commit log binary[id: $id]"
   }
 }

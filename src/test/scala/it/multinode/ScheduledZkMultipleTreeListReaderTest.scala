@@ -5,18 +5,18 @@
 //
 //import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 //import com.bwsw.tstreamstransactionserver.netty.Protocol
-//import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ScheduledZkMultipleTreeListReader, ZkMultipleTreeListReader, ZookeeperTreeListLong}
+//import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
+//import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{BookkeeperToRocksWriter, ZkMultipleTreeListReader, ZookeeperTreeListLong}
 //import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
 //import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 //import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
-//import com.bwsw.tstreamstransactionserver.netty.server.{RecordType, TransactionServer}
 //import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 //import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 //import com.bwsw.tstreamstransactionserver.rpc._
 //import org.apache.commons.io.FileUtils
 //import org.apache.curator.framework.CuratorFramework
 //import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpec, Matchers}
-//import ut.multiNodeServer.ZkTreeListTest.StorageManagerInMemory
+//import ut.multiNodeServer.ZkTreeListTest.LedgerManagerInMemory
 //import util.Utils
 //
 //import scala.collection.mutable
@@ -29,26 +29,8 @@
 //
 //  private def uuid = java.util.UUID.randomUUID.toString
 //
-//  private lazy val serverExecutionContext = new ServerExecutionContextGrids(2, 2)
-//  private val authOptions = com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
-//  private val storageOptions = StorageOptions()
-//  private val rocksStorageOptions = RocksStorageOptions()
-//
-//  private def startTransactionServer(zkClient: CuratorFramework): TransactionServer = {
-//    val path = s"/tts/$uuid"
-//    val streamDatabaseZK = new ZookeeperStreamRepository(zkClient, path)
-//
-//    new TransactionServer(
-//      authOpts = authOptions,
-//      storageOpts = storageOptions,
-//      rocksStorageOpts = rocksStorageOptions,
-//      streamDatabaseZK
-//    )
-//  }
-//
 //
 //  private val rand = scala.util.Random
-//
 //  private val streamIDGen = new java.util.concurrent.atomic.AtomicInteger(0)
 //  private val partitionsNumber = 100
 //
@@ -107,7 +89,7 @@
 //          TransactionService.PutTransaction.Args(Transaction(Some(txn), None))
 //        )
 //        new Record(
-//          RecordType.PutTransactionType,
+//          Frame.PutTransactionType,
 //          transactionIDGen.getAndIncrement(),
 //          binaryTransaction
 //        )
@@ -133,7 +115,7 @@
 //        )
 //
 //        val record = new Record(
-//          RecordType.PutTransactionType,
+//          Frame.PutTransactionType,
 //          transactionIDGen.getAndIncrement(),
 //          binaryTransaction
 //        )
@@ -216,7 +198,7 @@
 //      atomicLong.getAndIncrement()
 //    )
 //
-//    val storage = new StorageManagerInMemory
+//    val storage = new LedgerManagerInMemory
 //
 //    val firstLedger = storage.createLedger()
 //    firstTreeRecords.foreach(record => firstLedger.addRecord(record))
@@ -237,10 +219,13 @@
 //      trees,
 //      storage
 //    )
+//
+//
+//
 //    val transactionServer = startTransactionServer(zkClient)
 //
 //    val scheduledZkMultipleTreeListReader =
-//      new ScheduledZkMultipleTreeListReader(
+//      new BookkeeperToRocksWriter(
 //        testReader,
 //        transactionServer
 //      )

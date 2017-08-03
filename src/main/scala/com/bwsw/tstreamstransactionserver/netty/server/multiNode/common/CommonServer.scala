@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
@@ -71,6 +72,9 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
   private val checkpointMasterZkTreeListPrefix =
     "/tts/cg/master_tree"
 
+  private val replicationConfig =
+    ReplicationConfig(5,3,3)
+
 
   private val commonMasterElector =
     zk.masterElector(
@@ -86,51 +90,9 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
       checkpointGroupRoleOptions.checkpointGroupMasterElectionPrefix
     )
 
+//  private val multiNodeCommitLogService =
+//    new multiNode.commitLogService.CommitLogService(
+//      rocksStorage.getRocksStorage
+//    )
 
-  private val commonMasterZkTreeList =
-    new ZookeeperTreeListLong(
-      zk.client,
-      commonMasterZkTreeListPrefix
-    )
-
-  private val checkpointMasterZkTreeList =
-    new ZookeeperTreeListLong(
-      zk.client,
-      checkpointMasterZkTreeListPrefix
-    )
-
-  private val zkTreesLists =
-    Array(commonMasterZkTreeList, checkpointMasterZkTreeList)
-
-  private val replicationConfig =
-    ReplicationConfig(5,3,3)
-
-  private val bookkeeperSupportUnit = {
-    BookkeeperSupportUnit.apply(zk.client, zkTreesLists, replicationConfig)
-  }
-  private val password = "pswrd".getBytes()
-
-  private val commonLedgersForWriting =
-    new java.util.concurrent.LinkedBlockingQueue[org.apache.bookkeeper.client.LedgerHandle](10)
-
-
-  private val commonMasterElectorWrapper =
-    new LeaderSelector(commonMasterElector)
-  private val commonBookkeeperMaster =
-    new BookkeeperMaster(
-      bookkeeperSupportUnit.bookKeeper,
-      commonMasterElectorWrapper,
-      bookkeeperSupportUnit.replicationConfig,
-      commonMasterZkTreeList,
-      password,
-      100,
-      commonLedgersForWriting
-    )
-
-  private val commonBookkeeperCurrentLedgerAccessor =
-    new BookkeeperCurrentLedgerAccessor(
-      zk.client,
-      commonMasterElectorWrapper,
-      commonLedgersForWriting
-    )
 }

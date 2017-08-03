@@ -29,6 +29,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.data._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMaxPackagesSizesHandler, GetZKCheckpointGroupServerPrefixHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportValidator
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
@@ -86,6 +87,7 @@ private object RequestRouter {
 }
 
 final class RequestRouter(server: TransactionServer,
+                          oneNodeCommitLogService: CommitLogService,
                           scheduledCommitLog: ScheduledCommitLog,
                           packageTransmissionOpts: TransportOptions,
                           authOptions: AuthenticationOptions,
@@ -109,7 +111,7 @@ final class RequestRouter(server: TransactionServer,
   private val (handlersIDs: Array[Byte], handlers: Array[RequestHandler]) = Array(
 
     handlerAuth(new GetCommitLogOffsetsHandler(
-      server,
+      oneNodeCommitLogService,
       scheduledCommitLog,
       serverReadContext
     )),

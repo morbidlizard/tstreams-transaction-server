@@ -2,18 +2,19 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{BookkeeperToRocksWriter, ZkMultipleTreeListReader, ZookeeperTreeListLong}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookkeeperWrapper
-import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
+import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
 import org.apache.bookkeeper.client.BookKeeper
 
 class BookkeeperSlave(bookKeeper: BookKeeper,
                       replicationConfig: ReplicationConfig,
                       zkTrees: Array[ZookeeperTreeListLong],
-                      rocksReader: RocksReader,
+                      commitLogService: CommitLogService,
                       rocksWriter: RocksWriter,
                       password: Array[Byte])
   extends Runnable {
 
-  private val scheduledZkMultipleTreeListReader = {
+  private val bookkeeperToRocksWriter = {
     val bk =
       new BookkeeperWrapper(
         bookKeeper,
@@ -29,16 +30,12 @@ class BookkeeperSlave(bookKeeper: BookKeeper,
 
     new BookkeeperToRocksWriter(
       multipleTree,
-      rocksReader,
+      commitLogService,
       rocksWriter
     )
   }
 
   override def run(): Unit = {
-    follow()
-  }
-
-  def follow(): Unit = {
-    scheduledZkMultipleTreeListReader.run()
+    bookkeeperToRocksWriter.run()
   }
 }

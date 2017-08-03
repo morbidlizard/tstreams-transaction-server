@@ -3,6 +3,7 @@ package util
 import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.options.ServerOptions
@@ -10,6 +11,7 @@ import org.apache.commons.io.FileUtils
 
 
 final class TransactionServerBundle(val transactionServer: TransactionServer,
+                                    val signleNodeCommitLogService: CommitLogService,
                                     rocksStorage: RocksStorage,
                                     transactionDataService: TransactionDataService,
                                     val storageOptions: ServerOptions.StorageOptions,

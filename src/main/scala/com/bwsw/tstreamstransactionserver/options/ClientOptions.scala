@@ -36,7 +36,7 @@ object ClientOptions {
                                requestTimeoutRetryCount: Int = 3,
                                retryDelayMs: Int = 200,
                                threadPool: Int = Runtime.getRuntime.availableProcessors(),
-                               prefix: String = "/tts/master")
+                               prefix: String = "/tts/common/master")
 
   /** The options are used to validate client requests by a server.
     *

@@ -26,8 +26,10 @@ class CommitLogQueueBootstrapTestSuite
   private lazy val storageOptions = bundle.storageOptions
 
 
-  private lazy val commitLogCatalogue = new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory)
-  private lazy val commitLogQueueBootstrap = new CommitLogQueueBootstrap(10, commitLogCatalogue, transactionServer)
+  private lazy val commitLogCatalogue =
+    new CommitLogCatalogue(storageOptions.path + java.io.File.separatorChar + storageOptions.commitLogRawDirectory)
+  private lazy val commitLogQueueBootstrap =
+    new CommitLogQueueBootstrap(10, commitLogCatalogue, bundle.signleNodeCommitLogService)
 
 
   override def beforeAll(): Unit = {

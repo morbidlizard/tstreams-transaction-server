@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import CommitLogToRocksWriter.recordsToReadNumber
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 
 private object CommitLogToRocksWriter {
   val recordsToReadNumber = 1
@@ -43,7 +44,7 @@ private object CommitLogToRocksWriter {
 class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
                              pathsToClosedCommitLogFiles: BlockingQueue[CommitLogStorage],
                              rocksWriter: => RocksWriter,
-                             rocksReader: RocksReader,
+                             rocksReader: CommitLogService,
                              incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
   extends Runnable {
 

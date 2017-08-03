@@ -12,7 +12,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.singleNode.TestSingleNode
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
-import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
+import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer, singleNode}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
@@ -214,8 +214,14 @@ object Utils {
         rocksReader
       )
 
+    val oneNodeCommitLogService =
+      new singleNode.commitLogService.CommitLogService(
+        rocksStorage.getRocksStorage
+      )
+
     new TransactionServerBundle(
       transactionServer,
+      oneNodeCommitLogService,
       rocksStorage,
       transactionDataService,
       storageOptions,

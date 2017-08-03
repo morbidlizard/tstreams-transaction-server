@@ -77,7 +77,7 @@ libraryDependencies ++= Seq(
   ("com.twitter" % "libthrift" % "0.5.0-7")
     .exclude("org.slf4j", "slf4j-api"),
 
-  "org.rocksdb" % "rocksdbjni" % "5.4.5",
+  "org.rocksdb" % "rocksdbjni" % "5.6.1",
   "org.scalactic" %% "scalactic" % "3.0.3",
   "org.scalatest" %% "scalatest" % "3.0.3" % "test",
 

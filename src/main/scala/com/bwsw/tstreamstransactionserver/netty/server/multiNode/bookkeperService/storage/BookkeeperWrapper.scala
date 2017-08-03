@@ -5,7 +5,7 @@ import org.apache.bookkeeper.client.BookKeeper
 
 import scala.util.Try
 
-class BookKeeperWrapper(bookKeeper: BookKeeper,
+class BookkeeperWrapper(bookKeeper: BookKeeper,
                         replicationConfig: ReplicationConfig,
                         password: Array[Byte])
   extends LedgerManager {

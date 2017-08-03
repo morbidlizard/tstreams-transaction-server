@@ -51,7 +51,9 @@ class ZKMasterPathMonitor(connection: CuratorFramework,
       case Some(hostPortPairOpt) =>
         Right(Some(hostPortPairOpt))
       case None =>
-        logger.error(s"Master information data ($hostPort) is corrupted for $connectionData$prefix.")
+        if (logger.isErrorEnabled()) {
+          logger.error(s"Master information data ($hostPort) is corrupted for $connectionData$prefix.")
+        }
         Left(new MasterDataIsIllegalException(node.getPath, hostPort))
     }
   }

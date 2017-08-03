@@ -5,7 +5,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.batch.{BigCommit, BigCommitWithFrameParser}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperRecordFrame
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperRecordFrame
 
 
 class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader,
@@ -37,7 +37,7 @@ class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader
     }
     else {
       val bigCommit = getBigCommit(ledgerIDsAndTheirLastRecordIDs)
-      val frames = records.map(record => new BookKeeperRecordFrame(record))
+      val frames = records.map(record => new BookkeeperRecordFrame(record))
       bigCommit.addFrames(frames)
       PersistedCommitAndMoveToNextRecordsInfo(
         isCommitted = bigCommit.commit(),

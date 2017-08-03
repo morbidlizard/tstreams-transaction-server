@@ -77,7 +77,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         zookeeperOptions.sessionTimeoutMs,
         zookeeperOptions.connectionTimeoutMs,
         new RetryForever(zookeeperOptions.retryDelayMs),
-        zookeeperOptions.prefix
+        clientOpts.prefix
       ).client
     }
   private val commonInetClient =

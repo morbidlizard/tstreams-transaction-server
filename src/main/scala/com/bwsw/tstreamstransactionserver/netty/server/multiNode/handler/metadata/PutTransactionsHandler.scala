@@ -9,7 +9,7 @@ import io.netty.channel.ChannelHandlerContext
 import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 import PutTransactionsHandler._
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookKeeperGateway
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperCurrentLedgerAccessor
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 
 
@@ -32,7 +32,7 @@ private object PutTransactionsHandler {
 }
 
 class PutTransactionsHandler(server: TransactionServer,
-                             gateway: BookKeeperGateway)
+                             gateway: BookkeeperCurrentLedgerAccessor)
   extends RequestHandler {
 
   private def process(requestBody: Array[Byte],

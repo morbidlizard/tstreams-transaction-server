@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetZKCheckpointGroupServerPrefixHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.ServerRoleOptions
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.CheckpointGroupRoleOptions
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService
 import io.netty.channel.ChannelHandlerContext
 
@@ -11,7 +11,7 @@ private object GetZKCheckpointGroupServerPrefixHandler {
   val descriptor = Protocol.GetZKCheckpointGroupServerPrefix
 }
 
-class GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions: ServerRoleOptions)
+class GetZKCheckpointGroupServerPrefixHandler(serverRoleOptions: CheckpointGroupRoleOptions)
   extends SyncReadHandler(
     descriptor.methodID,
     descriptor.name

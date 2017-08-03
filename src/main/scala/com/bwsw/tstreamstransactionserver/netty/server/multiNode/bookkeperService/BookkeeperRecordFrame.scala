@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 
-class BookKeeperRecordFrame(record: Record)
+class BookkeeperRecordFrame(record: Record)
   extends Frame (
     record.recordType,
     record.timestamp,

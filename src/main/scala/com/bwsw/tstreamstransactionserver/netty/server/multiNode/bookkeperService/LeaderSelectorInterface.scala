@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
-trait Electable {
+trait LeaderSelectorInterface {
   def hasLeadership: Boolean
 
   def stopParticipateInElection(): Unit

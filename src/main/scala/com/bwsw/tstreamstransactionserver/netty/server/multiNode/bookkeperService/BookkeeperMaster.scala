@@ -9,13 +9,13 @@ import org.apache.bookkeeper.client.{BKException, BookKeeper}
 
 import scala.annotation.tailrec
 
-class Master(bookKeeper: BookKeeper,
-             master: Electable,
-             replicationConfig: ReplicationConfig,
-             zkTreeListLedger: ZookeeperTreeListLong,
-             password: Array[Byte],
-             timeBetweenCreationOfLedgers: Int,
-             openedLedgers: BlockingQueue[org.apache.bookkeeper.client.LedgerHandle])
+class BookkeeperMaster(bookKeeper: BookKeeper,
+                       master: LeaderSelectorInterface,
+                       replicationConfig: ReplicationConfig,
+                       zkTreeListLedger: ZookeeperTreeListLong,
+                       password: Array[Byte],
+                       timeBetweenCreationOfLedgers: Int,
+                       openedLedgers: BlockingQueue[org.apache.bookkeeper.client.LedgerHandle])
   extends Runnable {
 
   override def run(): Unit = {

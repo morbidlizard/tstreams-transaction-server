@@ -32,7 +32,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMax
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportValidator
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, ServerRoleOptions, TransportOptions}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, CheckpointGroupRoleOptions, TransportOptions}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.collection.Searching._
@@ -91,7 +91,7 @@ final class RequestRouter(server: TransactionServer,
                           authOptions: AuthenticationOptions,
                           orderedExecutionPool: OrderedExecutionContextPool,
                           notifier: OpenedTransactionNotifier,
-                          serverRoleOptions: ServerRoleOptions,
+                          serverRoleOptions: CheckpointGroupRoleOptions,
                           executionContext: ServerExecutionContextGrids) {
   private implicit val authService =
     new AuthService(authOptions)

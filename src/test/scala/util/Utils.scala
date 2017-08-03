@@ -13,6 +13,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNod
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer}
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
@@ -250,19 +251,20 @@ object Utils {
 
 
     val updatedBuilder = serverBuilder
+      .withCommonRoleOptions(
+        serverBuilder.getCommonRoleOptions.copy(
+          commonMasterPrefix =  zKCommonMasterPrefix,
+          commonMasterElectionPrefix = s"/$uuid")
+      )
       .withZookeeperOptions(
         serverBuilder.getZookeeperOptions.copy(
-          endpoints = zkClient.getZookeeperClient.getCurrentConnectionString,
-          prefix = zKCommonMasterPrefix
+          endpoints = zkClient.getZookeeperClient.getCurrentConnectionString
         )
       )
       .withServerStorageOptions(
         serverBuilder.getStorageOptions.copy(
           path = dbPath.getPath,
           streamZookeeperDirectory = s"/$uuid")
-      )
-      .withServerRoleOptions(
-        serverBuilder.getServerRoleOptions.copy(commonMasterElectionPrefix = s"/$uuid")
       )
       .withBootstrapOptions(
         serverBuilder.getBootstrapOptions.copy(bindPort = getRandomPort)
@@ -272,7 +274,8 @@ object Utils {
       updatedBuilder.getAuthenticationOptions,
       updatedBuilder.getZookeeperOptions,
       updatedBuilder.getBootstrapOptions,
-      updatedBuilder.getServerRoleOptions,
+      updatedBuilder.getCommonRoleOptions,
+      updatedBuilder.getCheckpointGroupRoleOptions,
       updatedBuilder.getServerReplicationOptions,
       updatedBuilder.getStorageOptions,
       updatedBuilder.getRocksStorageOptions,
@@ -290,10 +293,10 @@ object Utils {
       throw new IllegalStateException()
 
     val client = new ClientBuilder()
+      .withConnectionOptions(ConnectionOptions(prefix = zKCommonMasterPrefix))
       .withZookeeperOptions(
         ZookeeperOptions(
-          endpoints = zkClient.getZookeeperClient.getCurrentConnectionString,
-          prefix = zKCommonMasterPrefix
+          endpoints = zkClient.getZookeeperClient.getCurrentConnectionString
         )
       )
       .build()
@@ -336,7 +339,8 @@ object Utils {
       updatedBuilder.getAuthenticationOptions,
       updatedBuilder.getZookeeperOptions,
       updatedBuilder.getBootstrapOptions,
-      updatedBuilder.getServerRoleOptions,
+      updatedBuilder.getCommonRoleOptions,
+      updatedBuilder.getCheckpointGroupRoleOptions,
       updatedBuilder.getServerReplicationOptions,
       updatedBuilder.getStorageOptions,
       updatedBuilder.getRocksStorageOptions,

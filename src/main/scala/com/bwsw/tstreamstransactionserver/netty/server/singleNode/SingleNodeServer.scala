@@ -51,7 +51,8 @@ import org.apache.curator.retry.RetryForever
 class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                        zookeeperOpts: CommonOptions.ZookeeperOptions,
                        serverOpts: BootstrapOptions,
-                       serverRoleOptions: ServerRoleOptions,
+                       commonRoleOptions: CommonRoleOptions,
+                       checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                        serverReplicationOpts: ServerReplicationOptions,
                        storageOpts: StorageOptions,
                        rocksStorageOpts: RocksStorageOptions,
@@ -244,22 +245,22 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       authenticationOpts,
       orderedExecutionPool,
       openedTransactionNotifier,
-      serverRoleOptions,
+      checkpointGroupRoleOptions,
       executionContext
     )
 
   private val commonMasterElector =
     zk.masterElector(
       transactionServerSocketAddress,
-      zookeeperOpts.prefix,
-      serverRoleOptions.commonMasterElectionPrefix
+      commonRoleOptions.commonMasterPrefix,
+      commonRoleOptions.commonMasterElectionPrefix
     )
 
   private val checkpointGroupMasterElector =
     zk.masterElector(
       transactionServerSocketAddress,
-      serverRoleOptions.checkpointGroupMasterPrefix,
-      serverRoleOptions.checkpointGroupMasterElectionPrefix
+      checkpointGroupRoleOptions.checkpointGroupMasterPrefix,
+      checkpointGroupRoleOptions.checkpointGroupMasterElectionPrefix
     )
 
   def start(function: => Unit = ()): Unit = {

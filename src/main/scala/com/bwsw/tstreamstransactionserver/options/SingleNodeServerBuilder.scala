@@ -27,7 +27,8 @@ import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 class SingleNodeServerBuilder private(authenticationOpts: AuthenticationOptions,
                                       zookeeperOpts: CommonOptions.ZookeeperOptions,
                                       bootstrapOpts: BootstrapOptions,
-                                      serverRoleOpts: ServerRoleOptions,
+                                      commonRoleOpts: CommonRoleOptions,
+                                      checkpointGroupRoleOpts: CheckpointGroupRoleOptions,
                                       serverReplicationOpts: ServerReplicationOptions,
                                       storageOpts: StorageOptions,
                                       rocksStorageOpts: RocksStorageOptions,
@@ -38,7 +39,8 @@ class SingleNodeServerBuilder private(authenticationOpts: AuthenticationOptions,
   private val authenticationOptions = authenticationOpts
   private val zookeeperOptions = zookeeperOpts
   private val bootstrapOptions = bootstrapOpts
-  private val serverRoleOptions = serverRoleOpts
+  private val commonRoleOptions = commonRoleOpts
+  private val checkpointGroupRoleOptions = checkpointGroupRoleOpts
   private val serverReplicationOptions = serverReplicationOpts
   private val storageOptions = storageOpts
   private val rocksStorageOptions = rocksStorageOpts
@@ -50,7 +52,8 @@ class SingleNodeServerBuilder private(authenticationOpts: AuthenticationOptions,
     AuthenticationOptions(),
     CommonOptions.ZookeeperOptions(),
     BootstrapOptions(),
-    ServerRoleOptions(),
+    CommonRoleOptions(),
+    CheckpointGroupRoleOptions(),
     ServerReplicationOptions(),
     StorageOptions(),
     RocksStorageOptions(),
@@ -60,41 +63,45 @@ class SingleNodeServerBuilder private(authenticationOpts: AuthenticationOptions,
   )
 
   def withAuthenticationOptions(authenticationOptions: AuthenticationOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
   def withZookeeperOptions(zookeeperOptions: ZookeeperOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
   def withBootstrapOptions(bootstrapOptions: BootstrapOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
-  def withServerRoleOptions(serverRoleOptions: ServerRoleOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+  def withCommonRoleOptions(commonRoleOptions: CommonRoleOptions) =
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+
+  def withCheckpointGroupRoleOptions(checkpointGroupRoleOptions: CheckpointGroupRoleOptions) =
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
   def withServerReplicationOptions(serverReplicationOptions: ServerReplicationOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
   def withServerStorageOptions(serverStorageOptions: StorageOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, serverStorageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, serverStorageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
   def withServerRocksStorageOptions(serverStorageRocksOptions: RocksStorageOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, serverStorageRocksOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, serverStorageRocksOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
   def withCommitLogOptions(commitLogOptions: CommitLogOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
   def withPackageTransmissionOptions(packageTransmissionOptions: TransportOptions) =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscribersUpdateOptions)
 
   def withSubscribersUpdateOptions(subscriberUpdateOptions: SubscriberUpdateOptions): SingleNodeServerBuilder =
-    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, serverRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscriberUpdateOptions)
+    new SingleNodeServerBuilder(authenticationOptions, zookeeperOptions, bootstrapOptions, commonRoleOptions, checkpointGroupRoleOptions, serverReplicationOptions, storageOptions, rocksStorageOptions, commitLogOptions, packageTransmissionOptions, subscriberUpdateOptions)
 
 
   def build() = new SingleNodeServer(
     authenticationOptions,
     zookeeperOptions,
     bootstrapOptions,
-    serverRoleOptions,
+    commonRoleOptions,
+    checkpointGroupRoleOptions,
     serverReplicationOptions,
     storageOptions,
     rocksStorageOptions,
@@ -112,8 +119,11 @@ class SingleNodeServerBuilder private(authenticationOpts: AuthenticationOptions,
   def getBootstrapOptions =
     bootstrapOptions.copy()
 
-  def getServerRoleOptions =
-    serverRoleOptions.copy()
+  def getCommonRoleOptions =
+    commonRoleOptions.copy()
+
+  def getCheckpointGroupRoleOptions =
+    checkpointGroupRoleOptions.copy()
 
   def getServerReplicationOptions =
     serverReplicationOptions.copy()

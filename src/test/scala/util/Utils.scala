@@ -160,9 +160,6 @@ object Utils {
   }
 
   def getTransactionServerBundle(zkClient: CuratorFramework): TransactionServerBundle = {
-    val authOptions =
-      com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions()
-
     val dbPath = tempFolder()
 
     val storageOptions =
@@ -175,11 +172,6 @@ object Utils {
       new MultiAndSingleNodeRockStorage(
         storageOptions,
         rocksStorageOptions
-      )
-
-    val lastTransactionStreamPartition =
-      new LastTransactionReader(
-        rocksStorage.getRocksStorage
       )
 
     val zkStreamRepository =

@@ -34,9 +34,14 @@ final class MetadataRecord(val records: Array[LedgerIDAndItsLastRecordID]) {
       .put(recordsToBytes)
     buffer.flip()
 
-    val bytes = new Array[Byte](size)
-    buffer.get(bytes)
-    bytes
+    if (buffer.hasArray) {
+      buffer.array()
+    }
+    else {
+      val bytes = new Array[Byte](size)
+      buffer.get(bytes)
+      bytes
+    }
   }
 
   override def equals(that: scala.Any): Boolean = that match {

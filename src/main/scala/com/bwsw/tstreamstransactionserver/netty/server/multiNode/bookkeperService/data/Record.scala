@@ -6,8 +6,8 @@ import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 class Record(val recordType: Byte,
              val timestamp: Long,
              val body: Array[Byte])
-  extends Ordered[Record]
-{
+  extends Ordered[Record] {
+
   def this(recordType: Frame.Value,
            timestamp: Long,
            body: Array[Byte]) = {
@@ -25,9 +25,13 @@ class Record(val recordType: Byte,
       .put(body)
     buffer.flip()
 
-    val bytes = new Array[Byte](size)
-    buffer.get(bytes)
-    bytes
+    if (buffer.hasArray) {
+      buffer.array()
+    } else {
+      val bytes = new Array[Byte](size)
+      buffer.get(bytes)
+      bytes
+    }
   }
 
   override def equals(obj: scala.Any): Boolean = obj match {

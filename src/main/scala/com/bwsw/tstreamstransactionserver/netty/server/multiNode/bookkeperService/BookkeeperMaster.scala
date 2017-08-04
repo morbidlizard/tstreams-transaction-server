@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
 import java.util
-import java.util.concurrent.{BlockingQueue, TimeUnit}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
@@ -17,12 +17,13 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
                        replicationConfig: ReplicationConfig,
                        zkTreeListLedger: ZookeeperTreeListLong,
                        password: Array[Byte],
-                       timeBetweenCreationOfLedgers: Int,
-                       openedLedgers: BlockingQueue[org.apache.bookkeeper.client.LedgerHandle])
+                       timeBetweenCreationOfLedgers: Int)
   extends Runnable {
 
-
   private val lock = new ReentrantReadWriteLock()
+
+  private val openedLedgers =
+    new java.util.concurrent.LinkedBlockingQueue[org.apache.bookkeeper.client.LedgerHandle](10)
 
   private def closeLastLedger(): Unit = {
     zkTreeListLedger
@@ -53,6 +54,10 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
     def onBeingLeaderDo(): Unit = {
       if (master.hasLeadership) {
         if ((System.currentTimeMillis() - lastAccessTimes) <= timeBetweenCreationOfLedgers) {
+          val timeToWait = math.abs(timeBetweenCreationOfLedgers -
+            (System.currentTimeMillis() - lastAccessTimes)
+          )
+          TimeUnit.MILLISECONDS.sleep(timeToWait)
           onBeingLeaderDo()
         }
         else {
@@ -151,17 +156,22 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
   }
 
   override def run(): Unit = {
-    while (true) {
-      if (master.hasLeadership)
-        lead()
-      else {
-        lock.writeLock().lock()
-        val ledgers =
-          new util.LinkedList[org.apache.bookkeeper.client.LedgerHandle]()
-        openedLedgers.drainTo(ledgers)
-        ledgers.forEach(_.close())
-        lock.writeLock().unlock()
+    try {
+      while (true) {
+        if (master.hasLeadership)
+          lead()
+        else {
+          lock.writeLock().lock()
+          val ledgers =
+            new util.LinkedList[org.apache.bookkeeper.client.LedgerHandle]()
+          openedLedgers.drainTo(ledgers)
+          ledgers.forEach(_.close())
+          lock.writeLock().unlock()
+        }
       }
+    } catch {
+      case _: java.lang.InterruptedException =>
+        Thread.currentThread().interrupt()
     }
   }
 

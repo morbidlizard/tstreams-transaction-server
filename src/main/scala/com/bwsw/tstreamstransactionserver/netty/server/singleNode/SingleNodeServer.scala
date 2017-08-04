@@ -271,6 +271,23 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       checkpointGroupRoleOptions.checkpointGroupMasterElectionPrefix
     )
 
+
+  private lazy val commitLogCloseTask =
+    commitLogCloseExecutor.scheduleWithFixedDelay(
+      scheduledCommitLog,
+      commitLogOptions.closeDelayMs,
+      commitLogOptions.closeDelayMs,
+      java.util.concurrent.TimeUnit.MILLISECONDS
+    )
+
+  private lazy val commitLogToRocksWriterTask =
+    rocksWriterExecutor.scheduleWithFixedDelay(
+      commitLogToRocksWriter,
+      0L,
+      10L,
+      java.util.concurrent.TimeUnit.MILLISECONDS
+    )
+
   def start(function: => Unit = ()): Unit = {
     try {
       val b = new ServerBootstrap()
@@ -287,18 +304,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .bind(serverOpts.bindHost, serverOpts.bindPort)
         .sync()
 
-      commitLogCloseExecutor.scheduleWithFixedDelay(
-        scheduledCommitLog,
-        commitLogOptions.closeDelayMs,
-        commitLogOptions.closeDelayMs,
-        java.util.concurrent.TimeUnit.MILLISECONDS
-      )
-      rocksWriterExecutor.scheduleWithFixedDelay(
-        commitLogToRocksWriter,
-        0L,
-        10L,
-        java.util.concurrent.TimeUnit.MILLISECONDS
-      )
+      commitLogCloseTask
+      commitLogToRocksWriterTask
 
       commonMasterElector.start()
       checkpointGroupMasterElector.start()
@@ -352,6 +359,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       }
 
       if (rocksWriterExecutor != null) {
+        commitLogToRocksWriterTask.cancel(true)
         rocksWriterExecutor.shutdown()
         rocksWriterExecutor.awaitTermination(
           commitLogOptions.closeDelayMs * 5,
@@ -363,6 +371,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         scheduledCommitLog.closeWithoutCreationNewFile()
 
       if (commitLogCloseExecutor != null) {
+        commitLogCloseTask.cancel(true)
         commitLogCloseExecutor.shutdown()
         commitLogCloseExecutor.awaitTermination(
           commitLogOptions.closeDelayMs * 5,

@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.multiNode.common
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.commonCg
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
@@ -8,9 +8,9 @@ import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
 import org.apache.curator.framework.CuratorFramework
 
-class BookkeeperCommonWriter(zookeeperClient: CuratorFramework,
-                             replicationConfig: ReplicationConfig,
-                             commonPrefixesOptions: CommonPrefixesOptions)
+class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
+                                            replicationConfig: ReplicationConfig,
+                                            commonPrefixesOptions: CommonPrefixesOptions)
   extends BookkeeperWriter(
     zookeeperClient,
     replicationConfig) {
@@ -30,7 +30,6 @@ class BookkeeperCommonWriter(zookeeperClient: CuratorFramework,
   private val zkTreesList =
     Array(commonMasterZkTreeList, checkpointMasterZkTreeList)
 
-
   def createCommonMaster(zKMasterElector: ZKMasterElector,
                          password: Array[Byte],
                          timeBetweenCreationOfLedgersMs: Int): BookkeeperWriteBundle = {
@@ -41,6 +40,18 @@ class BookkeeperCommonWriter(zookeeperClient: CuratorFramework,
       commonMasterZkTreeList
     )
   }
+
+  def createCheckpointMaster(zKMasterElector: ZKMasterElector,
+                             password: Array[Byte],
+                             timeBetweenCreationOfLedgersMs: Int): BookkeeperWriteBundle = {
+    createMaster(
+      zKMasterElector,
+      password,
+      timeBetweenCreationOfLedgersMs,
+      checkpointMasterZkTreeList
+    )
+  }
+
 
   def createCommonSlave(commitLogService: CommitLogService,
                         rocksWriter: RocksWriter,

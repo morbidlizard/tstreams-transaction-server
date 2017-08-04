@@ -7,7 +7,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 class BookkeeperSlaveBundle(bookkeeperSlave: BookkeeperSlave,
                             timeBetweenCreationOfLedgersMs: Int) {
 
-  private val bookKeeperExecutor =
+  private lazy val bookKeeperExecutor =
     Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("bookkeeper-slave-%d").build()
     )

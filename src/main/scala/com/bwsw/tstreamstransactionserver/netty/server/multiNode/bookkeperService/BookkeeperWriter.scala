@@ -29,9 +29,6 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
                                    password: Array[Byte],
                                    timeBetweenCreationOfLedgersMs: Int,
                                    zookeeperTreeListLong: ZookeeperTreeListLong): BookkeeperWriteBundle = {
-    val ledgersForWriting =
-      new java.util.concurrent.LinkedBlockingQueue[org.apache.bookkeeper.client.LedgerHandle](10)
-
     val zKMasterElectorWrapper =
       new LeaderSelector(zKMasterElector)
 
@@ -42,8 +39,7 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
         replicationConfig,
         zookeeperTreeListLong,
         password,
-        timeBetweenCreationOfLedgersMs,
-        ledgersForWriting
+        timeBetweenCreationOfLedgersMs
       )
 
     new BookkeeperWriteBundle(

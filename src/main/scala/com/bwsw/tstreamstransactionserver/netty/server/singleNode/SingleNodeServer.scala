@@ -30,8 +30,8 @@ import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestRouter
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.SingleNodeRequestRouter
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
@@ -244,8 +244,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       rocksStorageOpts.writeThreadPool
     )
 
-  private val requestRouter: RequestRouter =
-    new RequestRouter(
+  private val requestRouter: SingleNodeRequestRouter =
+    new SingleNodeRequestRouter(
       transactionServer,
       oneNodeCommitLogService,
       scheduledCommitLog,

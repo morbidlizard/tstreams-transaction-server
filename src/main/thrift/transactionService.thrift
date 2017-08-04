@@ -28,6 +28,12 @@ struct ProducerTransaction {
    6: required tllType             ttl
 }
 
+
+struct ProducerTransactionsAndData {
+   1: list<ProducerTransaction> producerTransactions,
+   2: list<binary> data
+}
+
 struct ConsumerTransaction {
    1: required StreamIDType        stream
    2: required PartitionType       partition

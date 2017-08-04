@@ -1,31 +1,31 @@
-package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.data
 
-import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperMaster
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.MultiNodePredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.data.PutTransactionDataHandler._
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutTransactionHandler._
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutTransactionsHandler.{isNotPuttedResponse, isPuttedResponse}
 import org.apache.bookkeeper.client.BKException.Code
 import org.apache.bookkeeper.client.{AsyncCallback, LedgerHandle}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-private object PutTransactionHandler {
-  val descriptor = Protocol.PutTransaction
+private object PutTransactionDataHandler {
+  val descriptor = Protocol.PutTransactionData
+
   val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
-    TransactionService.PutTransaction.Result(Some(true))
+    TransactionService.PutTransactionData.Result(Some(true))
   )
   val isNotPuttedResponse: Array[Byte] = descriptor.encodeResponse(
-    TransactionService.PutTransaction.Result(Some(false))
+    TransactionService.PutTransactionData.Result(Some(false))
   )
 }
 
 
-class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
-                            context: ExecutionContext)
+class PutTransactionDataHandler(bookkeeperMaster: BookkeeperMaster,
+                                context: ExecutionContext)
   extends MultiNodePredefinedContextHandler(
     descriptor.methodID,
     descriptor.name,
@@ -51,7 +51,7 @@ class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
       bookkeeperMaster.doOperationWithCurrentWriteLedger(ledgerHandlerOrError =>
         ledgerHandlerOrError.foreach { ledgerHandler =>
           val record = new Record(
-            Frame.PutTransactionType.id.toByte,
+            Frame.PutTransactionDataType.id.toByte,
             System.currentTimeMillis(),
             requestBody
           ).toByteArray
@@ -63,6 +63,7 @@ class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
       .flatMap(_ => promise.future)(context)
   }
 
+
   override protected def fireAndForget(message: RequestMessage): Unit = {
     process(message.body)
   }
@@ -73,12 +74,12 @@ class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutTransaction.Result(
+      TransactionService.PutTransactionData.Result(
         None,
         Some(ServerException(message)
         )
       )
     )
   }
-
 }
+

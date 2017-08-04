@@ -50,8 +50,8 @@ case class ProducerTransactionRecord(key: ProducerTransactionKey,
     else if (this.partition > that.partition) 1
     else if (this.transactionID < that.transactionID) -1
     else if (this.transactionID > that.transactionID) 1
-    else if (this.state.value < that.state.value) -1
-    else if (this.state.value > that.state.value) 1
+//    else if (this.state.value < that.state.value) -1
+//    else if (this.state.value > that.state.value) 1
     else 0
   }
 

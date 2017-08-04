@@ -1,6 +1,6 @@
 FROM ubuntu:xenial
 
-LABEL maintainer Bitworks Software info@bitworks.software
+LABEL maintainer='Bitworks Software info@bitworks.software'
 
 EXPOSE 8071
 

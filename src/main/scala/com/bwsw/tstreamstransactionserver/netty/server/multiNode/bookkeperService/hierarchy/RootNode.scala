@@ -68,6 +68,7 @@ class RootNode(client: CuratorFramework,
         throwable match {
           case _: KeeperException.NoNodeException =>
             client.create()
+              .creatingParentsIfNeeded()
               .forPath(rootPath, Array.emptyByteArray)
 
             RootNodeData(

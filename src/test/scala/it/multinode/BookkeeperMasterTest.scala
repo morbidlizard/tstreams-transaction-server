@@ -184,6 +184,7 @@ class BookkeeperMasterTest
       bookkeeperMasterBundle.start()
       Thread.sleep(createNewLedgerEveryTimeMs * 2)
 
+
       bookkeeperMaster.doOperationWithCurrentWriteLedger { currentLedger =>
         currentLedger.isRight shouldBe true
         currentLedger.right.get.getId should be > 1L
@@ -286,13 +287,11 @@ class BookkeeperMasterTest
       val producerTransactions =
         result.producerTransactions
 
+      bookkeeperMasterBundle.stop()
+      bookkeeperSlaveBundle.stop()
 
       producerTransactions.length shouldBe transactionNumber
       producerTransactions.foreach(_.state shouldBe TransactionStates.Opened)
-
-
-      bookkeeperMasterBundle.stop()
-      bookkeeperSlaveBundle.stop()
     }
   }
 }

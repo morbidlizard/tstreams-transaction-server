@@ -43,7 +43,9 @@ abstract class MultiNodePredefinedContextHandler(override final val id: Byte,
     if (error.isEmpty) {
       val futureResponse = getResponse(message)
       futureResponse
-        .map(response => sendResponse(message, response, ctx))(context)
+        .map { response =>
+          sendResponse(message, response, ctx)
+        }(context)
         .recover { case throwable =>
           logUnsuccessfulProcessing(name, throwable, message, ctx)
           val response = createErrorResponse(throwable.getMessage)

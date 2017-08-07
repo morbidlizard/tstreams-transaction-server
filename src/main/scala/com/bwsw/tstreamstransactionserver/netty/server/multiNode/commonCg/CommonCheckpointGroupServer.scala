@@ -258,9 +258,9 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
       commonMasterElector.start()
       checkpointGroupMasterElector.start()
 
-      slave.start()
       commonMaster.start()
       checkpointMaster.start()
+      slave.start()
 
       val channel = binding.channel().closeFuture()
       function

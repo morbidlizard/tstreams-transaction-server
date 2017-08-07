@@ -1,19 +1,9 @@
 package it
 
-import java.util.concurrent.atomic.{AtomicLong, LongAdder}
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.atomic.LongAdder
 
-import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContextGrid
-import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKClient
-import com.bwsw.tstreamstransactionserver.netty.client.InetClient
 import com.bwsw.tstreamstransactionserver.options._
 import com.bwsw.tstreamstransactionserver.rpc._
-import io.netty.buffer.ByteBuf
-import io.netty.channel.EventLoopGroup
-import io.netty.channel.epoll.EpollEventLoopGroup
-import io.netty.channel.nio.NioEventLoopGroup
-import org.apache.commons.lang.SystemUtils
-import org.apache.curator.retry.RetryForever
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.{Time, Utils}
 import util.Utils.startZkServerAndGetIt
@@ -21,7 +11,7 @@ import util.Utils.startZkServerAndGetIt
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Await, Future}
 import util.Implicit.ProducerTransactionSortable
 
 class ServerClientInterconnectionTest

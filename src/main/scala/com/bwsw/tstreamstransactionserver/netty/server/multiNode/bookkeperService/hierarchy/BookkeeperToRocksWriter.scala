@@ -14,7 +14,6 @@ class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader
                               rocksWriter: RocksWriter)
   extends Runnable
 {
-
   private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommitWithFrameParser = {
     val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
     val bigCommit = new BigCommit(rocksWriter, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
@@ -38,10 +37,18 @@ class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader
       val bigCommit = getBigCommit(ledgerIDsAndTheirLastRecordIDs)
       val frames = records.map(record => new BookkeeperRecordFrame(record))
       bigCommit.addFrames(frames)
-      PersistedCommitAndMoveToNextRecordsInfo(
+      val result = PersistedCommitAndMoveToNextRecordsInfo(
         isCommitted = bigCommit.commit(),
         doReadNextRecords = true
       )
+
+      rocksWriter.createAndExecuteTransactionsToDeleteTask(
+        frames.lastOption
+          .map(_.timestamp)
+          .getOrElse(System.currentTimeMillis())
+      )
+      rocksWriter.clearProducerTransactionCache()
+      result
     }
   }
 

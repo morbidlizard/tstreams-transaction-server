@@ -1,17 +1,16 @@
-package com.bwsw.tstreamstransactionserver.netty.server.handler.data
+package com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.data
 
-
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
-import com.bwsw.tstreamstransactionserver.netty.server.handler.data.PutProducerStateWithDataHandler._
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc._
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
 
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.data.PutProducerStateWithDataHandler._
 
 private object PutProducerStateWithDataHandler {
   val descriptor = Protocol.PutProducerStateWithData

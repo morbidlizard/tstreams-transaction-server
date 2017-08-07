@@ -16,27 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.consumer
+package com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.metadata
 
-
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
-import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
-import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.PutConsumerCheckpointHandler.descriptor
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
+import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.metadata.PutTransactionsHandler._
 
-private object PutConsumerCheckpointHandler {
-  val descriptor = Protocol.PutConsumerCheckpoint
+private object PutTransactionsHandler {
+  val descriptor = Protocol.PutTransactions
+  val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
+    TransactionService.PutTransactions.Result(Some(true))
+  )
+  val isNotPuttedResponse: Array[Byte] = descriptor.encodeResponse(
+    TransactionService.PutTransactions.Result(Some(false))
+  )
 }
 
-class PutConsumerCheckpointHandler(server: TransactionServer,
-                                   scheduledCommitLog: ScheduledCommitLog,
-                                   context: ExecutionContext)
+class PutTransactionsHandler(server: TransactionServer,
+                             scheduledCommitLog: ScheduledCommitLog,
+                             context: ExecutionContext)
   extends PredefinedContextHandler(
     descriptor.methodID,
     descriptor.name,
@@ -44,7 +49,7 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutConsumerCheckpoint.Result(
+      TransactionService.PutTransactions.Result(
         None,
         Some(ServerException(message)
         )
@@ -56,22 +61,22 @@ class PutConsumerCheckpointHandler(server: TransactionServer,
     process(message.body)
   }
 
-  private def process(requestBody: Array[Byte]): Boolean = {
-    scheduledCommitLog.putData(
-      Frame.PutConsumerCheckpointType.id.toByte,
-      requestBody
-    )
+  override protected def getResponse(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = {
+      val isPutted = process(message.body)
+      if (isPutted)
+        isPuttedResponse
+      else
+        isNotPuttedResponse
+    }
+
+    response
   }
 
-  override protected def getResponse(message: RequestMessage,
-                                     ctx: ChannelHandlerContext): Array[Byte] = {
-    val result = process(message.body)
-
-    val response = descriptor.encodeResponse(
-      TransactionService.PutConsumerCheckpoint.Result(
-        Some(result)
-      )
+  private def process(requestBody: Array[Byte]) = {
+    scheduledCommitLog.putData(
+      Frame.PutTransactionsType.id.toByte,
+      requestBody
     )
-    response
   }
 }

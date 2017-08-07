@@ -16,34 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
+package com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.commitLog
 
-
-import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
-import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.PutTransactionHandler._
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
-import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
+
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.commitLog.GetCommitLogOffsetsHandler._
+
+
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
 
-
-private object PutTransactionHandler {
-  val descriptor = Protocol.PutTransaction
-  val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
-    TransactionService.PutTransaction.Result(Some(true))
-  )
-  val isNotPuttedResponse: Array[Byte] = descriptor.encodeResponse(
-    TransactionService.PutTransaction.Result(Some(false))
-  )
+private object GetCommitLogOffsetsHandler {
+  val descriptor = Protocol.GetCommitLogOffsets
 }
 
-class PutTransactionHandler(server: TransactionServer,
-                            scheduledCommitLog: ScheduledCommitLog,
-                            context: ExecutionContext)
+class GetCommitLogOffsetsHandler(commitLogService: CommitLogService,
+                                 scheduledCommitLog: ScheduledCommitLog,
+                                 context: ExecutionContext)
   extends PredefinedContextHandler(
     descriptor.methodID,
     descriptor.name,
@@ -51,33 +45,29 @@ class PutTransactionHandler(server: TransactionServer,
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.PutTransaction.Result(
+      TransactionService.GetCommitLogOffsets.Result(
         None,
-        Some(ServerException(message)
-        )
+        Some(ServerException(message))
       )
     )
   }
 
-  override protected def fireAndForget(message: RequestMessage): Unit = {
-    process(message.body)
-  }
+  override protected def fireAndForget(message: RequestMessage): Unit = {}
 
-  override protected def getResponse(message: RequestMessage, ctx: ChannelHandlerContext): Array[Byte] = {
-    val response = {
-      val isPutted = process(message.body)
-      if (isPutted)
-        isPuttedResponse
-      else
-        isNotPuttedResponse
-    }
+  override protected def getResponse(message: RequestMessage,
+                                     ctx: ChannelHandlerContext): Array[Byte] = {
+    val response = descriptor.encodeResponse(
+      TransactionService.GetCommitLogOffsets.Result(
+        Some(process(message.body))
+      )
+    )
     response
   }
 
   private def process(requestBody: Array[Byte]) = {
-    scheduledCommitLog.putData(
-      Frame.PutTransactionType.id.toByte,
-      requestBody
+    CommitLogInfo(
+      commitLogService.getLastProcessedCommitLogFileID,
+      scheduledCommitLog.currentCommitLogFile
     )
   }
 }

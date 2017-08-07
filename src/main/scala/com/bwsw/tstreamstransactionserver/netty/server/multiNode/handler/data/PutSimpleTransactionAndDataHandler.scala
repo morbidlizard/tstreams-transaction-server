@@ -2,7 +2,6 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.data
 
 
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.Structure
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.Structure.PutTransactionsAndData
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
@@ -78,7 +77,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
                       transactionID: Long,
                       context: ExecutionContextExecutorService) = {
 
-    val promise = Promise[Array[Byte]]()
+    val promise = Promise[Boolean]()
     Future {
       val requestBody = PutTransactionsAndData.encode(
         prepareData(
@@ -87,17 +86,18 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
         )
       )
 
-      bookkeeperMaster.doOperationWithCurrentWriteLedger(ledgerHandlerOrError =>
-        ledgerHandlerOrError.foreach { ledgerHandler =>
+      bookkeeperMaster.doOperationWithCurrentWriteLedger{
+        case Left(throwable) =>
+          promise.failure(throwable)
+
+        case Right(ledgerHandler) =>
           val record = new Record(
             Frame.PutSimpleTransactionAndDataType.id.toByte,
             System.currentTimeMillis(),
             requestBody
           ).toByteArray
-
           ledgerHandler.asyncAddEntry(record, callback, promise)
-        }
-      )
+      }
     }(context)
       .flatMap(_ => promise.future)(context)
   }
@@ -116,7 +116,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
         TransactionState.Status.Instant,
         Long.MaxValue,
         authOptions.key,
-        isNotReliable = false
+        isNotReliable = true
       )
     }(context)
   }

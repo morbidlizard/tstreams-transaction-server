@@ -24,7 +24,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.authService.AuthService
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.auth.{AuthenticateHandler, IsValidHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.{GetConsumerStateHandler, PutConsumerCheckpointHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.handler.consumer.GetConsumerStateHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.data._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
@@ -38,58 +38,15 @@ import io.netty.channel.ChannelHandlerContext
 
 import scala.collection.Searching._
 import scala.concurrent.ExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestRouter._
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.commitLog.GetCommitLogOffsetsHandler
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.consumer.PutConsumerCheckpointHandler
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.data.{PutProducerStateWithDataHandler, PutSimpleTransactionAndDataHandler, PutTransactionDataHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.metadata.{OpenTransactionHandler, PutTransactionHandler, PutTransactionsHandler}
 
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.SingleNodeRequestRouter._
-
-private object SingleNodeRequestRouter {
-
-  final def handlerId(clientRequestHandler: ClientRequestHandler): (Byte, RequestHandler) = {
-    val id = clientRequestHandler.id
-    id -> clientRequestHandler
-  }
-
-  final def handlerAuthData(clientRequestHandler: ClientRequestHandler)
-                           (implicit
-                            authService: AuthService,
-                            transportValidator: TransportValidator): (Byte, RequestHandler) = {
-    val id = clientRequestHandler.id
-    id -> new AuthHandler(
-      new DataPackageSizeValidationHandler(
-        clientRequestHandler,
-        transportValidator
-      ),
-      authService
-    )
-  }
-
-  final def handlerAuthMetadata(clientRequestHandler: ClientRequestHandler)
-                               (implicit
-                                authService: AuthService,
-                                transportValidator: TransportValidator): (Byte, RequestHandler) = {
-    val id = clientRequestHandler.id
-    id -> new AuthHandler(
-      new MetadataPackageSizeValidationHandler(
-        clientRequestHandler,
-        transportValidator
-      ),
-      authService
-    )
-  }
-
-  final def handlerAuth(clientRequestHandler: ClientRequestHandler)
-                       (implicit
-                        authService: AuthService): (Byte, RequestHandler) = {
-    val id = clientRequestHandler.id
-    id -> new AuthHandler(
-      clientRequestHandler,
-      authService
-    )
-  }
-
-}
 
 final class SingleNodeRequestRouter(server: TransactionServer,
-                                    oneNodeCommitLogService: CommitLogService,
+                                    MultiNodeCommitLogService: CommitLogService,
                                     scheduledCommitLog: ScheduledCommitLog,
                                     packageTransmissionOpts: TransportOptions,
                                     authOptions: AuthenticationOptions,
@@ -115,7 +72,7 @@ final class SingleNodeRequestRouter(server: TransactionServer,
   private val (handlersIDs: Array[Byte], handlers: Array[RequestHandler]) = Array(
 
     handlerAuth(new GetCommitLogOffsetsHandler(
-      oneNodeCommitLogService,
+      MultiNodeCommitLogService,
       scheduledCommitLog,
       serverReadContext
     )),
@@ -240,7 +197,7 @@ final class SingleNodeRequestRouter(server: TransactionServer,
         val handler = handlers(index)
         handler.handle(message, ctx, None)
       case _ =>
-        throw new IllegalArgumentException(s"Not implemented method that has id: ${message.methodId}")
+//        throw new IllegalArgumentException(s"Not implemented method that has id: ${message.methodId}")
     }
   }
 }

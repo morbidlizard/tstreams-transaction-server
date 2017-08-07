@@ -20,4 +20,17 @@ final class CommitLogService(rocksDB: KeyValueDbManager) {
     iterator.close()
     records.getOrElse(Array.empty[LedgerIDAndItsLastRecordID])
   }
+
+
+  def getMinMaxLedgersIds: MinMaxLedgerIDs = {
+    val ledgers = getLastProcessedLedgersAndRecordIDs
+    if (ledgers.isEmpty) {
+      MinMaxLedgerIDs(-1L, -1L)
+    }
+    else {
+      val min = ledgers.minBy(_.ledgerID).ledgerID
+      val max = ledgers.maxBy(_.ledgerID).ledgerID
+      MinMaxLedgerIDs(min, max)
+    }
+  }
 }

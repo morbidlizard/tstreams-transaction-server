@@ -16,25 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
+package com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.consumer
 
+import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
-import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.GetCommitLogOffsetsHandler.descriptor
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
-import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
 
-private object GetCommitLogOffsetsHandler {
-  val descriptor = Protocol.GetCommitLogOffsets
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.consumer.PutConsumerCheckpointHandler._
+
+private object PutConsumerCheckpointHandler {
+  val descriptor = Protocol.PutConsumerCheckpoint
 }
 
-class GetCommitLogOffsetsHandler(commitLogService: CommitLogService,
-                                 scheduledCommitLog: ScheduledCommitLog,
-                                 context: ExecutionContext)
+class PutConsumerCheckpointHandler(server: TransactionServer,
+                                   scheduledCommitLog: ScheduledCommitLog,
+                                   context: ExecutionContext)
   extends PredefinedContextHandler(
     descriptor.methodID,
     descriptor.name,
@@ -42,29 +44,34 @@ class GetCommitLogOffsetsHandler(commitLogService: CommitLogService,
 
   override def createErrorResponse(message: String): Array[Byte] = {
     descriptor.encodeResponse(
-      TransactionService.GetCommitLogOffsets.Result(
+      TransactionService.PutConsumerCheckpoint.Result(
         None,
-        Some(ServerException(message))
+        Some(ServerException(message)
+        )
       )
     )
   }
 
-  override protected def fireAndForget(message: RequestMessage): Unit = {}
+  override protected def fireAndForget(message: RequestMessage): Unit = {
+    process(message.body)
+  }
+
+  private def process(requestBody: Array[Byte]): Boolean = {
+    scheduledCommitLog.putData(
+      Frame.PutConsumerCheckpointType.id.toByte,
+      requestBody
+    )
+  }
 
   override protected def getResponse(message: RequestMessage,
                                      ctx: ChannelHandlerContext): Array[Byte] = {
+    val result = process(message.body)
+
     val response = descriptor.encodeResponse(
-      TransactionService.GetCommitLogOffsets.Result(
-        Some(process(message.body))
+      TransactionService.PutConsumerCheckpoint.Result(
+        Some(result)
       )
     )
     response
-  }
-
-  private def process(requestBody: Array[Byte]) = {
-    CommitLogInfo(
-      commitLogService.getLastProcessedCommitLogFileID,
-      scheduledCommitLog.currentCommitLogFile
-    )
   }
 }

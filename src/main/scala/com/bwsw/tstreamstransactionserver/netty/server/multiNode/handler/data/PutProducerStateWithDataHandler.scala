@@ -47,8 +47,11 @@ class PutProducerStateWithDataHandler(bookkeeperMaster: BookkeeperMaster,
 
     val promise = Promise[Array[Byte]]()
     Future {
-      bookkeeperMaster.doOperationWithCurrentWriteLedger(ledgerHandlerOrError =>
-        ledgerHandlerOrError.foreach { ledgerHandler =>
+      bookkeeperMaster.doOperationWithCurrentWriteLedger {
+        case Left(throwable) =>
+          promise.failure(throwable)
+
+        case Right(ledgerHandler) =>
           val record = new Record(
             Frame.PutProducerStateWithDataType.id.toByte,
             System.currentTimeMillis(),
@@ -56,8 +59,7 @@ class PutProducerStateWithDataHandler(bookkeeperMaster: BookkeeperMaster,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
-        }
-      )
+      }
     }(context)
       .flatMap(_ => promise.future)(context)
   }

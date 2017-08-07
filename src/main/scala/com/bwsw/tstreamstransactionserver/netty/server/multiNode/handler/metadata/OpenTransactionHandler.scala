@@ -67,8 +67,11 @@ class OpenTransactionHandler(server: TransactionServer,
         TransactionService.PutTransaction.Args(txn)
       )
 
-      bookkeeperMaster.doOperationWithCurrentWriteLedger(ledgerHandlerOrError =>
-        ledgerHandlerOrError.foreach { ledgerHandler =>
+      bookkeeperMaster.doOperationWithCurrentWriteLedger {
+        case Left(throwable) =>
+          promise.failure(throwable)
+
+        case Right(ledgerHandler) =>
           val record = new Record(
             Frame.PutTransactionType.id.toByte,
             System.currentTimeMillis(),
@@ -76,8 +79,7 @@ class OpenTransactionHandler(server: TransactionServer,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
-        }
-      )
+      }
     }(context)
       .flatMap(_ => promise.future)(context)
   }

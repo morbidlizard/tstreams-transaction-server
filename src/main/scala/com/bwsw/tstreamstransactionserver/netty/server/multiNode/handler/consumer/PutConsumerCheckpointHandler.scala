@@ -48,8 +48,11 @@ class PutConsumerCheckpointHandler(bookkeeperMaster: BookkeeperMaster,
   private def process(requestBody: Array[Byte]) = {
     val promise = Promise[Array[Byte]]()
     Future {
-      bookkeeperMaster.doOperationWithCurrentWriteLedger(ledgerHandlerOrError =>
-        ledgerHandlerOrError.foreach { ledgerHandler =>
+      bookkeeperMaster.doOperationWithCurrentWriteLedger {
+        case Left(throwable) =>
+          promise.failure(throwable)
+
+        case Right(ledgerHandler) =>
           val record = new Record(
             Frame.PutConsumerCheckpointType.id.toByte,
             System.currentTimeMillis(),
@@ -57,8 +60,7 @@ class PutConsumerCheckpointHandler(bookkeeperMaster: BookkeeperMaster,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
-        }
-      )
+      }
     }(context)
       .flatMap(_ => promise.future)(context)
   }

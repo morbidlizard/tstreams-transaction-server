@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.bwsw.tstreamstransactionserver.netty.server.handler.data
+package com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.data
 
 import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
@@ -25,13 +25,12 @@ import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionServi
 import io.netty.channel.ChannelHandlerContext
 
 import scala.concurrent.ExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.data.PutTransactionDataHandler._
 
 
 private object PutTransactionDataHandler {
   val descriptor = Protocol.PutTransactionData
 }
-
-import com.bwsw.tstreamstransactionserver.netty.server.handler.data.PutTransactionDataHandler._
 
 class PutTransactionDataHandler(server: TransactionServer,
                                 context: ExecutionContext)

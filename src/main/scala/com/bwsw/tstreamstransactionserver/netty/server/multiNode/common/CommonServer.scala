@@ -4,11 +4,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
 import org.apache.curator.retry.RetryForever
 
@@ -17,6 +16,8 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
                    serverOpts: BootstrapOptions,
                    commonRoleOptions: CommonRoleOptions,
                    checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
+                   commonPrefixesOptions: CommonPrefixesOptions,
+                   replicationConfig: ReplicationConfig,
                    serverReplicationOpts: ServerReplicationOptions,
                    storageOpts: StorageOptions,
                    rocksStorageOpts: RocksStorageOptions,
@@ -67,14 +68,12 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )
 
-  private val commonMasterZkTreeListPrefix =
-    "/tts/common/master_tree"
-  private val checkpointMasterZkTreeListPrefix =
-    "/tts/cg/master_tree"
-
-  private val replicationConfig =
-    ReplicationConfig(5,3,3)
-
+  private val bookkeeperToRocksWriter =
+    new CommonBookkeeperWriter(
+      zk.client,
+      replicationConfig,
+      commonPrefixesOptions
+    )
 
   private val commonMasterElector =
     zk.masterElector(
@@ -89,6 +88,10 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
       checkpointGroupRoleOptions.checkpointGroupMasterPrefix,
       checkpointGroupRoleOptions.checkpointGroupMasterElectionPrefix
     )
+
+//  bookkeeperToRocksWriter.createCommonMaster()
+
+
 
 //  private val multiNodeCommitLogService =
 //    new multiNode.commitLogService.CommitLogService(

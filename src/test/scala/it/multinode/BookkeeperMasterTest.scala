@@ -121,7 +121,7 @@ class BookkeeperMasterTest
 
 
   "Bookkeeper gateway" should "return the first created ledger." in {
-    val bundle = util.multiNodeServer
+    val bundle = util.multiNode
       .Util.getTransactionServerBundle(zkClient)
 
     bundle.operate { _ =>
@@ -158,7 +158,7 @@ class BookkeeperMasterTest
   }
 
   it should "return the second created ledger for write operations as first is closed" in {
-    val bundle = util.multiNodeServer
+    val bundle = util.multiNode
       .Util.getTransactionServerBundle(zkClient)
 
     bundle.operate { _ =>
@@ -194,7 +194,7 @@ class BookkeeperMasterTest
   }
 
   it should "create ledger, put producer records and through the while read them" in {
-    val bundle = util.multiNodeServer
+    val bundle = util.multiNode
       .Util.getTransactionServerBundle(zkClient)
 
     bundle.operate { transactionServer =>

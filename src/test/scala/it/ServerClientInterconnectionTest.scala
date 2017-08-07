@@ -450,7 +450,6 @@ class ServerClientInterconnectionTest
         producerTransactions.filter(txn => statesAllowed.contains(txn.state)).maxBy(_.transactionID).transactionID
       )
 
-      TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
 
       Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       transactionServer.scheduledCommitLog.run()

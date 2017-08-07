@@ -1,4 +1,4 @@
-package util.multiNodeServer
+package util.multiNode
 
 import java.io.File
 

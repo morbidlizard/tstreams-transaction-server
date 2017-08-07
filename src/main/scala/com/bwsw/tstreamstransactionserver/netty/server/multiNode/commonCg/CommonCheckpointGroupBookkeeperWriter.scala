@@ -53,10 +53,10 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
   }
 
 
-  def createCommonSlave(commitLogService: CommitLogService,
-                        rocksWriter: RocksWriter,
-                        password: Array[Byte],
-                        timeBetweenCreationOfLedgersMs: Int): BookkeeperSlaveBundle = {
+  def createSlave(commitLogService: CommitLogService,
+                  rocksWriter: RocksWriter,
+                  password: Array[Byte],
+                  timeBetweenCreationOfLedgersMs: Int): BookkeeperSlaveBundle = {
     val bookkeeperSlave =
       new BookkeeperSlave(
         bookKeeper,

@@ -1,68 +1,45 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-package com.bwsw.tstreamstransactionserver.netty.server.singleNode
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.commonCg
 
-import java.util
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 
-import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
-import com.bwsw.tstreamstransactionserver.{ExecutionContextGrid, SinglePoolExecutionContextGrid}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
+import com.bwsw.tstreamstransactionserver.{ExecutionContextGrid, SinglePoolExecutionContextGrid}
 import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.server._
-import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
-import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.SingleNodeRequestRouter
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ReplicationConfig
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.bootstrap.ServerBootstrap
+import io.netty.channel.{ChannelOption, EventLoopGroup}
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup, EpollServerSocketChannel}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.ServerSocketChannel
 import io.netty.channel.socket.nio.NioServerSocketChannel
-import io.netty.channel.{ChannelOption, EventLoopGroup}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 
-
-class SingleNodeServer(authenticationOpts: AuthenticationOptions,
-                       zookeeperOpts: CommonOptions.ZookeeperOptions,
-                       serverOpts: BootstrapOptions,
-                       commonRoleOptions: CommonRoleOptions,
-                       checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
-                       serverReplicationOpts: ServerReplicationOptions,
-                       storageOpts: StorageOptions,
-                       rocksStorageOpts: RocksStorageOptions,
-                       commitLogOptions: CommitLogOptions,
-                       packageTransmissionOpts: TransportOptions,
-                       subscribersUpdateOptions: SubscriberUpdateOptions) {
-
-  //  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
+                                  zookeeperOpts: CommonOptions.ZookeeperOptions,
+                                  serverOpts: BootstrapOptions,
+                                  commonRoleOptions: CommonRoleOptions,
+                                  checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
+                                  commonPrefixesOptions: CommonPrefixesOptions,
+                                  replicationConfig: ReplicationConfig,
+                                  serverReplicationOpts: ServerReplicationOptions,
+                                  storageOpts: StorageOptions,
+                                  rocksStorageOpts: RocksStorageOptions,
+                                  commitLogOptions: CommitLogOptions,
+                                  packageTransmissionOpts: TransportOptions,
+                                  subscribersUpdateOptions: SubscriberUpdateOptions) {
   private val isShutdown = new AtomicBoolean(false)
 
   private def createTransactionServerExternalSocket() = {
@@ -107,6 +84,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )
 
+
   protected val rocksStorage: MultiAndSingleNodeRockStorage =
     new MultiAndSingleNodeRockStorage(
       storageOpts,
@@ -133,65 +111,61 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     transactionDataService
   )
 
+  private val multiNodeCommitLogService =
+    new CommitLogService(
+      rocksStorage.getRocksStorage
+    )
+
   private val transactionServer = new TransactionServer(
     zkStreamRepository,
     rocksWriter,
     rocksReader
   )
 
-  private val oneNodeCommitLogService =
-    new singleNode.commitLogService.CommitLogService(
-      rocksStorage.getRocksStorage
+  private val bookkeeperToRocksWriter =
+    new CommonCheckpointGroupBookkeeperWriter(
+      zk.client,
+      replicationConfig,
+      commonPrefixesOptions
     )
 
-  private val rocksDBCommitLog = new RocksDbConnection(
-    rocksStorageOpts,
-    s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}",
-    commitLogOptions.expungeDelaySec
-  )
-
-  private val commitLogQueue = {
-    val queue = new CommitLogQueueBootstrap(
-      30,
-      new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogRawDirectory),
-      oneNodeCommitLogService
-    )
-    val priorityQueue = queue.fillQueue()
-    priorityQueue
-  }
-
-
-  /**
-    * this variable is public for testing purposes only
-    */
-  val commitLogToRocksWriter = new CommitLogToRocksWriter(
-    rocksDBCommitLog,
-    commitLogQueue,
-    rocksWriter,
-    oneNodeCommitLogService,
-    commitLogOptions.incompleteReadPolicy
-  )
-
-  private val fileIDGenerator =
-    zk.idGenerator(commitLogOptions.zkFileIdGeneratorPath)
-
-
-  val scheduledCommitLog = new ScheduledCommitLog(
-    commitLogQueue,
-    storageOpts,
-    commitLogOptions,
-    fileIDGenerator
-  )
-
-  private val rocksWriterExecutor =
-    Executors.newSingleThreadScheduledExecutor(
-      new ThreadFactoryBuilder().setNameFormat("RocksWriter-%d").build()
+  private val commonMasterElector =
+    zk.masterElector(
+      transactionServerSocketAddress,
+      commonRoleOptions.commonMasterPrefix,
+      commonRoleOptions.commonMasterElectionPrefix
     )
 
-  private val commitLogCloseExecutor =
-    Executors.newSingleThreadScheduledExecutor(
-      new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build()
+  private val checkpointGroupMasterElector =
+    zk.masterElector(
+      transactionServerSocketAddress,
+      checkpointGroupRoleOptions.checkpointGroupMasterPrefix,
+      checkpointGroupRoleOptions.checkpointGroupMasterElectionPrefix
     )
+
+
+  private val commonMaster = bookkeeperToRocksWriter
+    .createCommonMaster(
+      commonMasterElector,
+      "test".getBytes(),
+      commitLogOptions.closeDelayMs
+    )
+
+  private val checkpointMaster = bookkeeperToRocksWriter
+    .createCheckpointMaster(
+      checkpointGroupMasterElector,
+      "test".getBytes(),
+      commitLogOptions.closeDelayMs
+    )
+
+  private val slave = bookkeeperToRocksWriter
+    .createSlave(
+      multiNodeCommitLogService,
+      rocksWriter,
+      "test".getBytes(),
+      commitLogOptions.closeDelayMs
+    )
+
 
   val (bossGroup: EventLoopGroup, workerGroup: EventLoopGroup) = {
     if (Epoll.isAvailable)
@@ -208,6 +182,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         s"Can't determine channel type for group '$group'."
       )
     }
+
 
   private val orderedExecutionPool =
     new OrderedExecutionContextPool(serverOpts.openOperationsPoolSize)
@@ -249,11 +224,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     ExecutionContextGrid("CommitLogExecutionContextGrid-%d")
 
 
-  private val requestRouter: SingleNodeRequestRouter =
-    new SingleNodeRequestRouter(
+  private val requestRouter =
+    new CommonCheckpointGroupHandlerRouter(
       transactionServer,
-      oneNodeCommitLogService,
-      scheduledCommitLog,
+      commonMaster.bookkeeperMaster,
+      checkpointMaster.bookkeeperMaster,
+      multiNodeCommitLogService,
       packageTransmissionOpts,
       authenticationOpts,
       orderedExecutionPool,
@@ -261,37 +237,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       checkpointGroupRoleOptions,
       executionContext,
       commitLogContext.getContext
-    )
-
-  private val commonMasterElector =
-    zk.masterElector(
-      transactionServerSocketAddress,
-      commonRoleOptions.commonMasterPrefix,
-      commonRoleOptions.commonMasterElectionPrefix
-    )
-
-  private val checkpointGroupMasterElector =
-    zk.masterElector(
-      transactionServerSocketAddress,
-      checkpointGroupRoleOptions.checkpointGroupMasterPrefix,
-      checkpointGroupRoleOptions.checkpointGroupMasterElectionPrefix
-    )
-
-
-  private lazy val commitLogCloseTask =
-    commitLogCloseExecutor.scheduleWithFixedDelay(
-      scheduledCommitLog,
-      commitLogOptions.closeDelayMs,
-      commitLogOptions.closeDelayMs,
-      java.util.concurrent.TimeUnit.MILLISECONDS
-    )
-
-  private lazy val commitLogToRocksWriterTask =
-    rocksWriterExecutor.scheduleWithFixedDelay(
-      commitLogToRocksWriter,
-      0L,
-      10L,
-      java.util.concurrent.TimeUnit.MILLISECONDS
     )
 
   def start(function: => Unit = ()): Unit = {
@@ -310,11 +255,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .bind(serverOpts.bindHost, serverOpts.bindPort)
         .sync()
 
-      commitLogCloseTask
-      commitLogToRocksWriterTask
-
       commonMasterElector.start()
       checkpointGroupMasterElector.start()
+
+      slave.start()
+      commonMaster.start()
+      checkpointMaster.start()
 
       val channel = binding.channel().closeFuture()
       function
@@ -364,30 +310,16 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         }
       }
 
-      if (rocksWriterExecutor != null) {
-        commitLogToRocksWriterTask.cancel(true)
-        rocksWriterExecutor.shutdown()
-        rocksWriterExecutor.awaitTermination(
-          commitLogOptions.closeDelayMs * 5,
-          TimeUnit.MILLISECONDS
-        )
+      if (slave != null) {
+        slave.stop()
       }
 
-      if (scheduledCommitLog != null)
-        scheduledCommitLog.closeWithoutCreationNewFile()
-
-      if (commitLogCloseExecutor != null) {
-        commitLogCloseTask.cancel(true)
-        commitLogCloseExecutor.shutdown()
-        commitLogCloseExecutor.awaitTermination(
-          commitLogOptions.closeDelayMs * 5,
-          TimeUnit.MILLISECONDS
-        )
+      if (commonMaster != null) {
+        commonMaster.stop()
       }
 
-      if (commitLogToRocksWriter != null) {
-        commitLogToRocksWriter.run()
-        rocksDBCommitLog.close()
+      if (checkpointMaster != null) {
+        checkpointMaster.stop()
       }
 
       if (orderedExecutionPool != null) {
@@ -413,39 +345,5 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       }
     }
   }
-}
 
-class CommitLogQueueBootstrap(queueSize: Int,
-                              commitLogCatalogue: CommitLogCatalogue,
-                              commitLogService: CommitLogService) {
-
-  def fillQueue(): PriorityBlockingQueue[CommitLogStorage] = {
-    val allFiles = commitLogCatalogue.listAllFilesAndTheirIDs().toMap
-
-
-    val berkeleyProcessedFileIDMax = commitLogService.getLastProcessedCommitLogFileID
-    val (allFilesIDsToProcess, allFilesToDelete: Map[Long, CommitLogFile]) =
-      if (berkeleyProcessedFileIDMax > -1)
-        (allFiles.filterKeys(_ > berkeleyProcessedFileIDMax), allFiles.filterKeys(_ <= berkeleyProcessedFileIDMax))
-      else
-        (allFiles, collection.immutable.Map())
-
-    allFilesToDelete.values.foreach(_.delete())
-
-    if (allFilesIDsToProcess.nonEmpty) {
-      import scala.collection.JavaConverters.asJavaCollectionConverter
-      val filesToProcess: util.Collection[CommitLogFile] = allFilesIDsToProcess
-        .map { case (id, _) => new CommitLogFile(allFiles(id).getFile.getPath) }
-        .asJavaCollection
-
-      val maxSize = scala.math.max(filesToProcess.size, queueSize)
-      val commitLogQueue = new PriorityBlockingQueue[CommitLogStorage](maxSize)
-
-      if (filesToProcess.isEmpty) commitLogQueue
-      else if (commitLogQueue.addAll(filesToProcess)) commitLogQueue
-      else throw new Exception("Something goes wrong here")
-    } else {
-      new PriorityBlockingQueue[CommitLogStorage](queueSize)
-    }
-  }
 }

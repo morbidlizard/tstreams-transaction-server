@@ -8,9 +8,10 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 class CommitLogService(rocksDB: KeyValueDbManager) {
   private val commitLogDatabase = rocksDB.getDatabase(RocksStorage.COMMIT_LOG_STORE)
 
-  private[server] final def getLastProcessedCommitLogFileID: Option[Long] = {
+  private[server] final def getLastProcessedCommitLogFileID: Long = {
     Option(commitLogDatabase.get(BigCommit.commitLogKey))
       .map(CommitLogKey.fromByteArray)
       .map(_.id)
+      .getOrElse(-1L)
   }
 }

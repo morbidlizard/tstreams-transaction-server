@@ -42,6 +42,8 @@ class OptionsLoader {
   private val serverAuthOptions = loadServerAuthenticationOptions()
   private val zookeeperOptions = loadZookeeperOptions()
   private val bootstrapOptions = loadBootstrapOptions()
+  private val commonRoleOptions = loadCommonRoleOptions()
+  private val checkpointGroupRoleOptions = loadCheckpointGroupRoleOptions()
   private val serverReplicationOptions = loadServerReplicationOptions()
   private val serverStorageOptions = loadServerStorageOptions()
   private val serverRocksStorageOptions = loadServerRocksStorageOptions()
@@ -166,9 +168,6 @@ class OptionsLoader {
     val endpoints =
       helper.castCheck("zk.endpoints", identity)
 
-    val prefix =
-      helper.castCheck("zk.prefix", identity)
-
     val sessionTimeoutMs =
       helper.castCheck("zk.session-timeout-ms", prop => prop.toInt)
 
@@ -178,8 +177,33 @@ class OptionsLoader {
     val connectionTimeoutMs =
       helper.castCheck("zk.connection-timeout-ms", prop => prop.toInt)
 
-    ZookeeperOptions(endpoints, prefix, sessionTimeoutMs, retryDelayMs, connectionTimeoutMs)
+    ZookeeperOptions(endpoints, sessionTimeoutMs, retryDelayMs, connectionTimeoutMs)
   }
+
+  private def loadCommonRoleOptions() = {
+    implicit val typeTag = classOf[CommonRoleOptions]
+
+    val commonPrefix =
+      helper.castCheck("zk.common.prefix", identity)
+
+    val commonElectionPrefix =
+      helper.castCheck("zk.common.election-prefix", identity)
+
+    CommonRoleOptions(commonPrefix, commonElectionPrefix)
+  }
+
+  private def loadCheckpointGroupRoleOptions() = {
+    implicit val typeTag = classOf[CheckpointGroupRoleOptions]
+
+    val commonPrefix =
+      helper.castCheck("zk.checkpointgroup.prefix", identity)
+
+    val commonElectionPrefix =
+      helper.castCheck("zk.checkpointgroup.election-prefix", identity)
+
+    CheckpointGroupRoleOptions(commonPrefix, commonElectionPrefix)
+  }
+
 
   private def loadPackageTransmissionOptions() = {
     implicit val typeTag = classOf[TransportOptions]
@@ -234,6 +258,14 @@ class OptionsLoader {
 
   def getBootstrapOptions = {
     bootstrapOptions
+  }
+
+  def getCommonServerRoleOptions = {
+    commonRoleOptions
+  }
+
+  def getCheckpointGroupRoleOptions = {
+    checkpointGroupRoleOptions
   }
 
   def getServerReplicationOptions = {

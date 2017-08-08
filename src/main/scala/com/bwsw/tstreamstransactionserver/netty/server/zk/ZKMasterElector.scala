@@ -50,6 +50,9 @@ final class ZKMasterElector(curatorClient: CuratorFramework,
     }
   }
 
+  def hasLeadership(): Boolean =
+    leaderLatch.hasLeadership
+
   override def isLeader(): Unit = {
     putSocketAddress()
   }

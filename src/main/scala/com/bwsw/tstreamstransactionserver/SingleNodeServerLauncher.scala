@@ -31,6 +31,8 @@ object SingleNodeServerLauncher {
       .withBootstrapOptions(optionsLoader.getBootstrapOptions)
       .withSubscribersUpdateOptions(optionsLoader.getSubscribersUpdateOptions)
       .withAuthenticationOptions(optionsLoader.getServerAuthenticationOptions)
+      .withCommonRoleOptions(optionsLoader.getCommonServerRoleOptions)
+      .withCheckpointGroupRoleOptions(optionsLoader.getCheckpointGroupRoleOptions)
       .withServerReplicationOptions(optionsLoader.getServerReplicationOptions)
       .withServerStorageOptions(optionsLoader.getServerStorageOptions)
       .withServerRocksStorageOptions(optionsLoader.getServerRocksStorageOptions)

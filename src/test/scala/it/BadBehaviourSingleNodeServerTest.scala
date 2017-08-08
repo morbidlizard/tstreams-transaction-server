@@ -28,15 +28,18 @@ class BadBehaviourSingleNodeServerTest
     startZkServerAndGetIt
 
   private val host = "127.0.0.1"
+
   private def uuid = util.Utils.uuid
 
 
   private val rand = scala.util.Random
+
   private def getRandomStream = new com.bwsw.tstreamstransactionserver.rpc.StreamValue {
     override val name: String = rand.nextInt(10000).toString
     override val partitions: Int = rand.nextInt(10000)
     override val description: Option[String] = if (rand.nextBoolean()) Some(rand.nextInt(10000).toString) else None
     override val ttl: Long = Long.MaxValue
+
     override def zkPath: Option[String] = None
   }
 
@@ -74,7 +77,7 @@ class BadBehaviourSingleNodeServerTest
       }
     )
 
-    val task = new Thread{
+    val task = new Thread {
       override def run(): Unit = {
         nettyServer.start()
       }
@@ -102,8 +105,7 @@ class BadBehaviourSingleNodeServerTest
       zkServer.getConnectString
     val zookeeperOpts: ZookeeperOptions =
       CommonOptions.ZookeeperOptions(
-        endpoints = address,
-        prefix = masterPrefix
+        endpoints = address
       )
 
 
@@ -111,11 +113,12 @@ class BadBehaviourSingleNodeServerTest
     val retryCount = 10
     val connectionOpts: ConnectionOptions =
       com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
-      requestTimeoutMs = requestTimeoutMs,
-      retryDelayMs = retryDelayMsForThat,
-      connectionTimeoutMs = 1000,
-      requestTimeoutRetryCount = retryCount
-    )
+        requestTimeoutMs = requestTimeoutMs,
+        retryDelayMs = retryDelayMsForThat,
+        connectionTimeoutMs = 1000,
+        requestTimeoutRetryCount = retryCount,
+        prefix = masterPrefix
+      )
 
     val clientTimeoutRequestCounter = new AtomicInteger(0)
     val client = new Client(connectionOpts, authOpts, zookeeperOpts) {
@@ -142,7 +145,7 @@ class BadBehaviourSingleNodeServerTest
     task.interrupt()
 
     val error = (serverRequestCounter / 100.0) * 25.0
-    val leftBound  = serverRequestCounter - error
+    val leftBound = serverRequestCounter - error
     val rightBound = serverRequestCounter
 
     clientRequestCounter should be >= leftBound
@@ -168,7 +171,7 @@ class BadBehaviourSingleNodeServerTest
       }
     )
 
-    val task = new Thread{
+    val task = new Thread {
       override def run(): Unit = {
         nettyServer.start()
       }
@@ -196,8 +199,7 @@ class BadBehaviourSingleNodeServerTest
       zkServer.getConnectString
     val zookeeperOpts: ZookeeperOptions =
       CommonOptions.ZookeeperOptions(
-        endpoints = address,
-        prefix = masterPrefix
+        endpoints = address
       )
 
 
@@ -208,7 +210,8 @@ class BadBehaviourSingleNodeServerTest
         requestTimeoutMs = requestTimeoutMs,
         retryDelayMs = retryDelayMsForThat,
         connectionTimeoutMs = 1000,
-        requestTimeoutRetryCount = retryCount
+        requestTimeoutRetryCount = retryCount,
+        prefix = masterPrefix
       )
 
     class MyThrowable extends Exception("My exception")
@@ -243,13 +246,13 @@ class BadBehaviourSingleNodeServerTest
 
     val zookeeperOpts: ZookeeperOptions =
       CommonOptions.ZookeeperOptions(
-        endpoints = address,
-        prefix = masterPrefix
+        endpoints = address
       )
     val connectionOpts: ConnectionOptions =
       com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions(
         requestTimeoutMs = requestTimeoutMs,
-        connectionTimeoutMs = 100
+        connectionTimeoutMs = 100,
+        prefix = masterPrefix
       )
 
     val port = Utils.getRandomPort
@@ -268,7 +271,7 @@ class BadBehaviourSingleNodeServerTest
       zKLeaderClientToPutMaster
         .masterElector(
           socket,
-          zookeeperOpts.prefix,
+          connectionOpts.prefix,
           masterElectionPrefix
         )
 

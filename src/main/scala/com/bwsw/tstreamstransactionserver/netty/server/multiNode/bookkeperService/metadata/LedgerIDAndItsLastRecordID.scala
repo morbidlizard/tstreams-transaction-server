@@ -21,9 +21,14 @@ final class LedgerIDAndItsLastRecordID(val ledgerID: Long, val ledgerLastRecordI
       .putLong(ledgerLastRecordID)
     buffer.flip()
 
-    val bytes = new Array[Byte](LedgerIDAndItsLastRecordID.sizeInBytes)
-    buffer.get(bytes)
-    bytes
+    if (buffer.hasArray) {
+      buffer.array()
+    }
+    else {
+      val bytes = new Array[Byte](LedgerIDAndItsLastRecordID.sizeInBytes)
+      buffer.get(bytes)
+      bytes
+    }
   }
 
   override def equals(that: scala.Any): Boolean = that match {

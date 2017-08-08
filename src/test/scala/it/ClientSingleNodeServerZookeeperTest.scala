@@ -7,6 +7,7 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterInteractor
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
@@ -74,10 +75,10 @@ class ClientSingleNodeServerZookeeperTest
       .forPath(zkPrefix, "Test".getBytes())
 
     val clientBuilder = new ClientBuilder()
+      .withConnectionOptions(ConnectionOptions(prefix = zkPrefix))
       .withZookeeperOptions(
         ZookeeperOptions(
-          endpoints = zkTestServer.getConnectString,
-          prefix = zkPrefix
+          endpoints = zkTestServer.getConnectString
         )
       )
 
@@ -108,10 +109,10 @@ class ClientSingleNodeServerZookeeperTest
       .forPath(zkPrefix, "Test".getBytes())
 
     val clientBuilder = new ClientBuilder()
+      .withConnectionOptions(ConnectionOptions(prefix = zkPrefix))
       .withZookeeperOptions(
         ZookeeperOptions(
-          endpoints = zkTestServer.getConnectString,
-          prefix = zkPrefix
+          endpoints = zkTestServer.getConnectString
         )
       )
 
@@ -143,10 +144,10 @@ class ClientSingleNodeServerZookeeperTest
       .forPath(zkPrefix, "1270.0.0.1:8080".getBytes())
 
     val clientBuilder = new ClientBuilder()
+      .withConnectionOptions(ConnectionOptions(prefix = zkPrefix))
       .withZookeeperOptions(
         ZookeeperOptions(
-          endpoints = zkTestServer.getConnectString,
-          prefix = zkPrefix
+          endpoints = zkTestServer.getConnectString
         )
       )
 
@@ -177,10 +178,10 @@ class ClientSingleNodeServerZookeeperTest
       .forPath(zkPrefix, "1270.0.0.1:-8080".getBytes())
 
     val clientBuilder = new ClientBuilder()
+      .withConnectionOptions(ConnectionOptions(prefix = zkPrefix))
       .withZookeeperOptions(
         ZookeeperOptions(
-          endpoints = zkTestServer.getConnectString,
-          prefix = zkPrefix
+          endpoints = zkTestServer.getConnectString
         )
       )
 
@@ -211,10 +212,10 @@ class ClientSingleNodeServerZookeeperTest
       .forPath(zkPrefix, "1270.0.0.1:65536".getBytes())
 
     val clientBuilder = new ClientBuilder()
+      .withConnectionOptions(ConnectionOptions(prefix = zkPrefix))
       .withZookeeperOptions(
         ZookeeperOptions(
-          endpoints = zkTestServer.getConnectString,
-          prefix = zkPrefix
+          endpoints = zkTestServer.getConnectString
         )
       )
 
@@ -229,7 +230,6 @@ class ClientSingleNodeServerZookeeperTest
     val zkPrefix = s"/$uuid/master"
     val masterElectionPrefix = s"/$uuid/master_election"
     val zkOptions = ZookeeperOptions(
-      prefix = zkPrefix,
       endpoints = zkTestServer.getConnectString
     )
 

@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ReplicationConfig, LedgerManager}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookKeeperWrapper
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookkeeperWrapper
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.apache.bookkeeper.client.BookKeeper
@@ -247,7 +247,7 @@ class ZkMultipleTreeListReaderTest
 
   it should "retrieve records from database because ZkTreeListLong objects called 'treeList1' and 'treeList2' have ledgers ids and a storage contains records within the ledgers," +
     " ledgers are closed at the same time" in {
-    val bookKeeperStorage = new BookKeeperWrapper(
+    val bookKeeperStorage = new BookkeeperWrapper(
       bookKeeper,
       replicationConfig,
       passwordBookKeeper
@@ -366,7 +366,7 @@ class ZkMultipleTreeListReaderTest
 
   it should "retrieve records from database ZkTreeListLong objects called 'treeList1' and 'treeList2' have ledgers ids and a storage contains records within the ledgers," +
     " first ledger(belongs to 'treeList1') is closed earlier than second ledger(belongs to 'treeList2')" in {
-    val bookKeeperStorage = new BookKeeperWrapper(
+    val bookKeeperStorage = new BookkeeperWrapper(
       bookKeeper,
       replicationConfig,
       passwordBookKeeper

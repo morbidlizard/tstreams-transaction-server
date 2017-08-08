@@ -42,7 +42,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     new java.util.concurrent.atomic.AtomicBoolean(false)
   private val zkInteractor = new ZKMasterInteractor(
     zkConnection,
-    zookeeperOptions.prefix,
+    clientOpts.prefix,
     _ => {} /*reconnectToServer()*/ ,
     onZKConnectionStateChanged
   )

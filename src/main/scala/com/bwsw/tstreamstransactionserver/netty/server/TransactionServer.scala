@@ -43,13 +43,7 @@ class TransactionServer(streamRepository: StreamRepository,
 
   private val transactionIDService =
     com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
-
-  final def getLastProcessedCommitLogFileID: Long =
-    rocksReader.getLastProcessedCommitLogFileID
-
-  final def getLastProcessedLedgersAndRecordIDs: Option[Array[LedgerIDAndItsLastRecordID]] =
-    rocksReader.getLastProcessedLedgersAndRecordIDs
-
+  
   final def putStream(stream: String, partitions: Int, description: Option[String], ttl: Long): Int =
     streamService.putStream(stream, partitions, description, ttl)
 

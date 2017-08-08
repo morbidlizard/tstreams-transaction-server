@@ -77,7 +77,7 @@ libraryDependencies ++= Seq(
   ("com.twitter" % "libthrift" % "0.5.0-7")
     .exclude("org.slf4j", "slf4j-api"),
 
-  "org.rocksdb" % "rocksdbjni" % "5.4.5",
+  "org.rocksdb" % "rocksdbjni" % "5.6.1",
   "org.scalactic" %% "scalactic" % "3.0.3",
   "org.scalatest" %% "scalatest" % "3.0.3" % "test",
 
@@ -93,6 +93,8 @@ libraryDependencies ++= Seq(
 
   "org.slf4j" % "slf4j-api" % "1.7.24" % "provided",
   "org.slf4j" % "slf4j-log4j12" % "1.7.24" % "provided",
+
+  "org.apache.zookeeper" % "zookeeper" % "3.4.10" pomOnly(),
 
 
   ("org.apache.bookkeeper" % "bookkeeper-server" % "4.4.0")
@@ -110,3 +112,8 @@ libraryDependencies ++= Seq(
     .exclude("log4j", "log4j")
     .exclude("org.slf4j", "slf4j-api")
 )
+
+dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.24"
+dependencyOverrides += "org.slf4j" % "slf4j-log4j12" % "1.7.24"
+dependencyOverrides += "org.apache.zookeeper" % "zookeeper" % "3.4.10"
+dependencyOverrides += "io.netty" % "netty" % "3.10.6.Final"

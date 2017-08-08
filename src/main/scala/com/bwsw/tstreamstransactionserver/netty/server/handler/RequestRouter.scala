@@ -29,10 +29,11 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.data._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMaxPackagesSizesHandler, GetZKCheckpointGroupServerPrefixHandler}
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportValidator
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, ServerRoleOptions, TransportOptions}
+import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, CheckpointGroupRoleOptions, TransportOptions}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.collection.Searching._
@@ -86,12 +87,13 @@ private object RequestRouter {
 }
 
 final class RequestRouter(server: TransactionServer,
+                          oneNodeCommitLogService: CommitLogService,
                           scheduledCommitLog: ScheduledCommitLog,
                           packageTransmissionOpts: TransportOptions,
                           authOptions: AuthenticationOptions,
                           orderedExecutionPool: OrderedExecutionContextPool,
                           notifier: OpenedTransactionNotifier,
-                          serverRoleOptions: ServerRoleOptions,
+                          serverRoleOptions: CheckpointGroupRoleOptions,
                           executionContext: ServerExecutionContextGrids) {
   private implicit val authService =
     new AuthService(authOptions)
@@ -109,7 +111,7 @@ final class RequestRouter(server: TransactionServer,
   private val (handlersIDs: Array[Byte], handlers: Array[RequestHandler]) = Array(
 
     handlerAuth(new GetCommitLogOffsetsHandler(
-      server,
+      oneNodeCommitLogService,
       scheduledCommitLog,
       serverReadContext
     )),

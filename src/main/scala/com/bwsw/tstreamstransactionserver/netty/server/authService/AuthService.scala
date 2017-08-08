@@ -31,28 +31,38 @@ final class AuthService(authOpts: AuthenticationOptions) {
 
   private val usersToken = CacheBuilder.newBuilder()
     .maximumSize(authOpts.keyCacheSize)
-    .expireAfterAccess(authOpts.keyCacheExpirationTimeSec, java.util.concurrent.TimeUnit.SECONDS)
+    .expireAfterAccess(
+      authOpts.keyCacheExpirationTimeSec,
+      java.util.concurrent.TimeUnit.SECONDS
+    )
     .build[java.lang.Integer, String]()
 
   private[server] def authenticate(authKey: String): Int = {
     if (authKey == authOpts.key) {
       val token = Random.nextInt(Integer.MAX_VALUE)
       usersToken.put(token, authKey)
-      if (logger.isDebugEnabled()) logger.debug(s"Client with authkey $authKey is successfully authenticated and assigned token $token.")
+      if (logger.isDebugEnabled())
+        logger.debug(s"Client with authkey $authKey is successfully authenticated and assigned token $token.")
       token
     } else {
-      if (logger.isDebugEnabled()) logger.debug(s"Client with authkey $authKey isn't authenticated and assigned token -1.")
+      if (logger.isDebugEnabled())
+        logger.debug(s"Client with authkey $authKey isn't authenticated and assigned token -1.")
       -1
     }
   }
 
   private[server] def isValid(token: Int): Boolean = {
-    val isValid = token != -1 && usersToken.getIfPresent(token) != null
+    val isValid = token != -1 &&
+      usersToken.getIfPresent(token) != null
 
     if (isValid)
-      logger.info(s"Client token $token is accepted.")
+      if (logger.isDebugEnabled()) {
+        logger.debug(s"Client token $token is accepted.")
+      }
     else
-      logger.warn(s"Client token $token is expired or doesn't exist.")
+      if (logger.isDebugEnabled()) {
+        logger.debug(s"Client token $token is expired or doesn't exist.")
+      }
 
     isValid
   }

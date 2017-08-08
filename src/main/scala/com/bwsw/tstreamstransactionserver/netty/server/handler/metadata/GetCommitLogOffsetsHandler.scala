@@ -18,10 +18,10 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.handler.metadata
 
-import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService.ScheduledCommitLog
 import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata.GetCommitLogOffsetsHandler.descriptor
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
 import io.netty.channel.ChannelHandlerContext
@@ -32,7 +32,7 @@ private object GetCommitLogOffsetsHandler {
   val descriptor = Protocol.GetCommitLogOffsets
 }
 
-class GetCommitLogOffsetsHandler(server: TransactionServer,
+class GetCommitLogOffsetsHandler(commitLogService: CommitLogService,
                                  scheduledCommitLog: ScheduledCommitLog,
                                  context: ExecutionContext)
   extends PredefinedContextHandler(
@@ -63,7 +63,7 @@ class GetCommitLogOffsetsHandler(server: TransactionServer,
 
   private def process(requestBody: Array[Byte]) = {
     CommitLogInfo(
-      server.getLastProcessedCommitLogFileID,
+      commitLogService.getLastProcessedCommitLogFileID,
       scheduledCommitLog.currentCommitLogFile
     )
   }

@@ -39,16 +39,26 @@ object ServerOptions {
                               openOperationsPoolSize: Int = Runtime.getRuntime.availableProcessors())
 
 
-  /** The options are used to provide zookeeper paths for leader election and to provide a client a prefix
-    * of 'checkpoint group' server where its address kept.
+  /** The options are used to provide zookeeper
+    * a prefix for leader election and
+    * a prefix for putting address of server if it's leader(master).
     *
-    * @param commonMasterElectionPrefix          the prefix is used for leader election among common servers.
+    * @param commonMasterPrefix            the prefix is used for providing current master/leader common group server.
+    * @param commonMasterElectionPrefix    the prefix is used for leader election among common servers.
+    */
+  case class CommonRoleOptions(commonMasterPrefix: String = "/tts/common/master",
+                               commonMasterElectionPrefix: String = "/tts/common/master_election")
+
+
+  /** The options are used to provide zookeeper
+    * a prefix for leader election and
+    * a prefix for putting address of server if it's leader(master).
+    *
     * @param checkpointGroupMasterPrefix         the prefix is used for providing current master/leader checkpoint group server.
     * @param checkpointGroupMasterElectionPrefix the prefix is used for leader election among checkpoint group servers.
     */
-  case class ServerRoleOptions(commonMasterElectionPrefix: String = "/tts/common/master_election",
-                               checkpointGroupMasterPrefix: String = "/tts/cg/master",
-                               checkpointGroupMasterElectionPrefix: String = "/tts/cg/master_election")
+  case class CheckpointGroupRoleOptions(checkpointGroupMasterPrefix: String = "/tts/cg/master",
+                                        checkpointGroupMasterElectionPrefix: String = "/tts/cg/master_election")
 
   /** The options are used to provide notification service for subscribers.
     *

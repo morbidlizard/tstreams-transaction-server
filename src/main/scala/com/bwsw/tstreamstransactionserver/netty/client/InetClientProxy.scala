@@ -39,10 +39,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     new ClientExecutionContextGrid(clientOpts.threadPool)
   private final val context =
     executionContext.context
-  private final val processTransactionsPutOperationPool =
-    ExecutionContextGrid("ClientTransactionPool-%d")
-  private final val contextForProducerTransactions =
-    processTransactionsPutOperationPool.getContext
   private final val requestIdToResponseCommonMap =
     new ConcurrentHashMap[Long, Promise[ByteBuf]](
       20000,
@@ -77,7 +73,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         zookeeperOptions.sessionTimeoutMs,
         zookeeperOptions.connectionTimeoutMs,
         new RetryForever(zookeeperOptions.retryDelayMs),
-        zookeeperOptions.prefix
+        clientOpts.prefix
       ).client
     }
   private val commonInetClient =
@@ -329,7 +325,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.GetTransactionIDByTimestamp,
       TransactionService.GetTransactionIDByTimestamp.Args(timestamp),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Puts producer and consumer transactions on a server.
@@ -361,7 +357,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutTransactions,
       TransactionService.PutTransactions.Args(transactions),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Puts producer transaction on a server.
@@ -386,7 +382,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(producerTransactionToTransaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Puts consumer transaction on a server.
@@ -435,7 +431,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data.map(java.nio.ByteBuffer.wrap)),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Puts in fire and forget policy manner 'simplified' producer transaction that already has Chekpointed state with it's data.
@@ -477,7 +473,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.OpenTransaction,
       TransactionService.OpenTransaction.Args(streamID, partitionID, transactionTTLMs),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Retrieves a producer transaction by id
@@ -631,7 +627,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutProducerStateWithData,
       TransactionService.PutProducerStateWithData.Args(producerTransaction, data.map(java.nio.ByteBuffer.wrap), from),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Retrieves all producer transactions binary data in a specific range [from, to]; it's assumed that "from" and "to" are both positive.
@@ -691,7 +687,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutConsumerCheckpoint,
       TransactionService.PutConsumerCheckpoint.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(contextForProducerTransactions)
+    )(context)
   }
 
   /** Retrieves a consumer state on a specific consumer transaction name, stream, partition from a server; If the result is -1 it will mean there is no checkpoint at all.
@@ -740,10 +736,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         if (isZKClientExternal && zkConnection != null)
           zkConnection.close()
 
-        if (processTransactionsPutOperationPool != null) {
-          processTransactionsPutOperationPool.stopAccessNewTasks()
-          processTransactionsPutOperationPool.awaitAllCurrentTasksAreCompleted()
-        }
 
         executionContext
           .stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()

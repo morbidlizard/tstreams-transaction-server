@@ -31,6 +31,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestRouter
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
@@ -51,7 +52,8 @@ import org.apache.curator.retry.RetryForever
 class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                        zookeeperOpts: CommonOptions.ZookeeperOptions,
                        serverOpts: BootstrapOptions,
-                       serverRoleOptions: ServerRoleOptions,
+                       commonRoleOptions: CommonRoleOptions,
+                       checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                        serverReplicationOpts: ServerReplicationOptions,
                        storageOpts: StorageOptions,
                        rocksStorageOpts: RocksStorageOptions,
@@ -136,6 +138,11 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     rocksReader
   )
 
+  private val oneNodeCommitLogService =
+    new singleNode.commitLogService.CommitLogService(
+      rocksStorage.getRocksStorage
+    )
+
   private val rocksDBCommitLog = new RocksDbConnection(
     rocksStorageOpts,
     s"${storageOpts.path}${java.io.File.separatorChar}${storageOpts.commitLogRocksDirectory}",
@@ -146,11 +153,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     val queue = new CommitLogQueueBootstrap(
       30,
       new CommitLogCatalogue(storageOpts.path + java.io.File.separatorChar + storageOpts.commitLogRawDirectory),
-      transactionServer
+      oneNodeCommitLogService
     )
     val priorityQueue = queue.fillQueue()
     priorityQueue
   }
+
 
   /**
     * this variable is public for testing purposes only
@@ -159,7 +167,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     rocksDBCommitLog,
     commitLogQueue,
     rocksWriter,
-    rocksReader,
+    oneNodeCommitLogService,
     commitLogOptions.incompleteReadPolicy
   )
 
@@ -239,27 +247,45 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   private val requestRouter: RequestRouter =
     new RequestRouter(
       transactionServer,
+      oneNodeCommitLogService,
       scheduledCommitLog,
       packageTransmissionOpts,
       authenticationOpts,
       orderedExecutionPool,
       openedTransactionNotifier,
-      serverRoleOptions,
+      checkpointGroupRoleOptions,
       executionContext
     )
 
   private val commonMasterElector =
     zk.masterElector(
       transactionServerSocketAddress,
-      zookeeperOpts.prefix,
-      serverRoleOptions.commonMasterElectionPrefix
+      commonRoleOptions.commonMasterPrefix,
+      commonRoleOptions.commonMasterElectionPrefix
     )
 
   private val checkpointGroupMasterElector =
     zk.masterElector(
       transactionServerSocketAddress,
-      serverRoleOptions.checkpointGroupMasterPrefix,
-      serverRoleOptions.checkpointGroupMasterElectionPrefix
+      checkpointGroupRoleOptions.checkpointGroupMasterPrefix,
+      checkpointGroupRoleOptions.checkpointGroupMasterElectionPrefix
+    )
+
+
+  private lazy val commitLogCloseTask =
+    commitLogCloseExecutor.scheduleWithFixedDelay(
+      scheduledCommitLog,
+      commitLogOptions.closeDelayMs,
+      commitLogOptions.closeDelayMs,
+      java.util.concurrent.TimeUnit.MILLISECONDS
+    )
+
+  private lazy val commitLogToRocksWriterTask =
+    rocksWriterExecutor.scheduleWithFixedDelay(
+      commitLogToRocksWriter,
+      0L,
+      10L,
+      java.util.concurrent.TimeUnit.MILLISECONDS
     )
 
   def start(function: => Unit = ()): Unit = {
@@ -278,18 +304,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         .bind(serverOpts.bindHost, serverOpts.bindPort)
         .sync()
 
-      commitLogCloseExecutor.scheduleWithFixedDelay(
-        scheduledCommitLog,
-        commitLogOptions.closeDelayMs,
-        commitLogOptions.closeDelayMs,
-        java.util.concurrent.TimeUnit.MILLISECONDS
-      )
-      rocksWriterExecutor.scheduleWithFixedDelay(
-        commitLogToRocksWriter,
-        0L,
-        10L,
-        java.util.concurrent.TimeUnit.MILLISECONDS
-      )
+      commitLogCloseTask
+      commitLogToRocksWriterTask
 
       commonMasterElector.start()
       checkpointGroupMasterElector.start()
@@ -343,6 +359,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       }
 
       if (rocksWriterExecutor != null) {
+        commitLogToRocksWriterTask.cancel(true)
         rocksWriterExecutor.shutdown()
         rocksWriterExecutor.awaitTermination(
           commitLogOptions.closeDelayMs * 5,
@@ -354,6 +371,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
         scheduledCommitLog.closeWithoutCreationNewFile()
 
       if (commitLogCloseExecutor != null) {
+        commitLogCloseTask.cancel(true)
         commitLogCloseExecutor.shutdown()
         commitLogCloseExecutor.awaitTermination(
           commitLogOptions.closeDelayMs * 5,
@@ -386,12 +404,15 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   }
 }
 
-class CommitLogQueueBootstrap(queueSize: Int, commitLogCatalogue: CommitLogCatalogue, transactionServer: TransactionServer) {
+class CommitLogQueueBootstrap(queueSize: Int,
+                              commitLogCatalogue: CommitLogCatalogue,
+                              commitLogService: CommitLogService) {
+
   def fillQueue(): PriorityBlockingQueue[CommitLogStorage] = {
     val allFiles = commitLogCatalogue.listAllFilesAndTheirIDs().toMap
 
 
-    val berkeleyProcessedFileIDMax = transactionServer.getLastProcessedCommitLogFileID
+    val berkeleyProcessedFileIDMax = commitLogService.getLastProcessedCommitLogFileID
     val (allFilesIDsToProcess, allFilesToDelete: Map[Long, CommitLogFile]) =
       if (berkeleyProcessedFileIDMax > -1)
         (allFiles.filterKeys(_ > berkeleyProcessedFileIDMax), allFiles.filterKeys(_ <= berkeleyProcessedFileIDMax))

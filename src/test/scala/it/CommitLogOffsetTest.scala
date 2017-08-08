@@ -1,7 +1,7 @@
 package it
 
 
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerOptions, SingleNodeServerBuilder}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
@@ -17,7 +17,7 @@ class CommitLogOffsetTest
 {
 
   private lazy val serverBuilder = new SingleNodeServerBuilder()
-    .withCommitLogOptions(ServerOptions.CommitLogOptions(
+    .withCommitLogOptions(SingleNodeServerOptions.CommitLogOptions(
       closeDelayMs = Int.MaxValue
     ))
 

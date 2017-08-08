@@ -2,13 +2,14 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import org.apache.bookkeeper.client.BookKeeper
 import org.apache.bookkeeper.conf.ClientConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.apache.curator.framework.CuratorFramework
 
 abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
-                                replicationConfig: ReplicationConfig) {
+                                bookkeeperOptions: BookkeeperOptions) {
 
   protected final val bookKeeper: BookKeeper = {
     val lowLevelZkClient = zookeeperClient.getZookeeperClient
@@ -26,7 +27,6 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
   }
 
   protected final def createMaster(zKMasterElector: ZKMasterElector,
-                                   password: Array[Byte],
                                    timeBetweenCreationOfLedgersMs: Int,
                                    zookeeperTreeListLong: ZookeeperTreeListLong): BookkeeperMasterBundle = {
     val zKMasterElectorWrapper =
@@ -36,9 +36,8 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
       new BookkeeperMaster(
         bookKeeper,
         zKMasterElectorWrapper,
-        replicationConfig,
+        bookkeeperOptions,
         zookeeperTreeListLong,
-        password,
         timeBetweenCreationOfLedgersMs
       )
 

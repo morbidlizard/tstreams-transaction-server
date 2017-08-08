@@ -5,15 +5,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
-import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CommonPrefixesOptions}
 import org.apache.curator.framework.CuratorFramework
 
 class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
-                                            replicationConfig: ReplicationConfig,
+                                            bookkeeperOptions: BookkeeperOptions,
                                             commonPrefixesOptions: CommonPrefixesOptions)
   extends BookkeeperWriter(
     zookeeperClient,
-    replicationConfig) {
+    bookkeeperOptions) {
 
   private val commonMasterZkTreeList =
     new ZookeeperTreeListLong(
@@ -31,22 +31,18 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
     Array(commonMasterZkTreeList, checkpointMasterZkTreeList)
 
   def createCommonMaster(zKMasterElector: ZKMasterElector,
-                         password: Array[Byte],
                          timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      password,
       timeBetweenCreationOfLedgersMs,
       commonMasterZkTreeList
     )
   }
 
   def createCheckpointMaster(zKMasterElector: ZKMasterElector,
-                             password: Array[Byte],
                              timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      password,
       timeBetweenCreationOfLedgersMs,
       checkpointMasterZkTreeList
     )
@@ -55,16 +51,14 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
 
   def createSlave(commitLogService: CommitLogService,
                   rocksWriter: => RocksWriter,
-                  password: Array[Byte],
                   timeBetweenCreationOfLedgersMs: Int): BookkeeperSlaveBundle = {
     val bookkeeperSlave =
       new BookkeeperSlave(
         bookKeeper,
-        replicationConfig,
+        bookkeeperOptions,
         zkTreesList,
         commitLogService,
-        rocksWriter,
-        password
+        rocksWriter
       )
     new BookkeeperSlaveBundle(bookkeeperSlave, timeBetweenCreationOfLedgersMs)
   }

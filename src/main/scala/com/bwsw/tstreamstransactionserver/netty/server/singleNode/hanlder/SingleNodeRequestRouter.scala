@@ -34,7 +34,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogServi
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportValidator
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, CheckpointGroupRoleOptions, TransportOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{AuthenticationOptions, CheckpointGroupRoleOptions, TransportOptions}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.collection.Searching._

@@ -9,7 +9,7 @@ import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterInteractor
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{BootstrapOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFrameworkFactory

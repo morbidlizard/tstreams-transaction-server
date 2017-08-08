@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextP
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.MultiNodeArgsDependentContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.OpenTransactionHandler._
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc._
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService.OpenTransaction

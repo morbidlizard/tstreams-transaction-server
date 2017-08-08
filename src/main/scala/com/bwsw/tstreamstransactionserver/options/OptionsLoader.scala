@@ -24,7 +24,7 @@ import java.io.FileInputStream
 import java.util.Properties
 
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions._
 import org.rocksdb.CompressionType
 
 
@@ -44,7 +44,6 @@ class OptionsLoader {
   private val bootstrapOptions = loadBootstrapOptions()
   private val commonRoleOptions = loadCommonRoleOptions()
   private val checkpointGroupRoleOptions = loadCheckpointGroupRoleOptions()
-  private val serverReplicationOptions = loadServerReplicationOptions()
   private val serverStorageOptions = loadServerStorageOptions()
   private val serverRocksStorageOptions = loadServerRocksStorageOptions()
   private val packageTransmissionOptions = loadPackageTransmissionOptions()
@@ -80,7 +79,7 @@ class OptionsLoader {
   }
 
   private def loadServerAuthenticationOptions() = {
-    implicit val typeTag = classOf[ServerOptions.AuthenticationOptions]
+    implicit val typeTag = classOf[SingleNodeServerOptions.AuthenticationOptions]
 
     val key =
       helper.castCheck("authentication.key", identity)
@@ -89,7 +88,7 @@ class OptionsLoader {
     val keyCacheExpirationTimeSec =
       helper.castCheck("authentication.key-cache-expiration-time-sec", prop => prop.toInt)
 
-    ServerOptions.AuthenticationOptions(key, keyCacheSize, keyCacheExpirationTimeSec)
+    SingleNodeServerOptions.AuthenticationOptions(key, keyCacheSize, keyCacheExpirationTimeSec)
   }
 
   private def loadServerStorageOptions() = {
@@ -123,9 +122,6 @@ class OptionsLoader {
     )
   }
 
-  private def loadServerReplicationOptions() = {
-    ServerReplicationOptions()
-  }
 
   private def loadServerRocksStorageOptions() = {
     implicit val typeTag = classOf[RocksStorageOptions]
@@ -266,10 +262,6 @@ class OptionsLoader {
 
   def getCheckpointGroupRoleOptions = {
     checkpointGroupRoleOptions
-  }
-
-  def getServerReplicationOptions = {
-    serverReplicationOptions
   }
 
   def getServerStorageOptions = {

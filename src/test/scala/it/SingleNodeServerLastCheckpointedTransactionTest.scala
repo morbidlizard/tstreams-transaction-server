@@ -2,7 +2,7 @@ package it
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.CommitLogOptions
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}

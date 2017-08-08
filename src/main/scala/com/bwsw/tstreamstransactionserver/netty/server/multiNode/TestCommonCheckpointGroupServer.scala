@@ -1,10 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ReplicationConfig
+
 import com.bwsw.tstreamstransactionserver.netty.server.{Notifier, RocksWriter, TestRocksWriter}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
-import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CommonPrefixesOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 
 class TestCommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
@@ -13,8 +13,7 @@ class TestCommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
                                       commonRoleOptions: CommonRoleOptions,
                                       checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                                       commonPrefixesOptions: CommonPrefixesOptions,
-                                      replicationConfig: ReplicationConfig,
-                                      serverReplicationOpts: ServerReplicationOptions,
+                                      bookkeeperOptions: BookkeeperOptions,
                                       storageOpts: StorageOptions,
                                       rocksStorageOpts: RocksStorageOptions,
                                       commitLogOptions: CommitLogOptions,
@@ -27,8 +26,7 @@ class TestCommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
     commonRoleOptions,
     checkpointGroupRoleOptions,
     commonPrefixesOptions,
-    replicationConfig,
-    serverReplicationOpts,
+    bookkeeperOptions,
     storageOpts,
     rocksStorageOpts,
     commitLogOptions,

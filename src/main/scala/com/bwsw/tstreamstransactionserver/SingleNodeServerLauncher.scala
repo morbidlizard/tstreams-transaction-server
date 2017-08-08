@@ -33,7 +33,6 @@ object SingleNodeServerLauncher {
       .withAuthenticationOptions(optionsLoader.getServerAuthenticationOptions)
       .withCommonRoleOptions(optionsLoader.getCommonServerRoleOptions)
       .withCheckpointGroupRoleOptions(optionsLoader.getCheckpointGroupRoleOptions)
-      .withServerReplicationOptions(optionsLoader.getServerReplicationOptions)
       .withServerStorageOptions(optionsLoader.getServerStorageOptions)
       .withServerRocksStorageOptions(optionsLoader.getServerRocksStorageOptions)
       .withZookeeperOptions(optionsLoader.getZookeeperOptions)

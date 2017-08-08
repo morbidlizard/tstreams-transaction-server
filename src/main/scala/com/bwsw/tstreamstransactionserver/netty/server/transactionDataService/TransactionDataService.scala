@@ -25,7 +25,7 @@ import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamKey, StreamRecord, StreamRepository}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService._
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer

@@ -8,6 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionService, TransactionStates}
 import org.apache.bookkeeper.client.BookKeeper
 import org.apache.bookkeeper.conf.ClientConfiguration
@@ -19,29 +20,29 @@ import util.Utils
 class BookkeeperMasterTest
   extends FlatSpec
     with BeforeAndAfterAll
-    with Matchers
-{
+    with Matchers {
 
   private val ensembleNumber = 4
   private val writeQourumNumber = 3
   private val ackQuorumNumber = 2
 
-  private val replicationConfig = ReplicationConfig(
-    ensembleNumber,
-    writeQourumNumber,
-    ackQuorumNumber
-  )
+  private val bookkeeperOptions =
+    BookkeeperOptions(
+      ensembleNumber,
+      writeQourumNumber,
+      ackQuorumNumber,
+      "test".getBytes()
+    )
 
   private val masterSelector = new LeaderSelectorInterface {
     override def hasLeadership: Boolean = true
+
     override def stopParticipateInElection(): Unit = {}
   }
 
   private val bookiesNumber =
     ensembleNumber max writeQourumNumber max ackQuorumNumber
 
-  private val bkLedgerPassword =
-    "test".getBytes()
 
   private val createNewLedgerEveryTimeMs =
     250
@@ -132,9 +133,8 @@ class BookkeeperMasterTest
         new BookkeeperMaster(
           bookkeeper,
           masterSelector,
-          replicationConfig,
+          bookkeeperOptions,
           zkTree1,
-          bkLedgerPassword,
           createNewLedgerEveryTimeMs
         )
 
@@ -169,9 +169,8 @@ class BookkeeperMasterTest
         new BookkeeperMaster(
           bookkeeper,
           masterSelector,
-          replicationConfig,
+          bookkeeperOptions,
           zkTree1,
-          bkLedgerPassword,
           createNewLedgerEveryTimeMs
         )
 
@@ -210,9 +209,8 @@ class BookkeeperMasterTest
         new BookkeeperMaster(
           bookkeeper,
           masterSelector,
-          replicationConfig,
+          bookkeeperOptions,
           zkTree1,
-          bkLedgerPassword,
           createNewLedgerEveryTimeMs
         )
 
@@ -225,11 +223,10 @@ class BookkeeperMasterTest
       val bookkeeperSlave =
         new BookkeeperSlave(
           bookkeeper,
-          replicationConfig,
+          bookkeeperOptions,
           zkTrees,
           bundle.multiNodeCommitLogService,
-          bundle.rocksWriter,
-          bkLedgerPassword
+          bundle.rocksWriter
         )
 
       val bookkeeperSlaveBundle =

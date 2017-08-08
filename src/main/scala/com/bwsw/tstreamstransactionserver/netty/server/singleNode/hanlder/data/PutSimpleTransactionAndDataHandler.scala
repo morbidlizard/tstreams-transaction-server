@@ -24,7 +24,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.ArgsDependentCont
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService.PutSimpleTransactionAndData
 import com.bwsw.tstreamstransactionserver.rpc._

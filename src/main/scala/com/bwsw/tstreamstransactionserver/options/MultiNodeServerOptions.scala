@@ -28,4 +28,9 @@ object MultiNodeServerOptions {
   case class CommonPrefixesOptions(commonMasterZkTreeListPrefix: String = "/tts/common/master_tree",
                                    checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions)
 
+
+  case class BookkeeperOptions(ensembleNumber: Int,
+                               writeQuorumNumber: Int,
+                               ackQuorumNumber: Int,
+                               password: Array[Byte])
 }

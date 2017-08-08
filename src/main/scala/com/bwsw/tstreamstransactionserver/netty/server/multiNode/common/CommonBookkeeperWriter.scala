@@ -5,15 +5,15 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
-import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CommonPrefixesOptions}
 import org.apache.curator.framework.CuratorFramework
 
 class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
-                             replicationConfig: ReplicationConfig,
+                             bookkeeperOptions: BookkeeperOptions,
                              commonPrefixesOptions: CommonPrefixesOptions)
   extends BookkeeperWriter(
     zookeeperClient,
-    replicationConfig) {
+    bookkeeperOptions) {
 
   private val commonMasterZkTreeList =
     new ZookeeperTreeListLong(
@@ -32,28 +32,24 @@ class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
 
 
   def createCommonMaster(zKMasterElector: ZKMasterElector,
-                         password: Array[Byte],
                          timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      password,
       timeBetweenCreationOfLedgersMs,
       commonMasterZkTreeList
     )
   }
 
-  def createCommonSlave(commitLogService: CommitLogService,
-                        rocksWriter: RocksWriter,
-                        password: Array[Byte],
-                        timeBetweenCreationOfLedgersMs: Int): BookkeeperSlaveBundle = {
+  def createSlave(commitLogService: CommitLogService,
+                  rocksWriter: RocksWriter,
+                  timeBetweenCreationOfLedgersMs: Int): BookkeeperSlaveBundle = {
     val bookkeeperSlave =
       new BookkeeperSlave(
         bookKeeper,
-        replicationConfig,
+        bookkeeperOptions,
         zkTreesList,
         commitLogService,
         rocksWriter,
-        password
       )
     new BookkeeperSlaveBundle(bookkeeperSlave, timeBetweenCreationOfLedgersMs)
   }

@@ -25,8 +25,6 @@ import java.util.concurrent.{Executors, PriorityBlockingQueue, TimeUnit}
 import com.bwsw.commitlog.filesystem.{CommitLogCatalogue, CommitLogFile, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.{ExecutionContextGrid, SinglePoolExecutionContextGrid}
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
-import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.commitLogService._
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
@@ -38,13 +36,10 @@ import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransac
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup, EpollServerSocketChannel}
-import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.ServerSocketChannel
-import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.channel.{ChannelOption, EventLoopGroup}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
@@ -55,7 +50,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
                        serverOpts: BootstrapOptions,
                        commonRoleOptions: CommonRoleOptions,
                        checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
-                       serverReplicationOpts: ServerReplicationOptions,
                        storageOpts: StorageOptions,
                        rocksStorageOpts: RocksStorageOptions,
                        commitLogOptions: CommitLogOptions,
@@ -65,39 +59,11 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
   //  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val isShutdown = new AtomicBoolean(false)
 
-  private def createTransactionServerExternalSocket() = {
-    val externalHost = System.getenv("HOST")
-    val externalPort = System.getenv("PORT0")
-
-    SocketHostPortPair
-      .fromString(s"$externalHost:$externalPort")
-      .orElse(
-        SocketHostPortPair.validateAndCreate(
-          serverOpts.bindHost,
-          serverOpts.bindPort
-        )
-      )
-      .getOrElse {
-        if (externalHost == null || externalPort == null)
-          throw new InvalidSocketAddress(
-            s"Socket ${serverOpts.bindHost}:${serverOpts.bindPort} is not valid for external access."
-          )
-        else
-          throw new InvalidSocketAddress(
-            s"Environment parameters 'HOST':'PORT0' " +
-              s"${serverOpts.bindHost}:${serverOpts.bindPort} are not valid for a socket."
-          )
-      }
-  }
-
-  if (!SocketHostPortPair.isValid(serverOpts.bindHost, serverOpts.bindPort)) {
-    throw new InvalidSocketAddress(
-      s"Address ${serverOpts.bindHost}:${serverOpts.bindPort} is not a correct socket address pair."
-    )
-  }
-
   private val transactionServerSocketAddress =
-    createTransactionServerExternalSocket()
+    Util.createTransactionServerExternalSocket(
+      serverOpts.bindHost,
+      serverOpts.bindPort
+    )
 
   private val zk =
     new ZookeeperClient(
@@ -193,21 +159,11 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new ThreadFactoryBuilder().setNameFormat("CommitLogClose-%d").build()
     )
 
-  val (bossGroup: EventLoopGroup, workerGroup: EventLoopGroup) = {
-    if (Epoll.isAvailable)
-      (new EpollEventLoopGroup(1), new EpollEventLoopGroup())
-    else
-      (new NioEventLoopGroup(1), new NioEventLoopGroup())
-  }
-
-  private def determineChannelType(): Class[_ <: ServerSocketChannel] =
-    workerGroup match {
-      case _: EpollEventLoopGroup => classOf[EpollServerSocketChannel]
-      case _: NioEventLoopGroup => classOf[NioServerSocketChannel]
-      case group => throw new IllegalArgumentException(
-        s"Can't determine channel type for group '$group'."
-      )
-    }
+  private val (
+    bossGroup: EventLoopGroup,
+    workerGroup: EventLoopGroup,
+    channelType: Class[ServerSocketChannel]
+    ) = Util.getBossGroupAndWorkerGroupAndChannel
 
   private val orderedExecutionPool =
     new OrderedExecutionContextPool(serverOpts.openOperationsPoolSize)
@@ -298,7 +254,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
-        .channel(determineChannelType())
+        .channel(channelType)
         .handler(new LoggingHandler(LogLevel.DEBUG))
         .childHandler(
           new ServerInitializer(requestRouter)

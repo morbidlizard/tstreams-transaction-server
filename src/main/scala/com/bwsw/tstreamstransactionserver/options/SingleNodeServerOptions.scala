@@ -26,7 +26,7 @@ import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy._
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy._
 import org.rocksdb.{ColumnFamilyOptions, CompressionType, DBOptions, Options}
 
-object ServerOptions {
+object SingleNodeServerOptions {
 
   /** The options are applied on bootstrap of a server.
     *
@@ -82,10 +82,10 @@ object ServerOptions {
     *
     * @param path                     the path where folders of Commit log and rocksdb databases would be placed.
     * @param streamZookeeperDirectory the zooKeeper path for stream entities.
-    * @param dataDirectory            the subfolder of [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]] where rocksdb databases are placed which contain producer data.
-    * @param metadataDirectory        the subfolder of [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]] where rocksdb database is placed which contains producer and consumer transactions.
-    * @param commitLogRawDirectory    the subfolder of [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]] where commit log files are placed.
-    * @param commitLogRocksDirectory  The subfolder of [[com.bwsw.tstreamstransactionserver.options.ServerOptions.StorageOptions.path]] where rocksdb database is placed which contains commit log files.
+    * @param dataDirectory            the subfolder of [[com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.StorageOptions.path]] where rocksdb databases are placed which contain producer data.
+    * @param metadataDirectory        the subfolder of [[com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.StorageOptions.path]] where rocksdb database is placed which contains producer and consumer transactions.
+    * @param commitLogRawDirectory    the subfolder of [[com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.StorageOptions.path]] where commit log files are placed.
+    * @param commitLogRocksDirectory  The subfolder of [[com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.StorageOptions.path]] where rocksdb database is placed which contains commit log files.
     *
     */
   case class StorageOptions(path: String = "/tmp",
@@ -98,17 +98,6 @@ object ServerOptions {
                               * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
                               * berkeleyReadThreadPool: Int = 2 */)
 
-  /** The options are used for replication environment.
-    *
-    * @param authKey   the special security token which is used by the slaves to authenticate on master.
-    * @param endpoints ???
-    * @param name      ???
-    * @param group     ???
-    */
-  case class ServerReplicationOptions(authKey: String = "server_group",
-                                      endpoints: String = "127.0.0.1:8071",
-                                      name: String = "server",
-                                      group: String = "group")
 
   /** The options are applied on creation Rocksdb database.
     * For all rocksDB options look: https: //github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h

@@ -2,8 +2,8 @@ package it.multinode
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ReplicationConfig
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerOptions, SingleNodeServerBuilder}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionInfo, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Implicit.ProducerTransactionSortable
@@ -14,8 +14,7 @@ import scala.concurrent.Await
 class CommonCheckpointGroupServerTest
   extends FlatSpec
     with BeforeAndAfterAll
-    with Matchers
-{
+    with Matchers {
 
   private val rand = scala.util.Random
 
@@ -53,15 +52,17 @@ class CommonCheckpointGroupServerTest
   private val writeQourumNumber = 3
   private val ackQuorumNumber = 2
 
-  private val replicationConfig = ReplicationConfig(
-    ensembleNumber,
-    writeQourumNumber,
-    ackQuorumNumber
-  )
+  private val bookkeeperOptions =
+    BookkeeperOptions(
+      ensembleNumber,
+      writeQourumNumber,
+      ackQuorumNumber,
+      "test".getBytes()
+    )
 
   private val maxIdleTimeBetweenRecordsMs = 1000
   private lazy val serverBuilder = new SingleNodeServerBuilder()
-    .withCommitLogOptions(ServerOptions.CommitLogOptions(
+    .withCommitLogOptions(SingleNodeServerOptions.CommitLogOptions(
       closeDelayMs = maxIdleTimeBetweenRecordsMs
     ))
 
@@ -92,14 +93,13 @@ class CommonCheckpointGroupServerTest
 
   it should "[scanTransactions] put transactions and get them back" in {
     val bundle = util.multiNode.Util.getCommonCheckpointGroupServerBundle(
-      zkClient, replicationConfig, serverBuilder, clientBuilder
+      zkClient, bookkeeperOptions, serverBuilder, clientBuilder
     )
 
     bundle.operate { transactionServer =>
       val client = bundle.client
       val stream = getRandomStream
       val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
-
 
 
       val producerTransactions = Array.fill(30)(getRandomProducerTransaction(streamID, stream)).filter(_.state == TransactionStates.Opened) :+
@@ -149,7 +149,7 @@ class CommonCheckpointGroupServerTest
 
   it should "put producer and consumer transactions" in {
     val bundle = util.multiNode.Util.getCommonCheckpointGroupServerBundle(
-      zkClient, replicationConfig, serverBuilder, clientBuilder
+      zkClient, bookkeeperOptions, serverBuilder, clientBuilder
     )
 
     bundle.operate { _ =>
@@ -169,7 +169,7 @@ class CommonCheckpointGroupServerTest
 
   it should "put any kind of binary data and get it back" in {
     val bundle = util.multiNode.Util.getCommonCheckpointGroupServerBundle(
-      zkClient, replicationConfig, serverBuilder, clientBuilder
+      zkClient, bookkeeperOptions, serverBuilder, clientBuilder
     )
 
     bundle.operate { _ =>
@@ -196,7 +196,7 @@ class CommonCheckpointGroupServerTest
 
   it should "[putProducerStateWithData] put a producer transaction (Opened) with data, and server should persist data." in {
     val bundle = util.multiNode.Util.getCommonCheckpointGroupServerBundle(
-      zkClient, replicationConfig, serverBuilder, clientBuilder
+      zkClient, bookkeeperOptions, serverBuilder, clientBuilder
     )
 
     bundle.operate { transactionServer =>
@@ -220,7 +220,6 @@ class CommonCheckpointGroupServerTest
         txn => txn.transactionID == openedProducerTransaction.transactionID,
         latch.countDown()
       )
-
 
 
       val from = dataAmount

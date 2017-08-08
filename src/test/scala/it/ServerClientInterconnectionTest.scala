@@ -23,7 +23,7 @@ class ServerClientInterconnectionTest
   private val clientsNum = 2
 
   private lazy val serverBuilder = new SingleNodeServerBuilder()
-    .withCommitLogOptions(ServerOptions.CommitLogOptions(
+    .withCommitLogOptions(SingleNodeServerOptions.CommitLogOptions(
       closeDelayMs = Int.MaxValue
     ))
 
@@ -322,7 +322,7 @@ class ServerClientInterconnectionTest
 
     transactionServer.shutdown()
     val secondServer = bundle.serverBuilder
-        .withBootstrapOptions(ServerOptions.BootstrapOptions(bindPort = Utils.getRandomPort))
+        .withBootstrapOptions(SingleNodeServerOptions.BootstrapOptions(bindPort = Utils.getRandomPort))
       .build()
 
     val task = new Thread(

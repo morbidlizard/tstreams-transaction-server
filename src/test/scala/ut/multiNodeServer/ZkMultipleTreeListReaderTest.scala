@@ -5,10 +5,11 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ZkMultipleTreeListReader, ZookeeperTreeListLong}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ReplicationConfig, LedgerManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerMetadata
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookkeeperWrapper
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.apache.bookkeeper.client.BookKeeper
@@ -30,17 +31,15 @@ class ZkMultipleTreeListReaderTest
   private val writeQourumNumber = 3
   private val ackQuorumNumber = 2
 
-  private val replicationConfig = ReplicationConfig(
+  private val bookkeeperOptions = BookkeeperOptions(
     ensembleNumber,
     writeQourumNumber,
-    ackQuorumNumber
+    ackQuorumNumber,
+    "test".getBytes()
   )
 
   private val bookiesNumber =
     ensembleNumber max writeQourumNumber max ackQuorumNumber
-
-  private val passwordBookKeeper =
-    "test".getBytes()
 
   private lazy val (zkServer, zkClient, bookies) =
     Utils.startZkServerBookieServerZkClient(bookiesNumber)
@@ -249,8 +248,7 @@ class ZkMultipleTreeListReaderTest
     " ledgers are closed at the same time" in {
     val bookKeeperStorage = new BookkeeperWrapper(
       bookKeeper,
-      replicationConfig,
-      passwordBookKeeper
+      bookkeeperOptions
     )
 
     val storage = new LedgerManagerInMemory
@@ -368,8 +366,7 @@ class ZkMultipleTreeListReaderTest
     " first ledger(belongs to 'treeList1') is closed earlier than second ledger(belongs to 'treeList2')" in {
     val bookKeeperStorage = new BookkeeperWrapper(
       bookKeeper,
-      replicationConfig,
-      passwordBookKeeper
+      bookkeeperOptions
     )
 
     val storage = new LedgerManagerInMemory

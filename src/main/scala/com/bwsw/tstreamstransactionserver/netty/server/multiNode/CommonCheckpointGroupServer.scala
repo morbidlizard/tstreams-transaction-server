@@ -4,25 +4,19 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
-import com.bwsw.tstreamstransactionserver.exception.Throwable.InvalidSocketAddress
-import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
 import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ReplicationConfig
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
-import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CommonPrefixesOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions._
 import com.bwsw.tstreamstransactionserver.{ExecutionContextGrid, SinglePoolExecutionContextGrid}
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup, EpollServerSocketChannel}
-import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.ServerSocketChannel
-import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.channel.{ChannelOption, EventLoopGroup}
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
@@ -33,8 +27,7 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
                                   commonRoleOptions: CommonRoleOptions,
                                   checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                                   commonPrefixesOptions: CommonPrefixesOptions,
-                                  replicationConfig: ReplicationConfig,
-                                  serverReplicationOpts: ServerReplicationOptions,
+                                  bookkeeperOptions: BookkeeperOptions,
                                   storageOpts: StorageOptions,
                                   rocksStorageOpts: RocksStorageOptions,
                                   commitLogOptions: CommitLogOptions,
@@ -42,39 +35,11 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
                                   subscribersUpdateOptions: SubscriberUpdateOptions) {
   private val isShutdown = new AtomicBoolean(false)
 
-  private def createTransactionServerExternalSocket() = {
-    val externalHost = System.getenv("HOST")
-    val externalPort = System.getenv("PORT0")
-
-    SocketHostPortPair
-      .fromString(s"$externalHost:$externalPort")
-      .orElse(
-        SocketHostPortPair.validateAndCreate(
-          serverOpts.bindHost,
-          serverOpts.bindPort
-        )
-      )
-      .getOrElse {
-        if (externalHost == null || externalPort == null)
-          throw new InvalidSocketAddress(
-            s"Socket ${serverOpts.bindHost}:${serverOpts.bindPort} is not valid for external access."
-          )
-        else
-          throw new InvalidSocketAddress(
-            s"Environment parameters 'HOST':'PORT0' " +
-              s"${serverOpts.bindHost}:${serverOpts.bindPort} are not valid for a socket."
-          )
-      }
-  }
-
-  if (!SocketHostPortPair.isValid(serverOpts.bindHost, serverOpts.bindPort)) {
-    throw new InvalidSocketAddress(
-      s"Address ${serverOpts.bindHost}:${serverOpts.bindPort} is not a correct socket address pair."
-    )
-  }
-
   private val transactionServerSocketAddress =
-    createTransactionServerExternalSocket()
+    Util.createTransactionServerExternalSocket(
+      serverOpts.bindHost,
+      serverOpts.bindPort
+    )
 
   private val zk =
     new ZookeeperClient(
@@ -85,8 +50,8 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
     )
 
 
-  protected val rocksStorage: MultiAndSingleNodeRockStorage =
-    new MultiAndSingleNodeRockStorage(
+  protected val rocksStorage: MultiNodeRockStorage =
+    new MultiNodeRockStorage(
       storageOpts,
       rocksStorageOpts
     )
@@ -125,7 +90,7 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
   private val bookkeeperToRocksWriter =
     new CommonCheckpointGroupBookkeeperWriter(
       zk.client,
-      replicationConfig,
+      bookkeeperOptions,
       commonPrefixesOptions
     )
 
@@ -147,14 +112,12 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
   private val commonMaster = bookkeeperToRocksWriter
     .createCommonMaster(
       commonMasterElector,
-      "test".getBytes(),
       commitLogOptions.closeDelayMs
     )
 
   private val checkpointMaster = bookkeeperToRocksWriter
     .createCheckpointMaster(
       checkpointGroupMasterElector,
-      "test".getBytes(),
       commitLogOptions.closeDelayMs
     )
 
@@ -162,27 +125,15 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
     .createSlave(
       multiNodeCommitLogService,
       rocksWriter,
-      "test".getBytes(),
       commitLogOptions.closeDelayMs
     )
 
 
-  val (bossGroup: EventLoopGroup, workerGroup: EventLoopGroup) = {
-    if (Epoll.isAvailable)
-      (new EpollEventLoopGroup(1), new EpollEventLoopGroup())
-    else
-      (new NioEventLoopGroup(1), new NioEventLoopGroup())
-  }
-
-  private def determineChannelType(): Class[_ <: ServerSocketChannel] =
-    workerGroup match {
-      case _: EpollEventLoopGroup => classOf[EpollServerSocketChannel]
-      case _: NioEventLoopGroup => classOf[NioServerSocketChannel]
-      case group => throw new IllegalArgumentException(
-        s"Can't determine channel type for group '$group'."
-      )
-    }
-
+  private val (
+    bossGroup: EventLoopGroup,
+    workerGroup: EventLoopGroup,
+    channelType: Class[ServerSocketChannel]
+    ) = Util.getBossGroupAndWorkerGroupAndChannel
 
   private val orderedExecutionPool =
     new OrderedExecutionContextPool(serverOpts.openOperationsPoolSize)
@@ -243,7 +194,7 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
     try {
       val b = new ServerBootstrap()
       b.group(bossGroup, workerGroup)
-        .channel(determineChannelType())
+        .channel(channelType)
         .handler(new LoggingHandler(LogLevel.DEBUG))
         .childHandler(
           new ServerInitializer(requestRouter)

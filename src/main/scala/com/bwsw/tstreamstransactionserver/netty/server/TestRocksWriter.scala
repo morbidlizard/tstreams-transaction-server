@@ -2,13 +2,13 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceWriter
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.test.TestConsumerServiceWriter
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.test.{TestProducerTransactionsCleaner, TestTransactionMetaServiceWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionsCleaner, TransactionMetaServiceWriter}
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 
-class TestRocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
+class TestRocksWriter(rocksStorage: RocksStorage,
                       transactionDataService: TransactionDataService,
                       producerTransactionNotifier: Notifier[ProducerTransaction],
                       consumerTransactionNotifier: Notifier[ConsumerTransaction])

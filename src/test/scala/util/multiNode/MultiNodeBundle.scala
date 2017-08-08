@@ -6,7 +6,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
-import com.bwsw.tstreamstransactionserver.options.ServerOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 import org.apache.commons.io.FileUtils
 
 class MultiNodeBundle(val transactionServer: TransactionServer,
@@ -15,8 +15,8 @@ class MultiNodeBundle(val transactionServer: TransactionServer,
                       val multiNodeCommitLogService: CommitLogService,
                       rocksStorage: RocksStorage,
                       transactionDataService: TransactionDataService,
-                      val storageOptions: ServerOptions.StorageOptions,
-                      rocksOptions: ServerOptions.RocksStorageOptions)
+                      val storageOptions: SingleNodeServerOptions.StorageOptions,
+                      rocksOptions: SingleNodeServerOptions.RocksStorageOptions)
 {
   def operate(operation: TransactionServer => Unit): Unit = {
     try {

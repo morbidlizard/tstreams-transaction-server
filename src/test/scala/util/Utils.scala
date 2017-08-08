@@ -15,7 +15,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServic
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer, singleNode}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.bookkeeper.conf.ServerConfiguration
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
@@ -274,7 +274,6 @@ object Utils {
       updatedBuilder.getBootstrapOptions,
       updatedBuilder.getCommonRoleOptions,
       updatedBuilder.getCheckpointGroupRoleOptions,
-      updatedBuilder.getServerReplicationOptions,
       updatedBuilder.getStorageOptions,
       updatedBuilder.getRocksStorageOptions,
       updatedBuilder.getCommitLogOptions,
@@ -339,7 +338,6 @@ object Utils {
       updatedBuilder.getBootstrapOptions,
       updatedBuilder.getCommonRoleOptions,
       updatedBuilder.getCheckpointGroupRoleOptions,
-      updatedBuilder.getServerReplicationOptions,
       updatedBuilder.getStorageOptions,
       updatedBuilder.getRocksStorageOptions,
       updatedBuilder.getCommitLogOptions,

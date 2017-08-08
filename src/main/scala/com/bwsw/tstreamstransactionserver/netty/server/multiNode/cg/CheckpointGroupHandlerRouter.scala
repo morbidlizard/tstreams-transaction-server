@@ -9,7 +9,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperMaster
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutTransactionsHandler
 import com.bwsw.tstreamstransactionserver.netty.server.transportService.TransportValidator
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, TransportOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{AuthenticationOptions, TransportOptions}
 import io.netty.channel.ChannelHandlerContext
 
 import scala.collection.Searching.{Found, _}

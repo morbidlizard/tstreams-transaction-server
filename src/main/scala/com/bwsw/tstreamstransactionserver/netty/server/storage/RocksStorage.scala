@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDbDescriptor, RocksDbMeta}
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage._
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
 import org.rocksdb.ColumnFamilyOptions
 
 object RocksStorage {

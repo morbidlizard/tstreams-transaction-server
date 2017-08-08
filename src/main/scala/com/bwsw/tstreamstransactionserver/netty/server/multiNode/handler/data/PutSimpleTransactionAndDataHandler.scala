@@ -9,7 +9,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.MultiNodeArgsDependentContextHandler
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.OpenedTransactionNotifier
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.AuthenticationOptions
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.data.PutSimpleTransactionAndDataHandler._
 import com.bwsw.tstreamstransactionserver.protocol.TransactionState
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService.PutSimpleTransactionAndData

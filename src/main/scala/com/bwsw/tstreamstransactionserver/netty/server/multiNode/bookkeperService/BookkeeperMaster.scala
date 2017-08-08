@@ -7,6 +7,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.TimestampRecord
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{BKException, BookKeeper}
 
@@ -14,9 +15,8 @@ import scala.annotation.tailrec
 
 class BookkeeperMaster(bookKeeper: BookKeeper,
                        master: LeaderSelectorInterface,
-                       replicationConfig: ReplicationConfig,
+                       bookkeeperOptions: BookkeeperOptions,
                        zkTreeListLedger: ZookeeperTreeListLong,
-                       password: Array[Byte],
                        timeBetweenCreationOfLedgers: Int)
   extends Runnable {
 
@@ -35,7 +35,7 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
 
   private def closeLedger(id: Long): Unit = {
     scala.util.Try(bookKeeper
-      .openLedger(id, BookKeeper.DigestType.MAC, password)
+      .openLedger(id, BookKeeper.DigestType.MAC, bookkeeperOptions.password)
     ) match {
       case scala.util.Success(_) =>
       case scala.util.Failure(throwable) => throwable match {
@@ -64,9 +64,9 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
           lastAccessTimes = System.currentTimeMillis()
           scala.util.Try {
             ledgerHandleToWrite(
-              replicationConfig.ensembleNumber,
-              replicationConfig.writeQuorumNumber,
-              replicationConfig.ackQuorumNumber,
+              bookkeeperOptions.ensembleNumber,
+              bookkeeperOptions.writeQuorumNumber,
+              bookkeeperOptions.ackQuorumNumber,
               BookKeeper.DigestType.MAC
             )
           }.map { ledgerHandle =>
@@ -110,7 +110,7 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
       writeQuorumNumber,
       ackQuorumNumber,
       digestType,
-      password
+      bookkeeperOptions.password
     )
   }
 

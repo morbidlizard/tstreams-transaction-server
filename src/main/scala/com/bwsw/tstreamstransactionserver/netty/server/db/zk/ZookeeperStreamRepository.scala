@@ -31,17 +31,24 @@ final class ZookeeperStreamRepository(client: CuratorFramework,
 
   private val streamCache =
     new ConcurrentHashMap[streamService.StreamKey, streamService.StreamValue]()
-  private val streamNamePath = new StreamNamePath(client, s"$path/names")
-  private val streamIdPath = new StreamIdPath(client, s"$path/ids")
+  private val streamNamePath =
+    new StreamNamePath(client, s"$path/names")
+  private val streamIdPath =
+    new StreamIdPath(client, s"$path/ids")
 
   override def put(streamValue: streamService.StreamValue): streamService.StreamKey = {
-    if (!streamNamePath.exists(streamValue.name)) {
-      val streamRecord = streamIdPath.put(streamValue)
-      streamNamePath.put(streamRecord)
-      streamCache.put(streamRecord.key, streamRecord.stream)
-      streamRecord.key
-    } else
+    if (exists(streamValue.name)) {
       streamService.StreamKey(-1)
+    }
+    else {
+      val streamRecord = streamIdPath.put(streamValue)
+      streamCache.put(
+        streamRecord.key,
+        streamRecord.stream
+      )
+      streamNamePath.put(streamRecord)
+      streamRecord.key
+    }
   }
 
   override def exists(name: String): Boolean =

@@ -11,7 +11,7 @@ import util.Implicit.ProducerTransactionSortable
 import scala.concurrent.duration._
 import scala.concurrent.Await
 
-class CommonCheckpointGroupHandlerRouterTest
+class CommonCheckpointGroupServerTest
   extends FlatSpec
     with BeforeAndAfterAll
     with Matchers
@@ -60,8 +60,6 @@ class CommonCheckpointGroupHandlerRouterTest
   )
 
   private val maxIdleTimeBetweenRecordsMs = 1000
-  private val clientsNum = 2
-
   private lazy val serverBuilder = new SingleNodeServerBuilder()
     .withCommitLogOptions(ServerOptions.CommitLogOptions(
       closeDelayMs = maxIdleTimeBetweenRecordsMs
@@ -154,7 +152,7 @@ class CommonCheckpointGroupHandlerRouterTest
       zkClient, replicationConfig, serverBuilder, clientBuilder
     )
 
-    bundle.operate { transactionServer =>
+    bundle.operate { _ =>
       val client = bundle.client
 
       val stream = getRandomStream
@@ -250,7 +248,4 @@ class CommonCheckpointGroupHandlerRouterTest
       successResponseData should contain theSameElementsInOrderAs data
     }
   }
-
-
-
 }

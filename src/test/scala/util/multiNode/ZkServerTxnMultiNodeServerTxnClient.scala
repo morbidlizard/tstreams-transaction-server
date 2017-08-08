@@ -3,7 +3,7 @@ package util.multiNode
 import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commonCg.TestCommonCheckpointGroupServer
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.TestCommonCheckpointGroupServer
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
 import org.apache.commons.io.FileUtils
 

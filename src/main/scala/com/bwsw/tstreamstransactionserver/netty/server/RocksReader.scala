@@ -3,7 +3,6 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceRead
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._

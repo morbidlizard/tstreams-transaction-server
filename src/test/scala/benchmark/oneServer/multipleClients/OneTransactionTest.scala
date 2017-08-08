@@ -20,11 +20,9 @@ object OneTransactionTest extends Launcher {
 
   override def launchClients(streamID: Int): Unit = {
     (1 to clients).foreach(x => {
-      val thread = new Thread(new Runnable {
-        override def run(): Unit = {
-          val filename = rand.nextInt(100) + s"TransactionDataWriterTo${x}PartitionOSMC.csv"
-          new TransactionDataWriter(streamID, x).run(txnCount, dataSize, filename)
-        }
+      val thread = new Thread(() => {
+        val filename = rand.nextInt(100) + s"TransactionDataWriterTo${x}PartitionOSMC.csv"
+        new TransactionDataWriter(streamID, x).run(txnCount, dataSize, filename)
       })
       clientThreads.+=(thread)
     })

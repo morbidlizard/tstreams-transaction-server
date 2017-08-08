@@ -263,11 +263,6 @@ class ServerClientInterconnectionTest
 
       Await.result(client.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds)
 
-      //it's required to close a current commit log file
-      TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-
-      Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
-
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
       transactionServer.commitLogToRocksWriter.run()
@@ -327,7 +322,7 @@ class ServerClientInterconnectionTest
 
     transactionServer.shutdown()
     val secondServer = bundle.serverBuilder
-        .withBootstrapOptions(ServerOptions.BootstrapOptions(bindPort = 8071))
+        .withBootstrapOptions(ServerOptions.BootstrapOptions(bindPort = Utils.getRandomPort))
       .build()
 
     val task = new Thread(
@@ -507,11 +502,6 @@ class ServerClientInterconnectionTest
       //act
       Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
-      //it's required to close a current commit log file
-      TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-
-      Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
-
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
       transactionServer.commitLogToRocksWriter.run()
@@ -525,7 +515,7 @@ class ServerClientInterconnectionTest
     }
   }
 
-  it should "put a producer transaction (Opened), return it and shouldn't return a non-existent producer transaction which id is less (getTransaction)" in {
+  it should "put a producer transaction (Opened), return it and shouldn't return a non-existent producer transaction (getTransaction)" in {
     val bundle = Utils.startTransactionServerAndClient(
       zkClient, serverBuilder, clientBuilder
     )
@@ -534,22 +524,38 @@ class ServerClientInterconnectionTest
       val client = bundle.client
       //arrange
       val stream = getRandomStream
-      val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
-      val openedProducerTransaction = getRandomProducerTransaction(streamID, stream, TransactionStates.Opened)
-      val fakeTransactionID = openedProducerTransaction.transactionID - 1
+      val streamID =
+        Await.result(client.putStream(stream), secondsWait.seconds)
+      val openedProducerTransaction =
+        getRandomProducerTransaction(streamID, stream, TransactionStates.Opened)
+      val fakeTransactionID =
+        openedProducerTransaction.transactionID - 1
 
       //act)
       Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
-      //it's required to close a current commit log file
-      TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-      Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
       transactionServer.commitLogToRocksWriter.run()
 
-      val successResponse = Await.result(client.getTransaction(streamID, stream.partitions, openedProducerTransaction.transactionID), secondsWait.seconds)
-      val failedResponse = Await.result(client.getTransaction(streamID, stream.partitions, fakeTransactionID), secondsWait.seconds)
+      val successResponse =
+        Await.result(
+          client.getTransaction(
+            streamID,
+            stream.partitions,
+            openedProducerTransaction.transactionID
+          ),
+          secondsWait.seconds
+        )
+      val failedResponse =
+        Await.result(
+          client.getTransaction(
+            streamID,
+            stream.partitions,
+            fakeTransactionID
+          ),
+          secondsWait.seconds
+        )
 
       //assert
       successResponse shouldBe TransactionInfo(exists = true, Some(openedProducerTransaction))
@@ -572,9 +578,6 @@ class ServerClientInterconnectionTest
       //act
       Await.result(client.putProducerState(openedProducerTransaction), secondsWait.seconds)
 
-      //it's required to close a current commit log file
-      TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-      Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
       transactionServer.scheduledCommitLog.run()
       transactionServer.commitLogToRocksWriter.run()
@@ -599,8 +602,6 @@ class ServerClientInterconnectionTest
       val consumerTransaction = getRandomConsumerTransaction(streamID, stream)
 
       Await.result(client.putConsumerCheckpoint(consumerTransaction), secondsWait.seconds)
-      TestTimer.updateTime(TestTimer.getCurrentTime + maxIdleTimeBetweenRecordsMs)
-      Await.result(client.putConsumerCheckpoint(getRandomConsumerTransaction(streamID, stream)), secondsWait.seconds)
       transactionServer.scheduledCommitLog.run()
       transactionServer.commitLogToRocksWriter.run()
 

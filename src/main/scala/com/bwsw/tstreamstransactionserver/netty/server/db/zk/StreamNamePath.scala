@@ -21,20 +21,62 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.zk
 import com.bwsw.tstreamstransactionserver.netty.server.streamService
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
 import org.apache.curator.framework.CuratorFramework
-import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex
-import org.apache.curator.framework.state.ConnectionState
+import org.apache.curator.framework.recipes.locks.InterProcessReadWriteLock
 import org.apache.zookeeper.CreateMode
 import org.slf4j.LoggerFactory
 
 import scala.util.Try
 
 final class StreamNamePath(client: CuratorFramework, path: String) {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger =
+    LoggerFactory.getLogger(this.getClass)
 
-  private val semaphore = new InterProcessSemaphoreMutex(client, path)
+  private val lock =
+    new InterProcessReadWriteLock(client, path)
+
+  private def writeLock[T](body: => T) = {
+    val writeLock = lock.writeLock()
+    val result =
+      try {
+        writeLock.acquire()
+        body
+      }
+      finally {
+        writeLock.release()
+      }
+    result
+  }
+
+  private def readLock[T](body: => T) = {
+    val readLock = lock.readLock()
+    val result =
+      try {
+        readLock.acquire()
+        body
+      }
+      finally {
+        readLock.release()
+      }
+    result
+  }
+
+  def exists(streamName: String): Boolean =
+    readLock {
+      Try(client.checkExists().forPath(s"$path/$streamName")) match {
+        case scala.util.Success(stat) if stat != null => true
+        case _ => false
+      }
+    }
+
+  def get(streamName: String): Option[streamService.StreamRecord] =
+    readLock {
+      scala.util.Try(client.getData.forPath(s"$path/$streamName"))
+        .toOption.map(data => StreamRecord.fromBinaryJson(data))
+    }
+
 
   def put(streamRecord: streamService.StreamRecord): Unit =
-    lock {
+    writeLock {
       client.create()
         .creatingParentsIfNeeded()
         .withMode(CreateMode.PERSISTENT)
@@ -53,41 +95,8 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
         )
     }
 
-  client.getConnectionStateListenable.addListener(
-    (_: CuratorFramework, newState: ConnectionState) => newState match {
-      case ConnectionState.SUSPENDED => scala.util.Try(semaphore.release())
-      case ConnectionState.LOST => scala.util.Try(semaphore.release())
-      case _ =>
-    })
-
-  private def lock[T](body: => T) = {
-    val result =
-      try {
-        semaphore.acquire()
-        body
-      }
-      finally {
-        scala.util.Try(semaphore.release())
-      }
-    result
-  }
-
-  def exists(streamName: String): Boolean =
-    lock {
-      Try(client.checkExists().forPath(s"$path/$streamName")) match {
-        case scala.util.Success(stat) if stat != null => true
-        case _ => false
-      }
-    }
-
-  def get(streamName: String): Option[streamService.StreamRecord] =
-    lock {
-      scala.util.Try(client.getData.forPath(s"$path/$streamName"))
-        .toOption.map(data => StreamRecord.fromBinaryJson(data))
-    }
-
   def delete(streamName: String): Boolean =
-    lock {
+    writeLock {
       val isDeleted = scala.util.Try(client.delete().forPath(s"$path/$streamName"))
         .isSuccess
 

@@ -26,6 +26,6 @@ object MultiNodeServerOptions {
 
 
   case class CommonPrefixesOptions(commonMasterZkTreeListPrefix: String = "/tts/common/master_tree",
-                                   checkpointMasterZkTreeListPrefix: String = "/tts/cg/master_tree")
+                                   checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions)
 
 }

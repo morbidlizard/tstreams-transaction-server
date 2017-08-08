@@ -23,7 +23,6 @@ import java.nio.ByteBuffer
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerTransactionRecord
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.{StreamRepository, StreamService}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransaction

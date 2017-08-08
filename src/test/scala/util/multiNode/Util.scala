@@ -5,14 +5,14 @@ import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.TestCommonCheckpointGroupServer
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ReplicationConfig
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commonCg.TestCommonCheckpointGroupServer
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer, multiNode}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{CheckpointGroupPrefixesOptions, CommonPrefixesOptions}
 import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
 import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
 import org.apache.curator.framework.CuratorFramework
@@ -106,7 +106,7 @@ object Util {
     val commonPrefixesOptions =
       CommonPrefixesOptions(
         s"/tree/common/$uuid",
-        s"/tree/cg/$uuid"
+        CheckpointGroupPrefixesOptions(s"/tree/cg/$uuid")
       )
 
     val updatedBuilder = serverBuilder

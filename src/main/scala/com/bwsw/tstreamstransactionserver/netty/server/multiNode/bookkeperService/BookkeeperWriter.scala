@@ -28,7 +28,7 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
   protected final def createMaster(zKMasterElector: ZKMasterElector,
                                    password: Array[Byte],
                                    timeBetweenCreationOfLedgersMs: Int,
-                                   zookeeperTreeListLong: ZookeeperTreeListLong): BookkeeperWriteBundle = {
+                                   zookeeperTreeListLong: ZookeeperTreeListLong): BookkeeperMasterBundle = {
     val zKMasterElectorWrapper =
       new LeaderSelector(zKMasterElector)
 
@@ -42,7 +42,7 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
         timeBetweenCreationOfLedgersMs
       )
 
-    new BookkeeperWriteBundle(
+    new BookkeeperMasterBundle(
       commonBookkeeperMaster,
       timeBetweenCreationOfLedgersMs
     )

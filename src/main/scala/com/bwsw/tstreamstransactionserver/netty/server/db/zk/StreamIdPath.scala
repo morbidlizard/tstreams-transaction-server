@@ -30,6 +30,12 @@ final class StreamIdPath(client: CuratorFramework, path: String) {
   private val seqPrefix = "id"
   private val streamsIdsPath = s"$path/$seqPrefix"
 
+  private def getIDFromPath(pathWithId: String): String = pathWithId.splitAt(
+    path.length + seqPrefix.length + 1
+  )._2
+
+  private def buildPath(streamID: Int): String = f"$streamsIdsPath$streamID%010d"
+
   def put(streamValue: streamService.StreamValue): streamService.StreamRecord = {
     val id = client.create()
       .creatingParentsIfNeeded()
@@ -39,34 +45,35 @@ final class StreamIdPath(client: CuratorFramework, path: String) {
     val streamKey = StreamKey(getIDFromPath(id).toInt)
 
     val streamValueWithPath: streamService.StreamValue =
-      streamService.StreamValue(streamValue.name,
+      streamService.StreamValue(
+        streamValue.name,
         streamValue.partitions,
         streamValue.description,
         streamValue.ttl,
         Some(id)
       )
 
-    val streamRecord = StreamRecord(streamKey, streamValueWithPath)
+    val streamRecord =
+      StreamRecord(streamKey, streamValueWithPath)
 
-    client.setData().forPath(id, streamRecord.toBinaryJson)
+    client
+      .setData()
+      .forPath(id, streamRecord.toBinaryJson)
 
     streamRecord
   }
 
-  private def getIDFromPath(pathWithId: String): String = pathWithId.splitAt(
-    path.length + seqPrefix.length + 1
-  )._2
 
-  def exists(streamKey: streamService.StreamKey): Boolean = {
-    Option(client.checkExists().forPath(buildPath(streamKey.id)))
-      .exists(_ => true)
-  }
-
-  private def buildPath(streamID: Int): String = f"$streamsIdsPath$streamID%010d"
+//  def exists(streamKey: streamService.StreamKey): Boolean = {
+//    Option(client.checkExists().forPath(buildPath(streamKey.id)))
+//      .exists(_ => true)
+//  }
 
   def get(streamKey: streamService.StreamKey): Option[streamService.StreamRecord] = {
-    val streamValueOpt = scala.util.Try(client.getData.forPath(buildPath(streamKey.id)))
-    val streamRecord = streamValueOpt.toOption
+    val streamValueOpt =
+      scala.util.Try(client.getData.forPath(buildPath(streamKey.id)))
+    val streamRecord = streamValueOpt
+      .toOption
       .map(data => StreamRecord.fromBinaryJson(data))
 
     streamRecord

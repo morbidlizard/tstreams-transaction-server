@@ -1,8 +1,8 @@
-package com.bwsw.tstreamstransactionserver.netty.server.multiNode.commonCg
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
@@ -24,7 +24,7 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
   private val checkpointMasterZkTreeList =
     new ZookeeperTreeListLong(
       zookeeperClient,
-      commonPrefixesOptions.checkpointMasterZkTreeListPrefix
+      commonPrefixesOptions.checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
     )
 
   private val zkTreesList =
@@ -32,7 +32,7 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
 
   def createCommonMaster(zKMasterElector: ZKMasterElector,
                          password: Array[Byte],
-                         timeBetweenCreationOfLedgersMs: Int): BookkeeperWriteBundle = {
+                         timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
       password,
@@ -43,7 +43,7 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
 
   def createCheckpointMaster(zKMasterElector: ZKMasterElector,
                              password: Array[Byte],
-                             timeBetweenCreationOfLedgersMs: Int): BookkeeperWriteBundle = {
+                             timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
       password,

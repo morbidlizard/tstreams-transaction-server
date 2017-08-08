@@ -1,7 +1,7 @@
-package com.bwsw.tstreamstransactionserver.netty.server.multiNode.commonCg
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode
 
-import com.bwsw.tstreamstransactionserver.netty.server.{Notifier, RocksWriter, TestRocksWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.ReplicationConfig
+import com.bwsw.tstreamstransactionserver.netty.server.{Notifier, RocksWriter, TestRocksWriter}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
 import com.bwsw.tstreamstransactionserver.options.ServerOptions._

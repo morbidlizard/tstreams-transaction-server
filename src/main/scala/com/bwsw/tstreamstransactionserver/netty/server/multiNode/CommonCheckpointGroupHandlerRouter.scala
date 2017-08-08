@@ -1,4 +1,4 @@
-package com.bwsw.tstreamstransactionserver.netty.server.multiNode.commonCg
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode
 
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage

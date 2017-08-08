@@ -120,7 +120,7 @@ class BookkeeperMasterTest
   }
 
 
-  "Bookkeeper gateway" should "return the first created ledger." in {
+  "Bookkeeper master" should "return the first created ledger." in {
     val bundle = util.multiNode
       .Util.getTransactionServerBundle(zkClient)
 
@@ -140,7 +140,7 @@ class BookkeeperMasterTest
 
 
       val bookkeeperMasterBundle =
-        new BookkeeperWriteBundle(
+        new BookkeeperMasterBundle(
           bookkeeperMaster,
           createNewLedgerEveryTimeMs
         )
@@ -157,7 +157,7 @@ class BookkeeperMasterTest
     }
   }
 
-  it should "return the second created ledger for write operations as first is closed" in {
+  it should "return new ledger for write operations as previous is closed" in {
     val bundle = util.multiNode
       .Util.getTransactionServerBundle(zkClient)
 
@@ -176,13 +176,13 @@ class BookkeeperMasterTest
         )
 
       val bookkeeperMasterBundle =
-        new BookkeeperWriteBundle(
+        new BookkeeperMasterBundle(
           bookkeeperMaster,
           createNewLedgerEveryTimeMs
         )
 
       bookkeeperMasterBundle.start()
-      Thread.sleep(createNewLedgerEveryTimeMs * 2)
+      Thread.sleep(createNewLedgerEveryTimeMs * 3)
 
 
       bookkeeperMaster.doOperationWithCurrentWriteLedger { currentLedger =>
@@ -217,7 +217,7 @@ class BookkeeperMasterTest
         )
 
       val bookkeeperMasterBundle =
-        new BookkeeperWriteBundle(
+        new BookkeeperMasterBundle(
           bookkeeperMaster,
           createNewLedgerEveryTimeMs
         )

@@ -24,7 +24,7 @@ class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
   private val checkpointMasterZkTreeList =
     new ZookeeperTreeListLong(
       zookeeperClient,
-      commonPrefixesOptions.checkpointMasterZkTreeListPrefix
+      commonPrefixesOptions.checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
     )
 
   private val zkTreesList =
@@ -33,7 +33,7 @@ class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
 
   def createCommonMaster(zKMasterElector: ZKMasterElector,
                          password: Array[Byte],
-                         timeBetweenCreationOfLedgersMs: Int): BookkeeperWriteBundle = {
+                         timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
       password,

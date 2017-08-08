@@ -39,7 +39,7 @@ object ServerOptions {
                               openOperationsPoolSize: Int = Runtime.getRuntime.availableProcessors())
 
 
-  /** The options are used to provide zookeeper
+  /** The options are used to provide to zookeeper
     * a prefix for leader election and
     * a prefix for putting address of server if it's leader(master).
     *
@@ -50,7 +50,7 @@ object ServerOptions {
                                commonMasterElectionPrefix: String = "/tts/common/master_election")
 
 
-  /** The options are used to provide zookeeper
+  /** The options are used to provide to zookeeper
     * a prefix for leader election and
     * a prefix for putting address of server if it's leader(master).
     *

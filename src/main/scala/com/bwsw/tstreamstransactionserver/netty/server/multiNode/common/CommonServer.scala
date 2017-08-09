@@ -7,7 +7,6 @@ import com.bwsw.tstreamstransactionserver.{ExecutionContextGrid, SinglePoolExecu
 import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContextGrids
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server._
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
@@ -31,7 +30,6 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
                    bookkeeperOptions: BookkeeperOptions,
                    storageOpts: StorageOptions,
                    rocksStorageOpts: RocksStorageOptions,
-                   commitLogOptions: CommitLogOptions,
                    packageTransmissionOpts: TransportOptions,
                    subscribersUpdateOptions: SubscriberUpdateOptions) {
   private val isShutdown = new AtomicBoolean(false)
@@ -105,15 +103,13 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
 
   private val commonMaster = bookkeeperToRocksWriter
     .createCommonMaster(
-      commonMasterElector,
-      commitLogOptions.closeDelayMs
+      commonMasterElector
     )
 
   private val slave = bookkeeperToRocksWriter
     .createSlave(
       multiNodeCommitLogService,
-      rocksWriter,
-      commitLogOptions.closeDelayMs
+      rocksWriter
     )
 
 
@@ -212,6 +208,10 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
       isShutdown.compareAndSet(false, true)
 
     if (isNotShutdown) {
+      if (commonMaster != null) {
+        commonMaster.stop()
+      }
+
       if (commonMasterElector != null)
         commonMasterElector.stop()
 
@@ -246,10 +246,6 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
 
       if (slave != null) {
         slave.stop()
-      }
-
-      if (commonMaster != null) {
-        commonMaster.stop()
       }
 
       if (orderedExecutionPool != null) {

@@ -16,6 +16,8 @@ import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
 
+import scala.concurrent.{Future, Promise}
+
 
 class BookkeeperMasterTest
   extends FlatSpec
@@ -148,9 +150,11 @@ class BookkeeperMasterTest
       bookkeeperMasterBundle.start()
       Thread.sleep(createNewLedgerEveryTimeMs)
 
+      val promise = Promise.successful(())
       bookkeeperMaster.doOperationWithCurrentWriteLedger { currentLedger =>
         currentLedger.isRight shouldBe true
         currentLedger.right.get.getId shouldBe 0
+        promise
       }
 
       bookkeeperMasterBundle.stop()
@@ -183,10 +187,11 @@ class BookkeeperMasterTest
       bookkeeperMasterBundle.start()
       Thread.sleep(createNewLedgerEveryTimeMs * 3)
 
-
+      val promise = Promise.successful(())
       bookkeeperMaster.doOperationWithCurrentWriteLedger { currentLedger =>
         currentLedger.isRight shouldBe true
         currentLedger.right.get.getId should be > 1L
+        promise
       }
 
       bookkeeperMasterBundle.stop()
@@ -246,6 +251,7 @@ class BookkeeperMasterTest
       bookkeeperSlaveBundle.start()
 
       var currentLedgerOuterRef1: Long = -1L
+      val promise = Promise.successful(())
       bookkeeperMaster.doOperationWithCurrentWriteLedger { currentLedgerOrError =>
 
         val currentLedger = currentLedgerOrError.right.get
@@ -260,6 +266,7 @@ class BookkeeperMasterTest
           10000L
         )
         records.foreach(record => currentLedger.addEntry(record.toByteArray))
+        promise
       }
 
       Thread.sleep(createNewLedgerEveryTimeMs * 2)
@@ -267,6 +274,7 @@ class BookkeeperMasterTest
       var currentLedgerOuterRef2: Long = -1L
       bookkeeperMaster.doOperationWithCurrentWriteLedger { currentLedger =>
         currentLedgerOuterRef2 = currentLedger.right.get.getId
+        promise
       }
 
       zkTree2.createNode(currentLedgerOuterRef2)

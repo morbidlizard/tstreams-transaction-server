@@ -448,6 +448,7 @@ class SingleNodeServerProducerTransactionNotificationTest
 
       val stream = getRandomStream
       val streamID = Await.result(bundle.client.putStream(stream), secondsWait.seconds)
+      streamID shouldNot be (-1)
 
       val firstTransaction1 = System.currentTimeMillis() + 10L
       val firstTransaction2 = System.currentTimeMillis() + 124L

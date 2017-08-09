@@ -16,7 +16,7 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionService.PutSimpleTransa
 import com.bwsw.tstreamstransactionserver.rpc._
 import io.netty.channel.ChannelHandlerContext
 import org.apache.bookkeeper.client.BKException.Code
-import org.apache.bookkeeper.client.{AsyncCallback, LedgerHandle}
+import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
 
@@ -97,6 +97,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
             requestBody
           ).toByteArray
           ledgerHandler.asyncAddEntry(record, callback, promise)
+          promise
       }
     }(context)
       .flatMap(_ => promise.future)(context)

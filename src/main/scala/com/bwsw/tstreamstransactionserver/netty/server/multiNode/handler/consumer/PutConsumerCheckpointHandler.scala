@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.MultiNo
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.consumer.PutConsumerCheckpointHandler._
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import org.apache.bookkeeper.client.BKException.Code
-import org.apache.bookkeeper.client.{AsyncCallback, LedgerHandle}
+import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -60,6 +60,7 @@ class PutConsumerCheckpointHandler(bookkeeperMaster: BookkeeperMaster,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
+          promise
       }
     }(context)
       .flatMap(_ => promise.future)(context)

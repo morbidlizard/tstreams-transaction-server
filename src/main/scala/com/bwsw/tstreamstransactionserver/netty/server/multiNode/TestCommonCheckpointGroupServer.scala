@@ -16,7 +16,6 @@ class TestCommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
                                       bookkeeperOptions: BookkeeperOptions,
                                       storageOpts: StorageOptions,
                                       rocksStorageOpts: RocksStorageOptions,
-                                      commitLogOptions: CommitLogOptions,
                                       packageTransmissionOpts: TransportOptions,
                                       subscribersUpdateOptions: SubscriberUpdateOptions)
   extends CommonCheckpointGroupServer(
@@ -29,7 +28,6 @@ class TestCommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
     bookkeeperOptions,
     storageOpts,
     rocksStorageOpts,
-    commitLogOptions,
     packageTransmissionOpts,
     subscribersUpdateOptions){
 

@@ -102,6 +102,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       val secondClient = clients(1)
 
       val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
+      streamID shouldNot be (-1)
       val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamID, stream))
         .filter(_.state == TransactionStates.Opened)
       val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamID, stream))
@@ -144,6 +145,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       val secondClient = clients(1)
 
       val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
+      streamID shouldNot be (-1)
       val producerTransactions = Array.fill(txnNumber)(getRandomProducerTransaction(streamID, stream, TransactionStates.Opened))
       val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamID, stream))
 

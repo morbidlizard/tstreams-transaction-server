@@ -31,18 +31,16 @@ class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
     Array(commonMasterZkTreeList, checkpointMasterZkTreeList)
 
 
-  def createCommonMaster(zKMasterElector: ZKMasterElector,
-                         timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
+  def createCommonMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      timeBetweenCreationOfLedgersMs,
+      commonPrefixesOptions.timeBetweenCreationOfLedgersMs,
       commonMasterZkTreeList
     )
   }
 
   def createSlave(commitLogService: CommitLogService,
-                  rocksWriter: RocksWriter,
-                  timeBetweenCreationOfLedgersMs: Int): BookkeeperSlaveBundle = {
+                  rocksWriter: RocksWriter): BookkeeperSlaveBundle = {
     val bookkeeperSlave =
       new BookkeeperSlave(
         bookKeeper,
@@ -51,6 +49,18 @@ class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
         commitLogService,
         rocksWriter,
       )
-    new BookkeeperSlaveBundle(bookkeeperSlave, timeBetweenCreationOfLedgersMs)
+
+    val timeBetweenCreationOfLedgersMs = math.max(
+      commonPrefixesOptions
+        .checkpointGroupPrefixesOptions
+        .timeBetweenCreationOfLedgersMs,
+      commonPrefixesOptions
+        .timeBetweenCreationOfLedgersMs
+    )
+
+    new BookkeeperSlaveBundle(
+      bookkeeperSlave,
+      timeBetweenCreationOfLedgersMs
+    )
   }
 }

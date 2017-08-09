@@ -86,6 +86,7 @@ class SingleNodeServerLastCheckpointedTransactionTest
       val secondClient = bundle.clients(1)
 
       val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
+      streamID shouldNot be (-1)
 
       Await.result(secondClient.delStream(stream.name), secondsWait.seconds) shouldBe true
 

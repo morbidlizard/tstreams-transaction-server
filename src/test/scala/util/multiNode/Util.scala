@@ -98,14 +98,19 @@ object Util {
   def getCommonCheckpointGroupServerBundle(zkClient: CuratorFramework,
                                            bookkeeperOptions: BookkeeperOptions,
                                            serverBuilder: SingleNodeServerBuilder,
-                                           clientBuilder: ClientBuilder) = {
+                                           clientBuilder: ClientBuilder,
+                                           timeBetweenCreationOfLedgesMs: Int = 200) = {
     val dbPath = Files.createTempDirectory("tts").toFile
     val zKCommonMasterPrefix = s"/$uuid"
 
     val commonPrefixesOptions =
       CommonPrefixesOptions(
         s"/tree/common/$uuid",
-        CheckpointGroupPrefixesOptions(s"/tree/cg/$uuid")
+        timeBetweenCreationOfLedgesMs,
+        CheckpointGroupPrefixesOptions(
+          s"/tree/cg/$uuid",
+          timeBetweenCreationOfLedgesMs
+        )
       )
 
     val updatedBuilder = serverBuilder
@@ -140,7 +145,6 @@ object Util {
         bookkeeperOptions,
         updatedBuilder.getStorageOptions,
         updatedBuilder.getRocksStorageOptions,
-        updatedBuilder.getCommitLogOptions,
         updatedBuilder.getPackageTransmissionOptions,
         updatedBuilder.getSubscribersUpdateOptions
       )

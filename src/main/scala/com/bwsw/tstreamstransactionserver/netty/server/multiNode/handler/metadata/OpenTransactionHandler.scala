@@ -38,6 +38,7 @@ class OpenTransactionHandler(server: TransactionServer,
                              entryId: Long,
                              obj: scala.Any): Unit = {
       val promise = obj.asInstanceOf[Promise[Boolean]]
+
       if (Code.OK == bkCode)
         promise.success(true)
       else
@@ -79,6 +80,7 @@ class OpenTransactionHandler(server: TransactionServer,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
+          promise
       }
     }(context)
       .flatMap(_ => promise.future)(context)

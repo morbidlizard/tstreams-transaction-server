@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.MultiNo
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.data.PutTransactionDataHandler._
 import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
 import org.apache.bookkeeper.client.BKException.Code
-import org.apache.bookkeeper.client.{AsyncCallback, LedgerHandle}
+import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -37,8 +37,9 @@ class PutTransactionDataHandler(bookkeeperMaster: BookkeeperMaster,
                              entryId: Long,
                              obj: scala.Any): Unit = {
       val promise = obj.asInstanceOf[Promise[Array[Byte]]]
-      if (Code.OK == bkCode)
+      if (Code.OK == bkCode) {
         promise.success(isPuttedResponse)
+      }
       else
         promise.success(isNotPuttedResponse)
 
@@ -60,6 +61,7 @@ class PutTransactionDataHandler(bookkeeperMaster: BookkeeperMaster,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
+          promise
       }
     }(context)
       .flatMap(_ => promise.future)(context)

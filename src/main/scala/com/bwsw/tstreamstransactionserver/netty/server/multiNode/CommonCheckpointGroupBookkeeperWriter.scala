@@ -30,28 +30,28 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
   private val zkTreesList =
     Array(commonMasterZkTreeList, checkpointMasterZkTreeList)
 
-  def createCommonMaster(zKMasterElector: ZKMasterElector,
-                         timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
+  def createCommonMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      timeBetweenCreationOfLedgersMs,
+      commonPrefixesOptions
+        .timeBetweenCreationOfLedgersMs,
       commonMasterZkTreeList
     )
   }
 
-  def createCheckpointMaster(zKMasterElector: ZKMasterElector,
-                             timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
+  def createCheckpointMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      timeBetweenCreationOfLedgersMs,
+      commonPrefixesOptions
+        .checkpointGroupPrefixesOptions
+        .timeBetweenCreationOfLedgersMs,
       checkpointMasterZkTreeList
     )
   }
 
 
   def createSlave(commitLogService: CommitLogService,
-                  rocksWriter: => RocksWriter,
-                  timeBetweenCreationOfLedgersMs: Int): BookkeeperSlaveBundle = {
+                  rocksWriter: RocksWriter): BookkeeperSlaveBundle = {
     val bookkeeperSlave =
       new BookkeeperSlave(
         bookKeeper,
@@ -60,6 +60,15 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
         commitLogService,
         rocksWriter
       )
+
+    val timeBetweenCreationOfLedgersMs = math.max(
+      commonPrefixesOptions
+        .checkpointGroupPrefixesOptions
+        .timeBetweenCreationOfLedgersMs,
+      commonPrefixesOptions
+        .timeBetweenCreationOfLedgersMs
+    )
+
     new BookkeeperSlaveBundle(bookkeeperSlave, timeBetweenCreationOfLedgersMs)
   }
 }

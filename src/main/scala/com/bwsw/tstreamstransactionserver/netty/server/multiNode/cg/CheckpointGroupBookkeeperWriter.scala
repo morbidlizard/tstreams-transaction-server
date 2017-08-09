@@ -20,11 +20,10 @@ class CheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
       checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
     )
 
-  def createCheckpointMaster(zKMasterElector: ZKMasterElector,
-                             timeBetweenCreationOfLedgersMs: Int): BookkeeperMasterBundle = {
+  def createCheckpointMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      timeBetweenCreationOfLedgersMs,
+      checkpointGroupPrefixesOptions.timeBetweenCreationOfLedgersMs,
       checkpointMasterZkTreeList
     )
   }

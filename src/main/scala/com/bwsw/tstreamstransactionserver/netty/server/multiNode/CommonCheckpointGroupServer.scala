@@ -30,7 +30,6 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
                                   bookkeeperOptions: BookkeeperOptions,
                                   storageOpts: StorageOptions,
                                   rocksStorageOpts: RocksStorageOptions,
-                                  commitLogOptions: CommitLogOptions,
                                   packageTransmissionOpts: TransportOptions,
                                   subscribersUpdateOptions: SubscriberUpdateOptions) {
   private val isShutdown = new AtomicBoolean(false)
@@ -111,21 +110,18 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
 
   private val commonMaster = bookkeeperToRocksWriter
     .createCommonMaster(
-      commonMasterElector,
-      commitLogOptions.closeDelayMs
+      commonMasterElector
     )
 
   private val checkpointMaster = bookkeeperToRocksWriter
     .createCheckpointMaster(
-      checkpointGroupMasterElector,
-      commitLogOptions.closeDelayMs
+      checkpointGroupMasterElector
     )
 
   private val slave = bookkeeperToRocksWriter
     .createSlave(
       multiNodeCommitLogService,
-      rocksWriter,
-      commitLogOptions.closeDelayMs
+      rocksWriter
     )
 
 
@@ -226,6 +222,14 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
       isShutdown.compareAndSet(false, true)
 
     if (isNotShutdown) {
+      if (commonMaster != null) {
+        commonMaster.stop()
+      }
+
+      if (checkpointMaster != null) {
+        checkpointMaster.stop()
+      }
+
       if (commonMasterElector != null)
         commonMasterElector.stop()
 
@@ -263,14 +267,6 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
 
       if (slave != null) {
         slave.stop()
-      }
-
-      if (commonMaster != null) {
-        commonMaster.stop()
-      }
-
-      if (checkpointMaster != null) {
-        checkpointMaster.stop()
       }
 
       if (orderedExecutionPool != null) {

@@ -26,7 +26,6 @@ class CheckpointGroupServer(authenticationOpts: AuthenticationOptions,
                             bookkeeperOptions: BookkeeperOptions,
                             storageOpts: StorageOptions,
                             rocksStorageOpts: RocksStorageOptions,
-                            commitLogOptions: CommitLogOptions,
                             packageTransmissionOpts: TransportOptions) {
   private val isShutdown = new AtomicBoolean(false)
 
@@ -81,8 +80,7 @@ class CheckpointGroupServer(authenticationOpts: AuthenticationOptions,
 
   private val checkpointMaster = bookkeeperToRocksWriter
     .createCheckpointMaster(
-      checkpointGroupMasterElector,
-      commitLogOptions.closeDelayMs
+      checkpointGroupMasterElector
     )
 
 
@@ -136,6 +134,10 @@ class CheckpointGroupServer(authenticationOpts: AuthenticationOptions,
       isShutdown.compareAndSet(false, true)
 
     if (isNotShutdown) {
+      if (checkpointMaster != null) {
+        checkpointMaster.stop()
+      }
+
       if (checkpointGroupMasterElector != null)
         checkpointGroupMasterElector.stop()
 
@@ -161,11 +163,6 @@ class CheckpointGroupServer(authenticationOpts: AuthenticationOptions,
       if (zk != null) {
         zk.close()
       }
-
-      if (checkpointMaster != null) {
-        checkpointMaster.stop()
-      }
-
 
       if (commitLogContext != null) {
         commitLogContext.stopAccessNewTasks()

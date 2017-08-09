@@ -22,10 +22,12 @@ package com.bwsw.tstreamstransactionserver.options
 
 object MultiNodeServerOptions {
 
-  case class CheckpointGroupPrefixesOptions(checkpointMasterZkTreeListPrefix: String = "/tts/cg/master_tree")
+  case class CheckpointGroupPrefixesOptions(checkpointMasterZkTreeListPrefix: String = "/tts/cg/master_tree",
+                                            timeBetweenCreationOfLedgersMs: Int = 200)
 
 
   case class CommonPrefixesOptions(commonMasterZkTreeListPrefix: String = "/tts/common/master_tree",
+                                   timeBetweenCreationOfLedgersMs: Int = 200,
                                    checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions)
 
 

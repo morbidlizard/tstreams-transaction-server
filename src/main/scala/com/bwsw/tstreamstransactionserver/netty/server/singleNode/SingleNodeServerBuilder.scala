@@ -18,9 +18,9 @@
  * under the License.
  */
 
-package com.bwsw.tstreamstransactionserver.options
+package com.bwsw.tstreamstransactionserver.netty.server.singleNode
 
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServer
+import com.bwsw.tstreamstransactionserver.options.CommonOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions._
 

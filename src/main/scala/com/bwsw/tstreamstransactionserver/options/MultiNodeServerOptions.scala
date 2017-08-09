@@ -28,11 +28,11 @@ object MultiNodeServerOptions {
 
   case class CommonPrefixesOptions(commonMasterZkTreeListPrefix: String = "/tts/common/master_tree",
                                    timeBetweenCreationOfLedgersMs: Int = 200,
-                                   checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions)
+                                   checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions = CheckpointGroupPrefixesOptions())
 
 
-  case class BookkeeperOptions(ensembleNumber: Int,
-                               writeQuorumNumber: Int,
-                               ackQuorumNumber: Int,
-                               password: Array[Byte])
+  case class BookkeeperOptions(ensembleNumber: Int = 3,
+                               writeQuorumNumber: Int = 3,
+                               ackQuorumNumber: Int = 2,
+                               password: Array[Byte] = "ChangePassword".getBytes())
 }

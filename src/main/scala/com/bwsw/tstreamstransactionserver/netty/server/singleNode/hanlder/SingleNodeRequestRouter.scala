@@ -160,7 +160,7 @@ final class SingleNodeRequestRouter(server: TransactionServer,
 
     handlerAuth(new GetTransactionDataHandler(
       server,
-      serverReadContext
+      serverWriteContext
     )),
 
     handlerAuthMetadata(new PutConsumerCheckpointHandler(

@@ -19,6 +19,7 @@
 
 package com.bwsw.tstreamstransactionserver
 
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.options._
 
 object SingleNodeServerLauncher {

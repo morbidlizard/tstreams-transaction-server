@@ -5,7 +5,8 @@ import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.TestCommonCheckpointGroupServer
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.{CommonCheckpointGroupServerBuilder, TestCommonCheckpointGroupServer}
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer, multiNode}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
@@ -13,7 +14,7 @@ import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOption
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CheckpointGroupPrefixesOptions, CommonPrefixesOptions}
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.ClientBuilder
 import org.apache.curator.framework.CuratorFramework
 import util.Utils.getRandomPort
 
@@ -97,21 +98,11 @@ object Util {
 
   def getCommonCheckpointGroupServerBundle(zkClient: CuratorFramework,
                                            bookkeeperOptions: BookkeeperOptions,
-                                           serverBuilder: SingleNodeServerBuilder,
+                                           serverBuilder: CommonCheckpointGroupServerBuilder,
                                            clientBuilder: ClientBuilder,
                                            timeBetweenCreationOfLedgesMs: Int = 200) = {
     val dbPath = Files.createTempDirectory("tts").toFile
     val zKCommonMasterPrefix = s"/$uuid"
-
-    val commonPrefixesOptions =
-      CommonPrefixesOptions(
-        s"/tree/common/$uuid",
-        timeBetweenCreationOfLedgesMs,
-        CheckpointGroupPrefixesOptions(
-          s"/tree/cg/$uuid",
-          timeBetweenCreationOfLedgesMs
-        )
-      )
 
     val updatedBuilder = serverBuilder
       .withCommonRoleOptions(
@@ -132,20 +123,31 @@ object Util {
       .withBootstrapOptions(
         serverBuilder.getBootstrapOptions.copy(bindPort = getRandomPort)
       )
+      .withCommonPrefixesOptions(
+        serverBuilder.getCommonPrefixesOptions.copy(
+          s"/tree/common/$uuid",
+          timeBetweenCreationOfLedgesMs,
+          CheckpointGroupPrefixesOptions(
+            s"/tree/cg/$uuid",
+            timeBetweenCreationOfLedgesMs
+          )
+        )
+      )
+      .withBookkeeperOptions(bookkeeperOptions)
 
 
     val transactionServer =
       new TestCommonCheckpointGroupServer(
         updatedBuilder.getAuthenticationOptions,
+        updatedBuilder.getPackageTransmissionOptions,
         updatedBuilder.getZookeeperOptions,
         updatedBuilder.getBootstrapOptions,
         updatedBuilder.getCommonRoleOptions,
+        updatedBuilder.getCommonPrefixesOptions,
         updatedBuilder.getCheckpointGroupRoleOptions,
-        commonPrefixesOptions,
-        bookkeeperOptions,
+        updatedBuilder.getBookkeeperOptions,
         updatedBuilder.getStorageOptions,
         updatedBuilder.getRocksStorageOptions,
-        updatedBuilder.getPackageTransmissionOptions,
         updatedBuilder.getSubscribersUpdateOptions
       )
 

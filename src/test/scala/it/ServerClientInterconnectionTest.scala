@@ -2,6 +2,7 @@ package it
 
 import java.util.concurrent.atomic.LongAdder
 
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.options._
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}

@@ -22,15 +22,15 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 
 class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
+                                  packageTransmissionOpts: TransportOptions,
                                   zookeeperOpts: CommonOptions.ZookeeperOptions,
                                   serverOpts: BootstrapOptions,
                                   commonRoleOptions: CommonRoleOptions,
-                                  checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                                   commonPrefixesOptions: CommonPrefixesOptions,
+                                  checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                                   bookkeeperOptions: BookkeeperOptions,
                                   storageOpts: StorageOptions,
                                   rocksStorageOpts: RocksStorageOptions,
-                                  packageTransmissionOpts: TransportOptions,
                                   subscribersUpdateOptions: SubscriberUpdateOptions) {
   private val isShutdown = new AtomicBoolean(false)
 

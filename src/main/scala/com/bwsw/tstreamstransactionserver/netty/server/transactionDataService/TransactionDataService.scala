@@ -32,7 +32,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class TransactionDataService(storageOpts: StorageOptions,
                              rocksStorageOpts: RocksStorageOptions,
-                             streamCache: StreamRepository) {
+                             streamRepository: StreamRepository) {
   private val logger =
     LoggerFactory.getLogger(this.getClass)
 
@@ -49,7 +49,7 @@ class TransactionDataService(storageOpts: StorageOptions,
     rocksDBStorageToStream.computeIfAbsent(key, (t: StorageName) => {
       val calculatedTTL = calculateTTL(streamRecord.ttl)
       if (logger.isDebugEnabled())
-        logger.debug(prefixName + s"Creating new database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] " +
+        logger.debug(prefixName + s"Creating new database handler[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] " +
           s"for persisting and reading transactions data.")
       new RocksDbConnection(rocksStorageOpts, s"$pathForData${key.toString}", calculatedTTL)
     })
@@ -69,7 +69,7 @@ class TransactionDataService(storageOpts: StorageOptions,
                                from: Int): Boolean = {
     if (data.isEmpty) true
     else {
-      val streamRecord = streamCache
+      val streamRecord = streamRepository
         .get(StreamKey(streamID))
         .getOrElse(throw new StreamDoesNotExist(streamID.toString))
 
@@ -124,7 +124,7 @@ class TransactionDataService(storageOpts: StorageOptions,
                          transaction: Long,
                          from: Int,
                          to: Int): Seq[ByteBuffer] = {
-    val streamRecord = streamCache
+    val streamRecord = streamRepository
       .get(StreamKey(streamID))
       .getOrElse(throw new StreamDoesNotExist(streamID.toString))
     val rocksDB = getStorageOrThrowError(streamRecord)
@@ -156,15 +156,17 @@ class TransactionDataService(storageOpts: StorageOptions,
   @throws[StreamDoesNotExist]
   private def getStorageOrThrowError(streamRecord: StreamRecord) = {
     val key = StorageName(streamRecord.key.id.toString)
+
+
     Option(rocksDBStorageToStream.get(key))
       .getOrElse {
         if (logger.isDebugEnabled()) {
           val calculatedTTL = calculateTTL(streamRecord.ttl)
           logger.debug(prefixName +
-            s"Database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] doesn't exits!"
+            s"Database[stream: ${streamRecord.name}, ttl(in hrs): $calculatedTTL] doesn't exists!"
           )
         }
-        throw new StreamDoesNotExist(streamRecord.name)
+        throw new Exception(s"Database[stream: ${streamRecord.name}] doesn't exists!")
       }
   }
 

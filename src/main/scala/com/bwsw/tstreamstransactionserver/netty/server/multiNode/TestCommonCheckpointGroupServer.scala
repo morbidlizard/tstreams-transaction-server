@@ -8,27 +8,27 @@ import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 
 class TestCommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
+                                      packageTransmissionOpts: TransportOptions,
                                       zookeeperOpts: CommonOptions.ZookeeperOptions,
                                       serverOpts: BootstrapOptions,
                                       commonRoleOptions: CommonRoleOptions,
-                                      checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                                       commonPrefixesOptions: CommonPrefixesOptions,
+                                      checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                                       bookkeeperOptions: BookkeeperOptions,
                                       storageOpts: StorageOptions,
                                       rocksStorageOpts: RocksStorageOptions,
-                                      packageTransmissionOpts: TransportOptions,
                                       subscribersUpdateOptions: SubscriberUpdateOptions)
   extends CommonCheckpointGroupServer(
     authenticationOpts,
+    packageTransmissionOpts,
     zookeeperOpts,
     serverOpts,
     commonRoleOptions,
-    checkpointGroupRoleOptions,
     commonPrefixesOptions,
+    checkpointGroupRoleOptions,
     bookkeeperOptions,
     storageOpts,
     rocksStorageOpts,
-    packageTransmissionOpts,
     subscribersUpdateOptions){
 
   override protected lazy val rocksWriter: RocksWriter =

@@ -49,7 +49,6 @@ final class ZookeeperStreamRepository(client: CuratorFramework,
         streamRecord.stream
       )
       streamNamePath.put(streamRecord)
-      println(streamRecord)
       streamRecord.key
     }
   }

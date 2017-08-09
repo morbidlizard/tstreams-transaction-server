@@ -19,20 +19,20 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.curator.retry.RetryForever
 
 class CheckpointGroupServer(authenticationOpts: AuthenticationOptions,
+                            packageTransmissionOpts: TransportOptions,
                             zookeeperOpts: CommonOptions.ZookeeperOptions,
-                            serverOpts: BootstrapOptions,
+                            bootstrapOpts: BootstrapOptions,
                             checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
                             checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions,
                             bookkeeperOptions: BookkeeperOptions,
                             storageOpts: StorageOptions,
-                            rocksStorageOpts: RocksStorageOptions,
-                            packageTransmissionOpts: TransportOptions) {
+                            rocksStorageOpts: RocksStorageOptions) {
   private val isShutdown = new AtomicBoolean(false)
 
   private val transactionServerSocketAddress =
     Util.createTransactionServerExternalSocket(
-      serverOpts.bindHost,
-      serverOpts.bindPort
+      bootstrapOpts.bindHost,
+      bootstrapOpts.bindPort
     )
 
   private val zk =
@@ -114,7 +114,7 @@ class CheckpointGroupServer(authenticationOpts: AuthenticationOptions,
         .childOption[java.lang.Boolean](ChannelOption.SO_KEEPALIVE, false)
 
       val binding = b
-        .bind(serverOpts.bindHost, serverOpts.bindPort)
+        .bind(bootstrapOpts.bindHost, bootstrapOpts.bindPort)
         .sync()
 
       checkpointGroupMasterElector.start()

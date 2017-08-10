@@ -23,10 +23,11 @@ import org.apache.curator.framework.state.ConnectionState
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 
 
-class InetClientProxy(clientOpts: ConnectionOptions,
+class InetClientProxy(connectionOptions: ConnectionOptions,
                       authOpts: AuthOptions,
                       zookeeperOptions: ZookeeperOptions,
                       onZKConnectionStateChangedFunc: ConnectionState => Unit = _ => {},
@@ -36,15 +37,10 @@ class InetClientProxy(clientOpts: ConnectionOptions,
   extends TTSInetClient {
 
   private final val executionContext =
-    new ClientExecutionContextGrid(clientOpts.threadPool)
+    new ClientExecutionContextGrid(connectionOptions.threadPool)
   private final val context =
     executionContext.context
-  private final val requestIdToResponseCommonMap =
-    new ConcurrentHashMap[Long, Promise[ByteBuf]](
-      20000,
-      1.0f,
-      clientOpts.threadPool
-    )
+
   private final val requestIDGen = new AtomicLong(1L)
   private val logger =
     LoggerFactory.getLogger(this.getClass)
@@ -54,18 +50,29 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     new AtomicBoolean(false)
   private val workerGroup: EventLoopGroup =
     if (Epoll.isAvailable) {
-      new EpollEventLoopGroup()
+      new EpollEventLoopGroup(
+        connectionOptions.threadPool
+      )
     }
     else {
-      new NioEventLoopGroup()
+      new NioEventLoopGroup(
+        connectionOptions.threadPool
+      )
     }
 
-  //  private final val requestIdToResponseCheckpointGroupMap =
-  //    new ConcurrentHashMap[Long, Promise[ByteBuf]](
-  //      20000,
-  //      1.0f,
-  //      clientOpts.threadPool
-  //    )
+  private final val requestIdToResponseCommonMap =
+    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+      15000,
+      0.8f,
+      connectionOptions.threadPool
+    )
+
+  private final val requestIdToResponseCheckpointGroupMap =
+    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+      15000,
+      0.8f,
+      connectionOptions.threadPool
+    )
   private val zkConnection =
     externalCuratorClient.getOrElse {
       new ZKClient(
@@ -73,13 +80,13 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         zookeeperOptions.sessionTimeoutMs,
         zookeeperOptions.connectionTimeoutMs,
         new RetryForever(zookeeperOptions.retryDelayMs),
-        clientOpts.prefix
+        connectionOptions.prefix
       ).client
     }
   private val commonInetClient =
     new InetClient(
       zookeeperOptions,
-      clientOpts,
+      connectionOptions,
       authOpts,
       onServerConnectionLost(),
       onRequestTimeout(),
@@ -91,6 +98,29 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       requestIdToResponseCommonMap,
       context
     )
+
+  private val checkpointGroupInetClient: Future[InetClient] = commonInetClient
+    .getZKCheckpointGroupServerPrefix()
+    .map{prefix =>
+      val connectionOpts =
+        connectionOptions.copy(prefix = prefix)
+
+      new InetClient(
+        zookeeperOptions,
+        connectionOpts,
+        authOpts,
+        onServerConnectionLost(),
+        onRequestTimeout(),
+        onZKConnectionStateChangedFunc,
+        workerGroup,
+        isShutdown.get(),
+        zkConnection,
+        requestIDGen,
+        requestIdToResponseCheckpointGroupMap,
+        context
+      )
+    }(context)
+
 
   /** Retrieving an offset between last processed commit log file and current commit log file where a server writes data.
     *
@@ -141,50 +171,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
-
-
-  //  private val isRetrievingCheckpointGroupServerPrefix =
-  //    new AtomicBoolean(false)
-  //
-  //  @volatile private var checkpointGroupInetClient: InetClient = _
-  //  private final def getCheckpointGroupInetClient: InetClient = {
-  //    def getClientIfPossible: Option[InetClient] =
-  //      commonInetClient
-  //        .getZKCheckpointGroupServerPrefix()
-  //        .map { prefix =>
-  //          val checkpointGroupZookeeperOptions =
-  //            zookeeperOptions.copy(prefix = prefix)
-  //
-  //          new InetClient(
-  //            checkpointGroupZookeeperOptions,
-  //            clientOpts,
-  //            authOpts,
-  //            onServerConnectionLost(),
-  //            onRequestTimeout(),
-  //            onZKConnectionStateChangedFunc,
-  //            workerGroup,
-  //            isShutdown.get(),
-  //            zkConnection,
-  //            requestIDGen,
-  //            requestIdToResponseCheckpointGroupMap,
-  //            context
-  //          )
-  //        }
-  //
-  //    val isNotRetrieving = isRetrievingCheckpointGroupServerPrefix
-  //      .compareAndSet(false, true)
-  //
-  //    if (isNotRetrieving) {
-  //      while (checkpointGroupInetClient == null) {
-  //        getClientIfPossible.foreach(checkpointGroupInetClient = _)
-  //      }
-  //      isRetrievingCheckpointGroupServerPrefix.set(false)
-  //      checkpointGroupInetClient
-  //    } else {
-  //      while (!isRetrievingCheckpointGroupServerPrefix.get()) {}
-  //      checkpointGroupInetClient
-  //    }
-  //  }
 
   /** Putting a stream on a server by Thrift Stream structure.
     *
@@ -353,11 +339,35 @@ class InetClientProxy(clientOpts: ConnectionOptions,
 
     onShutdownThrowException()
 
-    commonInetClient.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
-      Protocol.PutTransactions,
-      TransactionService.PutTransactions.Args(transactions),
-      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    checkpointGroupInetClient.value match {
+      case None =>
+        val immediateContext: ExecutionContext =
+          new ExecutionContext {
+            def execute(runnable: Runnable) {
+              runnable.run()
+            }
+            def reportFailure(cause: Throwable) {}
+          }
+
+        checkpointGroupInetClient.flatMap { client =>
+          client.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
+            Protocol.PutTransactions,
+            TransactionService.PutTransactions.Args(transactions),
+            x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+          )(immediateContext)
+        }(context)
+      case Some(okOrNot) =>
+        okOrNot match {
+          case Success(client) =>
+            client.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
+              Protocol.PutTransactions,
+              TransactionService.PutTransactions.Args(transactions),
+              x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+            )(context)
+          case Failure(throwable) =>
+            throw throwable
+        }
+    }
   }
 
   /** Puts producer transaction on a server.
@@ -730,8 +740,8 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         if (commonInetClient != null)
           commonInetClient.shutdown()
 
-        //        if (checkpointGroupInetClient != null)
-        //          checkpointGroupInetClient.shutdown()
+        if (checkpointGroupInetClient != null)
+          checkpointGroupInetClient.foreach(_.shutdown())(context)
 
         if (isZKClientExternal && zkConnection != null)
           zkConnection.close()

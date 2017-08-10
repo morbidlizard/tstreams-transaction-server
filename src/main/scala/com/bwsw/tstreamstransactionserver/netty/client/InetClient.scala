@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{ConcurrentHashMap, CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
-import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterInteractor
+import com.bwsw.tstreamstransactionserver.netty.client.zk.{ZKConnectionLostListener, ZKMasterPathMonitor}
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage, ResponseMessage, SocketHostPortPair}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
@@ -18,12 +18,11 @@ import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.state.ConnectionState
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutorService, Future, Promise}
 
 class InetClient(zookeeperOptions: ZookeeperOptions,
-                 clientOpts: ConnectionOptions,
+                 connectionOptions: ConnectionOptions,
                  authOpts: AuthOptions,
                  onServerConnectionLost: => Unit,
                  onRequestTimeout: => Unit,
@@ -40,24 +39,47 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
 
   private val isAuthenticating =
     new java.util.concurrent.atomic.AtomicBoolean(false)
-  private val zkInteractor = new ZKMasterInteractor(
+
+  private val zkConnectionLostListener = new ZKConnectionLostListener(
     zkConnection,
-    clientOpts.prefix,
-    _ => {} /*reconnectToServer()*/ ,
     onZKConnectionStateChanged
   )
-  private val nettyClient = new NettyConnection(
-    workerGroup,
-    handlers,
-    clientOpts.connectionTimeoutMs,
-    clientOpts.retryDelayMs,
-    retrieveCurrentMaster(), {
-      onServerConnectionLost
-      Future {
-        onServerConnectionLostDefaultBehaviour()
-      }(context)
+
+  private val commonServerPathMonitor =
+    new ZKMasterPathMonitor(
+      zkConnection,
+      connectionOptions.retryDelayMs,
+      connectionOptions.prefix
+    )
+
+  commonServerPathMonitor
+    .startMonitoringMasterServerPath()
+
+  private val nettyClient: NettyConnection = {
+    val connectionAddress =
+      commonServerPathMonitor.getMasterInBlockingManner
+
+    connectionAddress match {
+      case Left(throwable) =>
+        shutdown()
+        throw throwable
+      case Right(socket) =>
+        val client = new NettyConnection(
+          workerGroup,
+          socket,
+          connectionOptions,
+          handlers, {
+            onServerConnectionLost
+            Future {
+              onServerConnectionLostDefaultBehaviour()
+            }(context)
+          }
+        )
+        commonServerPathMonitor.addMasterReelectionListener(client)
+        client
     }
-  )
+  }
+
   @volatile private var currentToken: Int = -1
   @volatile private var messageSizeValidator: MessageSizeValidator =
     new MessageSizeValidator(Int.MaxValue, Int.MaxValue)
@@ -95,49 +117,36 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     messageSizeValidator.validateMessageSize(message)
 
     val channel = nettyClient.getChannel()
-    channel.writeAndFlush(message.toByteArray, channel.voidPromise())
+    val binaryMessage =
+      message.toByteBuf(channel.alloc())
+    channel.eventLoop().execute(() =>
+      channel.writeAndFlush(binaryMessage, channel.voidPromise())
+    )
   }
 
   final def currentConnectionSocketAddress: Either[Throwable, Option[SocketHostPortPair]] =
-    zkInteractor.getCurrentMaster
+    commonServerPathMonitor.getCurrentMaster
 
-  //  private def reconnectToServer() = {
-  //    if (nettyClient != null)
-  //      nettyClient.reconnect()
-  //  }
-
-  final def getZKCheckpointGroupServerPrefix(): Option[String] = {
+  final def getZKCheckpointGroupServerPrefix(): Future[String] = {
     if (logger.isInfoEnabled)
       logger.info("getMaxPackagesSizes method is invoked.")
 
     onShutdownThrowException()
 
-    var prefix = Option.empty[String]
-
-    val latch = new CountDownLatch(1)
-    methodWithoutMessageSizeValidation[TransactionService.GetZKCheckpointGroupServerPrefix.Args, TransactionService.GetZKCheckpointGroupServerPrefix.Result, Unit](
+    methodWithoutMessageSizeValidation[TransactionService.GetZKCheckpointGroupServerPrefix.Args, TransactionService.GetZKCheckpointGroupServerPrefix.Result, String](
       Protocol.GetZKCheckpointGroupServerPrefix,
       TransactionService.GetZKCheckpointGroupServerPrefix.Args(),
-      x => {
-        prefix = x.success
-        latch.countDown()
-      }
+      x => x.success.get
     )(context)
-
-    latch.await(
-      clientOpts.requestTimeoutMs,
-      TimeUnit.MILLISECONDS
-    )
-    prefix
   }
 
   private final def onRequestTimeoutDefaultBehaviour(): Unit = {
-    TimeUnit.MILLISECONDS.sleep(clientOpts.retryDelayMs)
+    TimeUnit.MILLISECONDS.sleep(connectionOptions.retryDelayMs)
     onRequestTimeout
   }
 
   private final def onServerConnectionLostDefaultBehaviour(): Unit = {
-    val connectionSocket = zkInteractor.getCurrentMaster
+    val connectionSocket = commonServerPathMonitor.getCurrentMaster
       .right.map(_.map(_.toString).getOrElse("NO_CONNECTION_SOCKET"))
       .right.getOrElse("NO_CONNECTION_SOCKET")
 
@@ -147,10 +156,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       request.tryFailure(new ServerUnreachableException(
         connectionSocket
       ))
-    }
-
-    if (logger.isWarnEnabled) {
-      logger.warn(s"Server is unreachable. Retrying to reconnect server $connectionSocket.")
     }
   }
 
@@ -169,44 +174,6 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
   private def onShutdownThrowException(): Unit =
     if (isShutdown) throw ClientIllegalOperationAfterShutdown
 
-  private final def retrieveCurrentMaster(): SocketHostPortPair = {
-    @tailrec
-    def go(timestamp: Long): SocketHostPortPair = {
-      val master = zkInteractor.getCurrentMaster
-      master match {
-        case Left(throwable) =>
-          if (logger.isWarnEnabled())
-            logger.warn(throwable.getMessage)
-          shutdown()
-          throw throwable
-        case Right(masterOpt) =>
-          if (masterOpt.isEmpty) {
-            val currentTime = System.currentTimeMillis()
-            val timeDiff = scala.math.abs(currentTime - timestamp)
-            if (logger.isInfoEnabled && timeDiff >= zookeeperOptions.retryDelayMs) {
-              logger.info(s"Retrying to get master server from zookeeper servers: ${zookeeperOptions.endpoints}.")
-              go(currentTime)
-            }
-            else
-              go(timestamp)
-          }
-          else {
-            val master = masterOpt.get
-            master
-          }
-
-
-      }
-    }
-
-    go(System.currentTimeMillis())
-  }
-
-  /** It Disconnects client from server slightly */
-  def shutdown(): Unit = {
-    if (nettyClient != null) nettyClient.stop()
-    if (zkInteractor != null) zkInteractor.stop()
-  }
 
   private def sendRequest[Req <: ThriftStruct, Rep <: ThriftStruct, A](message: RequestMessage,
                                                                        descriptor: Protocol.Descriptor[Req, Rep],
@@ -218,19 +185,21 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     requestIdToResponseMap.put(message.id, promise)
 
     val channel = nettyClient.getChannel()
-    channel.write(message.toByteArray)
-
+    val binaryResponse =
+      message.toByteBuf(channel.alloc())
 
     val responseFuture = TimeoutScheduler.withTimeout(
       promise.future.map { response =>
         requestIdToResponseMap.remove(message.id)
         f(descriptor.decodeResponse(response))
       }
-    )(clientOpts.requestTimeoutMs.millis,
+    )(connectionOptions.requestTimeoutMs.millis,
       message.id
     )(methodContext)
 
-    channel.flush()
+    channel.eventLoop().execute(() =>
+      channel.writeAndFlush(binaryResponse, channel.voidPromise())
+    )
 
     responseFuture.recoverWith { case error =>
       requestIdToResponseMap.remove(message.id)
@@ -295,7 +264,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
           case Some(_: TokenInvalidException) =>
             (tokenException, retryCount - 1)
           case _ =>
-            (tokenException, clientOpts.requestTimeoutRetryCount)
+            (tokenException, connectionOptions.requestTimeoutRetryCount)
         }
 
       case concreteThrowable: ServerUnreachableException =>
@@ -315,7 +284,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
             previousException match {
               case Some(_: RequestTimeoutException) =>
                 if (retryCount == Int.MaxValue) {
-                  (concreteThrowable, clientOpts.requestTimeoutRetryCount)
+                  (concreteThrowable, connectionOptions.requestTimeoutRetryCount)
                 }
                 else {
                   val updatedCounter = retryCount - 1
@@ -381,7 +350,7 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
       )(context)
 
       latch.await(
-        clientOpts.requestTimeoutMs,
+        connectionOptions.requestTimeoutMs,
         TimeUnit.MILLISECONDS
       )
 
@@ -409,9 +378,21 @@ class InetClient(zookeeperOptions: ZookeeperOptions,
     )(context)
 
     latch.await(
-      clientOpts.requestTimeoutMs,
+      connectionOptions.requestTimeoutMs,
       TimeUnit.MILLISECONDS
     )
     transportOptionsInfo
+  }
+
+  def shutdown(): Unit = {
+    if (commonServerPathMonitor != null) {
+      commonServerPathMonitor.stopMonitoringMasterServerPath()
+    }
+    if (nettyClient != null) {
+      nettyClient.stop()
+    }
+    if (zkConnectionLostListener != null) {
+      zkConnectionLostListener.stop()
+    }
   }
 }

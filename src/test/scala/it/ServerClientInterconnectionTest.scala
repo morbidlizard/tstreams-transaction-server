@@ -96,7 +96,7 @@ class ServerClientInterconnectionTest
     }
 
 
-  val secondsWait = 5
+  val secondsWait = 10
 
 
   "Client" should "not send requests to server if it is shutdown" in {
@@ -114,81 +114,83 @@ class ServerClientInterconnectionTest
     }
   }
 
-//  it should "retrieve prefix of checkpoint group server" in {
-//    val bundle = Utils.startTransactionServerAndClient(
-//      zkClient, serverBuilder, clientBuilder
-//    )
-//
-//    bundle.operate { _ =>
-//
-//      val isShutdown = false
-//
-//      val clientOpts =
-//        ClientOptions.ConnectionOptions()
-//
-//      val zookeeperOptions =
-//        bundle.serverBuilder.getZookeeperOptions
-//
-//      val authOpts =
-//        ClientOptions.AuthOptions(
-//          key = bundle.serverBuilder.getAuthenticationOptions.key
-//        )
-//
-//      val executionContext =
-//        new ClientExecutionContextGrid(clientOpts.threadPool)
-//
-//      val context =
-//        executionContext.context
-//
-//      val workerGroup: EventLoopGroup =
-//        if (SystemUtils.IS_OS_LINUX) {
-//          new EpollEventLoopGroup()
-//        }
-//        else {
-//          new NioEventLoopGroup()
-//        }
-//
-//      val zkConnection =
-//        new ZKClient(
-//          zookeeperOptions.endpoints,
-//          zookeeperOptions.sessionTimeoutMs,
-//          zookeeperOptions.connectionTimeoutMs,
-//          new RetryForever(zookeeperOptions.retryDelayMs),
-//          zookeeperOptions.prefix
-//        ).client
-//
-//      val requestIdToResponseCommonMap =
-//        new ConcurrentHashMap[Long, Promise[ByteBuf]](
-//          20000,
-//          1.0f,
-//          clientOpts.threadPool
-//        )
-//
-//      val requestIDGen = new AtomicLong(1L)
-//      val commonInetClient =
-//        new InetClient(
-//          zookeeperOptions,
-//          clientOpts,
-//          authOpts, {}, {},
-//          _ => {},
-//          workerGroup,
-//          isShutdown,
-//          zkConnection,
-//          requestIDGen,
-//          requestIdToResponseCommonMap,
-//          context
-//        )
-//
-//
-//      val prefix = commonInetClient.getZKCheckpointGroupServerPrefix()
-//      prefix shouldBe defined
-//
-//      prefix.get shouldBe serverBuilder
-//        .getServerRoleOptions.checkpointGroupMasterPrefix
-//
-//      commonInetClient.shutdown()
-//    }
-//  }
+  it should "retrieve prefix of checkpoint group server" in {
+    val bundle = Utils.startTransactionServerAndClient(
+      zkClient, serverBuilder, clientBuilder
+    )
+
+    bundle.operate { _ =>
+
+      val isShutdown = false
+
+      val clientOpts =
+        ClientOptions.ConnectionOptions(
+          prefix = bundle.serverBuilder.getCommonRoleOptions.commonMasterPrefix
+        )
+
+      val zookeeperOptions =
+        bundle.serverBuilder.getZookeeperOptions
+
+      val authOpts =
+        ClientOptions.AuthOptions(
+          key = bundle.serverBuilder.getAuthenticationOptions.key
+        )
+
+      val executionContext =
+        new ClientExecutionContextGrid(clientOpts.threadPool)
+
+      val context =
+        executionContext.context
+
+      val workerGroup: EventLoopGroup =
+        if (SystemUtils.IS_OS_LINUX) {
+          new EpollEventLoopGroup()
+        }
+        else {
+          new NioEventLoopGroup()
+        }
+
+      val zkConnection =
+        new ZKClient(
+          zookeeperOptions.endpoints,
+          zookeeperOptions.sessionTimeoutMs,
+          zookeeperOptions.connectionTimeoutMs,
+          new RetryForever(zookeeperOptions.retryDelayMs),
+          clientOpts.prefix
+        ).client
+
+      val requestIdToResponseCommonMap =
+        new ConcurrentHashMap[Long, Promise[ByteBuf]](
+          20000,
+          1.0f,
+          clientOpts.threadPool
+        )
+
+      val requestIDGen = new AtomicLong(1L)
+
+      val commonInetClient =
+        new InetClient(
+          zookeeperOptions,
+          clientOpts,
+          authOpts, {}, {},
+          _ => {},
+          workerGroup,
+          isShutdown,
+          zkConnection,
+          requestIDGen,
+          requestIdToResponseCommonMap,
+          context
+        )
+
+
+      val result = commonInetClient.getZKCheckpointGroupServerPrefix()
+
+
+      Await.ready(result, 10.seconds)
+
+      commonInetClient.shutdown()
+    }
+  }
 
   it should "put producer and consumer transactions" in {
     val bundle = Utils.startTransactionServerAndClient(
@@ -206,7 +208,7 @@ class ServerClientInterconnectionTest
 
       val result = client.putTransactions(producerTransactions, consumerTransactions)
 
-      Await.result(result, 5.seconds) shouldBe true
+      Await.result(result, 10.seconds) shouldBe true
     }
   }
 

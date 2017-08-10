@@ -86,7 +86,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
   }
 
 
-  private val secondsWait = 5
+  private val secondsWait = 10
 
   "One client" should "put stream, then another client should delete it. After that the first client tries to put transactions and doesn't get an exception." in {
     val bundle = Utils.startTransactionServerAndClient(

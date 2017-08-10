@@ -156,6 +156,7 @@ object Protocol {
     final def encodeRequestToMessage(entity: Request)(messageId: Long, token: Int, isFireAndForgetMethod: Boolean): RequestMessage =
     encode(entity, protocolReq, messageId, token, isFireAndForgetMethod)
 
+
     @inline
     final def encodeRequest(entity: Request): Array[Byte] = {
       val buffer = new TMemoryBuffer(128)

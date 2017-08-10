@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty
 
 import com.bwsw.tstreamstransactionserver.netty.ResponseMessage._
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, ByteBufAllocator}
 
 case class ResponseMessage(id: Long, body: Array[Byte]) {
   /** Serializes a message. */
@@ -28,6 +28,21 @@ case class ResponseMessage(id: Long, body: Array[Byte]) {
       buffer.get(array)
       array
     }
+  }
+
+  def toByteBuf(byteBufAllocator: ByteBufAllocator): ByteBuf = {
+    val length = body.length
+
+    val size =
+      headerFieldSize +
+        lengthFieldSize +
+        length
+
+    byteBufAllocator
+      .buffer(size, size)
+      .writeLong(id)
+      .writeInt(length)
+      .writeBytes(body)
   }
 }
 

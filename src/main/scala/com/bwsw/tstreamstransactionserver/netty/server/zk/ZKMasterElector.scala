@@ -18,7 +18,11 @@ final class ZKMasterElector(curatorClient: CuratorFramework,
                             masterElectionPrefix: String)
   extends LeaderLatchListener {
 
-  private val isStarted = new AtomicBoolean(false)
+  private val isStarted =
+    new AtomicBoolean(false)
+
+  private val leaderListeners =
+    java.util.concurrent.ConcurrentHashMap.newKeySet[LeaderLatchListener]()
 
   private val leaderLatch =
     new LeaderLatch(
@@ -27,6 +31,35 @@ final class ZKMasterElector(curatorClient: CuratorFramework,
       socket.toString
     )
   leaderLatch.addListener(this)
+
+  private def putSocketAddress(): Try[String] = {
+    scala.util.Try(curatorClient.delete().forPath(masterPrefix))
+    scala.util.Try {
+      val permissions = new util.ArrayList[ACL]()
+      permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
+      curatorClient.create().creatingParentsIfNeeded()
+        .withMode(CreateMode.EPHEMERAL)
+        .withACL(permissions)
+        .forPath(masterPrefix, socket.toString.getBytes())
+    }
+  }
+
+  override def isLeader(): Unit = {
+    putSocketAddress()
+    leaderListeners.forEach(_.isLeader())
+  }
+
+  override def notLeader(): Unit = {
+    leaderListeners.forEach(_.notLeader())
+  }
+
+  def addLeaderListener(listener: LeaderLatchListener): Unit = {
+    leaderListeners.add(listener)
+  }
+
+  def removeLeaderListener(listener: LeaderLatchListener): Unit = {
+    leaderListeners.remove(listener)
+  }
 
   def leaderID: String =
     leaderLatch.getLeader.getId
@@ -52,24 +85,4 @@ final class ZKMasterElector(curatorClient: CuratorFramework,
 
   def hasLeadership(): Boolean =
     leaderLatch.hasLeadership
-
-  override def isLeader(): Unit = {
-    putSocketAddress()
-  }
-
-  private def putSocketAddress(): Try[String] = {
-    scala.util.Try(curatorClient.delete().forPath(masterPrefix))
-    scala.util.Try {
-      val permissions = new util.ArrayList[ACL]()
-      permissions.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE))
-      curatorClient.create().creatingParentsIfNeeded()
-        .withMode(CreateMode.EPHEMERAL)
-        .withACL(permissions)
-        .forPath(masterPrefix, socket.toString.getBytes())
-    }
-  }
-
-  override def notLeader(): Unit = {
-
-  }
 }

@@ -61,7 +61,7 @@ class CommonCheckpointGroupServerTest
       "test".getBytes()
     )
 
-  private val maxIdleTimeBetweenRecordsMs = 500
+  private val maxIdleTimeBetweenRecordsMs = 1000
   private lazy val serverBuilder = new CommonCheckpointGroupServerBuilder()
   private lazy val clientBuilder = new ClientBuilder()
 
@@ -172,6 +172,7 @@ class CommonCheckpointGroupServerTest
     bundle.operate { _ =>
       val client = bundle.client
 
+
       val stream = getRandomStream
       val streamID = Await.result(client.putStream(stream), secondsWait.seconds)
       streamID shouldNot be (-1)
@@ -185,7 +186,16 @@ class CommonCheckpointGroupServerTest
       val resultInFuture = Await.result(client.putTransactionData(streamID, txn.partition, txn.transactionID, data, 0), secondsWait.seconds)
       resultInFuture shouldBe true
 
-      Thread.sleep(3000)
+      val currentOffset = Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
+      var isNotOffsetOvercome = true
+      while (isNotOffsetOvercome) {
+        TimeUnit.MILLISECONDS.sleep(maxIdleTimeBetweenRecordsMs)
+        val res =
+          Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
+
+        isNotOffsetOvercome =
+          currentOffset.currentConstructedCommitLog > res.currentProcessedCommitLog
+      }
 
       val dataFromDatabase = Await.result(client.getTransactionData(streamID, txn.partition, txn.transactionID, 0, dataAmount), secondsWait.seconds)
       data should contain theSameElementsAs dataFromDatabase

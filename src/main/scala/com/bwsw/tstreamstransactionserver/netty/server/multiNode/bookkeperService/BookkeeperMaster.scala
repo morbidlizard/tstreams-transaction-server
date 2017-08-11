@@ -3,7 +3,6 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 import java.util
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.TimestampRecord
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
@@ -12,9 +11,8 @@ import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{BKException, BookKeeper}
 
 import scala.collection.JavaConverters._
-
 import scala.annotation.tailrec
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class BookkeeperMaster(bookKeeper: BookKeeper,
                        master: LeaderSelectorInterface,
@@ -23,8 +21,6 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
                        timeBetweenCreationOfLedgers: Int)
   extends Runnable {
 
-  private val bookkeeperCloserTask =
-    ExecutionContextGrid(1, "Bookkeeper-master-closer-%d")
 
   private val openedLedgers =
     new java.util.concurrent.LinkedBlockingQueue[LedgerRequests](10)
@@ -37,8 +33,15 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
       }
   }
 
-  private def closeLedger(ledgerRequests: LedgerRequests) = {
-    implicit val context = bookkeeperCloserTask.getContext
+  private val immediateContext = new ExecutionContext {
+    def execute(runnable: Runnable) {
+      runnable.run()
+    }
+    def reportFailure(cause: Throwable) {}
+  }
+
+  private def closeLedger(ledgerRequests: LedgerRequests): Unit = {
+    implicit val context = immediateContext
     val requests = ledgerRequests
       .requests
       .asScala

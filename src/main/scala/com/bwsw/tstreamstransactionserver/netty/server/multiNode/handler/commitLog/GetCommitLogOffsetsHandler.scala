@@ -2,6 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.commit
 
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.PredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperWriter
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.commitLog.GetCommitLogOffsetsHandler._
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.rpc.{CommitLogInfo, ServerException, TransactionService}
@@ -14,6 +15,7 @@ private object GetCommitLogOffsetsHandler {
 }
 
 class GetCommitLogOffsetsHandler(commitLogService: CommitLogService,
+                                 bookkeeperWriter: BookkeeperWriter,
                                  context: ExecutionContext)
   extends PredefinedContextHandler(
     descriptor.methodID,
@@ -47,7 +49,7 @@ class GetCommitLogOffsetsHandler(commitLogService: CommitLogService,
 
     CommitLogInfo(
       ledgers.minLedgerId,
-      ledgers.maxLedgerId
+      bookkeeperWriter.getLastConstructedLedger
     )
   }
 }

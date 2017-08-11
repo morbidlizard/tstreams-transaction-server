@@ -11,7 +11,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMaxPackagesSizesHandler, GetZKCheckpointGroupServerPrefixHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.{RequestHandler, RequestRouter}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperMaster
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{BookkeeperMaster, BookkeeperWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.commitLog.GetCommitLogOffsetsHandler
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.consumer.PutConsumerCheckpointHandler
@@ -22,14 +22,18 @@ import com.bwsw.tstreamstransactionserver.netty.server.transportService.Transpor
 import com.bwsw.tstreamstransactionserver.netty.server.{OrderedExecutionContextPool, TransactionServer}
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{AuthenticationOptions, CheckpointGroupRoleOptions, TransportOptions}
 import io.netty.channel.ChannelHandlerContext
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.Util._
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
 
 import scala.collection.Searching.{Found, _}
 import scala.concurrent.ExecutionContext
 
 class CommonCheckpointGroupHandlerRouter(server: TransactionServer,
+                                         private implicit val bookkeeperWriter: BookkeeperWriter,
                                          commonMaster: BookkeeperMaster,
                                          checkpointMaster: BookkeeperMaster,
-                                         multiNodeCommitLogService: CommitLogService,
+                                         masterElectors: Seq[ZKMasterElector],
+                                         private implicit val multiNodeCommitLogService: CommitLogService,
                                          packageTransmissionOpts: TransportOptions,
                                          authOptions: AuthenticationOptions,
                                          orderedExecutionPool: OrderedExecutionContextPool,
@@ -39,10 +43,10 @@ class CommonCheckpointGroupHandlerRouter(server: TransactionServer,
                                          commitLogContext: ExecutionContext)
   extends RequestRouter{
 
-  private implicit val authService =
+  private implicit val authService: AuthService =
     new AuthService(authOptions)
 
-  private implicit val transportValidator =
+  private implicit val transportValidator: TransportValidator =
     new TransportValidator(packageTransmissionOpts)
 
   private val serverWriteContext: ExecutionContext =
@@ -54,6 +58,7 @@ class CommonCheckpointGroupHandlerRouter(server: TransactionServer,
 
     handlerAuth(new GetCommitLogOffsetsHandler(
       multiNodeCommitLogService,
+      bookkeeperWriter,
       serverReadContext
     )),
 
@@ -102,20 +107,20 @@ class CommonCheckpointGroupHandlerRouter(server: TransactionServer,
       orderedExecutionPool
     )),
 
-    handlerAuth(new GetTransactionHandler(
+    handlerReadAuth(new GetTransactionHandler(
       server,
-      serverReadContext
-    )),
+      serverReadContext,
+    ), masterElectors),
 
-    handlerAuth(new GetLastCheckpointedTransactionHandler(
+    handlerReadAuthData(new GetLastCheckpointedTransactionHandler(
       server,
       serverReadContext
-    )),
+    ), masterElectors),
 
-    handlerAuth(new ScanTransactionsHandler(
+    handlerReadAuth(new ScanTransactionsHandler(
       server,
       serverReadContext
-    )),
+    ), masterElectors),
 
     handlerAuthData(new PutProducerStateWithDataHandler(
       commonMaster,
@@ -135,19 +140,19 @@ class CommonCheckpointGroupHandlerRouter(server: TransactionServer,
       serverWriteContext
     )),
 
-    handlerAuth(new GetTransactionDataHandler(
+    handlerReadAuth(new GetTransactionDataHandler(
       server,
       serverReadContext
-    )),
+    ), masterElectors),
 
     handlerAuthMetadata(new PutConsumerCheckpointHandler(
       commonMaster,
       commitLogContext
     )),
-    handlerAuth(new GetConsumerStateHandler(
+    handlerReadAuth(new GetConsumerStateHandler(
       server,
       serverReadContext
-    )),
+    ), masterElectors),
 
     handlerId(new AuthenticateHandler(
       authService

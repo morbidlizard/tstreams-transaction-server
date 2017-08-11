@@ -35,7 +35,6 @@ class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader
       bigCommit.addFrames(frames)
       bigCommit.commit()
 
-
       rocksWriter.createAndExecuteTransactionsToDeleteTask(
         frames.lastOption
           .map(_.timestamp)

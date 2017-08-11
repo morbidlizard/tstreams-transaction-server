@@ -31,6 +31,20 @@ class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
     Array(commonMasterZkTreeList, checkpointMasterZkTreeList)
 
 
+  override def getLastConstructedLedger: Long = {
+    val ledgerIds =
+      for {
+        zkTree <- zkTreesList
+        lastConstructedLedgerId <- zkTree.lastEntityID
+      } yield lastConstructedLedgerId
+
+    if (ledgerIds.isEmpty) {
+      -1L
+    } else {
+      ledgerIds.max
+    }
+  }
+
   def createCommonMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
@@ -63,4 +77,5 @@ class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
       timeBetweenCreationOfLedgersMs
     )
   }
+
 }

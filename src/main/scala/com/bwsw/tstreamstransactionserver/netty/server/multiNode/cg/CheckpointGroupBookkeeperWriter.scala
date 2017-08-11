@@ -20,6 +20,12 @@ class CheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
       checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
     )
 
+  override def getLastConstructedLedger: Long = {
+    checkpointMasterZkTreeList
+      .lastEntityID
+      .getOrElse(-1L)
+  }
+
   def createCheckpointMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
@@ -27,4 +33,5 @@ class CheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
       checkpointMasterZkTreeList
     )
   }
+
 }

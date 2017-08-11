@@ -174,8 +174,13 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
   private val requestRouter =
     new CommonCheckpointGroupHandlerRouter(
       transactionServer,
+      bookkeeperToRocksWriter,
       commonMaster.bookkeeperMaster,
       checkpointMaster.bookkeeperMaster,
+      Seq(
+        commonMasterElector,
+        checkpointGroupMasterElector
+      ),
       multiNodeCommitLogService,
       packageTransmissionOpts,
       authenticationOpts,

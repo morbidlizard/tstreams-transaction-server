@@ -42,8 +42,9 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
       )
 
     new BookkeeperMasterBundle(
-      commonBookkeeperMaster,
-      timeBetweenCreationOfLedgersMs
+      commonBookkeeperMaster
     )
   }
+
+  def getLastConstructedLedger: Long
 }

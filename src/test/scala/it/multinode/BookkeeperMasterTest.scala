@@ -143,8 +143,7 @@ class BookkeeperMasterTest
 
       val bookkeeperMasterBundle =
         new BookkeeperMasterBundle(
-          bookkeeperMaster,
-          createNewLedgerEveryTimeMs
+          bookkeeperMaster
         )
 
       bookkeeperMasterBundle.start()
@@ -180,8 +179,7 @@ class BookkeeperMasterTest
 
       val bookkeeperMasterBundle =
         new BookkeeperMasterBundle(
-          bookkeeperMaster,
-          createNewLedgerEveryTimeMs
+          bookkeeperMaster
         )
 
       bookkeeperMasterBundle.start()

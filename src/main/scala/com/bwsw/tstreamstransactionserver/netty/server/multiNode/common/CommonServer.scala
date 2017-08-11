@@ -163,7 +163,9 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
   private val requestRouter =
     new CommonHandlerRouter(
       transactionServer,
+      bookkeeperToRocksWriter,
       commonMaster.bookkeeperMaster,
+      commonMasterElector,
       multiNodeCommitLogService,
       packageTransmissionOpts,
       authenticationOpts,

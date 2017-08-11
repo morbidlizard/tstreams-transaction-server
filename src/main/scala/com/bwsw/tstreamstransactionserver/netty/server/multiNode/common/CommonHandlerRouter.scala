@@ -12,7 +12,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.handler.data.GetTransacti
 import com.bwsw.tstreamstransactionserver.netty.server.handler.metadata._
 import com.bwsw.tstreamstransactionserver.netty.server.handler.stream.{CheckStreamExistsHandler, DelStreamHandler, GetStreamHandler, PutStreamHandler}
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.{GetMaxPackagesSizesHandler, GetZKCheckpointGroupServerPrefixHandler}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperMaster
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{BookkeeperMaster, BookkeeperWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.commitLog.GetCommitLogOffsetsHandler
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.consumer.PutConsumerCheckpointHandler
@@ -25,10 +25,14 @@ import io.netty.channel.ChannelHandlerContext
 
 import scala.collection.Searching.{Found, _}
 import scala.concurrent.ExecutionContext
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.Util._
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
 
 class CommonHandlerRouter(server: TransactionServer,
+                          private implicit val bookkeeperWriter: BookkeeperWriter,
                           checkpointMaster: BookkeeperMaster,
-                          multiNodeCommitLogService: CommitLogService,
+                          commonMasterElector: ZKMasterElector,
+                          private implicit val multiNodeCommitLogService: CommitLogService,
                           packageTransmissionOpts: TransportOptions,
                           authOptions: AuthenticationOptions,
                           orderedExecutionPool: OrderedExecutionContextPool,
@@ -38,10 +42,10 @@ class CommonHandlerRouter(server: TransactionServer,
                           commitLogContext: ExecutionContext)
   extends RequestRouter{
 
-  private implicit val authService =
+  private implicit val authService: AuthService =
     new AuthService(authOptions)
 
-  private implicit val transportValidator =
+  private implicit val transportValidator: TransportValidator =
     new TransportValidator(packageTransmissionOpts)
 
   private val serverWriteContext: ExecutionContext =
@@ -49,10 +53,14 @@ class CommonHandlerRouter(server: TransactionServer,
   private val serverReadContext: ExecutionContext =
     executionContext.serverReadContext
 
+  private val commonMasterElectorAsSeq =
+    Seq(commonMasterElector)
+
   private val (handlersIDs: Array[Byte], handlers: Array[RequestHandler]) = Array(
 
     handlerAuth(new GetCommitLogOffsetsHandler(
       multiNodeCommitLogService,
+      bookkeeperWriter,
       serverReadContext
     )),
 
@@ -96,20 +104,20 @@ class CommonHandlerRouter(server: TransactionServer,
       orderedExecutionPool
     )),
 
-    handlerAuth(new GetTransactionHandler(
+    handlerReadAuth(new GetTransactionHandler(
       server,
       serverReadContext
-    )),
+    ), commonMasterElectorAsSeq),
 
-    handlerAuth(new GetLastCheckpointedTransactionHandler(
+    handlerReadAuth(new GetLastCheckpointedTransactionHandler(
       server,
       serverReadContext
-    )),
+    ), commonMasterElectorAsSeq),
 
-    handlerAuth(new ScanTransactionsHandler(
+    handlerReadAuth(new ScanTransactionsHandler(
       server,
       serverReadContext
-    )),
+    ), commonMasterElectorAsSeq),
 
     handlerAuthData(new PutProducerStateWithDataHandler(
       checkpointMaster,
@@ -129,19 +137,19 @@ class CommonHandlerRouter(server: TransactionServer,
       serverWriteContext
     )),
 
-    handlerAuth(new GetTransactionDataHandler(
+    handlerReadAuth(new GetTransactionDataHandler(
       server,
       serverReadContext
-    )),
+    ), commonMasterElectorAsSeq),
 
     handlerAuthMetadata(new PutConsumerCheckpointHandler(
       checkpointMaster,
       commitLogContext
     )),
-    handlerAuth(new GetConsumerStateHandler(
+    handlerReadAuth(new GetConsumerStateHandler(
       server,
       serverReadContext
-    )),
+    ), commonMasterElectorAsSeq),
 
     handlerId(new AuthenticateHandler(
       authService

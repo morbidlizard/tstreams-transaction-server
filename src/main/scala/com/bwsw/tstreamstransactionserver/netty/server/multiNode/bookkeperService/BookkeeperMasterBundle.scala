@@ -1,8 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
 
-class BookkeeperMasterBundle(val bookkeeperMaster: BookkeeperMaster,
-                             timeBetweenCreationOfLedgersMs: Int) {
+class BookkeeperMasterBundle(val bookkeeperMaster: BookkeeperMaster) {
   private val masterTask =
     new Thread(
       bookkeeperMaster,

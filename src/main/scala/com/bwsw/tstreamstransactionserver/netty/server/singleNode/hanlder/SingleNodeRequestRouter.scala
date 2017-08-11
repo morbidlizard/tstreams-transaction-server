@@ -155,7 +155,7 @@ final class SingleNodeRequestRouter(server: TransactionServer,
 
     handlerAuthData(new PutTransactionDataHandler(
       server,
-      serverWriteContext
+      serverReadContext
     )),
 
     handlerAuth(new GetTransactionDataHandler(

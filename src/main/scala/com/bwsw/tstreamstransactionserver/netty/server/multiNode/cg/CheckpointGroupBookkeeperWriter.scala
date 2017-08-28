@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.cg
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{BookkeeperMasterBundle, BookkeeperWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CheckpointGroupPrefixesOptions}
@@ -15,7 +15,7 @@ class CheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
   ) {
 
   private val checkpointMasterZkTreeList =
-    new ZookeeperTreeListLong(
+    new LongZookeeperTreeList(
       zookeeperClient,
       checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
     )

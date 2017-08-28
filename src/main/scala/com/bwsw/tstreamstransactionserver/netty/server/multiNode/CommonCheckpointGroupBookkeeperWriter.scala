@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CommonPrefixesOptions}
@@ -16,13 +16,13 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
     bookkeeperOptions) {
 
   private val commonMasterZkTreeList =
-    new ZookeeperTreeListLong(
+    new LongZookeeperTreeList(
       zookeeperClient,
       commonPrefixesOptions.commonMasterZkTreeListPrefix
     )
 
   private val checkpointMasterZkTreeList =
-    new ZookeeperTreeListLong(
+    new LongZookeeperTreeList(
       zookeeperClient,
       commonPrefixesOptions.checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
     )

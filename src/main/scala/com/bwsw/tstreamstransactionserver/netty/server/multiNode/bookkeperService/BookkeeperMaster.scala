@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.TimestampRecord
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{BKException, BookKeeper}
@@ -17,7 +17,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 class BookkeeperMaster(bookKeeper: BookKeeper,
                        master: LeaderSelectorInterface,
                        bookkeeperOptions: BookkeeperOptions,
-                       zkTreeListLedger: ZookeeperTreeListLong,
+                       zkTreeListLedger: LongZookeeperTreeList,
                        timeBetweenCreationOfLedgers: Int)
   extends Runnable {
 

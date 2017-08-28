@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionService, TransactionStates}
@@ -128,7 +128,7 @@ class BookkeeperMasterTest
       .Util.getTransactionServerBundle(zkClient)
 
     bundle.operate { _ =>
-      val zkTree1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+      val zkTree1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
 
       val bookkeeperMaster =
@@ -166,7 +166,7 @@ class BookkeeperMasterTest
 
     bundle.operate { _ =>
 
-      val zkTree1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+      val zkTree1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
       val bookkeeperMaster =
         new BookkeeperMaster(

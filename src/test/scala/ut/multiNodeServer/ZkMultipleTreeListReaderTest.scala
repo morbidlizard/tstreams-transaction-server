@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ZkMultipleTreeListReader, ZookeeperTreeListLong}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ZkMultipleTreeListReader, LongZookeeperTreeList}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerMetadata
@@ -97,8 +97,8 @@ class ZkMultipleTreeListReaderTest
   "ZkMultipleTreeListReader" should "not retrieve records from database ZkTreeListLong objects don't have entities" in {
     val storage = new LedgerManagerInMemory
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
@@ -120,8 +120,8 @@ class ZkMultipleTreeListReaderTest
 
     val firstLedger = storage.createLedger()
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     zkTreeList2.createNode(firstLedger.id)
 
@@ -210,8 +210,8 @@ class ZkMultipleTreeListReaderTest
     secondLedger.addRecord(secondTimestampRecord)
     secondLedger.close()
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
@@ -328,8 +328,8 @@ class ZkMultipleTreeListReaderTest
     secondLedger.addRecord(secondTimestampRecord)
     secondLedger.close()
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
@@ -476,8 +476,8 @@ class ZkMultipleTreeListReaderTest
     secondLedger.addRecord(secondTimestampRecord)
     secondLedger.close()
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
@@ -596,8 +596,8 @@ class ZkMultipleTreeListReaderTest
     secondTreeRecords.foreach(record => secondLedger.addRecord(record))
     secondLedger.addRecord(secondTimestampRecord)
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
@@ -669,8 +669,8 @@ class ZkMultipleTreeListReaderTest
     forthLedger.close()
 
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
 
     zkTreeList2.createNode(firstLedger.id)

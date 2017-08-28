@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{BookkeeperToRocksWriter, ZkMultipleTreeListReader, ZookeeperTreeListLong}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{BookkeeperToRocksWriter, ZkMultipleTreeListReader, LongZookeeperTreeList}
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerTransactionKey, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
@@ -196,8 +196,8 @@ class BookkeeperToRocksWriterTest
     secondTreeRecords.foreach(record => secondLedger.addRecord(record))
     secondLedger.addRecord(secondTimestampRecord)
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
@@ -302,8 +302,8 @@ class BookkeeperToRocksWriterTest
     secondTreeRecords.foreach(record => secondLedger.addRecord(record))
     secondLedger.addRecord(secondTimestampRecord)
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
@@ -414,8 +414,8 @@ class BookkeeperToRocksWriterTest
     secondTreeRecords.foreach(record => secondLedger.addRecord(record))
     secondLedger.addRecord(secondTimestampRecord)
 
-    val zkTreeList1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-    val zkTreeList2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
+    val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)

@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 import org.apache.curator.framework.CuratorFramework
 
-class ZookeeperTreeListLong(client: CuratorFramework, rootPath: String)
+class LongZookeeperTreeList(client: CuratorFramework, rootPath: String)
   extends ZookeeperTreeList[Long](client, rootPath) {
 
 

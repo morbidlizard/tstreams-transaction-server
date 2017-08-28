@@ -1,6 +1,6 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import org.apache.bookkeeper.client.BookKeeper
@@ -28,7 +28,7 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
 
   protected final def createMaster(zKMasterElector: ZKMasterElector,
                                    timeBetweenCreationOfLedgersMs: Int,
-                                   zookeeperTreeListLong: ZookeeperTreeListLong): BookkeeperMasterBundle = {
+                                   zookeeperTreeListLong: LongZookeeperTreeList): BookkeeperMasterBundle = {
     val zKMasterElectorWrapper =
       new LeaderSelector(zKMasterElector)
 

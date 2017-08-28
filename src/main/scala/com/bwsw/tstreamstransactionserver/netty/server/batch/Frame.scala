@@ -1,6 +1,8 @@
 package com.bwsw.tstreamstransactionserver.netty.server.batch
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.Structure
+import com.bwsw.tstreamstransactionserver.rpc.ProducerTransactionsAndData
 import com.bwsw.tstreamstransactionserver.rpc.TransactionService._
 
 object Frame
@@ -14,6 +16,7 @@ object Frame
   val PutTransactionsType = Value(5)
   val PutConsumerCheckpointType = Value(6)
 
+
   def deserializePutTransactionData(message: Array[Byte]): PutTransactionData.Args =
     Protocol.PutTransactionData.decodeRequest(message)
 
@@ -22,6 +25,9 @@ object Frame
 
   def deserializePutTransactions(message: Array[Byte]): PutTransactions.Args =
     Protocol.PutTransactions.decodeRequest(message)
+
+  def deserializePutSimpleTransactionAndData(message: Array[Byte]): ProducerTransactionsAndData =
+    Structure.PutTransactionsAndData.decode(message)
 
   def deserializePutConsumerCheckpoint(message: Array[Byte]): PutConsumerCheckpoint.Args =
     Protocol.PutConsumerCheckpoint.decodeRequest(message)

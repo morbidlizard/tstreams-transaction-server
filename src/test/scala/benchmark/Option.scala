@@ -1,10 +1,11 @@
 package benchmark
 
 import com.bwsw.tstreamstransactionserver.netty.client.InetClientProxy
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
+import com.bwsw.tstreamstransactionserver.options.ClientBuilder
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.{AuthOptions, ConnectionOptions}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{AuthenticationOptions, CommitLogOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{AuthenticationOptions, CommitLogOptions}
 
 private[benchmark] object Options {
   private val key = "pingstation"

@@ -20,7 +20,7 @@
 
 package com.bwsw.tstreamstransactionserver.netty.server.authService
 
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.AuthenticationOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.AuthenticationOptions
 import com.google.common.cache.CacheBuilder
 import org.slf4j.{Logger, LoggerFactory}
 

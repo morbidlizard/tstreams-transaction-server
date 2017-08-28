@@ -5,10 +5,11 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{ZkMultipleTreeListReader, ZookeeperTreeListLong}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{ReplicationConfig, LedgerManager}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerMetadata
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookkeeperWrapper
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, Opened}
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.apache.bookkeeper.client.BookKeeper
@@ -30,17 +31,15 @@ class ZkMultipleTreeListReaderTest
   private val writeQourumNumber = 3
   private val ackQuorumNumber = 2
 
-  private val replicationConfig = ReplicationConfig(
+  private val bookkeeperOptions = BookkeeperOptions(
     ensembleNumber,
     writeQourumNumber,
-    ackQuorumNumber
+    ackQuorumNumber,
+    "test".getBytes()
   )
 
   private val bookiesNumber =
     ensembleNumber max writeQourumNumber max ackQuorumNumber
-
-  private val passwordBookKeeper =
-    "test".getBytes()
 
   private lazy val (zkServer, zkClient, bookies) =
     Utils.startZkServerBookieServerZkClient(bookiesNumber)
@@ -107,7 +106,7 @@ class ZkMultipleTreeListReaderTest
       storage
     )
 
-    val ledgerRecordIDs = Array.empty[LedgerIDAndItsLastRecordID]
+    val ledgerRecordIDs = Array.empty[LedgerMetadata]
     val (records, updatedLedgersWithTheirLastRecords) =
       testReader.read(ledgerRecordIDs)
 
@@ -132,7 +131,7 @@ class ZkMultipleTreeListReaderTest
       storage
     )
 
-    val ledgerRecordIDs = Array.empty[LedgerIDAndItsLastRecordID]
+    val ledgerRecordIDs = Array.empty[LedgerMetadata]
     val (records, updatedLedgersWithTheirLastRecords) =
       testReader.read(ledgerRecordIDs)
 
@@ -224,7 +223,7 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerMetadata])
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
       testReader.read(updatedLedgersWithTheirLastRecords1)
@@ -233,12 +232,12 @@ class ZkMultipleTreeListReaderTest
     records2 shouldBe empty
 
     updatedLedgersWithTheirLastRecords1.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+      LedgerMetadata(ledgerID = firstLedger.id,
         ledgerLastRecordID = producerTransactionsNumber
       )
 
     updatedLedgersWithTheirLastRecords1.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+      LedgerMetadata(ledgerID = secondLedger.id,
         ledgerLastRecordID = producerTransactionsNumber
       )
 
@@ -249,8 +248,7 @@ class ZkMultipleTreeListReaderTest
     " ledgers are closed at the same time" in {
     val bookKeeperStorage = new BookkeeperWrapper(
       bookKeeper,
-      replicationConfig,
-      passwordBookKeeper
+      bookkeeperOptions
     )
 
     val storage = new LedgerManagerInMemory
@@ -343,7 +341,7 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerMetadata])
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
       testReader.read(updatedLedgersWithTheirLastRecords1)
@@ -352,12 +350,12 @@ class ZkMultipleTreeListReaderTest
     records2.length shouldBe 0
 
     updatedLedgersWithTheirLastRecords1.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+      LedgerMetadata(ledgerID = firstLedger.id,
         ledgerLastRecordID = producerTransactionsNumber
       )
 
     updatedLedgersWithTheirLastRecords1.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+      LedgerMetadata(ledgerID = secondLedger.id,
         ledgerLastRecordID = 49
       )
 
@@ -368,8 +366,7 @@ class ZkMultipleTreeListReaderTest
     " first ledger(belongs to 'treeList1') is closed earlier than second ledger(belongs to 'treeList2')" in {
     val bookKeeperStorage = new BookkeeperWrapper(
       bookKeeper,
-      replicationConfig,
-      passwordBookKeeper
+      bookkeeperOptions
     )
 
     val storage = new LedgerManagerInMemory
@@ -499,7 +496,7 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerMetadata])
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
       testReader.read(updatedLedgersWithTheirLastRecords1)
@@ -508,22 +505,22 @@ class ZkMultipleTreeListReaderTest
     records2.length shouldBe 80
 
     updatedLedgersWithTheirLastRecords1.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+      LedgerMetadata(ledgerID = firstLedger.id,
         ledgerLastRecordID = producerTransactionsNumber
       )
 
     updatedLedgersWithTheirLastRecords1.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+      LedgerMetadata(ledgerID = secondLedger.id,
         ledgerLastRecordID = 49
       )
 
     updatedLedgersWithTheirLastRecords2.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = thirdLedger.id,
+      LedgerMetadata(ledgerID = thirdLedger.id,
         ledgerLastRecordID = 29
       )
 
     updatedLedgersWithTheirLastRecords2.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+      LedgerMetadata(ledgerID = secondLedger.id,
         ledgerLastRecordID = producerTransactionsNumber
       )
   }
@@ -612,7 +609,7 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerMetadata])
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
       testReader.read(updatedLedgersWithTheirLastRecords1)
@@ -621,12 +618,12 @@ class ZkMultipleTreeListReaderTest
     records2.length shouldBe 0
 
     updatedLedgersWithTheirLastRecords1.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = firstLedger.id,
+      LedgerMetadata(ledgerID = firstLedger.id,
         ledgerLastRecordID = 49
       )
 
     updatedLedgersWithTheirLastRecords1.tail.head shouldBe
-      LedgerIDAndItsLastRecordID(ledgerID = secondLedger.id,
+      LedgerMetadata(ledgerID = secondLedger.id,
         ledgerLastRecordID = producerTransactionsNumber
       )
 
@@ -689,40 +686,40 @@ class ZkMultipleTreeListReaderTest
     )
 
     val (records1, updatedLedgersWithTheirLastRecords1) =
-      testReader.read(Array.empty[LedgerIDAndItsLastRecordID])
+      testReader.read(Array.empty[LedgerMetadata])
 
     records1.length shouldBe 1
-    updatedLedgersWithTheirLastRecords1.head.ledgerID shouldBe forthLedger.id
-    updatedLedgersWithTheirLastRecords1.head.ledgerLastRecordID shouldBe -1L
-    updatedLedgersWithTheirLastRecords1.tail.head.ledgerID shouldBe firstLedger.id
-    updatedLedgersWithTheirLastRecords1.tail.head.ledgerLastRecordID shouldBe 0L
+    updatedLedgersWithTheirLastRecords1.head.id shouldBe forthLedger.id
+    updatedLedgersWithTheirLastRecords1.head.lastRecordID shouldBe -1L
+    updatedLedgersWithTheirLastRecords1.tail.head.id shouldBe firstLedger.id
+    updatedLedgersWithTheirLastRecords1.tail.head.lastRecordID shouldBe 0L
 
     val (records2, updatedLedgersWithTheirLastRecords2) =
       testReader.read(updatedLedgersWithTheirLastRecords1)
 
     records2.length shouldBe 1
-    updatedLedgersWithTheirLastRecords2.head.ledgerID shouldBe forthLedger.id
-    updatedLedgersWithTheirLastRecords2.head.ledgerLastRecordID shouldBe -1L
-    updatedLedgersWithTheirLastRecords2.tail.head.ledgerID shouldBe secondLedger.id
-    updatedLedgersWithTheirLastRecords2.tail.head.ledgerLastRecordID shouldBe 0L
+    updatedLedgersWithTheirLastRecords2.head.id shouldBe forthLedger.id
+    updatedLedgersWithTheirLastRecords2.head.lastRecordID shouldBe -1L
+    updatedLedgersWithTheirLastRecords2.tail.head.id shouldBe secondLedger.id
+    updatedLedgersWithTheirLastRecords2.tail.head.lastRecordID shouldBe 0L
 
     val (records3, updatedLedgersWithTheirLastRecords3) =
       testReader.read(updatedLedgersWithTheirLastRecords2)
 
     records3.length shouldBe 1
-    updatedLedgersWithTheirLastRecords3.head.ledgerID shouldBe forthLedger.id
-    updatedLedgersWithTheirLastRecords3.head.ledgerLastRecordID shouldBe -1L
-    updatedLedgersWithTheirLastRecords3.tail.head.ledgerID shouldBe thirdLedger.id
-    updatedLedgersWithTheirLastRecords3.tail.head.ledgerLastRecordID shouldBe 0L
+    updatedLedgersWithTheirLastRecords3.head.id shouldBe forthLedger.id
+    updatedLedgersWithTheirLastRecords3.head.lastRecordID shouldBe -1L
+    updatedLedgersWithTheirLastRecords3.tail.head.id shouldBe thirdLedger.id
+    updatedLedgersWithTheirLastRecords3.tail.head.lastRecordID shouldBe 0L
 
     val (records4, updatedLedgersWithTheirLastRecords4) =
       testReader.read(updatedLedgersWithTheirLastRecords3)
 
     records4 shouldBe empty
-    updatedLedgersWithTheirLastRecords4.head.ledgerID shouldBe forthLedger.id
-    updatedLedgersWithTheirLastRecords4.head.ledgerLastRecordID shouldBe -1L
-    updatedLedgersWithTheirLastRecords4.tail.head.ledgerID shouldBe thirdLedger.id
-    updatedLedgersWithTheirLastRecords4.tail.head.ledgerLastRecordID shouldBe 0L
+    updatedLedgersWithTheirLastRecords4.head.id shouldBe forthLedger.id
+    updatedLedgersWithTheirLastRecords4.head.lastRecordID shouldBe -1L
+    updatedLedgersWithTheirLastRecords4.tail.head.id shouldBe thirdLedger.id
+    updatedLedgersWithTheirLastRecords4.tail.head.lastRecordID shouldBe 0L
   }
 
 }

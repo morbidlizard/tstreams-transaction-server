@@ -3,8 +3,9 @@ package it
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerOptions}
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
@@ -23,7 +24,7 @@ class OpenTransactionTest
 
   private val commitLogToBerkeleyDBTaskDelayMs = 100
   private lazy val serverBuilder = new SingleNodeServerBuilder()
-    .withCommitLogOptions(ServerOptions.CommitLogOptions(
+    .withCommitLogOptions(SingleNodeServerOptions.CommitLogOptions(
       closeDelayMs = commitLogToBerkeleyDBTaskDelayMs
     ))
 

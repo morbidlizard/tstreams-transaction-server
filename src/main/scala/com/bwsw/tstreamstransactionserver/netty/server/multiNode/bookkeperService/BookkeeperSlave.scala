@@ -4,22 +4,21 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookkeeperWrapper
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import org.apache.bookkeeper.client.BookKeeper
 
 class BookkeeperSlave(bookKeeper: BookKeeper,
-                      replicationConfig: ReplicationConfig,
+                      bookkeeperOptions: BookkeeperOptions,
                       zkTrees: Array[ZookeeperTreeListLong],
                       commitLogService: CommitLogService,
-                      rocksWriter: RocksWriter,
-                      password: Array[Byte])
+                      rocksWriter: RocksWriter)
   extends Runnable {
 
   private val bookkeeperToRocksWriter = {
     val bk =
       new BookkeeperWrapper(
         bookKeeper,
-        replicationConfig,
-        password
+        bookkeeperOptions
       )
 
     val multipleTree =

@@ -19,6 +19,7 @@
 
 package com.bwsw.tstreamstransactionserver
 
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.options._
 
 object SingleNodeServerLauncher {
@@ -33,7 +34,6 @@ object SingleNodeServerLauncher {
       .withAuthenticationOptions(optionsLoader.getServerAuthenticationOptions)
       .withCommonRoleOptions(optionsLoader.getCommonServerRoleOptions)
       .withCheckpointGroupRoleOptions(optionsLoader.getCheckpointGroupRoleOptions)
-      .withServerReplicationOptions(optionsLoader.getServerReplicationOptions)
       .withServerStorageOptions(optionsLoader.getServerStorageOptions)
       .withServerRocksStorageOptions(optionsLoader.getServerRocksStorageOptions)
       .withZookeeperOptions(optionsLoader.getZookeeperOptions)

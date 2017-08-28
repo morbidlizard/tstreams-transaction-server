@@ -1,80 +1,41 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
 import org.apache.curator.framework.CuratorFramework
-import org.apache.zookeeper.KeeperException
+import org.apache.curator.framework.recipes.cache.NodeCache
 
-private object RootNode {
-  val delimiterIndexFieldSize = java.lang.Integer.BYTES
-}
 
 class RootNode(client: CuratorFramework,
                rootPath: String) {
 
-  private var nodeData = init()
-
-  final def getData: RootNodeData = nodeData
-
-  final def setFirstAndLastIDInRootNode(first: Array[Byte],
-                                        second: Array[Byte]): Unit = {
-    val buf = java.nio.ByteBuffer
-      .allocate(RootNode.delimiterIndexFieldSize)
-      .putInt(first.length)
-    buf.flip()
+  private val nodeCache =
+    new NodeCache(client, rootPath, false)
+  nodeCache.start()
 
 
-    val binaryIndex = new Array[Byte](RootNode.delimiterIndexFieldSize)
-    buf.get(binaryIndex)
-
-    val data = first ++ binaryIndex ++ second
-
-    client.setData()
-      .forPath(rootPath, data)
-
-    nodeData = RootNodeData(
-      first,
-      second
-    )
+  final def getCurrentData: RootNodeData = {
+    nodeCache.rebuild()
+    getLocalCachedCurrentData
   }
 
-  private def init(): RootNodeData = {
-    scala.util.Try {
-      client.getData
-        .forPath(rootPath)
-    }.map { data =>
-      if (data.isEmpty)
+  final def getLocalCachedCurrentData: RootNodeData = {
+    Option(nodeCache.getCurrentData)
+      .map { node =>
+        RootNodeData.fromByteArray(node.getData)
+      }
+      .getOrElse(
         RootNodeData(
           Array.emptyByteArray,
           Array.emptyByteArray
-        )
-      else {
-        val (delimiter, ids) =
-          data.splitAt(RootNode.delimiterIndexFieldSize)
+        ))
+  }
 
-        val indexToSplitIDs =
-          java.nio.ByteBuffer.wrap(delimiter).getInt
+  final def setFirstAndLastIDInRootNode(first: Array[Byte],
+                                        second: Array[Byte]): Unit = {
+    val nodeData =
+      RootNodeData(first, second)
+        .toByteArray
 
-        val (firstID, secondID) =
-          ids.splitAt(indexToSplitIDs)
-
-        RootNodeData(
-          firstID,
-          secondID
-        )
-      }
-    } match {
-      case scala.util.Success(nodeData) =>
-        nodeData
-      case scala.util.Failure(throwable) =>
-        throwable match {
-          case _: KeeperException.NoNodeException =>
-            client.create()
-              .forPath(rootPath, Array.emptyByteArray)
-
-            RootNodeData(
-              Array.emptyByteArray,
-              Array.emptyByteArray
-            )
-        }
-    }
+    client.setData()
+      .forPath(rootPath, nodeData)
   }
 }

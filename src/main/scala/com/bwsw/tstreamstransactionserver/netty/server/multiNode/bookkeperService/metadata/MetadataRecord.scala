@@ -8,25 +8,25 @@ object MetadataRecord {
     val buffer = java.nio.ByteBuffer.wrap(bytes)
 
     val recordNumber = buffer.getInt
-    val recordSize = LedgerIDAndItsLastRecordID.sizeInBytes
+    val recordSize = LedgerMetadata.sizeInBytes
     val record = new Array[Byte](recordSize)
     val records = Array.fill(recordNumber) {
       buffer.get(record)
-      LedgerIDAndItsLastRecordID.fromByteArray(record)
+      LedgerMetadata.fromByteArray(record)
     }
 
     MetadataRecord(records)
   }
 
-  def apply(records: Array[LedgerIDAndItsLastRecordID]): MetadataRecord =
+  def apply(records: Array[LedgerMetadata]): MetadataRecord =
     new MetadataRecord(records)
 }
 
-final class MetadataRecord(val records: Array[LedgerIDAndItsLastRecordID]) {
+final class MetadataRecord(val records: Array[LedgerMetadata]) {
   def toByteArray: Array[Byte] = {
     import MetadataRecord._
     val size = recordsNumberFieldSize +
-      (records.length * LedgerIDAndItsLastRecordID.sizeInBytes)
+      (records.length * LedgerMetadata.sizeInBytes)
     val recordsToBytes = records.flatMap(_.toByteArray)
 
     val buffer = java.nio.ByteBuffer.allocate(size)

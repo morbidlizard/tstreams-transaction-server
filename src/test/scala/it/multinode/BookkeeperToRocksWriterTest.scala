@@ -208,7 +208,7 @@ class BookkeeperToRocksWriterTest
       storage
     )
 
-    val bundle = util.multiNodeServer
+    val bundle = util.multiNode
       .Util.getTransactionServerBundle(zkClient)
 
     bundle.operate {transactionServer =>
@@ -314,7 +314,7 @@ class BookkeeperToRocksWriterTest
       storage
     )
 
-    val bundle = util.multiNodeServer
+    val bundle = util.multiNode
       .Util.getTransactionServerBundle(zkClient)
 
     bundle.operate { transactionServer =>
@@ -425,7 +425,7 @@ class BookkeeperToRocksWriterTest
       trees,
       storage
     )
-    val bundle = util.multiNodeServer
+    val bundle = util.multiNode
       .Util.getTransactionServerBundle(zkClient)
 
     bundle.operate { transactionServer =>

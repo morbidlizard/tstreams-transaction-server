@@ -20,17 +20,25 @@ package com.bwsw.tstreamstransactionserver.configProperties
 
 import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 
+import scala.concurrent.ExecutionContextExecutorService
+
 class ServerExecutionContextGrids(rocksWriteNThreads: Int, rocksReadNThreads: Int) {
-  private val commitLogExecutionContextGrid = ExecutionContextGrid("CommitLogExecutionContextGrid-%d")
-  private val serverWriteExecutionContextGrid = ExecutionContextGrid(rocksWriteNThreads, "ServerWriteExecutionContextGrid-%d")
-  private val serverReadExecutionContextGrid = ExecutionContextGrid(rocksReadNThreads, "ServerReadExecutionContextGrid-%d")
+//  private lazy val commitLogExecutionContextGrid =
+//    ExecutionContextGrid("CommitLogExecutionContextGrid-%d")
+  private lazy val serverWriteExecutionContextGrid =
+    ExecutionContextGrid(rocksWriteNThreads, "ServerWriteExecutionContextGrid-%d")
+  private lazy val serverReadExecutionContextGrid =
+    ExecutionContextGrid(rocksReadNThreads, "ServerReadExecutionContextGrid-%d")
 
-  private val contextGrids = Seq(commitLogExecutionContextGrid,
-    serverReadExecutionContextGrid, serverWriteExecutionContextGrid)
+  private lazy val contextGrids = Seq(
+//    commitLogExecutionContextGrid,
+    serverReadExecutionContextGrid,
+    serverWriteExecutionContextGrid
+  )
 
-  val commitLogContext = commitLogExecutionContextGrid.getContext
-  val serverWriteContext = serverWriteExecutionContextGrid.getContext
-  val serverReadContext = serverReadExecutionContextGrid.getContext
+//  val commitLogContext: ExecutionContextExecutorService = commitLogExecutionContextGrid.getContext
+  val serverWriteContext: ExecutionContextExecutorService = serverWriteExecutionContextGrid.getContext
+  val serverReadContext: ExecutionContextExecutorService = serverReadExecutionContextGrid.getContext
 
   def stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted(): Unit = {
     contextGrids foreach (context => context.stopAccessNewTasks())

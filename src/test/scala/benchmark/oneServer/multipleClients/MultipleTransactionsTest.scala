@@ -19,11 +19,9 @@ object MultipleTransactionsTest extends Launcher {
 
   override def launchClients(streamID: Int): Unit = {
     (1 to clients).foreach(x => {
-      val thread = new Thread(new Runnable {
-        override def run(): Unit = {
-          val filename = rand.nextInt(100) + s"_${txnCount}TransactionMetadataWriterOSMC.csv"
-          new TransactionMetadataWriter(streamID, x).run(txnCount, filename)
-        }
+      val thread = new Thread(() => {
+        val filename = rand.nextInt(100) + s"_${txnCount}TransactionMetadataWriterOSMC.csv"
+        new TransactionMetadataWriter(streamID, x).run(txnCount, filename)
       })
       clientThreads.+=(thread)
     })

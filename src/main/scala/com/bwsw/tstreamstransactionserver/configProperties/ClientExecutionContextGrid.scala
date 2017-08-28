@@ -22,6 +22,7 @@ import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 
 class ClientExecutionContextGrid(nThreads: Int) {
   lazy val context = contextGrid.getContext
+
   private lazy val contextGrid = ExecutionContextGrid(nThreads, "ClientExecutionContextGrid-%d")
 
   def stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted(): Unit = {

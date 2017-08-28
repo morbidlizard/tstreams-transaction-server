@@ -22,10 +22,17 @@ package com.bwsw.tstreamstransactionserver.options
 
 object MultiNodeServerOptions {
 
-  case class CheckpointGroupPrefixesOptions(checkpointMasterZkTreeListPrefix: String = "/tts/cg/master_tree")
+  case class CheckpointGroupPrefixesOptions(checkpointMasterZkTreeListPrefix: String = "/tts/cg/master_tree",
+                                            timeBetweenCreationOfLedgersMs: Int = 200)
 
 
   case class CommonPrefixesOptions(commonMasterZkTreeListPrefix: String = "/tts/common/master_tree",
-                                   checkpointMasterZkTreeListPrefix: String = "/tts/cg/master_tree")
+                                   timeBetweenCreationOfLedgersMs: Int = 200,
+                                   checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions = CheckpointGroupPrefixesOptions())
 
+
+  case class BookkeeperOptions(ensembleNumber: Int = 3,
+                               writeQuorumNumber: Int = 3,
+                               ackQuorumNumber: Int = 2,
+                               password: Array[Byte] = "ChangePassword".getBytes())
 }

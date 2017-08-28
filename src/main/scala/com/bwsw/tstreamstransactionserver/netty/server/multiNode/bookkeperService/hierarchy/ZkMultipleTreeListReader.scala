@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZkMultipleTreeListReader.{NoLedgerExist, NoRecordRead}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerMetadata
 
 private object ZkMultipleTreeListReader {
   private val NoLedgerExist: Long = -1L
@@ -15,14 +15,14 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
 
   private type Timestamp = Long
 
-  def read(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): (Array[Record], Array[LedgerIDAndItsLastRecordID]) = {
+  def read(processedLastRecordIDsAcrossLedgers: Array[LedgerMetadata]): (Array[Record], Array[LedgerMetadata]) = {
     val processedLastRecordIDsAcrossLedgersCopy =
       java.util.Arrays.copyOf(
         processedLastRecordIDsAcrossLedgers,
         processedLastRecordIDsAcrossLedgers.length
       )
 
-    val nextRecordsAndLedgersToProcess: Array[LedgerIDAndItsLastRecordID] =
+    val nextRecordsAndLedgersToProcess: Array[LedgerMetadata] =
       getNextLedgersIfNecessary(
         getRecordsToStartWith(processedLastRecordIDsAcrossLedgersCopy)
       )
@@ -33,7 +33,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
         .toArray
 
     if (
-      nextRecordsAndLedgersToProcess.contains(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)) ||
+      nextRecordsAndLedgersToProcess.contains(LedgerMetadata(NoLedgerExist, NoRecordRead)) ||
         nextRecordsAndLedgersToProcess.length != ledgersForNextProcessingIndexes.length
     ) {
       (Array.empty[Record], processedLastRecordIDsAcrossLedgersCopy)
@@ -63,10 +63,10 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
                 ledgerRecords.takeWhile(_.record.timestamp <= timestamp)
 
               val lastRecordID = recordsWithIndexes.lastOption
-                .map(_.index).getOrElse(ledgerIDRecordID.ledgerLastRecordID)
+                .map(_.index).getOrElse(ledgerIDRecordID.lastRecordID)
 
               (recordsWithIndexes.map(_.record),
-                LedgerIDAndItsLastRecordID(ledgerIDRecordID.ledgerID, lastRecordID))
+                LedgerMetadata(ledgerIDRecordID.id, lastRecordID))
             }.unzip
 
           (records.flatten, ledgersIDsAndTheirRecordIDs)
@@ -84,7 +84,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
   }
 
   @throws[IllegalArgumentException]
-  private def getRecordsToStartWith(databaseData: Array[LedgerIDAndItsLastRecordID]): Array[LedgerIDAndItsLastRecordID] = {
+  private def getRecordsToStartWith(databaseData: Array[LedgerMetadata]): Array[LedgerMetadata] = {
     if (databaseData.nonEmpty) {
       require(
         databaseData.length == zkTreeLists.length,
@@ -97,11 +97,11 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
         zkTreeList.firstEntityID
           .map(id =>
             if (storageManager.isClosed(id))
-              LedgerIDAndItsLastRecordID(id, NoRecordRead)
+              LedgerMetadata(id, NoRecordRead)
             else
-              LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead)
+              LedgerMetadata(NoLedgerExist, NoRecordRead)
           )
-          .getOrElse(LedgerIDAndItsLastRecordID(NoLedgerExist, NoRecordRead))
+          .getOrElse(LedgerMetadata(NoLedgerExist, NoRecordRead))
       )
     }
   }
@@ -117,38 +117,38 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     })
   }
 
-  private def getLedgerIDAndItsOrderedRecords(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID]) = {
+  private def getLedgerIDAndItsOrderedRecords(ledgersAndTheirLastRecordsToProcess: Array[LedgerMetadata]) = {
     ledgersAndTheirLastRecordsToProcess
       .map(ledgerMetaInfo =>
-        if (ledgerMetaInfo.ledgerID == NoLedgerExist)
+        if (ledgerMetaInfo.id == NoLedgerExist)
           (Array.empty[RecordWithIndex], ledgerMetaInfo)
         else {
           storageManager
-            .openLedger(ledgerMetaInfo.ledgerID)
+            .openLedger(ledgerMetaInfo.id)
             .map { ledgerHandle =>
               val recordsWithIndexes =
-                ledgerHandle.getOrderedRecords(ledgerMetaInfo.ledgerLastRecordID + 1)
+                ledgerHandle.getOrderedRecords(ledgerMetaInfo.lastRecordID + 1)
 
               (recordsWithIndexes, ledgerMetaInfo)
             }
             .getOrElse(throw new
                 IllegalStateException(
-                  s"There is problem with storage - there is no such ledger ${ledgerMetaInfo.ledgerID}"
+                  s"There is problem with storage - there is no such ledger ${ledgerMetaInfo.id}"
                 )
             )
         }
       )
   }
 
-  private def excludeProcessedLastLedgersIfTheyWere(ledgersAndTheirLastRecordsToProcess: Array[LedgerIDAndItsLastRecordID]): List[Int] = {
+  private def excludeProcessedLastLedgersIfTheyWere(ledgersAndTheirLastRecordsToProcess: Array[LedgerMetadata]): List[Int] = {
     ledgersAndTheirLastRecordsToProcess.zip(zkTreeLists).zipWithIndex
       .foldRight(List.empty[Int]) { case (((ledgerMetaInfo, zkTreeList), index), acc) =>
         storageManager
-          .openLedger(ledgerMetaInfo.ledgerID)
+          .openLedger(ledgerMetaInfo.id)
           .filter(ledgerHandle => storageManager.isClosed(ledgerHandle.id))
           .map { ledgerHandle =>
-            if (zkTreeList.lastEntityID.get == ledgerMetaInfo.ledgerID &&
-              ledgerHandle.lastRecordID() == ledgerMetaInfo.ledgerLastRecordID
+            if (zkTreeList.lastEntityID.get == ledgerMetaInfo.id &&
+              ledgerHandle.lastRecordID() == ledgerMetaInfo.lastRecordID
             ) {
               acc
             } else {
@@ -159,25 +159,25 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
       }
   }
 
-  private def getNextLedgersIfNecessary(lastRecordsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]) = {
+  private def getNextLedgersIfNecessary(lastRecordsAcrossLedgers: Array[LedgerMetadata]) = {
     (lastRecordsAcrossLedgers zip zkTreeLists).map {
       case (metainfo, zkTreeList) =>
         storageManager
-          .openLedger(metainfo.ledgerID)
+          .openLedger(metainfo.id)
           .flatMap { ledgerHandle =>
             zkTreeList.lastEntityID.map(ledgerID =>
-              if (ledgerID != metainfo.ledgerID &&
-                ledgerHandle.lastRecordID() == metainfo.ledgerLastRecordID
+              if (ledgerID != metainfo.id &&
+                ledgerHandle.lastRecordID() == metainfo.lastRecordID
               ) {
                 val newLedgerID = zkTreeList
-                  .getNextNode(metainfo.ledgerID)
+                  .getNextNode(metainfo.id)
                   .getOrElse(throw new
                       IllegalStateException(
                         s"There is problem with ZkTreeList - consistency of list is violated. Ledger${ledgerHandle.id}"
                       )
                   )
                 if (storageManager.isClosed(newLedgerID))
-                  LedgerIDAndItsLastRecordID(newLedgerID, NoRecordRead)
+                  LedgerMetadata(newLedgerID, NoRecordRead)
                 else
                   metainfo
               } else {
@@ -188,8 +188,8 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[ZookeeperTreeListLong],
     }
   }
 
-  private def orderLedgers(ledgersOutOfProcessing: Array[LedgerIDAndItsLastRecordID],
-                           processedLedgers: Array[LedgerIDAndItsLastRecordID],
+  private def orderLedgers(ledgersOutOfProcessing: Array[LedgerMetadata],
+                           processedLedgers: Array[LedgerMetadata],
                            processedLedgersIndexes: Array[Int]) = {
     val indexToProcessedLedgerMap = (processedLedgersIndexes zip processedLedgers).toMap
     processedLedgersIndexes.foreach(index =>

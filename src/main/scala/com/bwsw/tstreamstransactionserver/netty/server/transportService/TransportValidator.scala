@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.transportService
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.TransportOptions
 
 final class TransportValidator(packageTransmissionOpts: TransportOptions) {
   lazy val packageTooBigException = new PackageTooBigException(s"A size of client request is greater " +

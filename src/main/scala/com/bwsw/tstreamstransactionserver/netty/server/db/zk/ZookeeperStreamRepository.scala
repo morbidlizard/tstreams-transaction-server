@@ -18,38 +18,52 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.db.zk
 
-
-import java.util.concurrent.ConcurrentHashMap
-
 import com.bwsw.tstreamstransactionserver.netty.server.streamService
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRepository
 import org.apache.curator.framework.CuratorFramework
+
+import scala.collection.concurrent.TrieMap
 
 final class ZookeeperStreamRepository(client: CuratorFramework,
                                       path: String)
   extends StreamRepository {
 
-  private val streamCache =
-    new ConcurrentHashMap[streamService.StreamKey, streamService.StreamValue]()
-  private val streamNamePath = new StreamNamePath(client, s"$path/names")
-  private val streamIdPath = new StreamIdPath(client, s"$path/ids")
+  private val streamKeyCache =
+    TrieMap.empty[streamService.StreamKey, streamService.StreamValue]
+  private val streamValueCache =
+    java.util.concurrent.ConcurrentHashMap.newKeySet[String]()
+  private val streamNamePath =
+    new StreamNamePath(client, s"$path/names")
+  private val streamIdPath =
+    new StreamIdPath(client, s"$path/ids")
 
   override def put(streamValue: streamService.StreamValue): streamService.StreamKey = {
-    if (!streamNamePath.exists(streamValue.name)) {
-      val streamRecord = streamIdPath.put(streamValue)
-      streamNamePath.put(streamRecord)
-      streamCache.put(streamRecord.key, streamRecord.stream)
-      streamRecord.key
-    } else
+    if (exists(streamValue.name)) {
       streamService.StreamKey(-1)
+    }
+    else {
+      val streamRecord = streamIdPath.put(streamValue)
+      streamValueCache.add(streamValue.name)
+      streamKeyCache.put(
+        streamRecord.key,
+        streamRecord.stream
+      )
+      streamNamePath.put(streamRecord)
+      streamRecord.key
+    }
   }
 
   override def exists(name: String): Boolean =
-    streamNamePath.exists(name)
+    streamValueCache.contains(name) || streamNamePath.exists(name)
 
 
-  override def delete(name: String): Boolean =
-    streamNamePath.delete(name)
+  override def delete(name: String): Boolean = {
+    val isDeleted = streamNamePath.delete(name)
+    if (isDeleted) {
+      streamValueCache.remove(name)
+    }
+    isDeleted
+  }
 
 
   override def get(name: String): Option[streamService.StreamRecord] =
@@ -57,12 +71,12 @@ final class ZookeeperStreamRepository(client: CuratorFramework,
 
 
   override def get(streamKey: streamService.StreamKey): Option[streamService.StreamRecord] = {
-    Option(streamCache.get(streamKey))
+    streamKeyCache.get(streamKey)
       .map(steamValue => streamService.StreamRecord(streamKey, steamValue))
       .orElse {
         val streamRecordOpt = streamIdPath.get(streamKey)
         streamRecordOpt.foreach(streamRecord =>
-          streamCache.put(streamRecord.key, streamRecord.stream)
+          streamKeyCache.put(streamRecord.key, streamRecord.stream)
         )
         streamRecordOpt
       }

@@ -89,6 +89,38 @@ class BigCommitWithFrameParser(bigCommit: BigCommit) {
           )
         })
 
+    recordsByType.get(Frame.PutSimpleTransactionAndDataType)
+      .foreach(records =>
+        records.foreach { record =>
+          val producerTransactionsAndData =
+            Frame.deserializePutSimpleTransactionAndData(record.body)
+
+          val producerTransactionRecords =
+            producerTransactionsAndData.producerTransactions.map(producerTransaction =>
+              ProducerTransactionRecord(
+                producerTransaction,
+                record.timestamp
+              )
+            )
+
+          val producerTransactionRecord =
+            producerTransactionRecords.head
+
+
+          bigCommit.putProducerData(
+            producerTransactionRecord.stream,
+            producerTransactionRecord.partition,
+            producerTransactionRecord.transactionID,
+            producerTransactionsAndData.data,
+            0
+          )
+
+          producerTransactionRecords.foreach(producerTransactionRecord =>
+            putProducerTransaction(producerRecords, producerTransactionRecord)
+          )
+        })
+
+
     recordsByType.get(Frame.PutProducerStateWithDataType)
       .foreach(records =>
         records.foreach { record =>

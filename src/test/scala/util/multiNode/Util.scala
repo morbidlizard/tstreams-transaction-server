@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.{CommonCheckpointGroupServerBuilder, TestCommonCheckpointGroupServer}
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
@@ -14,7 +15,6 @@ import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOption
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CheckpointGroupPrefixesOptions, CommonPrefixesOptions}
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.options.ClientBuilder
 import org.apache.curator.framework.CuratorFramework
 import util.Utils.getRandomPort
 

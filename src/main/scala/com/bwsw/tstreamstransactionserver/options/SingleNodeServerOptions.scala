@@ -41,7 +41,7 @@ object SingleNodeServerOptions {
 
   /** The options are used to provide to zookeeper
     * a prefix for leader election and
-    * a prefix for putting address of server if it's leader(master).
+    * a prefix for putting address of server if it's a leader or elected to be a leader(master).
     *
     * @param commonMasterPrefix            the prefix is used for providing current master/leader common group server.
     * @param commonMasterElectionPrefix    the prefix is used for leader election among common servers.
@@ -52,7 +52,7 @@ object SingleNodeServerOptions {
 
   /** The options are used to provide to zookeeper
     * a prefix for leader election and
-    * a prefix for putting address of server if it's leader(master).
+    * a prefix for putting address of server if it's a leader or elected to be a leader(master).
     *
     * @param checkpointGroupMasterPrefix         the prefix is used for providing current master/leader checkpoint group server.
     * @param checkpointGroupMasterElectionPrefix the prefix is used for leader election among checkpoint group servers.

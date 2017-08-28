@@ -18,11 +18,38 @@
  * under the License.
  */
 
-package com.bwsw.tstreamstransactionserver.options
+package com.bwsw.tstreamstransactionserver.options.loader
 
+import java.io.FileInputStream
 import java.util.Properties
 
-class OptionHelper(properties: Properties) {
+import com.bwsw.tstreamstransactionserver.options.CommonOptions
+
+object PropertyFileLoader {
+  private val fileName = CommonOptions.PROPERTY_FILE_NAME
+
+  def apply(): PropertyFileLoader = {
+    val propertyFileOpt =
+      Option(System.getProperty(fileName))
+
+    propertyFileOpt match {
+      case None =>
+        throw new IllegalArgumentException(
+          s"There is no file with properties. " +
+            s"You should define a path to a property file through " +
+            s"'-D$fileName=<path_to_file>'(e.g. 'java -D$fileName=/home/user/config.properties')."
+        )
+      case Some(file) =>
+        val properties = new Properties()
+        properties
+          .load(new FileInputStream(file))
+        new PropertyFileLoader(properties)
+    }
+  }
+}
+
+
+class PropertyFileLoader(properties: Properties) {
   def castCheck[T](property: String,
                    constructor: String => T
                   )(implicit classType: Class[_]): T = {

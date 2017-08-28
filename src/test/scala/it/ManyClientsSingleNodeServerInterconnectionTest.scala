@@ -2,8 +2,9 @@ package it
 
 import java.util.concurrent.TimeUnit
 
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.{Time, Utils}

@@ -18,9 +18,8 @@
  * under the License.
  */
 
-package com.bwsw.tstreamstransactionserver.options
+package com.bwsw.tstreamstransactionserver.netty.client
 
-import com.bwsw.tstreamstransactionserver.netty.client.Client
 import com.bwsw.tstreamstransactionserver.options.ClientOptions._
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import org.apache.curator.framework.CuratorFramework

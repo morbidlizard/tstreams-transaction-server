@@ -9,6 +9,7 @@ import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.channel.{ChannelInitializer, _}
+import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.slf4j.LoggerFactory
 
 
@@ -66,6 +67,10 @@ class NettyConnection(workerGroup: EventLoopGroup,
 
           handlers.foreach(handler =>
             pipeline.addLast(handler)
+          )
+
+          pipeline.addFirst(
+            new LoggingHandler(LogLevel.DEBUG)
           )
 
           pipeline.addLast(

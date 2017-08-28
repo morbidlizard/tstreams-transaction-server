@@ -2,8 +2,9 @@ package it
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.CommitLogOptions
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.CommitLogOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.{Time, Utils}
@@ -86,6 +87,7 @@ class SingleNodeServerLastCheckpointedTransactionTest
       val secondClient = bundle.clients(1)
 
       val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
+      streamID shouldNot be (-1)
 
       Await.result(secondClient.delStream(stream.name), secondsWait.seconds) shouldBe true
 

@@ -21,6 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import com.bwsw.tstreamstransactionserver.netty.server.handler.RequestRouter
+
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -42,7 +43,7 @@ class ServerHandler(requestRouter: RequestRouter)
     if (logger.isDebugEnabled)
       logger.debug(s"${ctx.channel().remoteAddress().toString} request id ${message.id} method is invoked.")
 
-    requestRouter.route(message, ctx, None)
+    requestRouter.route(message, ctx)
 
   }
 

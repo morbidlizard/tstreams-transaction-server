@@ -1,101 +1,87 @@
-//package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
-//
-//
-//import com.bwsw.tstreamstransactionserver.netty.server.multiNode.RequestHandler
-//import com.bwsw.tstreamstransactionserver.netty.server.TransactionServer
-//import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
-//import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
-//import io.netty.channel.ChannelHandlerContext
-//import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
-//import PutTransactionHandler._
-//import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
-//import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.CurrentLedgerAccessor
-//import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
-//
-//
-//private object PutTransactionHandler {
-//  val protocol = Protocol.PutTransaction
-//  val isPuttedResponse: Array[Byte] = protocol.encodeResponse(
-//    TransactionService.PutTransaction.Result(Some(true))
-//  )
-//  val isNotPuttedResponse: Array[Byte] = protocol.encodeResponse(
-//    TransactionService.PutTransaction.Result(Some(false))
-//  )
-//
-//  val fireAndForgetCallback = new AsyncCallback.AddCallback {
-//    override def addComplete(operationCode: Int,
-//                             ledgerHandle: LedgerHandle,
-//                             recordID: Long,
-//                             ctx: scala.Any): Unit = {}
-//  }
-//}
-//
-//class PutTransactionHandler(server: TransactionServer,
-//                            gateway: CurrentLedgerAccessor)
-//  extends RequestHandler
-//{
-//
-//  private def process(requestBody: Array[Byte],
-//                      callback: AsyncCallback.AddCallback) = {
-//    gateway.doOperationWithCurrentWriteLedger { currentLedger =>
-//
-//      val record = new Record(
-//        Frame.PutTransactionsType,
-//        System.currentTimeMillis(),
-//        requestBody
-//      )
-//
-//      currentLedger.asyncAddEntry(
-//        record.toByteArray,
-//        callback,
-//        null
-//      )
-//    }
-//  }
-//
-//
-//  override def getName: String = protocol.name
-//
-//  override def handleAndSendResponse(requestBody: Array[Byte],
-//                                     message: RequestMessage,
-//                                     connection: ChannelHandlerContext): Unit = {
-//    val callback = new AsyncCallback.AddCallback {
-//      override def addComplete(operationCode: Int,
-//                               ledgerHandle: LedgerHandle,
-//                               recordID: Long,
-//                               ctx: scala.Any): Unit = {
-//        val messageResponse =
-//          if (BKException.Code.OK == operationCode) {
-//            message.copy(
-//              bodyLength = isPuttedResponse.length,
-//              body = isPuttedResponse
-//            )
-//          }
-//          else {
-//            message.copy(
-//              bodyLength = isNotPuttedResponse.length,
-//              body = isNotPuttedResponse
-//            )
-//          }
-//        connection.writeAndFlush(messageResponse.toByteArray)
-//      }
-//    }
-//
-//    process(requestBody, callback)
-//  }
-//
-//
-//  override def handleFireAndForget(requestBody: Array[Byte]): Unit = {
-//    process(requestBody, fireAndForgetCallback)
-//  }
-//
-//  override def createErrorResponse(message: String): Array[Byte] = {
-//    protocol.encodeResponse(
-//      TransactionService.PutTransaction.Result(
-//        None,
-//        Some(ServerException(message)
-//        )
-//      )
-//    )
-//  }
-//}
+package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata
+
+import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
+import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperMaster
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.MultiNodePredefinedContextHandler
+import com.bwsw.tstreamstransactionserver.rpc.{ServerException, TransactionService}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutTransactionHandler._
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler.metadata.PutTransactionsHandler.{isNotPuttedResponse, isPuttedResponse}
+import org.apache.bookkeeper.client.BKException.Code
+import org.apache.bookkeeper.client.{AsyncCallback, BKException, LedgerHandle}
+
+import scala.concurrent.{ExecutionContext, Future, Promise}
+
+private object PutTransactionHandler {
+  val descriptor = Protocol.PutTransaction
+  val isPuttedResponse: Array[Byte] = descriptor.encodeResponse(
+    TransactionService.PutTransaction.Result(Some(true))
+  )
+  val isNotPuttedResponse: Array[Byte] = descriptor.encodeResponse(
+    TransactionService.PutTransaction.Result(Some(false))
+  )
+}
+
+
+class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
+                            context: ExecutionContext)
+  extends MultiNodePredefinedContextHandler(
+    descriptor.methodID,
+    descriptor.name,
+    context) {
+
+  private val callback = new AsyncCallback.AddCallback {
+    override def addComplete(bkCode: Int,
+                             ledgerHandle: LedgerHandle,
+                             entryId: Long,
+                             obj: scala.Any): Unit = {
+      val promise = obj.asInstanceOf[Promise[Array[Byte]]]
+      if (Code.OK == bkCode)
+        promise.success(isPuttedResponse)
+      else
+        promise.success(isNotPuttedResponse)
+
+    }
+  }
+
+  private def process(requestBody: Array[Byte]) = {
+    val promise = Promise[Array[Byte]]()
+    Future {
+      bookkeeperMaster.doOperationWithCurrentWriteLedger {
+        case Left(throwable) =>
+          promise.failure(throwable)
+
+        case Right(ledgerHandler) =>
+          val record = new Record(
+            Frame.PutTransactionType.id.toByte,
+            System.currentTimeMillis(),
+            requestBody
+          ).toByteArray
+
+          ledgerHandler.asyncAddEntry(record, callback, promise)
+          promise
+      }
+    }(context)
+      .flatMap(_ => promise.future)(context)
+  }
+
+  override protected def fireAndForget(message: RequestMessage): Unit = {
+    process(message.body)
+  }
+
+  override protected def getResponse(message: RequestMessage): Future[Array[Byte]] = {
+    process(message.body)
+  }
+
+  override def createErrorResponse(message: String): Array[Byte] = {
+    descriptor.encodeResponse(
+      TransactionService.PutTransaction.Result(
+        None,
+        Some(ServerException(message)
+        )
+      )
+    )
+  }
+
+}

@@ -43,15 +43,15 @@ private object CommitLogToRocksWriter {
 
 class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
                              pathsToClosedCommitLogFiles: BlockingQueue[CommitLogStorage],
-                             rocksWriter: => RocksWriter,
-                             rocksReader: CommitLogService,
+                             rocksWriter: RocksWriter,
+                             commitLogService: CommitLogService,
                              incompleteCommitLogReadPolicy: IncompleteCommitLogReadPolicy)
   extends Runnable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private def processAccordingToPolicy(commitLogEntity: CommitLogStorage) = {
-    if (rocksReader.getLastProcessedCommitLogFileID < commitLogEntity.id) {
+    if (commitLogService.getLastProcessedCommitLogFileID < commitLogEntity.id) {
       val fileKey = FileKey(commitLogEntity.id)
       val fileValue = FileValue(commitLogEntity.content,
         if (commitLogEntity.md5Exists())
@@ -161,9 +161,11 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
 
     val timestamp =
       lastTransactionTimestamp.getOrElse(System.currentTimeMillis())
-    rocksWriter.createAndExecuteTransactionsToDeleteTask(timestamp)
+    rocksWriter
+      .createAndExecuteTransactionsToDeleteTask(timestamp)
 
-    rocksWriter.clearProducerTransactionCache()
+    rocksWriter
+      .clearProducerTransactionCache()
     result
   }
 

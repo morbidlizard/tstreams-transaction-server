@@ -2,7 +2,9 @@ package it
 
 import java.util.concurrent.TimeUnit
 
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.{Time, Utils}
@@ -33,7 +35,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
   private val maxIdleTimeBetweenRecordsMs = 10000
 
   private lazy val serverBuilder = new SingleNodeServerBuilder()
-    .withCommitLogOptions(ServerOptions.CommitLogOptions(
+    .withCommitLogOptions(SingleNodeServerOptions.CommitLogOptions(
       closeDelayMs = Int.MaxValue
     ))
 
@@ -102,6 +104,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       val secondClient = clients(1)
 
       val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
+      streamID shouldNot be (-1)
       val producerTransactions = Array.fill(100)(getRandomProducerTransaction(streamID, stream))
         .filter(_.state == TransactionStates.Opened)
       val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamID, stream))
@@ -115,7 +118,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       //transactions are processed in the async mode
       Await.result(firstClient.putTransactions(producerTransactions, consumerTransactions), secondsWait.seconds) shouldBe true
 
-      TestTimer.updateTime(System.currentTimeMillis() + maxIdleTimeBetweenRecordsMs)
+
       //it's required to close a current commit log file
       transactionServer.scheduledCommitLog.run()
       //it's required to a CommitLogToBerkeleyWriter writes the producer transactions to db
@@ -144,6 +147,7 @@ class ManyClientsSingleNodeServerInterconnectionTest
       val secondClient = clients(1)
 
       val streamID = Await.result(firstClient.putStream(stream), secondsWait.seconds)
+      streamID shouldNot be (-1)
       val producerTransactions = Array.fill(txnNumber)(getRandomProducerTransaction(streamID, stream, TransactionStates.Opened))
       val consumerTransactions = Array.fill(100)(getRandomConsumerTransaction(streamID, stream))
 

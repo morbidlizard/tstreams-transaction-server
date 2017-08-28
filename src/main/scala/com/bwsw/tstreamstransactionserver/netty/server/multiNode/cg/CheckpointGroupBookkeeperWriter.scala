@@ -1,33 +1,37 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.cg
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{BookkeeperWriter, BookkeeperWriteBundle, ReplicationConfig}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{BookkeeperMasterBundle, BookkeeperWriter}
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
-import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CheckpointGroupPrefixesOptions
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CheckpointGroupPrefixesOptions}
 import org.apache.curator.framework.CuratorFramework
 
 class CheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
-                                      replicationConfig: ReplicationConfig,
+                                      bookkeeperOptions: BookkeeperOptions,
                                       checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions)
   extends BookkeeperWriter(
     zookeeperClient,
-    replicationConfig
+    bookkeeperOptions
   ) {
 
   private val checkpointMasterZkTreeList =
-    new ZookeeperTreeListLong(
+    new LongZookeeperTreeList(
       zookeeperClient,
       checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
     )
 
-  def createCheckpointMaster(zKMasterElector: ZKMasterElector,
-                             password: Array[Byte],
-                             timeBetweenCreationOfLedgersMs: Int): BookkeeperWriteBundle = {
+  override def getLastConstructedLedger: Long = {
+    checkpointMasterZkTreeList
+      .lastEntityID
+      .getOrElse(-1L)
+  }
+
+  def createCheckpointMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      password,
-      timeBetweenCreationOfLedgersMs,
+      checkpointGroupPrefixesOptions.timeBetweenCreationOfLedgersMs,
       checkpointMasterZkTreeList
     )
   }
+
 }

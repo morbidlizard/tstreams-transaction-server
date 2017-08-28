@@ -1,6 +1,6 @@
 package ut.multiNodeServer.ZkTreeListTest
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{MetadataRecord, LedgerIDAndItsLastRecordID}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{MetadataRecord, LedgerMetadata}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 class ZkMultipleTreeListReaderMetadataTest
@@ -9,7 +9,7 @@ class ZkMultipleTreeListReaderMetadataTest
     with BeforeAndAfterAll {
   "Metadata record" should "contain timestamp without records" in {
     val metadataRecord = new MetadataRecord(
-      Array.empty[LedgerIDAndItsLastRecordID]
+      Array.empty[LedgerMetadata]
     )
 
     MetadataRecord.fromByteArray(metadataRecord.toByteArray) shouldBe metadataRecord
@@ -20,7 +20,7 @@ class ZkMultipleTreeListReaderMetadataTest
 
     val rand = scala.util.Random
     val records = Array.fill(recordNumber)(
-      LedgerIDAndItsLastRecordID(rand.nextLong(), rand.nextLong())
+      LedgerMetadata(rand.nextLong(), rand.nextLong())
     )
 
     val metadataRecord = new MetadataRecord(

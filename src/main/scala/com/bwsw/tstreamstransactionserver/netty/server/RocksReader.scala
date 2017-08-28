@@ -3,8 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceRead
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerIDAndItsLastRecordID
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastTransaction, LastTransactionReader}
@@ -12,7 +11,7 @@ import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.collection.Set
 
-class RocksReader(rocksStorage: MultiAndSingleNodeRockStorage,
+class RocksReader(rocksStorage: RocksStorage,
                   transactionDataService: TransactionDataService) {
 
   private val consumerService =

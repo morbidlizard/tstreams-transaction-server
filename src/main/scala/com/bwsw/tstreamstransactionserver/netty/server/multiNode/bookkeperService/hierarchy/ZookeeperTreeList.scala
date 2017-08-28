@@ -12,6 +12,7 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
   private val rootNode = new RootNode(client, rootPath)
 
   def firstEntityID: Option[T] = {
+    val rootNodeData = rootNode.getCurrentData
     val binaryID = rootNodeData.firstID
     if (binaryID.isEmpty)
       None
@@ -32,6 +33,7 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
         )
     }
 
+    val rootNodeData = rootNode.getCurrentData
     if (rootNodeData.firstID.isEmpty) {
       persistNode()
       rootNode.setFirstAndLastIDInRootNode(
@@ -56,7 +58,6 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
     }
   }
 
-  private def rootNodeData = rootNode.getData
 
   private def traverseToLastNode: Option[T] = {
     @tailrec
@@ -75,6 +76,7 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
   }
 
   def lastEntityID: Option[T] = {
+    val rootNodeData = rootNode.getCurrentData
     val binaryID = rootNodeData.lastID
     if (binaryID.isEmpty)
       None
@@ -170,6 +172,7 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
   private def deleteFirstNode(firstEntityID: T, nextEntityID: T): Boolean = {
     val newFirstID = entityIDtoBytes(nextEntityID)
 
+    val rootNodeData = rootNode.getCurrentData
     val lastID = rootNodeData.lastID
     rootNode.setFirstAndLastIDInRootNode(
       newFirstID,
@@ -184,6 +187,7 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
   private def deleteLastNode(lastEntityID: T, previousEntityID: T): Boolean = {
     val newLastID = entityIDtoBytes(previousEntityID)
 
+    val rootNodeData = rootNode.getCurrentData
     val firstID = rootNodeData.firstID
     rootNode.setFirstAndLastIDInRootNode(
       firstID,

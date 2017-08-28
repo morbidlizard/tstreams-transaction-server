@@ -5,11 +5,11 @@ import java.nio.ByteBuffer
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceWriter, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerStateMachineCache, ProducerTransactionRecord, ProducerTransactionsCleaner, TransactionMetaServiceWriter}
 
-class RocksWriter(rocksStorage: MultiAndSingleNodeRockStorage,
+class RocksWriter(rocksStorage: RocksStorage,
                   transactionDataService: TransactionDataService) {
 
   protected val consumerService =

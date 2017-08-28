@@ -1,60 +1,81 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.common
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
-import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.CommonPrefixesOptions
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CommonPrefixesOptions}
 import org.apache.curator.framework.CuratorFramework
 
 class CommonBookkeeperWriter(zookeeperClient: CuratorFramework,
-                             replicationConfig: ReplicationConfig,
+                             bookkeeperOptions: BookkeeperOptions,
                              commonPrefixesOptions: CommonPrefixesOptions)
   extends BookkeeperWriter(
     zookeeperClient,
-    replicationConfig) {
+    bookkeeperOptions) {
 
   private val commonMasterZkTreeList =
-    new ZookeeperTreeListLong(
+    new LongZookeeperTreeList(
       zookeeperClient,
       commonPrefixesOptions.commonMasterZkTreeListPrefix
     )
 
   private val checkpointMasterZkTreeList =
-    new ZookeeperTreeListLong(
+    new LongZookeeperTreeList(
       zookeeperClient,
-      commonPrefixesOptions.checkpointMasterZkTreeListPrefix
+      commonPrefixesOptions.checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
     )
 
   private val zkTreesList =
     Array(commonMasterZkTreeList, checkpointMasterZkTreeList)
 
 
-  def createCommonMaster(zKMasterElector: ZKMasterElector,
-                         password: Array[Byte],
-                         timeBetweenCreationOfLedgersMs: Int): BookkeeperWriteBundle = {
+  override def getLastConstructedLedger: Long = {
+    val ledgerIds =
+      for {
+        zkTree <- zkTreesList
+        lastConstructedLedgerId <- zkTree.lastEntityID
+      } yield lastConstructedLedgerId
+
+    if (ledgerIds.isEmpty) {
+      -1L
+    } else {
+      ledgerIds.max
+    }
+  }
+
+  def createCommonMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
-      password,
-      timeBetweenCreationOfLedgersMs,
+      commonPrefixesOptions.timeBetweenCreationOfLedgersMs,
       commonMasterZkTreeList
     )
   }
 
-  def createCommonSlave(commitLogService: CommitLogService,
-                        rocksWriter: RocksWriter,
-                        password: Array[Byte],
-                        timeBetweenCreationOfLedgersMs: Int): BookkeeperSlaveBundle = {
+  def createSlave(commitLogService: CommitLogService,
+                  rocksWriter: RocksWriter): BookkeeperSlaveBundle = {
     val bookkeeperSlave =
       new BookkeeperSlave(
         bookKeeper,
-        replicationConfig,
+        bookkeeperOptions,
         zkTreesList,
         commitLogService,
         rocksWriter,
-        password
       )
-    new BookkeeperSlaveBundle(bookkeeperSlave, timeBetweenCreationOfLedgersMs)
+
+    val timeBetweenCreationOfLedgersMs = math.max(
+      commonPrefixesOptions
+        .checkpointGroupPrefixesOptions
+        .timeBetweenCreationOfLedgersMs,
+      commonPrefixesOptions
+        .timeBetweenCreationOfLedgersMs
+    )
+
+    new BookkeeperSlaveBundle(
+      bookkeeperSlave,
+      timeBetweenCreationOfLedgersMs
+    )
   }
+
 }

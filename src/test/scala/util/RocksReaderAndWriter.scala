@@ -9,7 +9,7 @@ import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNod
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFramework
 

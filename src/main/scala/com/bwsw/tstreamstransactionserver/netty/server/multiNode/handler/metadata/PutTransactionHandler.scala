@@ -31,7 +31,7 @@ class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
     descriptor.name,
     context) {
 
-  private val callback = new AsyncCallback.AddCallback {
+  private def callback = new AsyncCallback.AddCallback {
     override def addComplete(bkCode: Int,
                              ledgerHandle: LedgerHandle,
                              entryId: Long,
@@ -39,13 +39,15 @@ class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
       val promise = obj.asInstanceOf[Promise[Array[Byte]]]
       if (Code.OK == bkCode)
         promise.success(isPuttedResponse)
-      else
-        promise.success(isNotPuttedResponse)
+      else {
+        println(BKException.getMessage(bkCode))
+        promise.failure(BKException.create(bkCode).fillInStackTrace())
+      }
 
     }
   }
 
-  private def process(requestBody: Array[Byte]) = {
+  private def process(requestBody: Array[Byte]): Future[Array[Byte]] = {
     val promise = Promise[Array[Byte]]()
     Future {
       bookkeeperMaster.doOperationWithCurrentWriteLedger {
@@ -60,10 +62,16 @@ class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
-          promise
+
+//          ledgerHandler.addEntry(record)
+//          promise.success(isPuttedResponse)
+//          ledgerHandler.addEntry(record)
+//          isPuttedResponse
+//          promise
       }
-    }(context)
-      .flatMap(_ => promise.future)(context)
+    }(context).flatMap(_ =>
+      promise.future.recoverWith{case _ :BKException => process(requestBody)}(context)
+    )(context)
   }
 
   override protected def fireAndForget(message: RequestMessage): Unit = {

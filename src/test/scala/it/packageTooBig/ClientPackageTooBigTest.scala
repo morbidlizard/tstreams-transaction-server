@@ -18,7 +18,8 @@ class ClientPackageTooBigTest
     with Matchers
     with BeforeAndAfterAll {
 
-  private val packageTransmissionOptions = TransportOptions(maxMetadataPackageSize = 1000000)
+  private val packageTransmissionOptions =
+    TransportOptions(maxMetadataPackageSize = 1000000)
 
   private lazy val serverBuilder = new SingleNodeServerBuilder()
     .withPackageTransmissionOptions(packageTransmissionOptions)
@@ -27,6 +28,8 @@ class ClientPackageTooBigTest
 
   private lazy val (zkServer, zkClient) =
     startZkServerAndGetIt
+
+  private val secondsToWait = 10
 
   override def beforeAll(): Unit = {
     zkServer
@@ -52,7 +55,7 @@ class ClientPackageTooBigTest
           1L,
           Array.fill(2)(new Array[Byte](packageTransmissionOptions.maxMetadataPackageSize)),
           1
-        ), Duration(5, TimeUnit.SECONDS))
+        ), Duration(secondsToWait, TimeUnit.SECONDS))
       }
 
     }

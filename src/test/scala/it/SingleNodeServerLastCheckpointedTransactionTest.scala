@@ -24,7 +24,7 @@ class SingleNodeServerLastCheckpointedTransactionTest
 
   private val clientsNum = 2
 
-  private val secondsWait = 5
+  private val secondsWait = 10
 
   private lazy val clientBuilder = new ClientBuilder()
   private lazy val serverBuilder = new SingleNodeServerBuilder()

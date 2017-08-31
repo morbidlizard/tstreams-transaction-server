@@ -1,11 +1,19 @@
 package it
 
-import java.util.concurrent.atomic.LongAdder
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.{AtomicLong, LongAdder}
 
-import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
+import com.bwsw.tstreamstransactionserver.configProperties.ClientExecutionContextGrid
+import com.bwsw.tstreamstransactionserver.netty.client.{ClientBuilder, InetClient}
+import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKClient
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.options._
 import com.bwsw.tstreamstransactionserver.rpc._
+import io.netty.buffer.ByteBuf
+import io.netty.channel.EventLoopGroup
+import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
+import io.netty.channel.nio.NioEventLoopGroup
+import org.apache.curator.retry.RetryForever
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.{Time, Utils}
 import util.Utils.startZkServerAndGetIt
@@ -13,7 +21,7 @@ import util.Utils.startZkServerAndGetIt
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, Promise}
 import util.Implicit.ProducerTransactionSortable
 
 class ServerClientInterconnectionTest
@@ -88,7 +96,7 @@ class ServerClientInterconnectionTest
     }
 
 
-  val secondsWait = 5
+  val secondsWait = 10
 
 
   "Client" should "not send requests to server if it is shutdown" in {
@@ -106,81 +114,83 @@ class ServerClientInterconnectionTest
     }
   }
 
-//  it should "retrieve prefix of checkpoint group server" in {
-//    val bundle = Utils.startTransactionServerAndClient(
-//      zkClient, serverBuilder, clientBuilder
-//    )
-//
-//    bundle.operate { _ =>
-//
-//      val isShutdown = false
-//
-//      val clientOpts =
-//        ClientOptions.ConnectionOptions()
-//
-//      val zookeeperOptions =
-//        bundle.serverBuilder.getZookeeperOptions
-//
-//      val authOpts =
-//        ClientOptions.AuthOptions(
-//          key = bundle.serverBuilder.getAuthenticationOptions.key
-//        )
-//
-//      val executionContext =
-//        new ClientExecutionContextGrid(clientOpts.threadPool)
-//
-//      val context =
-//        executionContext.context
-//
-//      val workerGroup: EventLoopGroup =
-//        if (SystemUtils.IS_OS_LINUX) {
-//          new EpollEventLoopGroup()
-//        }
-//        else {
-//          new NioEventLoopGroup()
-//        }
-//
-//      val zkConnection =
-//        new ZKClient(
-//          zookeeperOptions.endpoints,
-//          zookeeperOptions.sessionTimeoutMs,
-//          zookeeperOptions.connectionTimeoutMs,
-//          new RetryForever(zookeeperOptions.retryDelayMs),
-//          zookeeperOptions.prefix
-//        ).client
-//
-//      val requestIdToResponseCommonMap =
-//        new ConcurrentHashMap[Long, Promise[ByteBuf]](
-//          20000,
-//          1.0f,
-//          clientOpts.threadPool
-//        )
-//
-//      val requestIDGen = new AtomicLong(1L)
-//      val commonInetClient =
-//        new InetClient(
-//          zookeeperOptions,
-//          clientOpts,
-//          authOpts, {}, {},
-//          _ => {},
-//          workerGroup,
-//          isShutdown,
-//          zkConnection,
-//          requestIDGen,
-//          requestIdToResponseCommonMap,
-//          context
-//        )
-//
-//
-//      val prefix = commonInetClient.getZKCheckpointGroupServerPrefix()
-//      prefix shouldBe defined
-//
-//      prefix.get shouldBe serverBuilder
-//        .getServerRoleOptions.checkpointGroupMasterPrefix
-//
-//      commonInetClient.shutdown()
-//    }
-//  }
+  it should "retrieve prefix of checkpoint group server" in {
+    val bundle = Utils.startTransactionServerAndClient(
+      zkClient, serverBuilder, clientBuilder
+    )
+
+    bundle.operate { _ =>
+
+      val isShutdown = false
+
+      val clientOpts =
+        ClientOptions.ConnectionOptions(
+          prefix = bundle.serverBuilder.getCommonRoleOptions.commonMasterPrefix
+        )
+
+      val zookeeperOptions =
+        bundle.serverBuilder.getZookeeperOptions
+
+      val authOpts =
+        ClientOptions.AuthOptions(
+          key = bundle.serverBuilder.getAuthenticationOptions.key
+        )
+
+      val executionContext =
+        new ClientExecutionContextGrid(clientOpts.threadPool)
+
+      val context =
+        executionContext.context
+
+      val workerGroup: EventLoopGroup =
+        if (Epoll.isAvailable) {
+          new EpollEventLoopGroup()
+        }
+        else {
+          new NioEventLoopGroup()
+        }
+
+      val zkConnection =
+        new ZKClient(
+          zookeeperOptions.endpoints,
+          zookeeperOptions.sessionTimeoutMs,
+          zookeeperOptions.connectionTimeoutMs,
+          new RetryForever(zookeeperOptions.retryDelayMs),
+          clientOpts.prefix
+        ).client
+
+      val requestIdToResponseCommonMap =
+        new ConcurrentHashMap[Long, Promise[ByteBuf]](
+          20000,
+          1.0f,
+          clientOpts.threadPool
+        )
+
+      val requestIDGen = new AtomicLong(1L)
+
+      val commonInetClient =
+        new InetClient(
+          zookeeperOptions,
+          clientOpts,
+          authOpts, {}, {},
+          _ => {},
+          workerGroup,
+          isShutdown,
+          zkConnection,
+          requestIDGen,
+          requestIdToResponseCommonMap,
+          context
+        )
+
+
+      val result = commonInetClient.getZKCheckpointGroupServerPrefix()
+
+
+      Await.ready(result, 10.seconds)
+
+      commonInetClient.shutdown()
+    }
+  }
 
   it should "put producer and consumer transactions" in {
     val bundle = Utils.startTransactionServerAndClient(
@@ -198,7 +208,7 @@ class ServerClientInterconnectionTest
 
       val result = client.putTransactions(producerTransactions, consumerTransactions)
 
-      Await.result(result, 5.seconds) shouldBe true
+      Await.result(result, 10.seconds) shouldBe true
     }
   }
 

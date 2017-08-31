@@ -101,7 +101,8 @@ class CommonHandlerRouter(server: TransactionServer,
       checkpointMaster,
       notifier,
       authOptions,
-      orderedExecutionPool
+      orderedExecutionPool,
+      commitLogContext
     )),
 
     handlerReadAuth(new GetTransactionHandler(
@@ -129,7 +130,8 @@ class CommonHandlerRouter(server: TransactionServer,
       checkpointMaster,
       notifier,
       authOptions,
-      orderedExecutionPool
+      orderedExecutionPool,
+      commitLogContext
     )),
 
     handlerAuthData(new PutTransactionDataHandler(

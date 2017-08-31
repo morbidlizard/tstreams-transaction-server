@@ -72,7 +72,7 @@ class CommitLogOffsetTest
 
 
 
-  private val secondsWait = 5
+  private val secondsWait = 10
 
   "getCommitLogOffsets" should "return -1 for currentProcessedCommitLog and 0 for currentConstructedCommitLog as there is created commit log file at initialization of server and it's not processed." in {
     val bundle = Utils.startTransactionServerAndClient(

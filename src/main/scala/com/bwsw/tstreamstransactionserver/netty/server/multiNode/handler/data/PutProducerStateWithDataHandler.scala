@@ -30,7 +30,7 @@ class PutProducerStateWithDataHandler(bookkeeperMaster: BookkeeperMaster,
     descriptor.name,
     context) {
 
-  private val callback = new AsyncCallback.AddCallback {
+  private def callback = new AsyncCallback.AddCallback {
     override def addComplete(bkCode: Int,
                              ledgerHandle: LedgerHandle,
                              entryId: Long,
@@ -38,18 +38,21 @@ class PutProducerStateWithDataHandler(bookkeeperMaster: BookkeeperMaster,
       val promise = obj.asInstanceOf[Promise[Array[Byte]]]
       if (Code.OK == bkCode)
         promise.success(isPuttedResponse)
-      else
-        promise.success(isNotPuttedResponse)
-
+      else {
+        println(BKException.getMessage(bkCode))
+        promise.failure(BKException.create(bkCode).fillInStackTrace())
+      }
     }
   }
-  private def process(requestBody: Array[Byte]) = {
+
+  private def process(requestBody: Array[Byte]): Future[Array[Byte]] = {
 
     val promise = Promise[Array[Byte]]()
     Future {
       bookkeeperMaster.doOperationWithCurrentWriteLedger {
         case Left(throwable) =>
           promise.failure(throwable)
+//          throw throwable
 
         case Right(ledgerHandler) =>
           val record = new Record(
@@ -58,11 +61,15 @@ class PutProducerStateWithDataHandler(bookkeeperMaster: BookkeeperMaster,
             requestBody
           ).toByteArray
 
+//          ledgerHandler.addEntry(record)
+//          isPuttedResponse
+
           ledgerHandler.asyncAddEntry(record, callback, promise)
-          promise
+//          promise
       }
-    }(context)
-      .flatMap(_ => promise.future)(context)
+    }(context).flatMap(_ =>
+      promise.future.recoverWith{case _ :BKException => process(requestBody)}(context)
+    )(context)
   }
 
   override protected def fireAndForget(message: RequestMessage): Unit = {

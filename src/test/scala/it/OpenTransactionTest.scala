@@ -33,7 +33,7 @@ class OpenTransactionTest
 
   private def getRandomStream = Utils.getRandomStream
 
-  private val secondsWait = 5
+  private val secondsWait = 10
 
   override def beforeAll(): Unit = {
     zkServer

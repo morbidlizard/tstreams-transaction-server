@@ -3,6 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.client
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
+import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollSocketChannel}
 import io.netty.channel.nio.NioEventLoopGroup
@@ -14,52 +15,32 @@ import org.slf4j.LoggerFactory
 
 
 class NettyConnection(workerGroup: EventLoopGroup,
+                      initialConnectionAddress: SocketHostPortPair,
+                      connectionOptions: ConnectionOptions,
                       handlers: => Seq[ChannelHandler],
-                      connectionTimeoutMs: Int,
-                      reconnectDelayMs: Int,
-                      getConnectionAddress: => SocketHostPortPair,
-                      onConnectionLostDo: => Unit) {
+                      onConnectionLostDo: => Unit)
+  extends MasterReelectionListener
+{
+
   private val logger =
     LoggerFactory.getLogger(this.getClass)
 
   private val isStopped =
     new AtomicBoolean(false)
-  @volatile private var channel: ChannelFuture = {
-    val socket = getConnectionAddress
-    bootstrap.connect(socket.address, socket.port)
-  }
 
-  final def reconnect(): Unit = {
-    channel.channel().deregister()
-  }
+  private val channelType = determineChannelType()
 
-  def getChannel(): Channel = {
-    channel.channel()
-  }
-
-  def stop(): Unit = {
-    val isNotStopped =
-      isStopped.compareAndSet(false, true)
-    if (isNotStopped) {
-      scala.util.Try(
-        channel.channel()
-          .close()
-          .cancel(true)
-      )
-    }
-  }
-
-  private def bootstrap: Bootstrap = {
+  private val bootstrap: Bootstrap = {
     new Bootstrap()
       .group(workerGroup)
-      .channel(determineChannelType())
+      .channel(channelType)
       .option(
         ChannelOption.SO_KEEPALIVE,
         java.lang.Boolean.FALSE
       )
       .option(
         ChannelOption.CONNECT_TIMEOUT_MILLIS,
-        int2Integer(connectionTimeoutMs)
+        int2Integer(connectionOptions.connectionTimeoutMs)
       )
       .handler(new ChannelInitializer[SocketChannel] {
         override def initChannel(ch: SocketChannel): Unit = {
@@ -75,12 +56,21 @@ class NettyConnection(workerGroup: EventLoopGroup,
 
           pipeline.addLast(
             new NettyConnectionHandler(
-              reconnectDelayMs,
+              connectionOptions.retryDelayMs,
               onConnectionLostDo,
               connect()
             ))
         }
       })
+  }
+
+
+  @volatile private var master: SocketHostPortPair =
+    initialConnectionAddress
+  @volatile private var channel: ChannelFuture = {
+    bootstrap
+      .connect(master.address, master.port)
+      .awaitUninterruptibly()
   }
 
   private def determineChannelType(): Class[_ <: SocketChannel] =
@@ -93,7 +83,7 @@ class NettyConnection(workerGroup: EventLoopGroup,
     }
 
   private final def connect() = {
-    val socket = getConnectionAddress
+    val socket = master
     bootstrap.connect(
       socket.address,
       socket.port
@@ -107,6 +97,40 @@ class NettyConnection(workerGroup: EventLoopGroup,
           logger.debug(s"Connected to: ${futureChannel.channel().remoteAddress()}")
         channel = futureChannel
       }
+    }
+  }
+
+  final def reconnect(): Unit = {
+    channel.channel().deregister()
+  }
+
+  final def getChannel(): Channel = {
+    channel.channel()
+  }
+
+  def stop(): Unit = {
+    val isNotStopped =
+      isStopped.compareAndSet(false, true)
+    if (isNotStopped) {
+      scala.util.Try(
+        channel.channel()
+          .close()
+          .cancel(true)
+      )
+    }
+  }
+
+
+  override def masterChanged(newMaster: Either[Throwable, Option[SocketHostPortPair]]): Unit = {
+    newMaster match {
+      case Left(throwable) =>
+        stop()
+        throw throwable
+      case Right(socketOpt) =>
+        socketOpt.foreach { socket =>
+          master = socket
+          reconnect()
+        }
     }
   }
 }

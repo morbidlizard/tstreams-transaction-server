@@ -34,7 +34,7 @@ class SingleNodeServerProducerTransactionNotificationTest
   private lazy val (zkServer, zkClient) =
     startZkServerAndGetIt
 
-  val secondsWait = 5
+  val secondsWait = 10
 
   override def beforeAll(): Unit = {
     zkServer

@@ -16,7 +16,7 @@ import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Promise
 
 
 class BookkeeperMasterTest
@@ -197,21 +197,7 @@ class BookkeeperMasterTest
   }
 
 //  it should "create ledger, put producer records and through the while read them" in {
-//    val bundle = util.multiNode
-//      .Util.getTransactionServerBundle(zkClient)
-//
-//    bundle.operate { transactionServer =>
-//      val partition = 1
-//      val transactionNumber = 30
-//
-//      val zkTree1 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-//      val zkTree2 = new ZookeeperTreeListLong(zkClient, s"/$uuid")
-//      val zkTrees = Array(zkTree1, zkTree2)
-//
-//      val bookkeeperMaster =
-//        new BookkeeperMaster(
-//          bookkeeper,
-//          masterSelector,
+//    val bundle = util.multiNodeServer
 //          bookkeeperOptions,
 //          zkTree1,
 //          createNewLedgerEveryTimeMs

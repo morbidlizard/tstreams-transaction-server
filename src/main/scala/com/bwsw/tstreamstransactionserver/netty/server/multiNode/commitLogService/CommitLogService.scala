@@ -10,16 +10,10 @@ final class CommitLogService(rocksDB: KeyValueDbManager) {
 
   //TODO rename function
   def getLastProcessedLedgersAndRecordIDs: Array[LedgerMetadata] = {
-    val iterator = bookkeeperLogDatabase.iterator
-    iterator.seek(BigCommit.bookkeeperKey)
-
-    val records = if (iterator.isValid)
-      Some(MetadataRecord.fromByteArray(iterator.value()).records)
-    else
-      None
-
-    iterator.close()
-    records.getOrElse(Array.empty[LedgerMetadata])
+    Option(bookkeeperLogDatabase.get(BigCommit.bookkeeperKey))
+      .map(MetadataRecord.fromByteArray)
+      .map(_.records)
+      .getOrElse(Array.empty[LedgerMetadata])
   }
 
 

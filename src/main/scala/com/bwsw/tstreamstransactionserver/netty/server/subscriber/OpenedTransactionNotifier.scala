@@ -41,6 +41,7 @@ final class OpenedTransactionNotifier(observer: SubscribersObserver,
                         authKey: String,
                         isNotReliable: Boolean): Unit = {
     // 1. manage next counter for (stream, part)
+
     val streamPartitionUnit = StreamPartitionUnit(stream, partition)
     val currentCounter = counters.computeIfAbsent(
       streamPartitionUnit, _ => new AtomicLong(-1L)

@@ -14,7 +14,7 @@ class SingleNodeServerGetTransactionTest
     with Matchers
     with BeforeAndAfterAll
 {
-  private val secondsToWait = 5.seconds
+  private val secondsToWait = 10.seconds
 
   private lazy val serverBuilder =
     new SingleNodeServerBuilder()

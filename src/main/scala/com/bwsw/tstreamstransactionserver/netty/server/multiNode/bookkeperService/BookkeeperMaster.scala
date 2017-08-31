@@ -10,9 +10,8 @@ import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.Bookkee
 import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{BKException, BookKeeper}
 
-import scala.collection.JavaConverters._
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.collection.mutable.ArrayBuffer
 
 class BookkeeperMaster(bookKeeper: BookKeeper,
                        master: LeaderSelectorInterface,
@@ -21,9 +20,8 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
                        timeBetweenCreationOfLedgers: Int)
   extends Runnable {
 
-
   private val openedLedgers =
-    new java.util.concurrent.LinkedBlockingQueue[LedgerRequests](10)
+    new java.util.concurrent.LinkedBlockingQueue[org.apache.bookkeeper.client.LedgerHandle](10)
 
   private def closeLastLedger(): Unit = {
     zkTreeListLedger
@@ -33,23 +31,10 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
       }
   }
 
-  private val immediateContext = new ExecutionContext {
-    def execute(runnable: Runnable) {
-      runnable.run()
-    }
-    def reportFailure(cause: Throwable) {}
-  }
-
-  private def closeLedger(ledgerRequests: LedgerRequests): Unit = {
-    implicit val context = immediateContext
-    val requests = ledgerRequests
-      .requests
-      .asScala
-      .withFilter(request => !request.isCompleted)
-      .map(_.future)
-    Future
-      .sequence(requests)
-      .onComplete(_ => ledgerRequests.ledger.close())
+  private def closeLedger(ledgerHandle: org.apache.bookkeeper.client.LedgerHandle): Unit = {
+    this.synchronized(
+      ledgerHandle.close()
+    )
   }
 
   private def closeLedger(id: Long): Unit = {
@@ -64,7 +49,7 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
       }
     }
   }
-
+  private var isSorted = 0L
   private final def whileLeaderDo() = {
 
     var lastAccessTimes = 0L
@@ -96,8 +81,16 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
               closeLedger(ledgerRequest)
             }
 
+            val timestamp = System.currentTimeMillis()
+            if (isSorted > timestamp) println("Bad master")
+            isSorted = timestamp
+//            timestamps += timestamp
+//            println((timestamps zip timestamps.sorted)
+//              .forall{case (a,b) => a == b})
             val timestampRecord =
-              new TimestampRecord(System.currentTimeMillis())
+              new TimestampRecord(timestamp)
+
+
 
             ledgerHandle.addEntry(timestampRecord.toByteArray)
 
@@ -105,8 +98,7 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
               ledgerHandle.getId
             )
 
-
-            openedLedgers.add(LedgerRequests(ledgerHandle))
+            openedLedgers.add(ledgerHandle)
           }
           onBeingLeaderDo()
         }
@@ -131,7 +123,7 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
   }
 
   @tailrec
-  private def retryToGetLedger: Either[ServerIsSlaveException, LedgerRequests] = {
+  private def retryToGetLedger: Either[ServerIsSlaveException, org.apache.bookkeeper.client.LedgerHandle] = {
     val openedLedger = openedLedgers.peek()
     if (openedLedger == null) {
       if (master.hasLeadership) {
@@ -153,24 +145,19 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
   }
 
   @throws[Exception]
-  def doOperationWithCurrentWriteLedger(operate: Either[ServerIsSlaveException, org.apache.bookkeeper.client.LedgerHandle] => Promise[_]): Unit = {
+  def doOperationWithCurrentWriteLedger[T](operate: Either[ServerIsSlaveException, org.apache.bookkeeper.client.LedgerHandle] => T): T = {
+
     if (master.hasLeadership) {
-      try {
-        val ledgerRequests =
-          retryToGetLedger
-
-        val currentLedgerHandle =
-          ledgerRequests.map(_.ledger)
-
-        ledgerRequests.foreach(ledgerRequest =>
-          ledgerRequest.requests.add(operate(currentLedgerHandle))
-        )
-      }
-      catch {
-        case _: Throwable =>
-//          throw throwable
-      }
-
+     this.synchronized {
+       try {
+         val ledgerHandle = retryToGetLedger
+         operate(ledgerHandle)
+       }
+       catch {
+         case throwable: Throwable =>
+           throw throwable
+       }
+     }
     } else {
       operate(Left(new ServerIsSlaveException))
     }
@@ -183,7 +170,7 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
           lead()
         else {
           val ledgersRequests =
-            new util.LinkedList[LedgerRequests]()
+            new util.LinkedList[org.apache.bookkeeper.client.LedgerHandle]()
           openedLedgers.drainTo(ledgersRequests)
           ledgersRequests.forEach(closeLedger)
         }

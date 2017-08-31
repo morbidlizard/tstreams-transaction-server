@@ -19,6 +19,7 @@ class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader
     new BigCommitWithFrameParser(bigCommit)
   }
 
+  private var isSorted = 0L
   def processAndPersistRecords(): Boolean = {
     val ledgerRecordIDs = commitLogService
       .getLastProcessedLedgersAndRecordIDs
@@ -32,6 +33,14 @@ class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader
     else {
       val bigCommit = getBigCommit(ledgerIDsAndTheirLastRecordIDs)
       val frames = records.map(record => new BookkeeperRecordFrame(record))
+
+      val newTimestamp = frames.minBy(_.timestamp).timestamp
+      if (isSorted > newTimestamp) println(s"Bad read: It was $isSorted, next $newTimestamp")
+      isSorted = newTimestamp
+
+//      println(s"[Time range]" +
+//        s"${frames.minBy(_.timestamp).timestamp} to ${frames.maxBy(_.timestamp).timestamp}, ${ledgerRecordIDs.mkString(" ")}," +
+//        s"${records.map(_.timestamp).sorted.mkString("[",",","]")}")
       bigCommit.addFrames(frames)
       bigCommit.commit()
 

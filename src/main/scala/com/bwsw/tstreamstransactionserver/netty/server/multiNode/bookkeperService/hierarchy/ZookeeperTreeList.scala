@@ -20,6 +20,17 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
       Some(bytesToEntityID(binaryID))
   }
 
+  def cachedFirstEntityID: Option[T] = {
+    val binaryID = rootNode
+      .getLocalCachedCurrentData
+      .firstID
+    if (binaryID.isEmpty)
+      None
+    else
+      Some(bytesToEntityID(binaryID))
+  }
+
+
   def createNode(entity: T): Unit = {
     val lastID = entityIDtoBytes(entity)
     val path = buildPath(entity)
@@ -78,6 +89,16 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
   def lastEntityID: Option[T] = {
     val rootNodeData = rootNode.getCurrentData
     val binaryID = rootNodeData.lastID
+    if (binaryID.isEmpty)
+      None
+    else
+      Some(bytesToEntityID(binaryID))
+  }
+
+  def cachedLastEntityID: Option[T] = {
+    val binaryID = rootNode
+      .getLocalCachedCurrentData
+      .lastID
     if (binaryID.isEmpty)
       None
     else

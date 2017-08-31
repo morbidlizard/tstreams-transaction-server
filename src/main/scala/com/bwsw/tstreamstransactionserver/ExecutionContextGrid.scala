@@ -37,27 +37,27 @@ class ExecutionContextGrid(nContexts: Int,
                            f: => java.util.concurrent.ExecutorService) {
   require(nContexts > 0)
 
-  private val contexts = Array.fill(nContexts)(newExecutionContext)
+  private val contexts =
+    Array.fill(nContexts)(newExecutionContext)
 
-  def getContext(value: Long): ExecutionContextExecutorService = contexts((value % nContexts).toInt)
+  def getContext(value: Long): ExecutionContextExecutorService =
+    contexts((value % nContexts).toInt)
 
-  def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
+  def stopAccessNewTasks(): Unit =
+    contexts.foreach(_.shutdown())
 
   def awaitAllCurrentTasksAreCompleted(): Unit =
-    contexts.foreach(context =>
-      context.awaitTermination(
-        ExecutionContextGrid.TASK_TERMINATION_MAX_WAIT_MS,
-        TimeUnit.MILLISECONDS
-      )
+    contexts.foreach(_.awaitTermination(
+      ExecutionContextGrid.TASK_TERMINATION_MAX_WAIT_MS,
+      TimeUnit.MILLISECONDS)
     )
 
-  private def newExecutionContext = ExecutionContext.fromExecutorService(f)
+  private def newExecutionContext =
+    ExecutionContext.fromExecutorService(f)
 }
 
 class SinglePoolExecutionContextGrid(f: => java.util.concurrent.ExecutorService)
-  extends ExecutionContextGrid(
-    1,
-    f) {
+  extends ExecutionContextGrid(1, f) {
   def getContext: ExecutionContextExecutorService = getContext(0)
 }
 
@@ -74,12 +74,13 @@ object ExecutionContextGrid {
         0L,
         TimeUnit.MILLISECONDS,
         new LinkedBlockingQueue(),
-        new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
+        new ThreadFactoryBuilder().setNameFormat(nameFormat).build(),
+        new DiscardPolicy()
+      )
     )
 
   /** Creates FixedThreadPool with defined threadNumber */
-  def apply(threadNumber: Int,
-            nameFormat: String) =
+  def apply(threadNumber: Int, nameFormat: String) =
     new SinglePoolExecutionContextGrid(
       new ThreadPoolExecutor(
         threadNumber,
@@ -87,7 +88,10 @@ object ExecutionContextGrid {
         0L,
         TimeUnit.MILLISECONDS,
         new LinkedBlockingQueue(),
-        new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
+        new ThreadFactoryBuilder().setNameFormat(nameFormat).build(),
+        new DiscardPolicy()
+      )
+
     )
 }
 

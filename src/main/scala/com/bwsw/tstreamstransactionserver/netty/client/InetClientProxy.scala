@@ -44,6 +44,7 @@ class InetClientProxy(connectionOptions: ConnectionOptions,
   private final val processTransactionsPutOperationPool =
     ExecutionContextGrid("ClientTransactionPool-%d")
   private final val contextForProducerTransactions =
+//    context
     processTransactionsPutOperationPool.getContext
 
 
@@ -128,7 +129,7 @@ class InetClientProxy(connectionOptions: ConnectionOptions,
     }(context)
 
 
-  /** Retrieving an offset between last processed commit log file and current commit log file where a server writes data.
+  /** Retrieving an offset between last processed commit log file and current constructed commit log file where a server writes data.
     *
     * @return Future of getCommitLogOffsets operation that can be completed or not. If it is completed it returns:
     *         1)Thrift Struct [[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo]] which contains:

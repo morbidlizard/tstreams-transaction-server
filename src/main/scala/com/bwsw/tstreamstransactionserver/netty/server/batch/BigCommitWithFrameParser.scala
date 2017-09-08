@@ -58,7 +58,11 @@ class BigCommitWithFrameParser(bigCommit: BigCommit) {
 
   def commit(): Boolean = {
 //    if (producerRecords.nonEmpty)
-//      println(producerRecords.mkString("[\n  ","\n  ","\n]"))
+//      println(producerRecords.sorted.mkString("[\n  ","\n  ","\n]"))
+
+//    if (producerRecords.nonEmpty)
+//      println(producerRecords.sorted.map(_.timestamp).mkString("[\n  ","\n  ","\n]"))
+//
 
     bigCommit.putProducerTransactions(
       producerRecords.sorted

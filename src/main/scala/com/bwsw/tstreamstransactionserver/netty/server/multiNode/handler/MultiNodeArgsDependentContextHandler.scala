@@ -1,5 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler
 
+import java.util.concurrent.locks.ReentrantLock
+
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import com.bwsw.tstreamstransactionserver.netty.server.OrderedExecutionContextPool
 import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientRequestHandler

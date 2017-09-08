@@ -10,13 +10,36 @@ class BookkeeperWrapper(bookKeeper: BookKeeper,
                         bookkeeperOptions: BookkeeperOptions)
   extends LedgerManager {
 
-  override def createLedger(): LedgerHandle = {
+  override def createLedger(timestamp: Long): LedgerHandle = {
+
+    val metadata =
+      new java.util.HashMap[String, Array[Byte]]
+
+    val size =
+      java.lang.Long.BYTES
+    val buffer =
+      java.nio.ByteBuffer
+        .allocate(size)
+        .putLong(timestamp)
+    buffer.flip()
+
+    val bytes = if (buffer.hasArray)
+      buffer.array()
+    else {
+      val bytes = new Array[Byte](size)
+      buffer.get(bytes)
+      bytes
+    }
+
+    metadata.put(LedgerHandle.KeyTime, bytes)
+
     val ledgerHandle = bookKeeper.createLedger(
       bookkeeperOptions.ensembleNumber,
       bookkeeperOptions.writeQuorumNumber,
       bookkeeperOptions.ackQuorumNumber,
       BookKeeper.DigestType.MAC,
-      bookkeeperOptions.password
+      bookkeeperOptions.password,
+      metadata
     )
     new BookKeeperLedgerHandleWrapper(ledgerHandle)
   }

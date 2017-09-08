@@ -40,10 +40,6 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
                               partition: Int,
                               transactionId: Long,
                               count: Int,
-                              status: TransactionState.Status,
-                              ttlMs: Long,
-                              authKey: String,
-                              isNotReliable: Boolean,
                               message: RequestMessage,
                               ctx: ChannelHandlerContext)
     extends AsyncCallback.AddCallback {
@@ -66,15 +62,14 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
           partition,
           transactionId,
           count,
-          status,
+          TransactionState.Status.Instant,
           Long.MaxValue,
-          authKey,
-          isNotReliable
+          authOptions.key,
+          isNotReliable = false
         )
         promise.success(true)
       }
       else {
-        println(BKException.getMessage(bkCode))
         promise.failure(BKException.create(bkCode).fillInStackTrace())
       }
     }
@@ -83,11 +78,7 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
   private class FireAndForgerCallback(stream: Int,
                                       partition: Int,
                                       transactionId: Long,
-                                      count: Int,
-                                      status: TransactionState.Status,
-                                      ttlMs: Long,
-                                      authKey: String,
-                                      isNotReliable: Boolean)
+                                      count: Int)
     extends AsyncCallback.AddCallback {
     override def addComplete(bkCode: Int,
                              ledgerHandle: LedgerHandle,
@@ -100,33 +91,32 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
           partition,
           transactionId,
           count,
-          status,
+          TransactionState.Status.Instant,
           Long.MaxValue,
-          authKey,
-          isNotReliable
+          authOptions.key,
+          isNotReliable = true
         )
         promise.success(true)
       }
       else {
-        println(BKException.getMessage(bkCode))
         promise.failure(BKException.create(bkCode).fillInStackTrace())
       }
     }
   }
 
-  private def callback = new AsyncCallback.AddCallback {
-    override def addComplete(bkCode: Int,
-                             ledgerHandle: LedgerHandle,
-                             entryId: Long,
-                             obj: scala.Any): Unit = {
-      val promise = obj.asInstanceOf[Promise[Boolean]]
-      if (Code.OK == bkCode)
-        promise.success(true)
-      else
-        promise.failure(BKException.create(bkCode).fillInStackTrace())
-
-    }
-  }
+//  private def callback = new AsyncCallback.AddCallback {
+//    override def addComplete(bkCode: Int,
+//                             ledgerHandle: LedgerHandle,
+//                             entryId: Long,
+//                             obj: scala.Any): Unit = {
+//      val promise = obj.asInstanceOf[Promise[Boolean]]
+//      if (Code.OK == bkCode)
+//        promise.success(true)
+//      else
+//        promise.failure(BKException.create(bkCode).fillInStackTrace())
+//
+//    }
+//  }
 
   private def prepareData(txn: PutSimpleTransactionAndData.Args,
                           transactionID: Long): ProducerTransactionsAndData = {
@@ -136,7 +126,8 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
         txn.partition,
         transactionID,
         TransactionStates.Opened,
-        txn.data.size, 3000L
+        txn.data.size,
+        3000L
       ),
       ProducerTransaction(
         txn.streamID,
@@ -153,106 +144,33 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
     producerTransactionsAndData
   }
 
-  private def process(txn: PutSimpleTransactionAndData.Args,
-                      transactionID: Long,
-                      context: ExecutionContext): Future[Boolean] = {
-
-    val promise = Promise[Boolean]()
-    Future {
-      val requestBody = PutTransactionsAndData.encode(
-        prepareData(
-          txn,
-          transactionID
-        )
-      )
-
-      bookkeeperMaster.doOperationWithCurrentWriteLedger {
-        case Left(throwable) =>
-          promise.failure(throwable)
-
-        case Right(ledgerHandler) =>
-          val record = new Record(
-            Frame.PutSimpleTransactionAndDataType.id.toByte,
-            System.currentTimeMillis(),
-            requestBody
-          ).toByteArray
-
-          ledgerHandler.asyncAddEntry(record, callback, promise)
-      }
-    }(context).flatMap(_ =>
-      promise.future.recoverWith { case error: BKException => process(txn, transactionID, context) }(context)
-    )(context)
-  }
-
-
-//  override protected def fireAndForget(message: RequestMessage): Unit = {
-//    val args = descriptor.decodeRequest(message.body)
-//    val context = orderedExecutionPool.pool(args.streamID, args.partition)
-//    val transactionID = server.getTransactionID
-//    process(args, transactionID, context).map { _ =>
-//      notifier.notifySubscribers(
-//        args.streamID,
-//        args.partition,
-//        transactionID,
-//        args.data.size,
-//        TransactionState.Status.Instant,
-//        Long.MaxValue,
-//        authOptions.key,
-//        isNotReliable = true
-//      )
-//    }(context)
-//  }
-
-  //  override protected def getResponse(message: RequestMessage,
-  //                                     ctx: ChannelHandlerContext): (Future[_], ExecutionContext) = {
-  //    val args = descriptor.decodeRequest(message.body)
-  //    val context = orderedExecutionPool.pool(args.streamID, args.partition)
-  //    val transactionID = server.getTransactionID
-  //    val result =
-  //      process(args, transactionID, context).map { _ =>
-  //        val response = descriptor.encodeResponse(
-  //          TransactionService.PutSimpleTransactionAndData.Result(
-  //            Some(transactionID)
-  //          )
-  //        )
-  //        sendResponse(message, response, ctx)
-  //
-  //        notifier.notifySubscribers(
-//            args.streamID,
-//            args.partition,
-//            transactionID,
-//            args.data.size,
-//            TransactionState.Status.Instant,
-//            Long.MaxValue,
-//            authOptions.key,
-//            isNotReliable = false
-  //        )
-  //      }(context)
-  //    (result, context)
-  //  }
-
-
   override protected def fireAndForget(message: RequestMessage): Unit = {
     val txn = descriptor.decodeRequest(message.body)
-//    val context = orderedExecutionPool.pool(txn.streamID, txn.partition)
-    val context = this.context
-    val transactionID = server.getTransactionID
+    val context = orderedExecutionPool.pool(txn.streamID, txn.partition)
 
     def helper(): Future[Boolean] = {
       val promise = Promise[Boolean]()
       Future {
-        val requestBody = PutTransactionsAndData.encode(
-          prepareData(
-            txn,
-            transactionID
-          )
-        )
-
         bookkeeperMaster.doOperationWithCurrentWriteLedger {
           case Left(throwable) =>
             promise.failure(throwable)
 
           case Right(ledgerHandler) =>
+            val transactionID = server.getTransactionID
+            val requestBody = PutTransactionsAndData.encode(
+              prepareData(
+                txn,
+                transactionID
+              )
+            )
+
+            val callback = new FireAndForgerCallback(
+              txn.streamID,
+              txn.partition,
+              transactionID,
+              txn.data.size
+            )
+
             val record = new Record(
               Frame.PutSimpleTransactionAndDataType.id.toByte,
               System.currentTimeMillis(),
@@ -260,48 +178,36 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
             ).toByteArray
 
 
-            val callback = new FireAndForgerCallback(
-              txn.streamID,
-              txn.partition,
-              transactionID,
-              txn.data.size,
-              TransactionState.Status.Instant,
-              Long.MaxValue,
-              authOptions.key,
-              isNotReliable = true
-            )
-
             ledgerHandler.asyncAddEntry(record, callback, promise)
         }
-      }(context).flatMap(_ =>
-        promise.future.recoverWith { case error: BKException => process(txn, transactionID, context) }(context)
-      )(context)
+      }(context)
+      promise.future.recoverWith { case _: BKException => helper() }(context)
     }
+
     helper()
   }
 
   override protected def getResponse(message: RequestMessage,
                                      ctx: ChannelHandlerContext): (Future[_], ExecutionContext) = {
     val txn = descriptor.decodeRequest(message.body)
-//    val context = orderedExecutionPool.pool(txn.streamID, txn.partition)
-    val context = this.context
-    val transactionID = server.getTransactionID
+    val context = orderedExecutionPool.pool(txn.streamID, txn.partition)
 
     def helper(): Future[Boolean] = {
       val promise = Promise[Boolean]()
       Future {
-        val requestBody = PutTransactionsAndData.encode(
-          prepareData(
-            txn,
-            transactionID
-          )
-        )
-
         bookkeeperMaster.doOperationWithCurrentWriteLedger {
           case Left(throwable) =>
             promise.failure(throwable)
 
           case Right(ledgerHandler) =>
+            val transactionID = server.getTransactionID
+            val requestBody = PutTransactionsAndData.encode(
+              prepareData(
+                txn,
+                transactionID
+              )
+            )
+
             val record = new Record(
               Frame.PutSimpleTransactionAndDataType.id.toByte,
               System.currentTimeMillis(),
@@ -314,19 +220,15 @@ class PutSimpleTransactionAndDataHandler(server: TransactionServer,
               txn.partition,
               transactionID,
               txn.data.size,
-              TransactionState.Status.Instant,
-              Long.MaxValue,
-              authOptions.key,
-              isNotReliable = false,
               message,
               ctx
             )
 
             ledgerHandler.asyncAddEntry(record, callback, promise)
         }
-      }(context).flatMap(_ =>
-        promise.future.recoverWith { case error: BKException => process(txn, transactionID, context) }(context)
-      )(context)
+      }(context)
+
+      promise.future.recoverWith { case _: BKException => helper() }(context)
     }
 
     (helper(), context)

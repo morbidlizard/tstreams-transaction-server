@@ -2,11 +2,14 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex}
 
+object LedgerHandle {
+  val KeyTime = "t"
+}
+
 abstract class LedgerHandle(val id: Long) {
   def addRecord(data: Record): Long
 
-  def addRecordAsync(data: Record)(onSuccessDo: => Unit,
-                                   onFailureDo: => Unit): Unit
+  val getCreationTime: Long
 
   def getRecord(id: Long): Record
 
@@ -20,3 +23,6 @@ abstract class LedgerHandle(val id: Long) {
 
   def close(): Unit
 }
+
+
+

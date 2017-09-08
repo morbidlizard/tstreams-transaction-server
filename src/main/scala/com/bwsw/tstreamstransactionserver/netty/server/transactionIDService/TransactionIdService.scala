@@ -32,21 +32,21 @@ object TransactionIdService
     new AtomicReference(transactionGeneratorUnit)
   }
 
-  override def getTransaction(): Long = {
-    val now = System.currentTimeMillis()
-    val txn = transactionIdAndCurrentTime.updateAndGet(update(now))
-    getTransaction(now) + txn.transactionId
-  }
-
-  private def update(now: Long) = new UnaryOperator[TransactionGeneratorUnit] {
+  private val update = new UnaryOperator[TransactionGeneratorUnit] {
     override def apply(transactionGenUnit: TransactionGeneratorUnit): TransactionGeneratorUnit = {
+      val now = System.currentTimeMillis()
       if (now - transactionGenUnit.currentTime > 0L) {
-        TransactionGeneratorUnit(1 + 1, now)
+        TransactionGeneratorUnit(0, now)
       } else
         transactionGenUnit.copy(
           transactionId = transactionGenUnit.transactionId + 1
         )
     }
+  }
+
+  override def getTransaction(): Long = {
+    val txn = transactionIdAndCurrentTime.getAndUpdate(update)
+    getTransaction(txn.currentTime) + txn.transactionId
   }
 
   override def getTransaction(timestamp: Long): Long = {

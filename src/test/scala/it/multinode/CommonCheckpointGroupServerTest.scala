@@ -194,7 +194,7 @@ class CommonCheckpointGroupServerTest
           Await.result(client.getCommitLogOffsets(), secondsWait.seconds)
 
         isNotOffsetOvercome =
-          currentOffset.currentConstructedCommitLog > res.currentProcessedCommitLog
+          currentOffset.currentConstructedCommitLog + 1 > res.currentProcessedCommitLog
       }
 
       val dataFromDatabase = Await.result(client.getTransactionData(streamID, txn.partition, txn.transactionID, 0, dataAmount), secondsWait.seconds)

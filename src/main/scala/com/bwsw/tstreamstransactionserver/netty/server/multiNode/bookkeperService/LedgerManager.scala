@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
 abstract class LedgerManager() {
-  def createLedger(): LedgerHandle
+  def createLedger(timestamp: Long): LedgerHandle
 
   def openLedger(id: Long): Option[LedgerHandle]
 

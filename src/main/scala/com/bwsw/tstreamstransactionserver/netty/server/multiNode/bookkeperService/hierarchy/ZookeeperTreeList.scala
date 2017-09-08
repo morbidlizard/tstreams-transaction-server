@@ -105,6 +105,8 @@ abstract class ZookeeperTreeList[T](client: CuratorFramework,
       Some(bytesToEntityID(binaryID))
   }
 
+
+
   def getNextNode(entity: T): Option[T] = {
     val path = buildPath(entity)
     val data = client.getData

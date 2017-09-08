@@ -12,11 +12,11 @@ class LedgerManagerInMemory
   private val storage =
     new java.util.concurrent.ConcurrentHashMap[Long, LedgerHandle]()
 
-  override def createLedger(): LedgerHandle = {
+  override def createLedger(timestamp: Long): LedgerHandle = {
     val id = ledgerIDGen.getAndIncrement()
 
     val previousLedger = storage.computeIfAbsent(id, {id =>
-      new LedgerHandleInMemory(id)
+      new LedgerHandleInMemory(id, timestamp)
     })
 
     if (previousLedger != null)

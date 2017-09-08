@@ -39,7 +39,6 @@ class PutTransactionsHandler(bookkeeperMaster: BookkeeperMaster,
       if (Code.OK == bkCode)
         promise.success(isPuttedResponse)
       else {
-        println(BKException.getMessage(bkCode))
         promise.failure(BKException.create(bkCode).fillInStackTrace())
       }
 
@@ -48,7 +47,6 @@ class PutTransactionsHandler(bookkeeperMaster: BookkeeperMaster,
 
   private def process(requestBody: Array[Byte]): Future[Array[Byte]] = {
     val promise = Promise[Array[Byte]]()
-
     Future {
       bookkeeperMaster.doOperationWithCurrentWriteLedger {
         case Left(throwable) =>
@@ -61,12 +59,9 @@ class PutTransactionsHandler(bookkeeperMaster: BookkeeperMaster,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
-//          ledgerHandler.addEntry(record)
-//          isPuttedResponse
       }
-    }(context).flatMap(_ =>
-      promise.future.recoverWith{case _ :BKException => process(requestBody)}(context)
-    )(context)
+    }(context)
+    promise.future.recoverWith { case _: BKException => process(requestBody) }(context)
   }
 
   override protected def fireAndForget(message: RequestMessage): Unit = {

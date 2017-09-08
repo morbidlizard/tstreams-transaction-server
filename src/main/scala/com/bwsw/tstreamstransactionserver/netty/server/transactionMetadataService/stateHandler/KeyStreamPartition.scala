@@ -26,19 +26,20 @@ case class KeyStreamPartition(stream: Int,
     val size = java.lang.Integer.BYTES +
       java.lang.Integer.BYTES
 
-    val buffer =
-      java.nio.ByteBuffer.allocate(size)
-        .putInt(stream)
-        .putInt(partition)
-
+    val buffer = java.nio.ByteBuffer
+      .allocate(size)
+      .putInt(stream)
+      .putInt(partition)
     buffer.flip()
 
-    val bytes = {
+    if (buffer.hasArray) {
+      buffer.array()
+    }
+    else {
       val bytes = new Array[Byte](size)
       buffer.get(bytes)
       bytes
     }
-    bytes
   }
 }
 

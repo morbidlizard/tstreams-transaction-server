@@ -1,12 +1,16 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{LedgerHandle, LedgerManager}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZkMultipleTreeListReader.{NoLedgerExist, NoRecordRead}
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.LedgerMetadata
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex, TimestampRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZkMultipleTreeListReader._
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata._
+
+import scala.collection.mutable
+
 
 private object ZkMultipleTreeListReader {
   private val NoLedgerExist: Long = -1L
+
   private val NoRecordRead: Long = -1L
 }
 
@@ -22,14 +26,14 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
         processedLastRecordIDsAcrossLedgers.length
       )
 
-    val nextRecordsAndLedgersToProcess: Array[LedgerMetadata] =
-      getNextLedgersIfNecessary(
-        getRecordsToStartWith(processedLastRecordIDsAcrossLedgersCopy)
+    val nextRecordsAndLedgersToProcess =
+      getNextLedger(
+        zkTreeLists zip getRecordsToStartWith(processedLastRecordIDsAcrossLedgersCopy)
       )
 
     if (
-      nextRecordsAndLedgersToProcess.exists(NoLedgerExist == _.id) ||
-        checkAllLedgersCanBeProcessed(nextRecordsAndLedgersToProcess)
+      nextRecordsAndLedgersToProcess.exists(metadata =>
+        NoLedgerExist == metadata.id || MoveToNextLedgerStatus == metadata.metadataStatus)
     ) {
       (Array.empty[Record], processedLastRecordIDsAcrossLedgersCopy)
     }
@@ -39,29 +43,53 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
           nextRecordsAndLedgersToProcess
         ).unzip
 
+      val timestamp: Long =
+        findMinMaxTimestamp(ledgersRecords)
 
-      val timestampOpt: Option[Long] =
-        findMaxAvailableLastRecordTimestamp(ledgersRecords)
 
-      val (records, processedLedgersAndRecords) = timestampOpt
-        .map { timestamp =>
-          val (records, ledgersIDsAndTheirRecordIDs) =
-            (ledgersRecords zip ledgersAndTheirLastRecordIDs).map { case (ledgerRecords, ledgerIDRecordID) =>
-              val recordsWithIndexes =
-                ledgerRecords.takeWhile(_.record.timestamp <= timestamp)
+      val (records, processedLedgersAndRecords) = {
+        (ledgersRecords zip ledgersAndTheirLastRecordIDs).map {
+          case (ledgerRecords, metadata) =>
+            val recordsWithIndexes =
+              ledgerRecords.takeWhile(_.record.timestamp <= timestamp)
 
-              val lastRecordID = recordsWithIndexes.lastOption
-                .map(_.index).getOrElse(ledgerIDRecordID.lastRecordID)
+            val (lastRecordID, newStatus): (Long, LedgerMetadataStatus) =
+              recordsWithIndexes
+                .lastOption
+                .map(recordWithIndex => (recordWithIndex.index, IsOkayStatus))
+                .getOrElse((metadata.lastRecordID, NoRecordProcessedStatus))
 
-              (recordsWithIndexes.map(_.record),
-                LedgerMetadata(ledgerIDRecordID.id, lastRecordID))
-            }.unzip
+            val updatedMetadata =
+              LedgerMetadata(metadata.id, lastRecordID, newStatus)
 
-          (records.flatten, ledgersIDsAndTheirRecordIDs)
+            (recordsWithIndexes.map(_.record), updatedMetadata)
+        }.unzip
+      }
+
+
+      val nextLedgersForProcessing =
+        getNextLedgersIfNecessary(processedLedgersAndRecords)
+
+      (records.flatten, nextLedgersForProcessing)
+    }
+  }
+
+
+  private def getNextLedger(ledgersMetadata: Array[(LongZookeeperTreeList, LedgerMetadata)]): Array[LedgerMetadata] = {
+    ledgersMetadata.map {
+      case (zkTreeList, ledgerMetadata) =>
+        if (ledgerMetadata.metadataStatus == MoveToNextLedgerStatus) {
+          zkTreeList
+            .getNextNode(ledgerMetadata.id)
+            .filter(newLedgerID =>
+              storageManager.isClosed(newLedgerID)
+            )
+            .map(newId => LedgerMetadata(newId, NoRecordRead, NoRecordReadStatus))
+            .getOrElse(ledgerMetadata)
         }
-        .getOrElse((Array.empty[Record], nextRecordsAndLedgersToProcess))
-
-      (records, processedLedgersAndRecords)
+        else {
+          ledgerMetadata
+        }
     }
   }
 
@@ -77,108 +105,81 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
     else {
       zkTreeLists.map(zkTreeList =>
         zkTreeList.firstEntityID
-          .map(id =>
-            if (storageManager.isClosed(id))
-              LedgerMetadata(id, NoRecordRead)
+          .map { id =>
+            if (storageManager.isClosed(id)) {
+              LedgerMetadata(id, NoRecordRead, NoRecordReadStatus)
+            }
             else
-              LedgerMetadata(NoLedgerExist, NoRecordRead)
-          )
-          .getOrElse(LedgerMetadata(NoLedgerExist, NoRecordRead))
+              LedgerMetadata(NoLedgerExist, NoRecordRead, NoRecordReadStatus)
+          }
+          .getOrElse(LedgerMetadata(NoLedgerExist, NoRecordRead, NoRecordReadStatus))
       )
     }
   }
 
   @throws[Throwable]
-  private def findMaxAvailableLastRecordTimestamp(ledgersToProcess: Array[Array[RecordWithIndex]]): Option[Timestamp] = {
-    ledgersToProcess.foldLeft(Option.empty[Timestamp])((timestampOpt, recordsWithIndexes) => {
-      timestampOpt.flatMap { timestamp =>
-        recordsWithIndexes.lastOption.map(recordWithIndex =>
-          recordWithIndex.record.timestamp min timestamp
-        ).orElse(Some(timestamp))
-      }.orElse(recordsWithIndexes.lastOption.map(_.record.timestamp))
-    })
+  private def findMinMaxTimestamp(recordsToProcess: Array[Array[RecordWithIndex]]): Timestamp = {
+    val maxTimestamps =
+      recordsToProcess
+        .map(_.maxBy(_.record.timestamp))
+        .map(_.record.timestamp)
+
+    maxTimestamps.min
   }
 
   private def getLedgerIDAndItsOrderedRecords(ledgersAndTheirLastRecordsToProcess: Array[LedgerMetadata]) = {
     ledgersAndTheirLastRecordsToProcess
-      .map(ledgerMetaInfo =>
+      .map { ledgerMetaInfo =>
         storageManager
           .openLedger(ledgerMetaInfo.id)
           .map { ledgerHandle =>
+            val record =
+              RecordWithIndex(NoRecordRead, new TimestampRecord(ledgerHandle.getCreationTime))
+
             val recordsWithIndexes =
               ledgerHandle.getOrderedRecords(ledgerMetaInfo.lastRecordID + 1)
 
-            (recordsWithIndexes, ledgerMetaInfo)
+            if (ledgerMetaInfo.lastRecordID < 0) {
+              (record +: recordsWithIndexes, ledgerMetaInfo)
+            } else {
+              (recordsWithIndexes, ledgerMetaInfo)
+            }
+
           }
           .getOrElse(throw new
               IllegalStateException(
                 s"There is problem with storage - there is no such ledger ${ledgerMetaInfo.id}"
               )
           )
-      )
+      }
   }
 
-  private def isZkTreeListProcessed(zkTreeList: LongZookeeperTreeList,
-                                    ledgerHandle: LedgerHandle,
-                                    ledgerMetadata: LedgerMetadata) = {
-    zkTreeList.lastEntityID.get == ledgerMetadata.id &&
-      ledgerHandle.lastRecordID() == ledgerMetadata.lastRecordID
-  }
-
-  private def checkAllLedgersCanBeProcessed(ledgersAndTheirLastRecordsToProcess: Array[LedgerMetadata]): Boolean = {
-    ledgersAndTheirLastRecordsToProcess.zip(zkTreeLists)
-      .foldRight(0) { case (((ledgerMetadata, zkTreeList)), acc) =>
-        storageManager
-          .openLedger(ledgerMetadata.id)
-          .filter(ledgerHandle =>
-            !isZkTreeListProcessed(
-              zkTreeList,
-              ledgerHandle,
-              ledgerMetadata
-            )
-          )
-          .map(_ => acc + 1)
-          .getOrElse(acc)
-      } != ledgersAndTheirLastRecordsToProcess.length
-  }
-
-  private def isNotReachedLastNodeAndAllCurrentLedgerRecordRead(metadata: LedgerMetadata,
-                                                                ledgerHandle: LedgerHandle,
-                                                                lastLedgerId: Long): Boolean = {
-    lastLedgerId != metadata.id &&
-      ledgerHandle.lastRecordID() == metadata.lastRecordID
+  private def areAllCurrentLedgerRecordsRead(metadata: LedgerMetadata,
+                                             ledgerHandle: LedgerHandle): Boolean = {
+    ledgerHandle.id == metadata.id &&
+      ledgerHandle.lastRecordID() == metadata.lastRecordID &&
+      metadata.metadataStatus != NoRecordProcessedStatus
   }
 
   private def getNextLedgersIfNecessary(lastRecordsAcrossLedgers: Array[LedgerMetadata]) = {
-    (lastRecordsAcrossLedgers zip zkTreeLists).map {
-      case (savedToDbLedgerMetadata, zkTreeList) =>
-        val newLedgerIDOpt =
-          for {
-            currentLedgerHandle <- storageManager.openLedger(savedToDbLedgerMetadata.id)
-            lastCreatedLedgerID <- zkTreeList.lastEntityID
-            if isNotReachedLastNodeAndAllCurrentLedgerRecordRead(
-              savedToDbLedgerMetadata,
-              currentLedgerHandle,
-              lastCreatedLedgerID
-            )
-          } yield {
-            zkTreeList
-              .getNextNode(savedToDbLedgerMetadata.id)
-              .getOrElse(throw new
-                  IllegalStateException(
-                    s"There is problem with ZkTreeList - consistency of list is violated. Ledger${currentLedgerHandle.id}"
-                  )
-              )
-          }
+    lastRecordsAcrossLedgers.map { savedToDbLedgerMetadata =>
+      val newLedgerIDOpt =
+        for {
+          currentLedgerHandle <- storageManager.openLedger(savedToDbLedgerMetadata.id)
+          if areAllCurrentLedgerRecordsRead(
+            savedToDbLedgerMetadata,
+            currentLedgerHandle
+          )
+        } yield {
+          LedgerMetadata(
+            savedToDbLedgerMetadata.id,
+            savedToDbLedgerMetadata.lastRecordID,
+            MoveToNextLedgerStatus
+          )
+        }
 
-        newLedgerIDOpt
-          .filter(newLedgerID =>
-            storageManager.isClosed(newLedgerID)
-          )
-          .map(newLedgerID =>
-            LedgerMetadata(newLedgerID, NoRecordRead)
-          )
-          .getOrElse(savedToDbLedgerMetadata)
+      newLedgerIDOpt
+        .getOrElse(savedToDbLedgerMetadata)
     }
   }
 }

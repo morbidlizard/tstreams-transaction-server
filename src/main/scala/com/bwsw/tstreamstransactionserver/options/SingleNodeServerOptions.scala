@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy._
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy._
-import org.rocksdb.{ColumnFamilyOptions, CompressionType, DBOptions, Options}
+import org.rocksdb._
 
 object SingleNodeServerOptions {
 
@@ -133,6 +133,7 @@ object SingleNodeServerOptions {
         .setCreateMissingColumnFamilies(true)
         .setMaxBackgroundCompactions(maxBackgroundCompactions)
         .setUseFsync(isFsync)
+        .setRowCache(new LRUCache(100000L))
     }
 
     def createOptions(maxBackgroundCompactions: Int = this.maxBackgroundCompactions,

@@ -166,9 +166,9 @@ class BookkeeperToRocksWriterTest
         50000L
       )
 
-    val firstTimestampRecord = new TimestampRecord(
+    val firstTimestamp =
       atomicLong.getAndIncrement()
-    )
+
 
     atomicLong.set(initialTime)
 
@@ -182,19 +182,17 @@ class BookkeeperToRocksWriterTest
          50000L
       )
 
-    val secondTimestampRecord = new TimestampRecord(
+    val secondTimestamp =
       atomicLong.getAndIncrement()
-    )
+
 
     val storage = new LedgerManagerInMemory
 
-    val firstLedger = storage.createLedger()
+    val firstLedger = storage.createLedger(firstTimestamp)
     firstTreeRecords.foreach(record => firstLedger.addRecord(record))
-    firstLedger.addRecord(firstTimestampRecord)
 
-    val secondLedger = storage.createLedger()
+    val secondLedger = storage.createLedger(secondTimestamp)
     secondTreeRecords.foreach(record => secondLedger.addRecord(record))
-    secondLedger.addRecord(secondTimestampRecord)
 
     val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
     val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
@@ -259,6 +257,8 @@ class BookkeeperToRocksWriterTest
 
     val initialTime = 0L
     val atomicLong = new AtomicLong(initialTime)
+    val firstTimestamp =
+      atomicLong.get()
 
     val firstTreeRecords =
       genProducerTransactionsWrappedInRecords(
@@ -270,12 +270,12 @@ class BookkeeperToRocksWriterTest
         50000L
       )
 
-    val firstTimestampRecord = new TimestampRecord(
-      atomicLong.getAndIncrement()
-    )
 
     val offset = 50
     atomicLong.set(initialTime + offset)
+    val secondTimestamp =
+      atomicLong.get()
+
 
 
     val secondTreeRecords =
@@ -288,19 +288,15 @@ class BookkeeperToRocksWriterTest
         50000L
       )
 
-    val secondTimestampRecord = new TimestampRecord(
-      atomicLong.getAndIncrement()
-    )
+
 
     val storage = new LedgerManagerInMemory
 
-    val firstLedger = storage.createLedger()
+    val firstLedger = storage.createLedger(firstTimestamp)
     firstTreeRecords.foreach(record => firstLedger.addRecord(record))
-    firstLedger.addRecord(firstTimestampRecord)
 
-    val secondLedger = storage.createLedger()
+    val secondLedger = storage.createLedger(secondTimestamp)
     secondTreeRecords.foreach(record => secondLedger.addRecord(record))
-    secondLedger.addRecord(secondTimestampRecord)
 
     val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
     val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
@@ -344,8 +340,8 @@ class BookkeeperToRocksWriterTest
 
 
       result.producerTransactions.length shouldBe producerTransactionsNumber
-      result.producerTransactions.take(offset).forall(_.state == TransactionStates.Checkpointed) shouldBe true
-      result.producerTransactions.takeRight(offset - 1).forall(_.state == TransactionStates.Opened) shouldBe true
+      result.producerTransactions.take(offset - 1).forall(_.state == TransactionStates.Checkpointed) shouldBe true
+      result.producerTransactions.takeRight(offset).forall(_.state == TransactionStates.Opened) shouldBe true
       result.producerTransactions.last.transactionID shouldBe producerTransactionsNumber - 1L
 
       bookkeeperToRocksWriter.processAndPersistRecords()
@@ -383,9 +379,9 @@ class BookkeeperToRocksWriterTest
         streamsNames(rand.nextInt(producerTransactionsNumber))
       )
 
-    val firstTimestampRecord = new TimestampRecord(
+    val firstTimestamp =
       atomicLong.getAndIncrement()
-    )
+
 
     atomicLong.set(initialTime)
 
@@ -400,19 +396,17 @@ class BookkeeperToRocksWriterTest
         streamsNames(rand.nextInt(producerTransactionsNumber))
       )
 
-    val secondTimestampRecord = new TimestampRecord(
+    val secondTimestamp =
       atomicLong.getAndIncrement()
-    )
+
 
     val storage = new LedgerManagerInMemory
 
-    val firstLedger = storage.createLedger()
+    val firstLedger = storage.createLedger(firstTimestamp)
     firstTreeRecords.foreach(record => firstLedger.addRecord(record))
-    firstLedger.addRecord(firstTimestampRecord)
 
-    val secondLedger = storage.createLedger()
+    val secondLedger = storage.createLedger(secondTimestamp)
     secondTreeRecords.foreach(record => secondLedger.addRecord(record))
-    secondLedger.addRecord(secondTimestampRecord)
 
     val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
     val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")

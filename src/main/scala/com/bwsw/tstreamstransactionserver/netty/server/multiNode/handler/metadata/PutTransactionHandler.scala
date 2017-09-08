@@ -40,7 +40,6 @@ class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
       if (Code.OK == bkCode)
         promise.success(isPuttedResponse)
       else {
-        println(BKException.getMessage(bkCode))
         promise.failure(BKException.create(bkCode).fillInStackTrace())
       }
 
@@ -62,16 +61,9 @@ class PutTransactionHandler(bookkeeperMaster: BookkeeperMaster,
           ).toByteArray
 
           ledgerHandler.asyncAddEntry(record, callback, promise)
-
-//          ledgerHandler.addEntry(record)
-//          promise.success(isPuttedResponse)
-//          ledgerHandler.addEntry(record)
-//          isPuttedResponse
-//          promise
       }
-    }(context).flatMap(_ =>
-      promise.future.recoverWith{case _ :BKException => process(requestBody)}(context)
-    )(context)
+    }(context)
+    promise.future.recoverWith { case _: BKException => process(requestBody) }(context)
   }
 
   override protected def fireAndForget(message: RequestMessage): Unit = {

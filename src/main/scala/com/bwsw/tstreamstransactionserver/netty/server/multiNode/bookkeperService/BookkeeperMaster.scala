@@ -210,6 +210,9 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
     }
     catch {
       case _: java.lang.InterruptedException =>
+        if (currentOpenedLedger != null) {
+          closeLedger(currentOpenedLedger)
+        }
         Thread.currentThread().interrupt()
     }
   }

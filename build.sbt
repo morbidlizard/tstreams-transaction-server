@@ -1,6 +1,6 @@
 name := "tstreams-transaction-server"
 
-version := "1.4.0-SNAPSHOT"
+version := "1.5.0-SNAPSHOT"
 
 scalaVersion := "2.12.3"
 
@@ -73,13 +73,13 @@ resolvers ++= Seq(
 
 libraryDependencies ++= Seq(
   "commons-io" % "commons-io" % "2.5",
-  "com.twitter" %% "scrooge-core" % "4.18.0",
+  "com.twitter" %% "scrooge-core" % "4.20.0",
   ("com.twitter" % "libthrift" % "0.5.0-7")
     .exclude("org.slf4j", "slf4j-api"),
 
-  "org.rocksdb" % "rocksdbjni" % "5.6.1",
-  "org.scalactic" %% "scalactic" % "3.0.3",
-  "org.scalatest" %% "scalatest" % "3.0.3" % "test",
+  "org.rocksdb" % "rocksdbjni" % "5.7.3",
+  "org.scalactic" %% "scalactic" % "3.0.4",
+  "org.scalatest" %% "scalatest" % "3.0.4" % "test",
 
   ("io.netty" % "netty" % "3.10.6.Final")
     .exclude("log4j", "log4j")
@@ -116,5 +116,3 @@ libraryDependencies ++= Seq(
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25"
 dependencyOverrides += "org.slf4j" % "slf4j-log4j12" % "1.7.25"
 dependencyOverrides += "io.netty" % "netty" % "3.10.6.Final"
-
-test in assembly := {}

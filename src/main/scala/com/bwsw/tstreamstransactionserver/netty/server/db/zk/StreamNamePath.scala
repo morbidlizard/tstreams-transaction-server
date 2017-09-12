@@ -21,7 +21,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.zk
 import com.bwsw.tstreamstransactionserver.netty.server.streamService
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamRecord
 import org.apache.curator.framework.CuratorFramework
-import org.apache.curator.framework.recipes.locks.InterProcessReadWriteLock
+import org.apache.curator.framework.recipes.locks.{InterProcessReadWriteLock, InterProcessSemaphoreMutex}
 import org.apache.zookeeper.CreateMode
 import org.slf4j.LoggerFactory
 
@@ -32,30 +32,28 @@ final class StreamNamePath(client: CuratorFramework, path: String) {
     LoggerFactory.getLogger(this.getClass)
 
   private val lock =
-    new InterProcessReadWriteLock(client, path)
+    new InterProcessSemaphoreMutex(client, path)
 
   private def writeLock[T](body: => T) = {
-    val writeLock = lock.writeLock()
+    lock.acquire()
     val result =
       try {
-        writeLock.acquire()
         body
       }
       finally {
-        writeLock.release()
+        lock.release()
       }
     result
   }
 
   private def readLock[T](body: => T) = {
-    val readLock = lock.readLock()
+    lock.acquire()
     val result =
       try {
-        readLock.acquire()
         body
       }
       finally {
-        readLock.release()
+        lock.release()
       }
     result
   }

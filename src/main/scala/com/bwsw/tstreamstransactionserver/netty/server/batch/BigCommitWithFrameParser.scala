@@ -57,6 +57,13 @@ class BigCommitWithFrameParser(bigCommit: BigCommit) {
   }
 
   def commit(): Boolean = {
+//    if (producerRecords.nonEmpty)
+//      println(producerRecords.sorted.mkString("[\n  ","\n  ","\n]"))
+
+//    if (producerRecords.nonEmpty)
+//      println(producerRecords.sorted.map(_.timestamp).mkString("[\n  ","\n  ","\n]"))
+//
+
     bigCommit.putProducerTransactions(
       producerRecords.sorted
     )
@@ -64,6 +71,9 @@ class BigCommitWithFrameParser(bigCommit: BigCommit) {
     bigCommit.putConsumerTransactions(
       consumerRecords.values.toIndexedSeq
     )
+
+//    if (consumerRecords.nonEmpty)
+//      println(consumerRecords.mkString("[\n  ","\n  ","\n]"))
 
     producerRecords.clear()
     consumerRecords.clear()
@@ -88,6 +98,38 @@ class BigCommitWithFrameParser(bigCommit: BigCommit) {
             producerData.from
           )
         })
+
+    recordsByType.get(Frame.PutSimpleTransactionAndDataType)
+      .foreach(records =>
+        records.foreach { record =>
+          val producerTransactionsAndData =
+            Frame.deserializePutSimpleTransactionAndData(record.body)
+
+          val producerTransactionRecords =
+            producerTransactionsAndData.producerTransactions.map(producerTransaction =>
+              ProducerTransactionRecord(
+                producerTransaction,
+                record.timestamp
+              )
+            )
+
+          val producerTransactionRecord =
+            producerTransactionRecords.head
+
+
+          bigCommit.putProducerData(
+            producerTransactionRecord.stream,
+            producerTransactionRecord.partition,
+            producerTransactionRecord.transactionID,
+            producerTransactionsAndData.data,
+            0
+          )
+
+          producerTransactionRecords.foreach(producerTransactionRecord =>
+            putProducerTransaction(producerRecords, producerTransactionRecord)
+          )
+        })
+
 
     recordsByType.get(Frame.PutProducerStateWithDataType)
       .foreach(records =>

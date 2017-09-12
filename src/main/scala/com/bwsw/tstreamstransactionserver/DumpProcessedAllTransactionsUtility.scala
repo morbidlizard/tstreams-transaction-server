@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver
 
 import com.bwsw.tstreamstransactionserver.netty.server.storage.{MultiAndSingleNodeRockStorage, RocksStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 import org.json4s.jackson.JsonMethods.{pretty, render}
 import org.json4s.jackson.Serialization
 import org.json4s.{Extraction, NoTypeHints}
@@ -20,11 +20,11 @@ object DumpProcessedAllTransactionsUtility {
       )
     else {
       val rocksStorage = new MultiAndSingleNodeRockStorage(
-        ServerOptions.StorageOptions(
+        SingleNodeServerOptions.StorageOptions(
           path = args(0),
           metadataDirectory = args(1)
         ),
-        ServerOptions.RocksStorageOptions(
+        SingleNodeServerOptions.RocksStorageOptions(
           transactionExpungeDelayMin = -1
         ),
         readOnly = true

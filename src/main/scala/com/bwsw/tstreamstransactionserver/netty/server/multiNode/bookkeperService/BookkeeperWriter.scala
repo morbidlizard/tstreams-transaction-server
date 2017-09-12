@@ -1,14 +1,15 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
-import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
+import com.bwsw.tstreamstransactionserver.netty.server.zk.{ZKIDGenerator, ZKMasterElector}
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import org.apache.bookkeeper.client.BookKeeper
 import org.apache.bookkeeper.conf.ClientConfiguration
-import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
+import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory
 import org.apache.curator.framework.CuratorFramework
 
 abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
-                                replicationConfig: ReplicationConfig) {
+                                bookkeeperOptions: BookkeeperOptions) {
 
   protected final val bookKeeper: BookKeeper = {
     val lowLevelZkClient = zookeeperClient.getZookeeperClient
@@ -19,32 +20,33 @@ abstract class BookkeeperWriter(zookeeperClient: CuratorFramework,
       .setZkTimeout(lowLevelZkClient.getConnectionTimeoutMs)
 
     configuration.setLedgerManagerFactoryClass(
-      classOf[HierarchicalLedgerManagerFactory]
+      classOf[LongHierarchicalLedgerManagerFactory]
     )
 
     new BookKeeper(configuration)
   }
 
   protected final def createMaster(zKMasterElector: ZKMasterElector,
-                                   password: Array[Byte],
+                                   zkLastClosedLedgerHandler: ZKIDGenerator,
                                    timeBetweenCreationOfLedgersMs: Int,
-                                   zookeeperTreeListLong: ZookeeperTreeListLong): BookkeeperWriteBundle = {
+                                   zookeeperTreeListLong: LongZookeeperTreeList): BookkeeperMasterBundle = {
     val zKMasterElectorWrapper =
       new LeaderSelector(zKMasterElector)
 
     val commonBookkeeperMaster =
       new BookkeeperMaster(
         bookKeeper,
+        zkLastClosedLedgerHandler,
         zKMasterElectorWrapper,
-        replicationConfig,
+        bookkeeperOptions,
         zookeeperTreeListLong,
-        password,
         timeBetweenCreationOfLedgersMs
       )
 
-    new BookkeeperWriteBundle(
-      commonBookkeeperMaster,
-      timeBetweenCreationOfLedgersMs
+    new BookkeeperMasterBundle(
+      commonBookkeeperMaster
     )
   }
+
+  def getLastConstructedLedger: Long
 }

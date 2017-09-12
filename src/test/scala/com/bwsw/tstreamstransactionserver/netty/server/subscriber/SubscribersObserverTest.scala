@@ -36,8 +36,6 @@ class SubscribersObserverTest
   }
 
 
-
-
   it should "return none subscribers" in {
     val (zkServer, zkClient) = Utils.startZkServerAndGetIt
     val zookeeperStreamRepository = new ZookeeperStreamRepository(zkClient, "/tts")
@@ -53,6 +51,7 @@ class SubscribersObserverTest
     val streamKeys  = new ArrayBuffer[StreamKey]()
     (0 to 10).foreach{index =>
       val streamBody = StreamValue(index.toString, 100, None, 1000L, None)
+
       streamKeys += zookeeperStreamRepository.put(streamBody)
 
       observer.addSteamPartition(index, rand.nextInt(100))

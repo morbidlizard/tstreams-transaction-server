@@ -1,6 +1,6 @@
 package ut.multiNodeServer.ZkTreeListTest
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
 
@@ -21,14 +21,14 @@ class ZookeeperTreeListTest
 
 
   "ZookeeperTreeListLong" should "return first entry id and last entry id as Nones" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     treeListLong.lastEntityID shouldBe None
     treeListLong.firstEntityID shouldBe None
   }
 
   it should "return first entry id and last entry id the same as only one entity id was persisted" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val value = 1L
     treeListLong.createNode(value)
@@ -40,7 +40,7 @@ class ZookeeperTreeListTest
   }
 
   it should "return first entry id and last entry id properly" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -53,7 +53,7 @@ class ZookeeperTreeListTest
   }
 
   it should "return a next node of some node properly" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -66,7 +66,7 @@ class ZookeeperTreeListTest
   }
 
   it should "not return a next node of last node" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -79,7 +79,7 @@ class ZookeeperTreeListTest
   }
 
   it should "return a previous node of some node correctly" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -92,7 +92,7 @@ class ZookeeperTreeListTest
   }
 
   it should "not return a previous node that doesn't exit" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -105,7 +105,7 @@ class ZookeeperTreeListTest
   }
 
   it should "delete the one node tree list correctly" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 0
@@ -124,7 +124,7 @@ class ZookeeperTreeListTest
   }
 
   it should "delete the first node correctly" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 7
@@ -144,7 +144,7 @@ class ZookeeperTreeListTest
   }
 
   it should "delete the last node correctly" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 7
@@ -166,7 +166,7 @@ class ZookeeperTreeListTest
 
 
   it should "delete a node between first entity id and last entity id" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 10
@@ -193,7 +193,7 @@ class ZookeeperTreeListTest
   }
 
   it should "delete nodes from [head, n], n - some positive number" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 30
@@ -212,7 +212,7 @@ class ZookeeperTreeListTest
   }
 
   it should "delete nodes from [head, n], n - some positive number, which is greater than number of nodes list contains" in {
-    val treeListLong = new ZookeeperTreeListLong(zkClient, s"/$uuid")
+    val treeListLong = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
     val startNumber = 0
     val maxNumbers  = 15

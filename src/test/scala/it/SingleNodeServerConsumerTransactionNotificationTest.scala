@@ -3,7 +3,9 @@ package it
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 import com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
@@ -19,7 +21,7 @@ class SingleNodeServerConsumerTransactionNotificationTest
 
   private val commitLogToBerkeleyDBTaskDelayMs = 100
   private lazy val serverBuilder = new SingleNodeServerBuilder()
-    .withCommitLogOptions(ServerOptions.CommitLogOptions(
+    .withCommitLogOptions(SingleNodeServerOptions.CommitLogOptions(
       closeDelayMs = commitLogToBerkeleyDBTaskDelayMs
     ))
 
@@ -49,7 +51,7 @@ class SingleNodeServerConsumerTransactionNotificationTest
     zkServer.close()
   }
 
-  private val secondsWait = 5
+  private val secondsWait = 10
 
   "Client" should "put consumerCheckpoint and get a transaction id back." in {
     val bundle = Utils.startTransactionServerAndClient(
@@ -123,7 +125,7 @@ class SingleNodeServerConsumerTransactionNotificationTest
       val consumerTransactionOuter = ConsumerTransaction(streamID, 1, transactionId, checkpointName)
       client.putTransactions(Seq(), Seq(consumerTransactionOuter))
 
-      latch.await(1, TimeUnit.SECONDS) shouldBe true
+      latch.await(15, TimeUnit.SECONDS) shouldBe true
     }
   }
 

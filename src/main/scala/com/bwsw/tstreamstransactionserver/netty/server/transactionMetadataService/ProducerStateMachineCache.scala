@@ -159,9 +159,11 @@ final class ProducerStateMachineCache(rocksDB: KeyValueDbManager) {
     val lastTransactionOpt =
       lastTransactionStreamPartitionRamTable.get(key)
 
-    lastTransactionOpt
+    val result = lastTransactionOpt
       .map(_.opened.id)
       .exists(_ > thatTransactionId)
+
+    result
   }
 
   def clear(): Unit = {

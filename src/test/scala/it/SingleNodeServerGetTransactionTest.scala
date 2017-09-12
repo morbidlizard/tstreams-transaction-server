@@ -1,6 +1,7 @@
 package it
 
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
 import util.Utils.startZkServerAndGetIt
@@ -13,7 +14,7 @@ class SingleNodeServerGetTransactionTest
     with Matchers
     with BeforeAndAfterAll
 {
-  private val secondsToWait = 5.seconds
+  private val secondsToWait = 10.seconds
 
   private lazy val serverBuilder =
     new SingleNodeServerBuilder()

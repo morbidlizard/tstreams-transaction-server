@@ -5,12 +5,13 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable._
 import com.bwsw.tstreamstransactionserver.netty.SocketHostPortPair
-import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterInteractor
+import com.bwsw.tstreamstransactionserver.netty.client.{ClientBuilder, MasterReelectionListener}
+import com.bwsw.tstreamstransactionserver.netty.client.zk.ZKMasterPathMonitor
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{BootstrapOptions, StorageOptions}
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{BootstrapOptions, StorageOptions}
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.RetryForever
@@ -273,10 +274,15 @@ class ClientSingleNodeServerZookeeperTest
 
 
     val latch = new CountDownLatch(2)
-    val zKInteractor = new ZKMasterInteractor(
-      zkClient,
-      zkPrefix,
-      newMaster => {
+    val zKMasterPathMonitor = new
+        ZKMasterPathMonitor(
+          zkClient,
+          200,
+          zkPrefix
+        )
+
+    val listener = new MasterReelectionListener {
+      override def masterChanged(newMaster: Either[Throwable, Option[SocketHostPortPair]]): Unit = {
         if (latch.getCount == 2) {
           newMaster.right.get.get shouldBe address1
           elector1.stop()
@@ -284,10 +290,13 @@ class ClientSingleNodeServerZookeeperTest
         }
         else
           newMaster.right.get.get shouldBe address2
-          latch.countDown()
-      },
-      _ => {}
-    )
+        latch.countDown()
+      }
+    }
+    zKMasterPathMonitor.addMasterReelectionListener(listener)
+    zKMasterPathMonitor.startMonitoringMasterServerPath()
+
+
 
     elector1.start()
     Thread.sleep(100)
@@ -296,7 +305,6 @@ class ClientSingleNodeServerZookeeperTest
     latch.await(5000, TimeUnit.MILLISECONDS) shouldBe true
 
     elector2.stop()
-    zKInteractor.stop()
     zkClient.close()
   }
 

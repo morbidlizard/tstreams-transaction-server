@@ -5,7 +5,8 @@ import java.util.concurrent.atomic.AtomicLong
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerHandle
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, RecordWithIndex}
 
-class LedgerHandleInMemory(id: Long)
+class LedgerHandleInMemory(id: Long,
+                           time: Long)
   extends LedgerHandle(id) {
   @volatile private var isClosed = false
   private val entryIDGen = new AtomicLong(0L)
@@ -72,13 +73,7 @@ class LedgerHandleInMemory(id: Long)
     isClosed = true
   }
 
-  override def addRecordAsync(data: Record)(onSuccessDo: => Unit,
-                                            onFailureDo: => Unit): Unit = {
-    if (isClosed)
-      throw new IllegalAccessError()
-
-    val id = entryIDGen.getAndIncrement()
-    storage.put(id, data)
-    onSuccessDo
+  override val getCreationTime: Long = {
+    time
   }
 }

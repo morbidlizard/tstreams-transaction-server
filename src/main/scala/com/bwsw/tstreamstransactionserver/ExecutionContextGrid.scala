@@ -33,37 +33,65 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
   * @param f         an executor service.
   *
   */
-class ExecutionContextGrid(nContexts: Int, f: => java.util.concurrent.ExecutorService) {
+class ExecutionContextGrid(nContexts: Int,
+                           f: => java.util.concurrent.ExecutorService) {
   require(nContexts > 0)
 
-  private val contexts = Array.fill(nContexts)(newExecutionContext)
+  private val contexts =
+    Array.fill(nContexts)(newExecutionContext)
 
-  def getContext(value: Long): ExecutionContextExecutorService = contexts((value % nContexts).toInt)
+  def getContext(value: Long): ExecutionContextExecutorService =
+    contexts((value % nContexts).toInt)
 
-  def stopAccessNewTasks(): Unit = contexts.foreach(_.shutdown())
+  def stopAccessNewTasks(): Unit =
+    contexts.foreach(_.shutdown())
 
-  def awaitAllCurrentTasksAreCompleted(): Unit = contexts.foreach(_.awaitTermination(ExecutionContextGrid.TASK_TERMINATION_MAX_WAIT_MS, TimeUnit.MILLISECONDS))
+  def awaitAllCurrentTasksAreCompleted(): Unit =
+    contexts.foreach(_.awaitTermination(
+      ExecutionContextGrid.TASK_TERMINATION_MAX_WAIT_MS,
+      TimeUnit.MILLISECONDS)
+    )
 
-  private def newExecutionContext = ExecutionContext.fromExecutorService(f)
+  private def newExecutionContext =
+    ExecutionContext.fromExecutorService(f)
 }
 
-class SinglePoolExecutionContextGrid(f: => java.util.concurrent.ExecutorService) extends ExecutionContextGrid(1, f) {
+class SinglePoolExecutionContextGrid(f: => java.util.concurrent.ExecutorService)
+  extends ExecutionContextGrid(1, f) {
   def getContext: ExecutionContextExecutorService = getContext(0)
 }
 
 object ExecutionContextGrid {
   /** The time to wait all tasks completed by thread pool */
-  val TASK_TERMINATION_MAX_WAIT_MS = 10000
+  private val TASK_TERMINATION_MAX_WAIT_MS = 10000
 
   /** Creates an 1 single-threaded context with name */
-  def apply(nameFormat: String) = new SinglePoolExecutionContextGrid(
-    new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
-  )
+  def apply(nameFormat: String) =
+    new SinglePoolExecutionContextGrid(
+      new ThreadPoolExecutor(
+        1,
+        1,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new LinkedBlockingQueue(),
+        new ThreadFactoryBuilder().setNameFormat(nameFormat).build(),
+        new DiscardPolicy()
+      )
+    )
 
   /** Creates FixedThreadPool with defined threadNumber */
-  def apply(threadNumber: Int, nameFormat: String) = new SinglePoolExecutionContextGrid(
-    new ThreadPoolExecutor(threadNumber, threadNumber, 0L, TimeUnit.MILLISECONDS,
-      new LinkedBlockingQueue(), new ThreadFactoryBuilder().setNameFormat(nameFormat).build(), new DiscardPolicy())
-  )
+  def apply(threadNumber: Int, nameFormat: String) =
+    new SinglePoolExecutionContextGrid(
+      new ThreadPoolExecutor(
+        threadNumber,
+        threadNumber,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new LinkedBlockingQueue(),
+        new ThreadFactoryBuilder().setNameFormat(nameFormat).build(),
+        new DiscardPolicy()
+      )
+
+    )
 }
 

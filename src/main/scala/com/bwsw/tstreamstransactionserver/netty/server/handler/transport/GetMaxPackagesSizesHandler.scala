@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.handler.transport
 import com.bwsw.tstreamstransactionserver.netty.server.handler.SyncReadHandler
 import com.bwsw.tstreamstransactionserver.netty.server.handler.transport.GetMaxPackagesSizesHandler._
 import com.bwsw.tstreamstransactionserver.netty.{Protocol, RequestMessage}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.TransportOptions
 import com.bwsw.tstreamstransactionserver.rpc.{TransactionService, TransportOptionsInfo}
 import io.netty.channel.ChannelHandlerContext
 

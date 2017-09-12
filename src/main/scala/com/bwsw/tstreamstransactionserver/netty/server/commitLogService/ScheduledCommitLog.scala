@@ -24,7 +24,7 @@ import com.bwsw.commitlog.CommitLogFlushPolicy.{OnCountInterval, OnRotation, OnT
 import com.bwsw.commitlog.filesystem.{CommitLogFile, CommitLogStorage}
 import com.bwsw.commitlog.{CommitLog, IDGenerator}
 import com.bwsw.tstreamstransactionserver.options.CommitLogWriteSyncPolicy.{EveryNSeconds, EveryNewFile, EveryNth}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{CommitLogOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{CommitLogOptions, StorageOptions}
 import org.slf4j.LoggerFactory
 
 class ScheduledCommitLog(pathsToClosedCommitLogFiles: PriorityBlockingQueue[CommitLogStorage],

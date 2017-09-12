@@ -2,9 +2,11 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 import java.util.concurrent.{Executors, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongNodeCache
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 class BookkeeperSlaveBundle(bookkeeperSlave: BookkeeperSlave,
+                            lastClosedLedgerHandlers: Array[LongNodeCache],
                             timeBetweenCreationOfLedgersMs: Int) {
 
   private lazy val bookKeeperExecutor =
@@ -28,6 +30,7 @@ class BookkeeperSlaveBundle(bookkeeperSlave: BookkeeperSlave,
   def stop(): Unit = {
     futureTask.cancel(true)
     bookKeeperExecutor.shutdown()
+    lastClosedLedgerHandlers.foreach(_.stopMonitor())
     scala.util.Try {
       bookKeeperExecutor.awaitTermination(
         0L,

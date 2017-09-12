@@ -4,7 +4,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.storage
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDbDescriptor, RocksDbManager}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage._
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.{RocksStorageOptions, StorageOptions}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
 
 
 class MultiNodeRockStorage(storageOpts: StorageOptions,

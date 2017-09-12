@@ -23,10 +23,11 @@ import org.apache.curator.framework.state.ConnectionState
 import org.apache.curator.retry.RetryForever
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 
 
-class InetClientProxy(clientOpts: ConnectionOptions,
+class InetClientProxy(connectionOptions: ConnectionOptions,
                       authOpts: AuthOptions,
                       zookeeperOptions: ZookeeperOptions,
                       onZKConnectionStateChangedFunc: ConnectionState => Unit = _ => {},
@@ -36,15 +37,17 @@ class InetClientProxy(clientOpts: ConnectionOptions,
   extends TTSInetClient {
 
   private final val executionContext =
-    new ClientExecutionContextGrid(clientOpts.threadPool)
+    new ClientExecutionContextGrid(connectionOptions.threadPool)
   private final val context =
     executionContext.context
-  private final val requestIdToResponseCommonMap =
-    new ConcurrentHashMap[Long, Promise[ByteBuf]](
-      20000,
-      1.0f,
-      clientOpts.threadPool
-    )
+
+  private final val processTransactionsPutOperationPool =
+    ExecutionContextGrid("ClientTransactionPool-%d")
+  private final val contextForProducerTransactions =
+//    context
+    processTransactionsPutOperationPool.getContext
+
+
   private final val requestIDGen = new AtomicLong(1L)
   private val logger =
     LoggerFactory.getLogger(this.getClass)
@@ -54,18 +57,29 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     new AtomicBoolean(false)
   private val workerGroup: EventLoopGroup =
     if (Epoll.isAvailable) {
-      new EpollEventLoopGroup()
+      new EpollEventLoopGroup(
+        connectionOptions.threadPool
+      )
     }
     else {
-      new NioEventLoopGroup()
+      new NioEventLoopGroup(
+        connectionOptions.threadPool
+      )
     }
 
-  //  private final val requestIdToResponseCheckpointGroupMap =
-  //    new ConcurrentHashMap[Long, Promise[ByteBuf]](
-  //      20000,
-  //      1.0f,
-  //      clientOpts.threadPool
-  //    )
+  private final val requestIdToResponseCommonMap =
+    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+      15000,
+      0.8f,
+      connectionOptions.threadPool
+    )
+
+  private final val requestIdToResponseCheckpointGroupMap =
+    new ConcurrentHashMap[Long, Promise[ByteBuf]](
+      15000,
+      0.8f,
+      connectionOptions.threadPool
+    )
   private val zkConnection =
     externalCuratorClient.getOrElse {
       new ZKClient(
@@ -73,13 +87,13 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         zookeeperOptions.sessionTimeoutMs,
         zookeeperOptions.connectionTimeoutMs,
         new RetryForever(zookeeperOptions.retryDelayMs),
-        clientOpts.prefix
+        connectionOptions.prefix
       ).client
     }
   private val commonInetClient =
     new InetClient(
       zookeeperOptions,
-      clientOpts,
+      connectionOptions,
       authOpts,
       onServerConnectionLost(),
       onRequestTimeout(),
@@ -92,7 +106,30 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       context
     )
 
-  /** Retrieving an offset between last processed commit log file and current commit log file where a server writes data.
+  private val checkpointGroupInetClient: Future[InetClient] = commonInetClient
+    .getZKCheckpointGroupServerPrefix()
+    .map{prefix =>
+      val connectionOpts =
+        connectionOptions.copy(prefix = prefix)
+
+      new InetClient(
+        zookeeperOptions,
+        connectionOpts,
+        authOpts,
+        onServerConnectionLost(),
+        onRequestTimeout(),
+        onZKConnectionStateChangedFunc,
+        workerGroup,
+        isShutdown.get(),
+        zkConnection,
+        requestIDGen,
+        requestIdToResponseCheckpointGroupMap,
+        context
+      )
+    }(context)
+
+
+  /** Retrieving an offset between last processed commit log file and current constructed commit log file where a server writes data.
     *
     * @return Future of getCommitLogOffsets operation that can be completed or not. If it is completed it returns:
     *         1)Thrift Struct [[com.bwsw.tstreamstransactionserver.rpc.CommitLogInfo]] which contains:
@@ -141,50 +178,6 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
     )(context)
   }
-
-
-  //  private val isRetrievingCheckpointGroupServerPrefix =
-  //    new AtomicBoolean(false)
-  //
-  //  @volatile private var checkpointGroupInetClient: InetClient = _
-  //  private final def getCheckpointGroupInetClient: InetClient = {
-  //    def getClientIfPossible: Option[InetClient] =
-  //      commonInetClient
-  //        .getZKCheckpointGroupServerPrefix()
-  //        .map { prefix =>
-  //          val checkpointGroupZookeeperOptions =
-  //            zookeeperOptions.copy(prefix = prefix)
-  //
-  //          new InetClient(
-  //            checkpointGroupZookeeperOptions,
-  //            clientOpts,
-  //            authOpts,
-  //            onServerConnectionLost(),
-  //            onRequestTimeout(),
-  //            onZKConnectionStateChangedFunc,
-  //            workerGroup,
-  //            isShutdown.get(),
-  //            zkConnection,
-  //            requestIDGen,
-  //            requestIdToResponseCheckpointGroupMap,
-  //            context
-  //          )
-  //        }
-  //
-  //    val isNotRetrieving = isRetrievingCheckpointGroupServerPrefix
-  //      .compareAndSet(false, true)
-  //
-  //    if (isNotRetrieving) {
-  //      while (checkpointGroupInetClient == null) {
-  //        getClientIfPossible.foreach(checkpointGroupInetClient = _)
-  //      }
-  //      isRetrievingCheckpointGroupServerPrefix.set(false)
-  //      checkpointGroupInetClient
-  //    } else {
-  //      while (!isRetrievingCheckpointGroupServerPrefix.get()) {}
-  //      checkpointGroupInetClient
-  //    }
-  //  }
 
   /** Putting a stream on a server by Thrift Stream structure.
     *
@@ -348,16 +341,38 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       (producerTransactions map (txn => Transaction(Some(txn), None))) ++
         (consumerTransactions map (txn => Transaction(None, Some(txn))))
 
-    if (logger.isDebugEnabled)
-      logger.debug(s"putTransactions method is invoked: $transactions.")
+    if (transactions.isEmpty) {
+      Future.successful(true)
+    } else {
+//      println("***[client] Put transactions " ++ transactions.mkString("{\n  ", "\n  ", "\n}"))
 
-    onShutdownThrowException()
+      if (logger.isDebugEnabled)
+        logger.debug(s"putTransactions method is invoked: $transactions.")
 
-    commonInetClient.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
-      Protocol.PutTransactions,
-      TransactionService.PutTransactions.Args(transactions),
-      x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+      onShutdownThrowException()
+
+      checkpointGroupInetClient.value match {
+        case None =>
+          checkpointGroupInetClient.flatMap { client =>
+            client.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
+              Protocol.PutTransactions,
+              TransactionService.PutTransactions.Args(transactions),
+              x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+            )(contextForProducerTransactions)
+          }(contextForProducerTransactions)
+        case Some(okOrNot) =>
+          okOrNot match {
+            case Success(client) =>
+              client.method[TransactionService.PutTransactions.Args, TransactionService.PutTransactions.Result, Boolean](
+                Protocol.PutTransactions,
+                TransactionService.PutTransactions.Args(transactions),
+                x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
+              )(contextForProducerTransactions)
+            case Failure(throwable) =>
+              throw throwable
+          }
+      }
+    }
   }
 
   /** Puts producer transaction on a server.
@@ -382,7 +397,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(producerTransactionToTransaction),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Puts consumer transaction on a server.
@@ -398,14 +413,15 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     *         6) other kind of exceptions that mean there is a bug on a server, and it is should to be reported about this issue.
     */
   def putTransaction(transaction: com.bwsw.tstreamstransactionserver.rpc.ConsumerTransaction): Future[Boolean] = {
-    if (logger.isDebugEnabled()) logger.debug(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
+    if (logger.isDebugEnabled())
+      logger.debug(s"Putting consumer transaction ${transaction.transactionID} with name ${transaction.name} to stream ${transaction.stream}, partition ${transaction.partition}")
     onShutdownThrowException()
 
     commonInetClient.method[TransactionService.PutTransaction.Args, TransactionService.PutTransaction.Result, Boolean](
       Protocol.PutTransaction,
       TransactionService.PutTransaction.Args(Transaction(None, Some(transaction))),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Puts 'simplified' producer transaction that already has Chekpointed state with it's data
@@ -427,11 +443,12 @@ class InetClientProxy(clientOpts: ConnectionOptions,
     if (logger.isDebugEnabled) logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partition with data: $data")
     onShutdownThrowException()
 
+//    println(s"***[client] Producer checkpointed transaction: $streamID, $partition")
     commonInetClient.method[TransactionService.PutSimpleTransactionAndData.Args, TransactionService.PutSimpleTransactionAndData.Result, Long](
       Protocol.PutSimpleTransactionAndData,
       TransactionService.PutSimpleTransactionAndData.Args(streamID, partition, data.map(java.nio.ByteBuffer.wrap)),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Puts in fire and forget policy manner 'simplified' producer transaction that already has Chekpointed state with it's data.
@@ -469,11 +486,13 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       logger.debug(s"Putting 'lightweight' producer transaction to stream $streamID, partition $partitionID with TTL: $transactionTTLMs")
     onShutdownThrowException()
 
+//    println(s"***[client] Producer opened transaction: $streamID, $partitionID, $transactionTTLMs")
+
     commonInetClient.method[TransactionService.OpenTransaction.Args, TransactionService.OpenTransaction.Result, Long](
       Protocol.OpenTransaction,
       TransactionService.OpenTransaction.Args(streamID, partitionID, transactionTTLMs),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Retrieves a producer transaction by id
@@ -627,7 +646,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutProducerStateWithData,
       TransactionService.PutProducerStateWithData.Args(producerTransaction, data.map(java.nio.ByteBuffer.wrap), from),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Retrieves all producer transactions binary data in a specific range [from, to]; it's assumed that "from" and "to" are both positive.
@@ -687,7 +706,7 @@ class InetClientProxy(clientOpts: ConnectionOptions,
       Protocol.PutConsumerCheckpoint,
       TransactionService.PutConsumerCheckpoint.Args(consumerTransaction.name, consumerTransaction.stream, consumerTransaction.partition, consumerTransaction.transactionID),
       x => if (x.error.isDefined) throw Throwable.byText(x.error.get.message) else x.success.get
-    )(context)
+    )(contextForProducerTransactions)
   }
 
   /** Retrieves a consumer state on a specific consumer transaction name, stream, partition from a server; If the result is -1 it will mean there is no checkpoint at all.
@@ -730,12 +749,16 @@ class InetClientProxy(clientOpts: ConnectionOptions,
         if (commonInetClient != null)
           commonInetClient.shutdown()
 
-        //        if (checkpointGroupInetClient != null)
-        //          checkpointGroupInetClient.shutdown()
+        if (checkpointGroupInetClient != null)
+          checkpointGroupInetClient.foreach(_.shutdown())(context)
 
         if (isZKClientExternal && zkConnection != null)
           zkConnection.close()
 
+        processTransactionsPutOperationPool
+          .stopAccessNewTasks()
+        processTransactionsPutOperationPool
+          .awaitAllCurrentTasksAreCompleted()
 
         executionContext
           .stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted()

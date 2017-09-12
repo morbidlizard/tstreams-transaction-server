@@ -1,30 +1,31 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{BookkeeperToRocksWriter, ZkMultipleTreeListReader, ZookeeperTreeListLong}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{BookkeeperToRocksWriter, LongNodeCache, LongZookeeperTreeList, ZkMultipleTreeListReader}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.storage.BookkeeperWrapper
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import org.apache.bookkeeper.client.BookKeeper
 
 class BookkeeperSlave(bookKeeper: BookKeeper,
-                      replicationConfig: ReplicationConfig,
-                      zkTrees: Array[ZookeeperTreeListLong],
+                      bookkeeperOptions: BookkeeperOptions,
+                      zkTrees: Array[LongZookeeperTreeList],
+                      lastClosedLedgersHandlers: Array[LongNodeCache],
                       commitLogService: CommitLogService,
-                      rocksWriter: RocksWriter,
-                      password: Array[Byte])
+                      rocksWriter: RocksWriter)
   extends Runnable {
 
   private val bookkeeperToRocksWriter = {
     val bk =
       new BookkeeperWrapper(
         bookKeeper,
-        replicationConfig,
-        password
+        bookkeeperOptions
       )
 
     val multipleTree =
       new ZkMultipleTreeListReader(
         zkTrees,
+        lastClosedLedgersHandlers,
         bk
       )
 

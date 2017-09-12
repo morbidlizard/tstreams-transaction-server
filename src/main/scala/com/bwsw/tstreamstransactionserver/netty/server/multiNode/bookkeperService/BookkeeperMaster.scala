@@ -1,29 +1,29 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
-import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.TimestampRecord
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZookeeperTreeListLong
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKIDGenerator
+import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{BKException, BookKeeper}
 
 import scala.annotation.tailrec
 
+
 class BookkeeperMaster(bookKeeper: BookKeeper,
+                       zkLastClosedLedgerHandler: ZKIDGenerator,
                        master: LeaderSelectorInterface,
-                       replicationConfig: ReplicationConfig,
-                       zkTreeListLedger: ZookeeperTreeListLong,
-                       password: Array[Byte],
+                       bookkeeperOptions: BookkeeperOptions,
+                       zkTreeListLedger: LongZookeeperTreeList,
                        timeBetweenCreationOfLedgers: Int)
   extends Runnable {
 
   private val lock = new ReentrantReadWriteLock()
+  @volatile private var currentOpenedLedger: org.apache.bookkeeper.client.LedgerHandle = _
 
-  private val openedLedgers =
-    new java.util.concurrent.LinkedBlockingQueue[org.apache.bookkeeper.client.LedgerHandle](10)
 
   private def closeLastLedger(): Unit = {
     zkTreeListLedger
@@ -33,9 +33,15 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
       }
   }
 
+  private def closeLedger(ledgerHandle: org.apache.bookkeeper.client.LedgerHandle): Unit = {
+    scala.util.Try {
+      ledgerHandle.close()
+    }
+  }
+
   private def closeLedger(id: Long): Unit = {
     scala.util.Try(bookKeeper
-      .openLedger(id, BookKeeper.DigestType.MAC, password)
+      .openLedger(id, BookKeeper.DigestType.MAC, bookkeeperOptions.password)
     ) match {
       case scala.util.Success(_) =>
       case scala.util.Failure(throwable) => throwable match {
@@ -45,6 +51,7 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
       }
     }
   }
+
 
   private final def whileLeaderDo() = {
 
@@ -64,33 +71,36 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
           lastAccessTimes = System.currentTimeMillis()
           scala.util.Try {
             ledgerHandleToWrite(
-              replicationConfig.ensembleNumber,
-              replicationConfig.writeQuorumNumber,
-              replicationConfig.ackQuorumNumber,
+              bookkeeperOptions.ensembleNumber,
+              bookkeeperOptions.writeQuorumNumber,
+              bookkeeperOptions.ackQuorumNumber,
               BookKeeper.DigestType.MAC
             )
           }.map { ledgerHandle =>
 
-            lock.writeLock().lock()
-            val ledgerNumber = openedLedgers.size()
-            if (ledgerNumber > 1) {
-              val ledger = openedLedgers.poll()
-              lock.writeLock().unlock()
-              ledger.close()
-            } else {
-              lock.writeLock().unlock()
-            }
-
-            val timestampRecord =
-              new TimestampRecord(System.currentTimeMillis())
-
-            ledgerHandle.addEntry(timestampRecord.toByteArray)
-
+            val previousOpenedLedger = currentOpenedLedger
             zkTreeListLedger.createNode(
               ledgerHandle.getId
             )
+            if (previousOpenedLedger != null) {
+              lock.writeLock().lock()
+              try {
+                currentOpenedLedger = ledgerHandle
+              }
+              finally {
+                lock.writeLock().unlock()
+              }
 
-            openedLedgers.add(ledgerHandle)
+              while (
+                previousOpenedLedger.getLastAddPushed !=
+                  previousOpenedLedger.getLastAddConfirmed
+              ) {}
+              closeLedger(previousOpenedLedger)
+              zkLastClosedLedgerHandler
+                .setID(previousOpenedLedger.getId)
+            } else {
+              currentOpenedLedger = ledgerHandle
+            }
           }
           onBeingLeaderDo()
         }
@@ -103,20 +113,43 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
   private def ledgerHandleToWrite(ensembleNumber: Int,
                                   writeQuorumNumber: Int,
                                   ackQuorumNumber: Int,
-                                  digestType: DigestType
-                                 ) = {
+                                  digestType: DigestType) = {
+    val metadata =
+      new java.util.HashMap[String, Array[Byte]]
+
+    val size =
+      java.lang.Long.BYTES
+    val time = System.currentTimeMillis()
+    val buffer =
+      java.nio.ByteBuffer
+        .allocate(size)
+        .putLong(time)
+    buffer.flip()
+
+    val bytes =
+      if (buffer.hasArray)
+      buffer.array()
+    else {
+      val bytes = new Array[Byte](size)
+      buffer.get(bytes)
+      bytes
+    }
+
+    metadata.put(LedgerHandle.KeyTime, bytes)
+
     bookKeeper.createLedger(
       ensembleNumber,
       writeQuorumNumber,
       ackQuorumNumber,
       digestType,
-      password
+      bookkeeperOptions.password,
+      metadata
     )
   }
 
   @tailrec
   private def retryToGetLedger: Either[ServerIsSlaveException, org.apache.bookkeeper.client.LedgerHandle] = {
-    val openedLedger = openedLedgers.peek()
+    val openedLedger = currentOpenedLedger
     if (openedLedger == null) {
       if (master.hasLeadership) {
         TimeUnit.MILLISECONDS.sleep(10)
@@ -137,22 +170,28 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
   }
 
   @throws[Exception]
-  def doOperationWithCurrentWriteLedger(operate: Either[ServerIsSlaveException, org.apache.bookkeeper.client.LedgerHandle] => Unit): Unit = {
+  def doOperationWithCurrentWriteLedger[T](operate: Either[ServerIsSlaveException, org.apache.bookkeeper.client.LedgerHandle] => T): T = {
+
     if (master.hasLeadership) {
-      scala.util.Try {
-        lock.readLock().lock()
-        val currentLedgerHandle = retryToGetLedger
-        operate(currentLedgerHandle)
-      } match {
-        case scala.util.Success(_) =>
-          lock.readLock().unlock()
-        case scala.util.Failure(throwable) =>
-          lock.readLock().unlock()
+      lock.readLock().lock()
+      try {
+          val ledgerHandle = retryToGetLedger
+          operate(ledgerHandle)
+      }
+      catch {
+        case throwable: Throwable =>
           throw throwable
+      }
+      finally {
+        lock.readLock().unlock()
       }
     } else {
       operate(Left(new ServerIsSlaveException))
     }
+  }
+
+  def close(): Unit = {
+
   }
 
   override def run(): Unit = {
@@ -161,16 +200,19 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
         if (master.hasLeadership)
           lead()
         else {
-          lock.writeLock().lock()
-          val ledgers =
-            new util.LinkedList[org.apache.bookkeeper.client.LedgerHandle]()
-          openedLedgers.drainTo(ledgers)
-          ledgers.forEach(_.close())
-          lock.writeLock().unlock()
+          if (currentOpenedLedger != null) {
+            val openedLedger = currentOpenedLedger
+            currentOpenedLedger = null
+            closeLedger(openedLedger)
+          }
         }
       }
-    } catch {
+    }
+    catch {
       case _: java.lang.InterruptedException =>
+        if (currentOpenedLedger != null) {
+          closeLedger(currentOpenedLedger)
+        }
         Thread.currentThread().interrupt()
     }
   }

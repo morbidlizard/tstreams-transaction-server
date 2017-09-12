@@ -3,8 +3,10 @@ package it
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
 import com.bwsw.tstreamstransactionserver.netty.server.transactionIDService.TransactionIdService
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
@@ -20,7 +22,7 @@ class SingleNodeServerProducerTransactionNotificationTest
 {
   private val commitLogToBerkeleyDBTaskDelayMs = 100
   private lazy val serverBuilder = new SingleNodeServerBuilder()
-   .withCommitLogOptions(ServerOptions.CommitLogOptions(
+   .withCommitLogOptions(SingleNodeServerOptions.CommitLogOptions(
     closeDelayMs = commitLogToBerkeleyDBTaskDelayMs
    ))
 
@@ -32,7 +34,7 @@ class SingleNodeServerProducerTransactionNotificationTest
   private lazy val (zkServer, zkClient) =
     startZkServerAndGetIt
 
-  val secondsWait = 5
+  val secondsWait = 10
 
   override def beforeAll(): Unit = {
     zkServer
@@ -448,6 +450,7 @@ class SingleNodeServerProducerTransactionNotificationTest
 
       val stream = getRandomStream
       val streamID = Await.result(bundle.client.putStream(stream), secondsWait.seconds)
+      streamID shouldNot be (-1)
 
       val firstTransaction1 = System.currentTimeMillis() + 10L
       val firstTransaction2 = System.currentTimeMillis() + 124L

@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.singleNode
 
 import com.bwsw.tstreamstransactionserver.netty.server.{Notifier, RocksWriter, TestRocksWriter}
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
-import com.bwsw.tstreamstransactionserver.options.ServerOptions._
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions._
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction}
 
 
@@ -12,7 +12,6 @@ class TestSingleNodeServer(authenticationOpts: AuthenticationOptions,
                            serverOpts: BootstrapOptions,
                            commonRoleOptions: CommonRoleOptions,
                            checkpointGroupRoleOptions: CheckpointGroupRoleOptions,
-                           serverReplicationOpts: ServerReplicationOptions,
                            storageOpts: StorageOptions,
                            rocksStorageOpts: RocksStorageOptions,
                            commitLogOptions: CommitLogOptions,
@@ -24,7 +23,6 @@ class TestSingleNodeServer(authenticationOpts: AuthenticationOptions,
     serverOpts,
     commonRoleOptions,
     checkpointGroupRoleOptions,
-    serverReplicationOpts,
     storageOpts,
     rocksStorageOpts,
     commitLogOptions,

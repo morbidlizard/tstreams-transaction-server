@@ -4,8 +4,7 @@ package util
 import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
-import com.bwsw.tstreamstransactionserver.netty.server.singleNode.TestSingleNodeServer
-import com.bwsw.tstreamstransactionserver.options.SingleNodeServerBuilder
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.{SingleNodeServerBuilder, TestSingleNodeServer}
 import org.apache.commons.io.FileUtils
 
 class ZkSeverTxnServerTxnClient(val transactionServer: TestSingleNodeServer,

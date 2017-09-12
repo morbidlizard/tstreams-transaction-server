@@ -1,7 +1,9 @@
 package it
 
 
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, ServerOptions, SingleNodeServerBuilder}
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ConsumerTransaction, ProducerTransaction, TransactionStates}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
@@ -17,7 +19,7 @@ class CommitLogOffsetTest
 {
 
   private lazy val serverBuilder = new SingleNodeServerBuilder()
-    .withCommitLogOptions(ServerOptions.CommitLogOptions(
+    .withCommitLogOptions(SingleNodeServerOptions.CommitLogOptions(
       closeDelayMs = Int.MaxValue
     ))
 
@@ -70,7 +72,7 @@ class CommitLogOffsetTest
 
 
 
-  private val secondsWait = 5
+  private val secondsWait = 10
 
   "getCommitLogOffsets" should "return -1 for currentProcessedCommitLog and 0 for currentConstructedCommitLog as there is created commit log file at initialization of server and it's not processed." in {
     val bundle = Utils.startTransactionServerAndClient(

@@ -3,8 +3,9 @@ package it.packageTooBig
 import java.util.concurrent.TimeUnit
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.PackageTooBigException
-import com.bwsw.tstreamstransactionserver.options.{ClientBuilder, SingleNodeServerBuilder}
-import com.bwsw.tstreamstransactionserver.options.ServerOptions.TransportOptions
+import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
+import com.bwsw.tstreamstransactionserver.netty.server.singleNode.SingleNodeServerBuilder
+import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.TransportOptions
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
 import util.Utils.startZkServerAndGetIt
@@ -17,7 +18,8 @@ class ClientPackageTooBigTest
     with Matchers
     with BeforeAndAfterAll {
 
-  private val packageTransmissionOptions = TransportOptions(maxMetadataPackageSize = 1000000)
+  private val packageTransmissionOptions =
+    TransportOptions(maxMetadataPackageSize = 1000000)
 
   private lazy val serverBuilder = new SingleNodeServerBuilder()
     .withPackageTransmissionOptions(packageTransmissionOptions)
@@ -26,6 +28,8 @@ class ClientPackageTooBigTest
 
   private lazy val (zkServer, zkClient) =
     startZkServerAndGetIt
+
+  private val secondsToWait = 10
 
   override def beforeAll(): Unit = {
     zkServer
@@ -51,7 +55,7 @@ class ClientPackageTooBigTest
           1L,
           Array.fill(2)(new Array[Byte](packageTransmissionOptions.maxMetadataPackageSize)),
           1
-        ), Duration(5, TimeUnit.SECONDS))
+        ), Duration(secondsToWait, TimeUnit.SECONDS))
       }
 
     }

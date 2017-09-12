@@ -18,6 +18,6 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.transactionIDService
 
-case class TransactionGeneratorUnit(transactionId: Int,
-                                    currentTime: Long)
+final case class TransactionGeneratorUnit(transactionId: Int,
+                                          currentTime: Long)
 

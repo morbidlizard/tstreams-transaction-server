@@ -86,8 +86,9 @@ class InvalidTransactionState(producerTransactionRecord: ProducerTransactionReco
 
 class CheckpointedTransactionState(producerTransactionRecord: ProducerTransactionRecord)
   extends ProducerTransactionState(producerTransactionRecord) {
-  override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState =
+  override def handle(producerTransactionState: ProducerTransactionState): ProducerTransactionState = {
     this
+  }
 }
 
 class UndefinedTransactionState(producerTransactionRecord: ProducerTransactionRecord)

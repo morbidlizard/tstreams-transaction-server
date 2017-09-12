@@ -20,16 +20,22 @@ package com.bwsw.tstreamstransactionserver.configProperties
 
 import com.bwsw.tstreamstransactionserver.ExecutionContextGrid
 
+import scala.concurrent.ExecutionContextExecutorService
+
 class ClientExecutionContextGrid(nThreads: Int) {
-  lazy val context = contextGrid.getContext
-  private lazy val contextGrid = ExecutionContextGrid(nThreads, "ClientExecutionContextGrid-%d")
+  private val contextGrid =
+    ExecutionContextGrid(nThreads, "ClientExecutionContextGrid-%d")
+
+  val context: ExecutionContextExecutorService =
+    contextGrid.getContext
 
   def stopAccessNewTasksAndAwaitCurrentTasksToBeCompleted(): Unit = {
     stopAccessNewTasks()
     awaitAllCurrentTasksAreCompleted()
   }
 
-  def stopAccessNewTasks(): Unit = contextGrid.stopAccessNewTasks()
+  def stopAccessNewTasks(): Unit =
+    contextGrid.stopAccessNewTasks()
 
   def awaitAllCurrentTasksAreCompleted(): Unit = contextGrid.awaitAllCurrentTasksAreCompleted()
 }

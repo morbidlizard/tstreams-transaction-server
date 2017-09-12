@@ -50,8 +50,8 @@ case class ProducerTransactionRecord(key: ProducerTransactionKey,
     else if (this.partition > that.partition) 1
     else if (this.transactionID < that.transactionID) -1
     else if (this.transactionID > that.transactionID) 1
-    else if (this.state.value < that.state.value) -1
-    else if (this.state.value > that.state.value) 1
+//    else if (this.state.value < that.state.value) -1
+//    else if (this.state.value > that.state.value) 1
     else 0
   }
 
@@ -64,6 +64,15 @@ case class ProducerTransactionRecord(key: ProducerTransactionKey,
   override def state: TransactionStates = producerTransaction.state
 
   def timestamp: Long = producerTransaction.timestamp
+
+  override def toString: String = {
+    s"Producer transaction: " +
+      s"stream ${this.key.stream}," +
+      s"partition ${this.key.partition}," +
+      s"id ${this.key.transactionID}," +
+      s"state ${this.producerTransaction.state.name}," +
+      s"timestamp ${this.producerTransaction.timestamp}"
+  }
 }
 
 object ProducerTransactionRecord {

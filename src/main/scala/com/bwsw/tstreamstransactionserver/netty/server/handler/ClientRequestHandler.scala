@@ -36,8 +36,11 @@ abstract class ClientRequestHandler(val id: Byte,
                                    response: Array[Byte],
                                    ctx: ChannelHandlerContext): Unit = {
     val responseMessage = ResponseMessage(message.id, response)
-    val binaryResponse = responseMessage.toByteArray
-    if (ctx.channel().isActive)
-      ctx.writeAndFlush(binaryResponse)
+    val binaryResponse = responseMessage.toByteBuf(ctx.alloc())
+    val channel = ctx.channel()
+    if (channel.isActive)
+      channel.eventLoop().execute(() =>
+        ctx.writeAndFlush(binaryResponse, ctx.voidPromise())
+      )
   }
 }

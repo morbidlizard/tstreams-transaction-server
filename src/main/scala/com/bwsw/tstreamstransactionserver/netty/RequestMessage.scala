@@ -20,7 +20,7 @@
 
 package com.bwsw.tstreamstransactionserver.netty
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, ByteBufAllocator}
 
 
 /** Message is a placeholder for some binary information.
@@ -72,6 +72,31 @@ case class RequestMessage(id: Long,
       buffer.get(binaryMessage)
       binaryMessage
     }
+  }
+
+  def toByteBuf(byteBufAllocator: ByteBufAllocator): ByteBuf = {
+    val size = {
+      RequestMessage.headerFieldSize +
+        RequestMessage.lengthFieldSize +
+        body.length
+    }
+
+    val isFireAndForgetMethodToByte = {
+      if (isFireAndForgetMethod)
+        1: Byte
+      else
+        0: Byte
+    }
+
+    byteBufAllocator
+      .buffer(size, size)
+      .writeLong(id)
+      .writeByte(thriftProtocol)
+      .writeInt(token)
+      .writeByte(methodId)
+      .writeByte(isFireAndForgetMethodToByte)
+      .writeInt(bodyLength)
+      .writeBytes(body)
   }
 }
 

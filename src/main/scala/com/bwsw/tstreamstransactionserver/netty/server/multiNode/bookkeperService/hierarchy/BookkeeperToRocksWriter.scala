@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy
 
 
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerIDAndItsLastRecordID, MetadataRecord}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerMetadata, MetadataRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
 import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.batch.{BigCommit, BigCommitWithFrameParser}
@@ -12,16 +12,14 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogServic
 class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader,
                               commitLogService: CommitLogService,
                               rocksWriter: RocksWriter)
-  extends Runnable
-{
-
-  private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerIDAndItsLastRecordID]): BigCommitWithFrameParser = {
+  extends Runnable {
+  private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerMetadata]): BigCommitWithFrameParser = {
     val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
     val bigCommit = new BigCommit(rocksWriter, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
     new BigCommitWithFrameParser(bigCommit)
   }
 
-  def processAndPersistRecords(): PersistedCommitAndMoveToNextRecordsInfo = {
+  def processAndPersistRecords(): Boolean = {
     val ledgerRecordIDs = commitLogService
       .getLastProcessedLedgersAndRecordIDs
 
@@ -29,27 +27,29 @@ class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader
       zkMultipleTreeListReader.read(ledgerRecordIDs)
 
     if (records.isEmpty) {
-      PersistedCommitAndMoveToNextRecordsInfo(
-        isCommitted = true,
-        doReadNextRecords = false
-      )
+      false
     }
     else {
       val bigCommit = getBigCommit(ledgerIDsAndTheirLastRecordIDs)
       val frames = records.map(record => new BookkeeperRecordFrame(record))
+
       bigCommit.addFrames(frames)
-      PersistedCommitAndMoveToNextRecordsInfo(
-        isCommitted = bigCommit.commit(),
-        doReadNextRecords = true
+      bigCommit.commit()
+
+      rocksWriter.createAndExecuteTransactionsToDeleteTask(
+        frames.lastOption
+          .map(_.timestamp)
+          .getOrElse(System.currentTimeMillis())
       )
+      rocksWriter.clearProducerTransactionCache()
+      true
     }
   }
 
   override def run(): Unit = {
-    var doReadNextRecords = true
-    while (doReadNextRecords) {
-      val info = processAndPersistRecords()
-      doReadNextRecords = info.doReadNextRecords
+    var haveNextRecords = true
+    while (haveNextRecords) {
+      haveNextRecords = processAndPersistRecords()
     }
   }
 }

@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.bwsw.tstreamstransactionserver.netty.Protocol
 import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{LongZookeeperTreeList, ZkMultipleTreeListReader}
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{LongNodeCache, LongZookeeperTreeList, ZkMultipleTreeListReader}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.LedgerManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.{Record, TimestampRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{IsOkayStatus, LedgerMetadata, MoveToNextLedgerStatus}
@@ -14,7 +14,7 @@ import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.{Checkpointed, O
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.apache.bookkeeper.client.BookKeeper
 import org.apache.bookkeeper.conf.ClientConfiguration
-import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
+import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import ut.multiNodeServer.ZkTreeListTest.LedgerManagerInMemory
 import util.Utils
@@ -53,7 +53,7 @@ class ZkMultipleTreeListReaderTest
       .setZkTimeout(lowLevelZkClient.getConnectionTimeoutMs)
 
     configuration.setLedgerManagerFactoryClass(
-      classOf[HierarchicalLedgerManagerFactory]
+      classOf[LongHierarchicalLedgerManagerFactory]
     )
 
     new BookKeeper(configuration)
@@ -100,9 +100,48 @@ class ZkMultipleTreeListReaderTest
     val zkTreeList1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
     val zkTreeList2 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
+
+    val zkTreeListLastClosedLedgerPrefix1 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix1,
+        Array.emptyByteArray
+      )
+
+    val zkTreeListLastClosedLedgerPrefix2 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix2,
+        Array.emptyByteArray
+      )
+
+    val commonMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix1
+      )
+
+    val checkpointMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix2
+      )
+
+    val lastClosedLedgerHandlers =
+      Array(commonMasterLastClosedLedger, checkpointMasterLastClosedLedger)
+    lastClosedLedgerHandlers.foreach(_.startMonitor())
+
+
     val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
       trees,
+      lastClosedLedgerHandlers,
       storage
     )
 
@@ -125,9 +164,47 @@ class ZkMultipleTreeListReaderTest
 
     zkTreeList2.createNode(firstLedger.id)
 
+    val zkTreeListLastClosedLedgerPrefix1 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix1,
+        Array.emptyByteArray
+      )
+
+    val zkTreeListLastClosedLedgerPrefix2 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix2,
+        java.nio.ByteBuffer.allocate(8).putLong(firstLedger.id).array()
+      )
+
+    val commonMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix1
+      )
+
+    val checkpointMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix2
+      )
+
+    val lastClosedLedgerHandlers =
+      Array(commonMasterLastClosedLedger, checkpointMasterLastClosedLedger)
+    lastClosedLedgerHandlers.foreach(_.startMonitor())
+
+
     val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
       trees,
+      lastClosedLedgerHandlers,
       storage
     )
 
@@ -210,9 +287,47 @@ class ZkMultipleTreeListReaderTest
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
 
+    val zkTreeListLastClosedLedgerPrefix1 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix1,
+        java.nio.ByteBuffer.allocate(8).putLong(firstLedger.id).array()
+      )
+
+    val zkTreeListLastClosedLedgerPrefix2 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix2,
+        java.nio.ByteBuffer.allocate(8).putLong(secondLedger.id).array()
+      )
+
+    val commonMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix1
+      )
+
+    val checkpointMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix2
+      )
+
+    val lastClosedLedgerHandlers =
+      Array(commonMasterLastClosedLedger, checkpointMasterLastClosedLedger)
+    lastClosedLedgerHandlers.foreach(_.startMonitor())
+
+
     val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
       trees,
+      lastClosedLedgerHandlers,
       storage
     )
 
@@ -329,9 +444,47 @@ class ZkMultipleTreeListReaderTest
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
 
+    val zkTreeListLastClosedLedgerPrefix1 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix1,
+        java.nio.ByteBuffer.allocate(8).putLong(firstLedger.id).array()
+      )
+
+    val zkTreeListLastClosedLedgerPrefix2 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix2,
+        java.nio.ByteBuffer.allocate(8).putLong(secondLedger.id).array()
+      )
+
+    val commonMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix1
+      )
+
+    val checkpointMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix2
+      )
+
+    val lastClosedLedgerHandlers =
+      Array(commonMasterLastClosedLedger, checkpointMasterLastClosedLedger)
+    lastClosedLedgerHandlers.foreach(_.startMonitor())
+
+
     val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
       trees,
+      lastClosedLedgerHandlers,
       storage
     )
 
@@ -478,9 +631,48 @@ class ZkMultipleTreeListReaderTest
 
     zkTreeList1.createNode(thirdLedger.id)
 
+
+    val zkTreeListLastClosedLedgerPrefix1 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix1,
+        java.nio.ByteBuffer.allocate(8).putLong(thirdLedger.id).array()
+      )
+
+    val zkTreeListLastClosedLedgerPrefix2 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix2,
+        java.nio.ByteBuffer.allocate(8).putLong(secondLedger.id).array()
+      )
+
+    val commonMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix1
+      )
+
+    val checkpointMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix2
+      )
+
+    val lastClosedLedgerHandlers =
+      Array(commonMasterLastClosedLedger, checkpointMasterLastClosedLedger)
+    lastClosedLedgerHandlers.foreach(_.startMonitor())
+
+
     val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
       trees,
+      lastClosedLedgerHandlers,
       storage
     )
 
@@ -595,9 +787,47 @@ class ZkMultipleTreeListReaderTest
     zkTreeList1.createNode(firstLedger.id)
     zkTreeList2.createNode(secondLedger.id)
 
+    val zkTreeListLastClosedLedgerPrefix1 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix1,
+        java.nio.ByteBuffer.allocate(8).putLong(firstLedger.id).array()
+      )
+
+    val zkTreeListLastClosedLedgerPrefix2 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix2,
+        java.nio.ByteBuffer.allocate(8).putLong(secondLedger.id).array()
+      )
+
+    val commonMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix1
+      )
+
+    val checkpointMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix2
+      )
+
+    val lastClosedLedgerHandlers =
+      Array(commonMasterLastClosedLedger, checkpointMasterLastClosedLedger)
+    lastClosedLedgerHandlers.foreach(_.startMonitor())
+
+
     val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
       trees,
+      lastClosedLedgerHandlers,
       storage
     )
 
@@ -672,9 +902,47 @@ class ZkMultipleTreeListReaderTest
 
     zkTreeList1.createNode(forthLedger.id)
 
+    val zkTreeListLastClosedLedgerPrefix1 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix1,
+        java.nio.ByteBuffer.allocate(8).putLong(forthLedger.id).array()
+      )
+
+    val zkTreeListLastClosedLedgerPrefix2 =
+      s"/$uuid"
+    zkClient
+      .create()
+      .creatingParentsIfNeeded()
+      .forPath(
+        zkTreeListLastClosedLedgerPrefix2,
+        java.nio.ByteBuffer.allocate(8).putLong(thirdLedger.id).array()
+      )
+
+    val commonMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix1
+      )
+
+    val checkpointMasterLastClosedLedger =
+      new LongNodeCache(
+        zkClient,
+        zkTreeListLastClosedLedgerPrefix2
+      )
+
+    val lastClosedLedgerHandlers =
+      Array(commonMasterLastClosedLedger, checkpointMasterLastClosedLedger)
+    lastClosedLedgerHandlers.foreach(_.startMonitor())
+
+
     val trees = Array(zkTreeList1, zkTreeList2)
     val testReader = new ZkMultipleTreeListReader(
       trees,
+      lastClosedLedgerHandlers,
       storage
     )
 

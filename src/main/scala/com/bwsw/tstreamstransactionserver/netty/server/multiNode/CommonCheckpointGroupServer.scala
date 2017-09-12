@@ -110,12 +110,21 @@ class CommonCheckpointGroupServer(authenticationOpts: AuthenticationOptions,
 
   private val commonMaster = bookkeeperToRocksWriter
     .createCommonMaster(
-      commonMasterElector
+      commonMasterElector,
+      zk.idGenerator(
+        commonPrefixesOptions
+          .commonMasterLastClosedLedger
+      )
     )
 
   private val checkpointMaster = bookkeeperToRocksWriter
     .createCheckpointMaster(
-      checkpointGroupMasterElector
+      checkpointGroupMasterElector,
+      zk.idGenerator(
+        commonPrefixesOptions
+          .checkpointGroupPrefixesOptions
+          .checkpointGroupLastClosedLedger
+      )
     )
 
   private val slave = bookkeeperToRocksWriter

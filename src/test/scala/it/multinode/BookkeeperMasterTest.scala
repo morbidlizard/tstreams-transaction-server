@@ -8,15 +8,16 @@ import com.bwsw.tstreamstransactionserver.netty.server.batch.Frame
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.data.Record
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKIDGenerator
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
 import com.bwsw.tstreamstransactionserver.rpc.{ProducerTransaction, Transaction, TransactionService, TransactionStates}
 import org.apache.bookkeeper.client.BookKeeper
 import org.apache.bookkeeper.conf.ClientConfiguration
-import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
+import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory
+import org.apache.curator.retry.RetryForever
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import util.Utils
 
-import scala.concurrent.Promise
 
 
 class BookkeeperMasterTest
@@ -104,7 +105,7 @@ class BookkeeperMasterTest
       .setZkTimeout(lowLevelZkClient.getConnectionTimeoutMs)
 
     configuration.setLedgerManagerFactoryClass(
-      classOf[HierarchicalLedgerManagerFactory]
+      classOf[LongHierarchicalLedgerManagerFactory]
     )
 
     new BookKeeper(configuration)
@@ -130,10 +131,13 @@ class BookkeeperMasterTest
     bundle.operate { _ =>
       val zkTree1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
+      val closedLedgerIDGen =
+        new ZKIDGenerator(zkClient, new RetryForever(100), s"/$uuid")
 
       val bookkeeperMaster =
         new BookkeeperMaster(
           bookkeeper,
+          closedLedgerIDGen,
           masterSelector,
           bookkeeperOptions,
           zkTree1,
@@ -149,11 +153,9 @@ class BookkeeperMasterTest
       bookkeeperMasterBundle.start()
       Thread.sleep(createNewLedgerEveryTimeMs)
 
-      val promise = Promise.successful(())
       bookkeeperMaster.doOperationWithCurrentWriteLedger { currentLedger =>
         currentLedger.isRight shouldBe true
         currentLedger.right.get.getId shouldBe 0
-        promise
       }
 
       bookkeeperMasterBundle.stop()
@@ -168,9 +170,13 @@ class BookkeeperMasterTest
 
       val zkTree1 = new LongZookeeperTreeList(zkClient, s"/$uuid")
 
+      val closedLedgerIDGen =
+        new ZKIDGenerator(zkClient, new RetryForever(100), s"/$uuid")
+
       val bookkeeperMaster =
         new BookkeeperMaster(
           bookkeeper,
+          closedLedgerIDGen,
           masterSelector,
           bookkeeperOptions,
           zkTree1,
@@ -185,11 +191,9 @@ class BookkeeperMasterTest
       bookkeeperMasterBundle.start()
       Thread.sleep(createNewLedgerEveryTimeMs * 3)
 
-      val promise = Promise.successful(())
       bookkeeperMaster.doOperationWithCurrentWriteLedger { currentLedger =>
         currentLedger.isRight shouldBe true
         currentLedger.right.get.getId should be > 1L
-        promise
       }
 
       bookkeeperMasterBundle.stop()

@@ -12,13 +12,12 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepo
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.{SingleNodeServerBuilder, TestSingleNodeServer}
 import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
-import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer, singleNode}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
 import com.bwsw.tstreamstransactionserver.options.CommonOptions.ZookeeperOptions
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
 import org.apache.bookkeeper.conf.ServerConfiguration
-import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory
+import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory
 import org.apache.bookkeeper.proto.BookieServer
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
@@ -81,7 +80,7 @@ object Utils {
         .setZkLedgersRootPath(zkLedgersRootPath)
 
       serverConfig.setLedgerManagerFactoryClass(
-        classOf[HierarchicalLedgerManagerFactory]
+        classOf[LongHierarchicalLedgerManagerFactory]
       )
 
       val server = new BookieServer(serverConfig)

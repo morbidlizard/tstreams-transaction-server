@@ -231,11 +231,15 @@ object PropertyFileReader {
     val checkpointMasterZkTreeListPrefix =
       loader.castCheck("replicable.cg.zk.path", identity)
 
+    val checkpointGroupLastClosedLedger =
+      loader.castCheck("replicable.cg.last-closed-ledger", identity)
+
     val timeBetweenCreationOfLedgersMs =
       loader.castCheck("replicable.cg.close-delay-ms", prop => prop.toInt)
 
     CheckpointGroupPrefixesOptions(
       checkpointMasterZkTreeListPrefix,
+      checkpointGroupLastClosedLedger,
       timeBetweenCreationOfLedgersMs
     )
   }
@@ -246,11 +250,15 @@ object PropertyFileReader {
     val commonMasterZkTreeListPrefix =
       loader.castCheck("replicable.common.zk.path", identity)
 
+    val commonMasterLastClosedLedger =
+      loader.castCheck("replicable.common.last-closed-ledger", identity)
+
     val timeBetweenCreationOfLedgersMs =
       loader.castCheck("replicable.common.close-delay-ms", prop => prop.toInt)
 
     CommonPrefixesOptions(
       commonMasterZkTreeListPrefix,
+      commonMasterLastClosedLedger,
       timeBetweenCreationOfLedgersMs,
       loadCheckpointGroupPrefixesOptions(loader)
     )

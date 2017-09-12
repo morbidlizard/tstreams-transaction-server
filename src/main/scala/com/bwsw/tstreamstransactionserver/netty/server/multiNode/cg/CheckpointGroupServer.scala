@@ -80,7 +80,11 @@ class CheckpointGroupServer(authenticationOpts: AuthenticationOptions,
 
   private val checkpointMaster = bookkeeperToRocksWriter
     .createCheckpointMaster(
-      checkpointGroupMasterElector
+      checkpointGroupMasterElector,
+      zk.idGenerator(
+        checkpointGroupPrefixesOptions
+          .checkpointGroupLastClosedLedger
+      )
     )
 
 

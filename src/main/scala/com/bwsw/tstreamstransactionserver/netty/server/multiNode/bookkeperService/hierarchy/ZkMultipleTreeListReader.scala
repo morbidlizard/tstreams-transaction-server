@@ -5,8 +5,6 @@ import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServic
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.ZkMultipleTreeListReader._
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata._
 
-import scala.collection.mutable
-
 
 private object ZkMultipleTreeListReader {
   private val NoLedgerExist: Long = -1L
@@ -15,6 +13,7 @@ private object ZkMultipleTreeListReader {
 }
 
 class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
+                               lastClosedLedgers: Array[LongNodeCache],
                                storageManager: LedgerManager) {
 
   private type Timestamp = Long
@@ -30,7 +29,6 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
       getNextLedger(
         zkTreeLists zip getRecordsToStartWith(processedLastRecordIDsAcrossLedgersCopy)
       )
-
     if (
       nextRecordsAndLedgersToProcess.exists(metadata =>
         NoLedgerExist == metadata.id || MoveToNextLedgerStatus == metadata.metadataStatus)
@@ -76,13 +74,13 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
 
 
   private def getNextLedger(ledgersMetadata: Array[(LongZookeeperTreeList, LedgerMetadata)]): Array[LedgerMetadata] = {
-    ledgersMetadata.map {
-      case (zkTreeList, ledgerMetadata) =>
+    ledgersMetadata.zip(lastClosedLedgers).map {
+      case ((zkTreeList, ledgerMetadata), lastClosedLedgerHandler) =>
         if (ledgerMetadata.metadataStatus == MoveToNextLedgerStatus) {
           zkTreeList
             .getNextNode(ledgerMetadata.id)
-            .filter(newLedgerID =>
-              storageManager.isClosed(newLedgerID)
+            .filter(nextLedgerId =>
+              nextLedgerId <= lastClosedLedgerHandler.getId
             )
             .map(newId => LedgerMetadata(newId, NoRecordRead, NoRecordReadStatus))
             .getOrElse(ledgerMetadata)
@@ -103,17 +101,18 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
       databaseData
     }
     else {
-      zkTreeLists.map(zkTreeList =>
-        zkTreeList.firstEntityID
-          .map { id =>
-            if (storageManager.isClosed(id)) {
-              LedgerMetadata(id, NoRecordRead, NoRecordReadStatus)
+      zkTreeLists.zip(lastClosedLedgers)
+        .map { case (zkTreeList, lastClosedLedgerHandler) =>
+          zkTreeList.firstEntityID
+            .map { id =>
+              if (id >= 0 && lastClosedLedgerHandler.getId >= 0) {
+                LedgerMetadata(id, NoRecordRead, NoRecordReadStatus)
+              }
+              else
+                LedgerMetadata(NoLedgerExist, NoRecordRead, NoRecordReadStatus)
             }
-            else
-              LedgerMetadata(NoLedgerExist, NoRecordRead, NoRecordReadStatus)
-          }
-          .getOrElse(LedgerMetadata(NoLedgerExist, NoRecordRead, NoRecordReadStatus))
-      )
+            .getOrElse(LedgerMetadata(NoLedgerExist, NoRecordRead, NoRecordReadStatus))
+        }
     }
   }
 
@@ -126,6 +125,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
 
     maxTimestamps.min
   }
+
 
   private def getLedgerIDAndItsOrderedRecords(ledgersAndTheirLastRecordsToProcess: Array[LedgerMetadata]) = {
     ledgersAndTheirLastRecordsToProcess
@@ -144,7 +144,6 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
             } else {
               (recordsWithIndexes, ledgerMetaInfo)
             }
-
           }
           .getOrElse(throw new
               IllegalStateException(
@@ -153,6 +152,7 @@ class ZkMultipleTreeListReader(zkTreeLists: Array[LongZookeeperTreeList],
           )
       }
   }
+
 
   private def areAllCurrentLedgerRecordsRead(metadata: LedgerMetadata,
                                              ledgerHandle: LedgerHandle): Boolean = {

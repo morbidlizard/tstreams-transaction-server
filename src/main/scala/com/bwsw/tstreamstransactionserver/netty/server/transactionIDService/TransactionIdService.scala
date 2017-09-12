@@ -35,7 +35,7 @@ object TransactionIdService
   private val update = new UnaryOperator[TransactionGeneratorUnit] {
     override def apply(transactionGenUnit: TransactionGeneratorUnit): TransactionGeneratorUnit = {
       val now = System.currentTimeMillis()
-      if (now - transactionGenUnit.currentTime > 0L) {
+      if ((now - transactionGenUnit.currentTime) > 0L) {
         TransactionGeneratorUnit(0, now)
       } else
         transactionGenUnit.copy(
@@ -45,7 +45,7 @@ object TransactionIdService
   }
 
   override def getTransaction(): Long = {
-    val txn = transactionIdAndCurrentTime.getAndUpdate(update)
+    val txn = transactionIdAndCurrentTime.updateAndGet(update)
     getTransaction(txn.currentTime) + txn.transactionId
   }
 

@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.cg
 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.{BookkeeperMasterBundle, BookkeeperWriter}
-import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
+import com.bwsw.tstreamstransactionserver.netty.server.zk.{ZKIDGenerator, ZKMasterElector}
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CheckpointGroupPrefixesOptions}
 import org.apache.curator.framework.CuratorFramework
 
@@ -17,7 +17,7 @@ class CheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
   private val checkpointMasterZkTreeList =
     new LongZookeeperTreeList(
       zookeeperClient,
-      checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
+      checkpointGroupPrefixesOptions.checkpointGroupZkTreeListPrefix
     )
 
   override def getLastConstructedLedger: Long = {
@@ -26,9 +26,11 @@ class CheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
       .getOrElse(-1L)
   }
 
-  def createCheckpointMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
+  def createCheckpointMaster(zKMasterElector: ZKMasterElector,
+                             zkLastClosedLedgerHandler: ZKIDGenerator): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
+      zkLastClosedLedgerHandler,
       checkpointGroupPrefixesOptions.timeBetweenCreationOfLedgersMs,
       checkpointMasterZkTreeList
     )

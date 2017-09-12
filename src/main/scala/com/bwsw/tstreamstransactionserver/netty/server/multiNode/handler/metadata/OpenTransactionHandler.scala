@@ -92,7 +92,7 @@ class OpenTransactionHandler(server: TransactionServer,
           stream,
           partition,
           transactionId,
-          0,
+          count = 0,
           TransactionState.Status.Opened,
           ttlMs,
           authOptions.key,
@@ -170,13 +170,13 @@ class OpenTransactionHandler(server: TransactionServer,
             promise.failure(throwable)
 
           case Right(ledgerHandler) =>
-            val transactionID = server.getTransactionID
+            val transactionId = server.getTransactionID
 
             val txn = Transaction(Some(
               ProducerTransaction(
                 args.streamID,
                 args.partition,
-                transactionID,
+                transactionId,
                 TransactionStates.Opened,
                 quantity = 0,
                 ttl = args.transactionTTLMs
@@ -190,7 +190,7 @@ class OpenTransactionHandler(server: TransactionServer,
             val callback = new ReplyCallback(
               args.streamID,
               args.partition,
-              transactionID,
+              transactionId,
               args.transactionTTLMs,
               message,
               ctx

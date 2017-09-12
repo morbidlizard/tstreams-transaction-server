@@ -126,8 +126,10 @@ object Util {
       .withCommonPrefixesOptions(
         serverBuilder.getCommonPrefixesOptions.copy(
           s"/tree/common/$uuid",
+          s"/tree/common/$uuid",
           timeBetweenCreationOfLedgesMs,
           CheckpointGroupPrefixesOptions(
+            s"/tree/cg/$uuid",
             s"/tree/cg/$uuid",
             timeBetweenCreationOfLedgesMs
           )

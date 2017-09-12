@@ -24,31 +24,34 @@ object MultiNodeServerOptions {
 
   /** The options are used to access/modifying zookeeper tree list, where ledgers for checkpoint group are stored.
     *
-    * @param checkpointMasterZkTreeListPrefix the zookeeper path to TreeList for checkpoint group.
-    * @param timeBetweenCreationOfLedgersMs the delay between creating new ledgers.
+    * @param checkpointGroupZkTreeListPrefix the zookeeper path to TreeList for checkpoint group.
+    * @param timeBetweenCreationOfLedgersMs  the delay between creating new ledgers.
     */
-  case class CheckpointGroupPrefixesOptions(checkpointMasterZkTreeListPrefix: String = "/tts/cg/master_tree",
-                                            timeBetweenCreationOfLedgersMs: Int = 200)
+  final case class CheckpointGroupPrefixesOptions(checkpointGroupZkTreeListPrefix: String = "/tts/cg/master_tree",
+                                                  checkpointGroupLastClosedLedger: String = "/tts/cg/last_closed_ledger",
+                                                  timeBetweenCreationOfLedgersMs: Int = 200)
 
   /** The options are used to access/modifying zookeeper tree list, where ledgers for common group are stored.
     *
-    * @param commonMasterZkTreeListPrefix the zookeeper path to TreeList for common group.
+    * @param commonMasterZkTreeListPrefix   the zookeeper path to TreeList for common group.
     * @param timeBetweenCreationOfLedgersMs the delay between creating new ledgers.
     * @param checkpointGroupPrefixesOptions look at: [[MultiNodeServerOptions.CheckpointGroupPrefixesOptions]].
     */
-  case class CommonPrefixesOptions(commonMasterZkTreeListPrefix: String = "/tts/common/master_tree",
-                                   timeBetweenCreationOfLedgersMs: Int = 200,
-                                   checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions = CheckpointGroupPrefixesOptions())
+  final case class CommonPrefixesOptions(commonMasterZkTreeListPrefix: String = "/tts/common/master_tree",
+                                         commonMasterLastClosedLedger: String = "/tts/common/last_closed_ledger",
+                                         timeBetweenCreationOfLedgersMs: Int = 200,
+                                         checkpointGroupPrefixesOptions: CheckpointGroupPrefixesOptions = CheckpointGroupPrefixesOptions())
 
   /** The options are used to configure access to bookies servers, creating/reading new ledgers.
     *
-    * @param ensembleNumber the number of bookies the data in the ledger will be stored on.
+    * @param ensembleNumber    the number of bookies the data in the ledger will be stored on.
     * @param writeQuorumNumber the number of bookies each entry is written to.
-    * @param ackQuorumNumber the number of bookies we must get a response from before we acknowledge the write to the client.
-    * @param password is used for accessing constructed ledgers and creating new ledgers.
+    * @param ackQuorumNumber   the number of bookies we must get a response from before we acknowledge the write to the client.
+    * @param password          is used for accessing constructed ledgers and creating new ledgers.
     */
-  case class BookkeeperOptions(ensembleNumber: Int = 3,
-                               writeQuorumNumber: Int = 3,
-                               ackQuorumNumber: Int = 2,
-                               password: Array[Byte] = "ChangePassword".getBytes())
+  final case class BookkeeperOptions(ensembleNumber: Int = 3,
+                                     writeQuorumNumber: Int = 3,
+                                     ackQuorumNumber: Int = 2,
+                                     password: Array[Byte] = "ChangePassword".getBytes())
+
 }

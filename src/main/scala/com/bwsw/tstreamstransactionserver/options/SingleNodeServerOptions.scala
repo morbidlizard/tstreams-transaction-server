@@ -34,20 +34,20 @@ object SingleNodeServerOptions {
     * @param bindPort               port to a server binds.
     * @param openOperationsPoolSize size of the ordered pool that contains single thread executors to work with some producer transaction operations.
     */
-  case class BootstrapOptions(bindHost: String = "127.0.0.1",
-                              bindPort: Int = 8071,
-                              openOperationsPoolSize: Int = Runtime.getRuntime.availableProcessors())
+  final case class BootstrapOptions(bindHost: String = "127.0.0.1",
+                                    bindPort: Int = 8071,
+                                    openOperationsPoolSize: Int = Runtime.getRuntime.availableProcessors())
 
 
   /** The options are used to provide to zookeeper
     * a prefix for leader election and
     * a prefix for putting address of server if it's a leader or elected to be a leader(master).
     *
-    * @param commonMasterPrefix            the prefix is used for providing current master/leader common group server.
-    * @param commonMasterElectionPrefix    the prefix is used for leader election among common servers.
+    * @param commonMasterPrefix         the prefix is used for providing current master/leader common group server.
+    * @param commonMasterElectionPrefix the prefix is used for leader election among common servers.
     */
-  case class CommonRoleOptions(commonMasterPrefix: String = "/tts/common/master",
-                               commonMasterElectionPrefix: String = "/tts/common/master_election")
+  final case class CommonRoleOptions(commonMasterPrefix: String = "/tts/common/master",
+                                     commonMasterElectionPrefix: String = "/tts/common/master_election")
 
 
   /** The options are used to provide to zookeeper
@@ -57,16 +57,16 @@ object SingleNodeServerOptions {
     * @param checkpointGroupMasterPrefix         the prefix is used for providing current master/leader checkpoint group server.
     * @param checkpointGroupMasterElectionPrefix the prefix is used for leader election among checkpoint group servers.
     */
-  case class CheckpointGroupRoleOptions(checkpointGroupMasterPrefix: String = "/tts/cg/master",
-                                        checkpointGroupMasterElectionPrefix: String = "/tts/cg/master_election")
+  final case class CheckpointGroupRoleOptions(checkpointGroupMasterPrefix: String = "/tts/cg/master",
+                                              checkpointGroupMasterElectionPrefix: String = "/tts/cg/master_election")
 
   /** The options are used to provide notification service for subscribers.
     *
     * @param updatePeriodMs        delay in milliseconds between updates of current subscribers online.
     * @param monitoringZkEndpoints The ZooKeeper server(s) connect to.
     */
-  case class SubscriberUpdateOptions(updatePeriodMs: Int = 1000,
-                                     monitoringZkEndpoints: Option[String] = None)
+  final case class SubscriberUpdateOptions(updatePeriodMs: Int = 1000,
+                                           monitoringZkEndpoints: Option[String] = None)
 
   /** The options are used to validate client requests by a server.
     *
@@ -74,9 +74,9 @@ object SingleNodeServerOptions {
     * @param keyCacheSize              the number of active tokens a server can handle over time.
     * @param keyCacheExpirationTimeSec The lifetime of token after last access before expiration..
     */
-  case class AuthenticationOptions(key: String = "",
-                                   keyCacheSize: Int = 10000,
-                                   keyCacheExpirationTimeSec: Int = 600)
+  final case class AuthenticationOptions(key: String = "",
+                                         keyCacheSize: Int = 10000,
+                                         keyCacheExpirationTimeSec: Int = 600)
 
   /** The options are used to define folders for databases.
     *
@@ -88,15 +88,15 @@ object SingleNodeServerOptions {
     * @param commitLogRocksDirectory  The subfolder of [[com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.StorageOptions.path]] where rocksdb database is placed which contains commit log files.
     *
     */
-  case class StorageOptions(path: String = "/tmp",
-                            streamZookeeperDirectory: String = "/tts/streams",
-                            dataDirectory: String = "transaction_data",
-                            metadataDirectory: String = "transaction_metadata",
-                            commitLogRawDirectory: String = "commit_log",
-                            commitLogRocksDirectory: String = "commit_log_rocks" //,
-                            /** streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
-                              * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
-                              * berkeleyReadThreadPool: Int = 2 */)
+  final case class StorageOptions(path: String = "/tmp",
+                                  streamZookeeperDirectory: String = "/tts/streams",
+                                  dataDirectory: String = "transaction_data",
+                                  metadataDirectory: String = "transaction_metadata",
+                                  commitLogRawDirectory: String = "commit_log",
+                                  commitLogRocksDirectory: String = "commit_log_rocks" //,
+                                  /** streamStorageName: String = "StreamStore", consumerStorageName: String = "ConsumerStore",
+                                    * metadataStorageName: String = "TransactionStore", openedTransactionsStorageName: String = "TransactionOpenStore",
+                                    * berkeleyReadThreadPool: Int = 2 */)
 
 
   /** The options are applied on creation Rocksdb database.
@@ -116,13 +116,13 @@ object SingleNodeServerOptions {
     *                                   If false, then every store to stable storage will issue a fdatasync.
     *                                   This parameter should be set to true while storing data to filesystem like ext3 that can lose files after a reboot.
     */
-  case class RocksStorageOptions(writeThreadPool: Int = 2,
-                                 readThreadPool: Int = 2,
-                                 transactionTtlAppendMs: Int = 50,
-                                 transactionExpungeDelayMin: Int = TimeUnit.DAYS.toMinutes(180).toInt,
-                                 maxBackgroundCompactions: Int = 1,
-                                 compression: CompressionType = CompressionType.LZ4_COMPRESSION,
-                                 isFsync: Boolean = true) {
+  final case class RocksStorageOptions(writeThreadPool: Int = 2,
+                                       readThreadPool: Int = 2,
+                                       transactionTtlAppendMs: Int = 50,
+                                       transactionExpungeDelayMin: Int = TimeUnit.DAYS.toMinutes(180).toInt,
+                                       maxBackgroundCompactions: Int = 1,
+                                       compression: CompressionType = CompressionType.LZ4_COMPRESSION,
+                                       isFsync: Boolean = true) {
 
 
     def createDBOptions(maxBackgroundCompactions: Int = this.maxBackgroundCompactions,
@@ -164,8 +164,8 @@ object SingleNodeServerOptions {
     *                               If server receives a client requests of size which is greater than maxMetadataPackageSize or maxDataPackageSize then it discards them and sends an exception to the client.
     *                               If server during an operation undertands that it is near to overfill constraints it can stop the operation and return a partial dataset.
     */
-  case class TransportOptions(maxMetadataPackageSize: Int = 10000000,
-                              maxDataPackageSize: Int = 10000000)
+  final case class TransportOptions(maxMetadataPackageSize: Int = 10000000,
+                                    maxDataPackageSize: Int = 10000000)
 
   /** The options are applied when processing commit log files.
     *
@@ -183,12 +183,12 @@ object SingleNodeServerOptions {
     * @param expungeDelaySec       the lifetime of commit log files before they are deleted.
     * @param zkFileIdGeneratorPath the coordination path for counter that is used to generate and retrieve commit log file id.
     */
-  case class CommitLogOptions(syncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
-                              syncValue: Int = 0,
-                              incompleteReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
-                              closeDelayMs: Int = 200,
-                              expungeDelaySec: Int = 86400,
-                              zkFileIdGeneratorPath: String = "/tts/file_id_gen")
+  final case class CommitLogOptions(syncPolicy: CommitLogWriteSyncPolicy = EveryNewFile,
+                                    syncValue: Int = 0,
+                                    incompleteReadPolicy: IncompleteCommitLogReadPolicy = SkipLog,
+                                    closeDelayMs: Int = 200,
+                                    expungeDelaySec: Int = 86400,
+                                    zkFileIdGeneratorPath: String = "/tts/file_id_gen")
 
 }
 

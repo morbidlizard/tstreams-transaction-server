@@ -1,20 +1,20 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService
 
-import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
+import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKIDGenerator
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.BookkeeperOptions
-import org.apache.bookkeeper.client
 import org.apache.bookkeeper.client.BookKeeper.DigestType
-import org.apache.bookkeeper.client.{AsyncCallback, BKException, BookKeeper, LedgerMetadata}
+import org.apache.bookkeeper.client.{BKException, BookKeeper}
 
 import scala.annotation.tailrec
 
 
 class BookkeeperMaster(bookKeeper: BookKeeper,
+                       zkLastClosedLedgerHandler: ZKIDGenerator,
                        master: LeaderSelectorInterface,
                        bookkeeperOptions: BookkeeperOptions,
                        zkTreeListLedger: LongZookeeperTreeList,
@@ -79,27 +79,28 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
           }.map { ledgerHandle =>
 
             val previousOpenedLedger = currentOpenedLedger
-
             zkTreeListLedger.createNode(
               ledgerHandle.getId
             )
+            if (previousOpenedLedger != null) {
+              lock.writeLock().lock()
+              try {
+                currentOpenedLedger = ledgerHandle
+              }
+              finally {
+                lock.writeLock().unlock()
+              }
 
-            lock.writeLock().lock()
-            try {
+              while (
+                previousOpenedLedger.getLastAddPushed !=
+                  previousOpenedLedger.getLastAddConfirmed
+              ) {}
+              closeLedger(previousOpenedLedger)
+              zkLastClosedLedgerHandler
+                .setID(previousOpenedLedger.getId)
+            } else {
               currentOpenedLedger = ledgerHandle
             }
-            finally {
-              lock.writeLock().unlock()
-            }
-
-            while(
-              previousOpenedLedger.getLastAddPushed !=
-                previousOpenedLedger.getLastAddConfirmed
-            ) {}
-            if (previousOpenedLedger != null) {
-              closeLedger(previousOpenedLedger)
-            }
-
           }
           onBeingLeaderDo()
         }
@@ -125,7 +126,8 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
         .putLong(time)
     buffer.flip()
 
-    val bytes = if (buffer.hasArray)
+    val bytes =
+      if (buffer.hasArray)
       buffer.array()
     else {
       val bytes = new Array[Byte](size)
@@ -186,6 +188,10 @@ class BookkeeperMaster(bookKeeper: BookKeeper,
     } else {
       operate(Left(new ServerIsSlaveException))
     }
+  }
+
+  def close(): Unit = {
+
   }
 
   override def run(): Unit = {

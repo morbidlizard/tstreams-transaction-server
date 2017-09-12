@@ -2,9 +2,9 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode
 
 import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService._
-import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.LongZookeeperTreeList
+import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.hierarchy.{LongNodeCache, LongZookeeperTreeList}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
-import com.bwsw.tstreamstransactionserver.netty.server.zk.ZKMasterElector
+import com.bwsw.tstreamstransactionserver.netty.server.zk.{ZKIDGenerator, ZKMasterElector}
 import com.bwsw.tstreamstransactionserver.options.MultiNodeServerOptions.{BookkeeperOptions, CommonPrefixesOptions}
 import org.apache.curator.framework.CuratorFramework
 
@@ -24,11 +24,30 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
   private val checkpointMasterZkTreeList =
     new LongZookeeperTreeList(
       zookeeperClient,
-      commonPrefixesOptions.checkpointGroupPrefixesOptions.checkpointMasterZkTreeListPrefix
+      commonPrefixesOptions.checkpointGroupPrefixesOptions.checkpointGroupZkTreeListPrefix
+    )
+
+  private val commonMasterLastClosedLedger =
+    new LongNodeCache(
+      zookeeperClient,
+      commonPrefixesOptions
+        .commonMasterLastClosedLedger
+    )
+
+  private val checkpointMasterLastClosedLedger =
+    new LongNodeCache(
+      zookeeperClient,
+      commonPrefixesOptions
+        .checkpointGroupPrefixesOptions
+        .checkpointGroupLastClosedLedger
     )
 
   private val zkTreesList =
     Array(commonMasterZkTreeList, checkpointMasterZkTreeList)
+
+  private val lastClosedLedgerHandlers =
+    Array(commonMasterLastClosedLedger, checkpointMasterLastClosedLedger)
+  lastClosedLedgerHandlers.foreach(_.startMonitor())
 
   override def getLastConstructedLedger: Long = {
     val ledgerIds =
@@ -44,18 +63,22 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
     }
   }
 
-  def createCommonMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
+  def createCommonMaster(zKMasterElector: ZKMasterElector,
+                         zkLastClosedLedgerHandler: ZKIDGenerator): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
+      zkLastClosedLedgerHandler,
       commonPrefixesOptions
         .timeBetweenCreationOfLedgersMs,
       commonMasterZkTreeList
     )
   }
 
-  def createCheckpointMaster(zKMasterElector: ZKMasterElector): BookkeeperMasterBundle = {
+  def createCheckpointMaster(zKMasterElector: ZKMasterElector,
+                             zkLastClosedLedgerHandler: ZKIDGenerator): BookkeeperMasterBundle = {
     createMaster(
       zKMasterElector,
+      zkLastClosedLedgerHandler,
       commonPrefixesOptions
         .checkpointGroupPrefixesOptions
         .timeBetweenCreationOfLedgersMs,
@@ -71,6 +94,7 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
         bookKeeper,
         bookkeeperOptions,
         zkTreesList,
+        lastClosedLedgerHandlers,
         commitLogService,
         rocksWriter
       )
@@ -83,7 +107,11 @@ class CommonCheckpointGroupBookkeeperWriter(zookeeperClient: CuratorFramework,
         .timeBetweenCreationOfLedgersMs
     )
 
-    new BookkeeperSlaveBundle(bookkeeperSlave, timeBetweenCreationOfLedgersMs)
+    new BookkeeperSlaveBundle(
+      bookkeeperSlave,
+      lastClosedLedgerHandlers,
+      timeBetweenCreationOfLedgersMs
+    )
   }
 
 }

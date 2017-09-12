@@ -44,4 +44,10 @@ final class ZKIDGenerator(curatorClient: CuratorFramework,
       currentID
     }
   }
+
+  def setID(id: Long): Long = {
+    distributedAtomicLong
+      .trySet(id)
+      .postValue()
+  }
 }

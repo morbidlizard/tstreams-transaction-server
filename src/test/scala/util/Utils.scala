@@ -10,7 +10,7 @@ import com.bwsw.tstreamstransactionserver.netty.client.ClientBuilder
 import com.bwsw.tstreamstransactionserver.netty.client.api.TTSClient
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.{SingleNodeServerBuilder, TestSingleNodeServer}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.rocks.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter, TransactionServer, singleNode}
 import com.bwsw.tstreamstransactionserver.options.ClientOptions.ConnectionOptions
@@ -207,7 +207,7 @@ object Utils {
 
     val oneNodeCommitLogService =
       new singleNode.commitLogService.CommitLogService(
-        rocksStorage.getRocksStorage
+        rocksStorage.getStorageManager
       )
 
     new TransactionServerBundle(

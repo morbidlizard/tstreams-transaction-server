@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import org.slf4j.LoggerFactory
 
 
@@ -40,7 +40,7 @@ class ConsumerServiceWriter(rocksMetaServiceDB: KeyValueDbManager) {
         val value = lastTransaction.consumerTransaction.toByteArray
 
         batch.put(
-          RocksStorage.CONSUMER_STORE,
+          Storage.CONSUMER_STORE,
           key.toByteArray,
           value
         )

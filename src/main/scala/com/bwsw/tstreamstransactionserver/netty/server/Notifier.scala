@@ -82,7 +82,7 @@ final class Notifier[T] {
   def close(): Unit = {
     executor.shutdown()
     scala.util.Try {
-      executor.awaitTermination(0L, TimeUnit.NANOSECONDS)
+      executor.awaitTermination(5000L, TimeUnit.MILLISECONDS)
     }
   }
 

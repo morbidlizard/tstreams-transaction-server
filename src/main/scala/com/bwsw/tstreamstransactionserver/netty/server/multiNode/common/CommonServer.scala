@@ -8,7 +8,7 @@ import com.bwsw.tstreamstransactionserver.configProperties.ServerExecutionContex
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogService.CommitLogService
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.rocks.MultiNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
@@ -77,7 +77,7 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
 
   private val multiNodeCommitLogService =
     new CommitLogService(
-      rocksStorage.getRocksStorage
+      rocksStorage.getStorageManager
     )
 
   private val transactionServer = new TransactionServer(
@@ -269,7 +269,7 @@ class CommonServer(authenticationOpts: AuthenticationOptions,
       }
 
       if (rocksStorage != null) {
-        rocksStorage.getRocksStorage.closeDatabases()
+        rocksStorage.getStorageManager.closeDatabases()
       }
 
       if (transactionDataService != null) {

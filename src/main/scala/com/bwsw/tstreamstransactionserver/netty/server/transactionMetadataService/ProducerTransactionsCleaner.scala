@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.rpc.TransactionStates.Invalid
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -10,66 +10,68 @@ class ProducerTransactionsCleaner(rocksDB: KeyValueDbManager) {
     LoggerFactory.getLogger(this.getClass)
 
   private val openedProducerTransactionsDatabase =
-    rocksDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
+    rocksDB.getDatabase(Storage.TRANSACTION_OPEN_STORE)
 
   def cleanExpiredProducerTransactions(timestampToDeleteTransactions: Long): Unit = {
-    def isExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
-      scala.math.abs(
-        producerTransactionWithoutKey.timestamp +
-          producerTransactionWithoutKey.ttl
-      ) <= timestampToDeleteTransactions
-    }
+    scala.util.Try {
+      def isExpired(producerTransactionWithoutKey: ProducerTransactionValue): Boolean = {
+        scala.math.abs(
+          producerTransactionWithoutKey.timestamp +
+            producerTransactionWithoutKey.ttl
+        ) <= timestampToDeleteTransactions
+      }
 
 
-    if (logger.isDebugEnabled)
-      logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
-    val batch = rocksDB.newBatch
+      if (logger.isDebugEnabled)
+        logger.debug(s"Cleaner[time: $timestampToDeleteTransactions] of expired transactions is running.")
+      val batch = rocksDB.newBatch
 
-    val iterator = openedProducerTransactionsDatabase.iterator
-    iterator.seekToFirst()
+      val iterator = openedProducerTransactionsDatabase.iterator
+      iterator.seekToFirst()
 
-    while (iterator.isValid) {
-      val producerTransactionValue =
-        ProducerTransactionValue.fromByteArray(iterator.value())
+      while (iterator.isValid) {
+        val producerTransactionValue =
+          ProducerTransactionValue.fromByteArray(iterator.value())
 
-      if (isExpired(producerTransactionValue)) {
-        if (logger.isDebugEnabled)
-          logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
+        if (isExpired(producerTransactionValue)) {
+          if (logger.isDebugEnabled)
+            logger.debug(s"Cleaning $producerTransactionValue as it's expired.")
 
-        val key =
-          iterator.key()
+          val key =
+            iterator.key()
 
-        val producerTransactionKey =
-          ProducerTransactionKey.fromByteArray(key)
+          val producerTransactionKey =
+            ProducerTransactionKey.fromByteArray(key)
 
-        val canceledTransactionRecordDueExpiration =
-          transitProducerTransactionToInvalidState(
-            ProducerTransactionRecord(
-              producerTransactionKey,
-              producerTransactionValue
+          val canceledTransactionRecordDueExpiration =
+            transitProducerTransactionToInvalidState(
+              ProducerTransactionRecord(
+                producerTransactionKey,
+                producerTransactionValue
+              )
             )
+
+          onStateChange(
+            canceledTransactionRecordDueExpiration
           )
 
-        onStateChange(
-          canceledTransactionRecordDueExpiration
-        )
+          batch.put(
+            Storage.TRANSACTION_ALL_STORE,
+            key,
+            canceledTransactionRecordDueExpiration
+              .producerTransaction.toByteArray
+          )
 
-        batch.put(
-          RocksStorage.TRANSACTION_ALL_STORE,
-          key,
-          canceledTransactionRecordDueExpiration
-            .producerTransaction.toByteArray
-        )
-
-        batch.remove(
-          RocksStorage.TRANSACTION_OPEN_STORE,
-          key
-        )
+          batch.remove(
+            Storage.TRANSACTION_OPEN_STORE,
+            key
+          )
+        }
+        iterator.next()
       }
-      iterator.next()
+      iterator.close()
+      batch.write()
     }
-    iterator.close()
-    batch.write()
   }
 
   protected def onStateChange: ProducerTransactionRecord => Unit =

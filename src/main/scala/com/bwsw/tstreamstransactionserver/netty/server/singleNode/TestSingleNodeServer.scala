@@ -31,7 +31,7 @@ class TestSingleNodeServer(authenticationOpts: AuthenticationOptions,
 
   override protected lazy val rocksWriter: RocksWriter =
     new TestRocksWriter(
-      rocksStorage,
+      storage,
       transactionDataService,
       producerNotifier,
       consumerNotifier

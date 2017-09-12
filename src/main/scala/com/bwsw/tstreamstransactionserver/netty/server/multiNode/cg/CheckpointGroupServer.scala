@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.bwsw.tstreamstransactionserver.{ExecutionContextGrid, SinglePoolExecutionContextGrid}
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server._
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.rocks.MultiNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
 import com.bwsw.tstreamstransactionserver.options.CommonOptions
@@ -174,7 +174,7 @@ class CheckpointGroupServer(authenticationOpts: AuthenticationOptions,
       }
 
       if (rocksStorage != null) {
-        rocksStorage.getRocksStorage.closeDatabases()
+        rocksStorage.getStorageManager.closeDatabases()
       }
 
       if (transactionDataService != null) {

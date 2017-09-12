@@ -18,17 +18,18 @@
  */
 package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
+import com.bwsw.tstreamstransactionserver.netty.server.db.DbMeta
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbDescriptor._
 import org.rocksdb._
 
-case class RocksDbDescriptor(rocksDatabaseMeta: RocksDbMeta,
+case class RocksDbDescriptor(rocksDatabaseMeta: DbMeta,
                              options: ColumnFamilyOptions,
                              ttl: Integer = NoTTL) {
   def this(name: String,
            options: ColumnFamilyOptions,
            ttl: Integer) = {
     this(
-      RocksDbMeta(
+      DbMeta(
         name
       ),
       options,

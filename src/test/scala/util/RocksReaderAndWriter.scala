@@ -5,7 +5,7 @@ import java.io.File
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.rocks.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.streamService.StreamService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
@@ -54,7 +54,7 @@ class RocksReaderAndWriter(zkClient: CuratorFramework,
     rocksWriter.getNewBatch
 
   def closeDBAndDeleteFolder(): Unit = {
-    rocksStorage.getRocksStorage.closeDatabases()
+    rocksStorage.getStorageManager.closeDatabases()
     transactionDataService.closeTransactionDataDatabases()
 
     FileUtils.deleteDirectory(new File(storageOptions.path + java.io.File.separatorChar + storageOptions.metadataDirectory))

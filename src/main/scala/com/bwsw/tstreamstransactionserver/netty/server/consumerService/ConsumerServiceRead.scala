@@ -1,14 +1,14 @@
 package com.bwsw.tstreamstransactionserver.netty.server.consumerService
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import org.slf4j.LoggerFactory
 
 class ConsumerServiceRead(rocksMetaServiceDB: KeyValueDbManager) {
   private val logger =
     LoggerFactory.getLogger(this.getClass)
   private val consumerDatabase =
-    rocksMetaServiceDB.getDatabase(RocksStorage.CONSUMER_STORE)
+    rocksMetaServiceDB.getDatabase(Storage.CONSUMER_STORE)
 
   def getConsumerState(name: String,
                        streamID: Int,

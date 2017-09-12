@@ -20,7 +20,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
 
 import java.io.File
 
-import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
+import com.bwsw.tstreamstransactionserver.netty.server.db.{DbMeta, KeyValueDbManager}
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.RocksStorageOptions
 import org.apache.commons.io.FileUtils
 import org.rocksdb._
@@ -39,7 +39,7 @@ class RocksDbManager(absolutePath: String,
   private[rocks] val (client, descriptorsWorkWith, databaseHandlers) = {
     val descriptorsWithDefaultDescriptor =
       new RocksDbDescriptor(
-        RocksDbMeta("default"),
+        DbMeta("default"),
         new ColumnFamilyOptions()
       ) +: descriptors
 
@@ -83,8 +83,8 @@ class RocksDbManager(absolutePath: String,
     new RocksDb(client, databaseHandlers(index))
   }
 
-  def newBatch =
-    new Batch(client, databaseHandlers)
+  def newBatch: RocksDbBatch =
+    new RocksDbBatch(client, databaseHandlers)
 
   override def closeDatabases(): Unit =
     client.close()

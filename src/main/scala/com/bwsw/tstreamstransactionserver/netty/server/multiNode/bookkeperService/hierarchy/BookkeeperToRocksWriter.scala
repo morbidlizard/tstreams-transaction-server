@@ -2,7 +2,7 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperServi
 
 
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerMetadata, MetadataRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.netty.server._
 import com.bwsw.tstreamstransactionserver.netty.server.batch.{BigCommit, BigCommitWithFrameParser}
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.BookkeeperRecordFrame
@@ -15,7 +15,7 @@ class BookkeeperToRocksWriter(zkMultipleTreeListReader: ZkMultipleTreeListReader
   extends Runnable {
   private def getBigCommit(processedLastRecordIDsAcrossLedgers: Array[LedgerMetadata]): BigCommitWithFrameParser = {
     val value = MetadataRecord(processedLastRecordIDsAcrossLedgers).toByteArray
-    val bigCommit = new BigCommit(rocksWriter, RocksStorage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
+    val bigCommit = new BigCommit(rocksWriter, Storage.BOOKKEEPER_LOG_STORE, BigCommit.bookkeeperKey, value)
     new BigCommitWithFrameParser(bigCommit)
   }
 

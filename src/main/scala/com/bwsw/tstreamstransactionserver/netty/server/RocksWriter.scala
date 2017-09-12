@@ -5,29 +5,29 @@ import java.nio.ByteBuffer
 import com.bwsw.tstreamstransactionserver.exception.Throwable.StreamDoesNotExist
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.{ConsumerServiceWriter, ConsumerTransactionRecord}
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbBatch
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerStateMachineCache, ProducerTransactionRecord, ProducerTransactionsCleaner, TransactionMetaServiceWriter}
 
-class RocksWriter(rocksStorage: RocksStorage,
+class RocksWriter(storage: Storage,
                   transactionDataService: TransactionDataService) {
 
   protected val consumerService =
     new ConsumerServiceWriter(
-      rocksStorage.getRocksStorage
+      storage.getStorageManager
     )
 
   protected val producerTransactionsCleaner =
     new ProducerTransactionsCleaner(
-      rocksStorage.getRocksStorage
+      storage.getStorageManager
     )
 
   protected val producerStateMachineCache =
-    new ProducerStateMachineCache(rocksStorage.getRocksStorage)
+    new ProducerStateMachineCache(storage.getStorageManager)
 
   protected val transactionMetaServiceWriter =
     new TransactionMetaServiceWriter(
-      rocksStorage.getRocksStorage,
+      storage.getStorageManager,
       producerStateMachineCache
     )
 
@@ -59,7 +59,7 @@ class RocksWriter(rocksStorage: RocksStorage,
   }
 
   final def getNewBatch: KeyValueDbBatch =
-    rocksStorage.newBatch
+    storage.newBatch
 
   final def createAndExecuteTransactionsToDeleteTask(timestamp: Long): Unit =
     producerTransactionsCleaner

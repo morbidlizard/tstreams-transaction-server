@@ -2,14 +2,14 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{KeyStreamPartition, LastTransaction, TransactionId}
 
 import scala.collection.mutable
 
 final class ProducerStateMachineCache(rocksDB: KeyValueDbManager) {
   private val producerTransactionsWithOpenedStateDatabase =
-    rocksDB.getDatabase(RocksStorage.TRANSACTION_OPEN_STORE)
+    rocksDB.getDatabase(Storage.TRANSACTION_OPEN_STORE)
 
   private val transactionsRamTable =
     mutable.Map.empty[ProducerTransactionKey, ProducerTransactionValue]
@@ -83,7 +83,7 @@ final class ProducerStateMachineCache(rocksDB: KeyValueDbManager) {
       key,
       transactionId,
       batch,
-      RocksStorage.LAST_OPENED_TRANSACTION_STORAGE
+      Storage.LAST_OPENED_TRANSACTION_STORAGE
     )
   }
 
@@ -94,7 +94,7 @@ final class ProducerStateMachineCache(rocksDB: KeyValueDbManager) {
       key,
       transactionId,
       batch,
-      RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE
+      Storage.LAST_CHECKPOINTED_TRANSACTION_STORAGE
     )
   }
 

@@ -20,9 +20,5 @@ class KeyValueDbInMemory
     Option(db.remove(key)).isDefined
   }
 
-  override def getLastRecord: Option[(Array[Byte], Array[Byte])] = {
-    db.lastOption
-  }
-
   override def iterator: KeyValueDbIterator = ???
 }

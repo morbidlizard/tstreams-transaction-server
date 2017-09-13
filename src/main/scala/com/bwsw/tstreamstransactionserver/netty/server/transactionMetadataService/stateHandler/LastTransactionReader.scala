@@ -20,15 +20,15 @@ package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataServi
 
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 
 
 class LastTransactionReader(rocksMetaServiceDB: KeyValueDbManager) {
   private final val lastTransactionDatabase =
-    rocksMetaServiceDB.getDatabase(RocksStorage.LAST_OPENED_TRANSACTION_STORAGE)
+    rocksMetaServiceDB.getDatabase(Storage.LAST_OPENED_TRANSACTION_STORAGE)
 
   private final val lastCheckpointedTransactionDatabase =
-    rocksMetaServiceDB.getDatabase(RocksStorage.LAST_CHECKPOINTED_TRANSACTION_STORAGE)
+    rocksMetaServiceDB.getDatabase(Storage.LAST_CHECKPOINTED_TRANSACTION_STORAGE)
 
   final def getLastTransaction(streamID: Int,
                                partition: Int): Option[LastTransaction] = {

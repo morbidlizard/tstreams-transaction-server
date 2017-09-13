@@ -3,10 +3,10 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.commitLogServi
 import com.bwsw.tstreamstransactionserver.netty.server.batch.BigCommit
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.netty.server.multiNode.bookkeperService.metadata.{LedgerMetadata, MetadataRecord}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 
 final class CommitLogService(rocksDB: KeyValueDbManager) {
-  private val bookkeeperLogDatabase = rocksDB.getDatabase(RocksStorage.BOOKKEEPER_LOG_STORE)
+  private val bookkeeperLogDatabase = rocksDB.getDatabase(Storage.BOOKKEEPER_LOG_STORE)
 
   //TODO rename function
   def getLastProcessedLedgersAndRecordIDs: Array[LedgerMetadata] = {

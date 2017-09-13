@@ -19,7 +19,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.{KeyValueDbBatch, KeyValueDbManager}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler._
 import com.bwsw.tstreamstransactionserver.rpc._
 import org.slf4j.{Logger, LoggerFactory}
@@ -128,12 +128,12 @@ class TransactionMetaServiceWriter(rocksDB: KeyValueDbManager,
     )
 
     if (producerTransactionRecord.state == TransactionStates.Opened) {
-      batch.put(RocksStorage.TRANSACTION_OPEN_STORE, binaryKey, binaryTxn)
+      batch.put(Storage.TRANSACTION_OPEN_STORE, binaryKey, binaryTxn)
     }
     else {
-      batch.remove(RocksStorage.TRANSACTION_OPEN_STORE, binaryKey)
+      batch.remove(Storage.TRANSACTION_OPEN_STORE, binaryKey)
     }
-    batch.put(RocksStorage.TRANSACTION_ALL_STORE, binaryKey, binaryTxn)
+    batch.put(Storage.TRANSACTION_ALL_STORE, binaryKey, binaryTxn)
 
     if (logger.isDebugEnabled)
       logger.debug(s"Producer transaction on stream: ${producerTransactionRecord.stream}" +

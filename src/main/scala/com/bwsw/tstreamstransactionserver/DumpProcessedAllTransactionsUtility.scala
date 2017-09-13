@@ -1,6 +1,7 @@
 package com.bwsw.tstreamstransactionserver
 
-import com.bwsw.tstreamstransactionserver.netty.server.storage.{MultiAndSingleNodeRockStorage, RocksStorage}
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.rocks.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionValue}
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 import org.json4s.jackson.JsonMethods.{pretty, render}
@@ -30,7 +31,7 @@ object DumpProcessedAllTransactionsUtility {
         readOnly = true
       )
       val database =
-        rocksStorage.getRocksStorage.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
+        rocksStorage.getStorageManager.getDatabase(Storage.TRANSACTION_ALL_STORE)
 
       val iterator = database.iterator
       iterator.seekToFirst()

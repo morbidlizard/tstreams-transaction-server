@@ -3,7 +3,7 @@ package com.bwsw.tstreamstransactionserver.netty.server
 import java.nio.ByteBuffer
 
 import com.bwsw.tstreamstransactionserver.netty.server.consumerService.ConsumerServiceRead
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService._
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.{LastTransaction, LastTransactionReader}
@@ -11,17 +11,17 @@ import com.bwsw.tstreamstransactionserver.rpc._
 
 import scala.collection.Set
 
-class RocksReader(rocksStorage: RocksStorage,
+class RocksReader(storage: Storage,
                   transactionDataService: TransactionDataService) {
 
   private val consumerService =
     new ConsumerServiceRead(
-      rocksStorage.getRocksStorage
+      storage.getStorageManager
     )
 
   private val lastTransactionReader =
     new LastTransactionReader(
-      rocksStorage.getRocksStorage
+      storage.getStorageManager
     )
 
   private val transactionIDService =
@@ -29,7 +29,7 @@ class RocksReader(rocksStorage: RocksStorage,
 
   private val transactionMetaServiceReader =
     new TransactionMetaServiceReader(
-      rocksStorage.getRocksStorage
+      storage.getStorageManager
     )
 
   final def getTransactionID: Long =

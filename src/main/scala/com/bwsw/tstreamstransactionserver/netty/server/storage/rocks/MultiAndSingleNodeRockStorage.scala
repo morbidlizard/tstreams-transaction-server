@@ -1,13 +1,13 @@
-package com.bwsw.tstreamstransactionserver.netty.server.storage
+package com.bwsw.tstreamstransactionserver.netty.server.storage.rocks
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.{RocksDbDescriptor, RocksDbManager}
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage._
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions.{RocksStorageOptions, StorageOptions}
 
-class MultiAndSingleNodeRockStorage(storageOpts: StorageOptions,
-                                    rocksOpts: RocksStorageOptions,
-                                    readOnly: Boolean = false)
+final class MultiAndSingleNodeRockStorage(storageOpts: StorageOptions,
+                                          rocksOpts: RocksStorageOptions,
+                                          readOnly: Boolean = false)
   extends RocksStorage(
     storageOpts,
     rocksOpts,
@@ -17,13 +17,13 @@ class MultiAndSingleNodeRockStorage(storageOpts: StorageOptions,
       storageOpts.path + java.io.File.separatorChar + storageOpts.metadataDirectory,
       rocksOpts,
       commonDescriptors ++ List(
-        RocksDbDescriptor(commitLogStoreDescriptorInfo, columnFamilyOptions),
-        RocksDbDescriptor(bookkeeperLogStoreDescriptorInfo, columnFamilyOptions)
+        RocksDbDescriptor(Storage.commitLogStoreDescriptorInfo, columnFamilyOptions),
+        RocksDbDescriptor(Storage.bookkeeperLogStoreDescriptorInfo, columnFamilyOptions)
       ),
       readOnly
     )
 
-  override def getRocksStorage: KeyValueDbManager = {
+  override def getStorageManager: KeyValueDbManager = {
     rocksMetaServiceDB
   }
 }

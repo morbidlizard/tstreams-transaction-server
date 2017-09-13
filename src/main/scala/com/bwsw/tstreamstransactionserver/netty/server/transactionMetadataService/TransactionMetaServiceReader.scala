@@ -1,7 +1,7 @@
 package com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService
 
 import com.bwsw.tstreamstransactionserver.netty.server.db.KeyValueDbManager
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.stateHandler.LastTransactionReader
 import com.bwsw.tstreamstransactionserver.rpc.{ScanTransactionsInfo, TransactionInfo, TransactionStates}
 import org.slf4j.{Logger, LoggerFactory}
@@ -13,7 +13,7 @@ class TransactionMetaServiceReader(rocksDB: KeyValueDbManager) {
     LoggerFactory.getLogger(this.getClass)
 
   private val producerTransactionsDatabase =
-    rocksDB.getDatabase(RocksStorage.TRANSACTION_ALL_STORE)
+    rocksDB.getDatabase(Storage.TRANSACTION_ALL_STORE)
 
   private val lastTransactionReader =
     new LastTransactionReader(rocksDB)

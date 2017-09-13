@@ -26,9 +26,9 @@ import java.util.concurrent.BlockingQueue
 import com.bwsw.commitlog.filesystem.{CommitLogIterator, CommitLogStorage}
 import com.bwsw.tstreamstransactionserver.netty.server.batch.{BigCommit, BigCommitWithFrameParser}
 import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnection
-import com.bwsw.tstreamstransactionserver.netty.server.storage.RocksStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.CommitLogKey
-import com.bwsw.tstreamstransactionserver.netty.server.{RocksReader, RocksWriter}
+import com.bwsw.tstreamstransactionserver.netty.server.RocksWriter
 import com.bwsw.tstreamstransactionserver.options.IncompleteCommitLogReadPolicy.{Error, IncompleteCommitLogReadPolicy, SkipLog, TryRead}
 import org.slf4j.LoggerFactory
 
@@ -102,7 +102,7 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
     val value =
       CommitLogKey(fileID).toByteArray
     val bigCommit =
-      new BigCommit(rocksWriter, RocksStorage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
+      new BigCommit(rocksWriter, Storage.COMMIT_LOG_STORE, BigCommit.commitLogKey, value)
     new BigCommitWithFrameParser(bigCommit)
   }
 
@@ -178,7 +178,13 @@ class CommitLogToRocksWriter(rocksDb: RocksDbConnection,
         processAccordingToPolicy(commitLogEntity)
       } match {
         case scala.util.Success(_) =>
-        case scala.util.Failure(error) => error.printStackTrace()
+        case scala.util.Failure(error) =>
+          error match {
+            case _: java.lang.InterruptedException =>
+              Thread.currentThread().interrupt()
+            case _ =>
+              error.printStackTrace()
+          }
       }
     )
   }

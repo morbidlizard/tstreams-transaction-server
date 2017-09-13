@@ -31,7 +31,9 @@ import com.bwsw.tstreamstransactionserver.netty.server.db.rocks.RocksDbConnectio
 import com.bwsw.tstreamstransactionserver.netty.server.db.zk.ZookeeperStreamRepository
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.commitLogService.CommitLogService
 import com.bwsw.tstreamstransactionserver.netty.server.singleNode.hanlder.SingleNodeRequestRouter
-import com.bwsw.tstreamstransactionserver.netty.server.storage.MultiAndSingleNodeRockStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.berkeley.SingleNodeBerkeleyStorage
+import com.bwsw.tstreamstransactionserver.netty.server.storage.rocks.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.netty.server.subscriber.{OpenedTransactionNotifier, SubscriberNotifier, SubscribersObserver}
 import com.bwsw.tstreamstransactionserver.netty.server.transactionDataService.TransactionDataService
 import com.bwsw.tstreamstransactionserver.netty.server.zk.ZookeeperClient
@@ -73,11 +75,16 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       new RetryForever(zookeeperOpts.retryDelayMs)
     )
 
-  protected val rocksStorage: MultiAndSingleNodeRockStorage =
+  protected val storage: MultiAndSingleNodeRockStorage =
     new MultiAndSingleNodeRockStorage(
       storageOpts,
       rocksStorageOpts
     )
+
+//  protected val storage: Storage =
+//    new SingleNodeBerkeleyStorage(
+//      storageOpts
+//    )
 
   private val zkStreamRepository: ZookeeperStreamRepository =
     zk.streamRepository(s"${storageOpts.streamZookeeperDirectory}")
@@ -90,12 +97,12 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
     )
 
   protected lazy val rocksWriter: RocksWriter = new RocksWriter(
-    rocksStorage,
+    storage,
     transactionDataService
   )
 
   private val rocksReader = new RocksReader(
-    rocksStorage,
+    storage,
     transactionDataService
   )
 
@@ -107,7 +114,7 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
 
   private val oneNodeCommitLogService =
     new singleNode.commitLogService.CommitLogService(
-      rocksStorage.getRocksStorage
+      storage.getStorageManager
     )
 
   private val rocksDBCommitLog = new RocksDbConnection(
@@ -342,7 +349,6 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
       }
 
       if (commitLogToRocksWriter != null) {
-        commitLogToRocksWriter.run()
         rocksDBCommitLog.close()
       }
 
@@ -360,8 +366,8 @@ class SingleNodeServer(authenticationOpts: AuthenticationOptions,
           .stopAccessNewTasksAndAwaitAllCurrentTasksAreCompleted()
       }
 
-      if (rocksStorage != null) {
-        rocksStorage.getRocksStorage.closeDatabases()
+      if (storage != null) {
+        storage.getStorageManager.closeDatabases()
       }
 
       if (transactionDataService != null) {

@@ -7,7 +7,5 @@ abstract class KeyValueDb {
 
   def delete(key: Array[Byte]): Boolean
 
-  def getLastRecord: Option[(Array[Byte], Array[Byte])]
-
   def iterator: KeyValueDbIterator
 }

@@ -66,12 +66,17 @@ PB.targets in Compile := Seq(
 
 
 resolvers ++= Seq(
+  "Oracle Maven2 Repo" at "http://download.oracle.com/maven",
   "twitter-repo" at "https://maven.twttr.com",
   "Sonatype OSS" at "https://oss.sonatype.org/service/local/staging/deploy/maven2",
   "Sonatype snapshots OSS" at "https://oss.sonatype.org/content/repositories/snapshots"
 )
 
 libraryDependencies ++= Seq(
+  ("com.sleepycat" % "je" % "7.4.5")
+    .exclude("log4j", "log4j")
+    .exclude("org.slf4j", "slf4j-api"),
+
   "commons-io" % "commons-io" % "2.5",
   "com.twitter" %% "scrooge-core" % "4.20.0",
   ("com.twitter" % "libthrift" % "0.5.0-7")

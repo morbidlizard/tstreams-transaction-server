@@ -1,6 +1,6 @@
-package com.bwsw.tstreamstransactionserver.netty.server.db.rocks
+package com.bwsw.tstreamstransactionserver.netty.server.db
 
-case class RocksDbMeta(name: String) {
+case class DbMeta(name: String) {
   val binaryName: Array[Byte] = name.getBytes()
   val id: Int = java.util.Arrays.hashCode(binaryName)
 }

@@ -121,3 +121,5 @@ libraryDependencies ++= Seq(
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25"
 dependencyOverrides += "org.slf4j" % "slf4j-log4j12" % "1.7.25"
 dependencyOverrides += "io.netty" % "netty" % "3.10.6.Final"
+
+test in assembly := {}

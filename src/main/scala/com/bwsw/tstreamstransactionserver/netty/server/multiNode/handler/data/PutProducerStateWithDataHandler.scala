@@ -61,7 +61,7 @@ class PutProducerStateWithDataHandler(bookkeeperMaster: BookkeeperMaster,
           ledgerHandler.asyncAddEntry(record, callback, promise)
       }
     }(context)
-    promise.future.recoverWith { case _: BKException => process(requestBody) }(context)
+    promise.future
   }
 
   override protected def fireAndForget(message: RequestMessage): Unit = {

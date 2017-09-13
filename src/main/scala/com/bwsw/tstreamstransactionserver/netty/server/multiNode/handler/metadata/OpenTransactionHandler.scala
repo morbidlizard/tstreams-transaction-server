@@ -151,9 +151,8 @@ class OpenTransactionHandler(server: TransactionServer,
             ledgerHandler.asyncAddEntry(record, callback, promise)
         }
       }(context)
-      promise.future.recoverWith { case _: BKException => helper() }(context)
+      promise.future
     }
-
     helper()
   }
 
@@ -205,7 +204,7 @@ class OpenTransactionHandler(server: TransactionServer,
             ledgerHandler.asyncAddEntry(record, callback, promise)
         }
       }(context)
-      promise.future.recoverWith { case _: BKException => helper() }(context)
+      promise.future
     }
 
     (helper(), context)

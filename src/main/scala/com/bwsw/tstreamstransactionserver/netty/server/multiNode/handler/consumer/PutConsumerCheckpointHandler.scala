@@ -51,7 +51,6 @@ class PutConsumerCheckpointHandler(bookkeeperMaster: BookkeeperMaster,
       bookkeeperMaster.doOperationWithCurrentWriteLedger {
         case Left(throwable) =>
           promise.failure(throwable)
-        //          throw throwable
 
         case Right(ledgerHandler) =>
           val record = new Record(
@@ -60,14 +59,10 @@ class PutConsumerCheckpointHandler(bookkeeperMaster: BookkeeperMaster,
             requestBody
           ).toByteArray
 
-          //        ledgerHandler.addEntry(record)
-          //          isPuttedResponse
-
           ledgerHandler.asyncAddEntry(record, callback, promise)
-        //          promise
       }
     }(context)
-    promise.future.recoverWith { case _: BKException => process(requestBody) }(context)
+    promise.future
   }
 
   override protected def fireAndForget(message: RequestMessage): Unit = {

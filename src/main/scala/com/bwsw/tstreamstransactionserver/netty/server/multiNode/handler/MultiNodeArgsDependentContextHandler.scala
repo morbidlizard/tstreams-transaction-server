@@ -2,10 +2,12 @@ package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler
 
 import java.util.concurrent.locks.ReentrantLock
 
+import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import com.bwsw.tstreamstransactionserver.netty.server.OrderedExecutionContextPool
 import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientRequestHandler
 import io.netty.channel.ChannelHandlerContext
+import org.apache.bookkeeper.client.BKException
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 
@@ -45,11 +47,16 @@ abstract class MultiNodeArgsDependentContextHandler(override final val id: Byte,
                             acc: Option[Throwable]) = {
     if (acc.isEmpty) {
       val (result, context) = getResponse(message, ctx)
-      result.recover { case error =>
-        logUnsuccessfulProcessing(name, error, message, ctx)
-        val response =
-          createErrorResponse(error.getMessage)
-        sendResponse(message, response, ctx)
+      result.recover {
+        case error: ServerIsSlaveException =>
+        // do nothing
+        case error: BKException =>
+        // do nothing
+        case error =>
+          logUnsuccessfulProcessing(name, error, message, ctx)
+          val response =
+            createErrorResponse(error.getMessage)
+          sendResponse(message, response, ctx)
       }(context)
     } else {
       val error = acc.get

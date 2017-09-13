@@ -1,8 +1,10 @@
 package com.bwsw.tstreamstransactionserver.netty.server.multiNode.handler
 
+import com.bwsw.tstreamstransactionserver.exception.Throwable.ServerIsSlaveException
 import com.bwsw.tstreamstransactionserver.netty.RequestMessage
 import com.bwsw.tstreamstransactionserver.netty.server.handler.ClientRequestHandler
 import io.netty.channel.ChannelHandlerContext
+import org.apache.bookkeeper.client.BKException
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -46,10 +48,15 @@ abstract class MultiNodePredefinedContextHandler(override final val id: Byte,
         .map { response =>
           sendResponse(message, response, ctx)
         }(context)
-        .recover { case throwable =>
-          logUnsuccessfulProcessing(name, throwable, message, ctx)
-          val response = createErrorResponse(throwable.getMessage)
-          sendResponse(message, response, ctx)
+        .recover {
+          case _: ServerIsSlaveException =>
+          // do nothing
+          case _: BKException =>
+          // do nothing
+          case throwable =>
+            logUnsuccessfulProcessing(name, throwable, message, ctx)
+            val response = createErrorResponse(throwable.getMessage)
+            sendResponse(message, response, ctx)
         }(context)
     } else {
       val throwable = error.get

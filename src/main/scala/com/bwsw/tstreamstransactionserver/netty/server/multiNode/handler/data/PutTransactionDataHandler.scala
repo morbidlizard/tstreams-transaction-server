@@ -66,7 +66,7 @@ class PutTransactionDataHandler(bookkeeperMaster: BookkeeperMaster,
         //          promise
       }
     }(context)
-    promise.future.recoverWith { case _: BKException => process(requestBody) }(context)
+    promise.future
   }
 
 

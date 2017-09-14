@@ -73,10 +73,6 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  ("com.sleepycat" % "je" % "7.4.5")
-    .exclude("log4j", "log4j")
-    .exclude("org.slf4j", "slf4j-api"),
-
   "commons-io" % "commons-io" % "2.5",
   "com.twitter" %% "scrooge-core" % "4.20.0",
   ("com.twitter" % "libthrift" % "0.5.0-7")
@@ -115,9 +111,16 @@ libraryDependencies ++= Seq(
     .exclude("org.slf4j", "slf4j-api"),
   ("org.apache.curator" % "curator-recipes" % "2.12.0")
     .exclude("log4j", "log4j")
-    .exclude("org.slf4j", "slf4j-api")
+    .exclude("org.slf4j", "slf4j-api"),
+
+  ("com.sleepycat" % "je" % "7.4.5")
+    .exclude("log4j", "log4j")
+    .exclude("org.slf4j", "slf4j-api"),
+
+   "mysql" % "mysql-connector-java" % "6.0.6"
 )
 
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25"
 dependencyOverrides += "org.slf4j" % "slf4j-log4j12" % "1.7.25"
 dependencyOverrides += "io.netty" % "netty" % "3.10.6.Final"
+

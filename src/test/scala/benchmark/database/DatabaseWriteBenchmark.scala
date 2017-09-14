@@ -31,7 +31,7 @@ object DatabaseWriteBenchmark {
       val iterator = database.iterator
       iterator.seekToFirst()
 
-      val records = new ArrayBuffer[(Array[Byte], Array[Byte])]()
+      val records = ArrayBuffer.empty[(Array[Byte], Array[Byte])]
       while (iterator.isValid) {
         val key = iterator.key
         val value = iterator.value()
@@ -42,10 +42,12 @@ object DatabaseWriteBenchmark {
       }
       iterator.close()
 
-      val berkeley = new MySql()
+      val rocksDb = new RocksDb()
 
-      val future =
-        berkeley.putRecords(records.toArray)
+      rocksDb.putRecordsAndDisplayExecutionTime(records.toArray)
+      rocksDb.readRecordsByBatch(10000)
+
+      rocksDb.close()
     }
   }
 }

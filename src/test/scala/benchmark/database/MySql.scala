@@ -21,7 +21,7 @@ private object MySql {
 
 
 class MySql
-  extends BatchTimeMeasurable
+  extends WriteBatchTimeMeasurable
 {
   private val connection = DriverManager
     .getConnection(

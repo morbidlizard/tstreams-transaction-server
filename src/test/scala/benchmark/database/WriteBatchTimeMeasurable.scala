@@ -1,18 +1,21 @@
 package benchmark.database
 
-import BatchTimeMeasurable._
+import WriteBatchTimeMeasurable._
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 
-private object BatchTimeMeasurable {
+private object WriteBatchTimeMeasurable {
+  private val concurrencyLevel =
+    java.lang.Runtime.getRuntime.availableProcessors()
+
   implicit val context: ExecutionContext =
     scala.concurrent.ExecutionContext.Implicits.global
 }
 
 
-trait BatchTimeMeasurable
+trait WriteBatchTimeMeasurable
   extends ExecutionTimeMeasurable
 {
 
@@ -25,7 +28,7 @@ trait BatchTimeMeasurable
 
   final def putRecordsParallel(records: Array[(Array[Byte], Array[Byte])]): Future[Boolean] = {
     val batches =
-      records.grouped(records.length / 16)
+      records.grouped(records.length / concurrencyLevel)
 
     val futures =
       batches.map(recordsSet =>

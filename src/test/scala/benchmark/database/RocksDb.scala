@@ -106,7 +106,11 @@ class RocksDb
 
   override def close(): Unit = {
     rocksDb.close()
+
+    val file = new File(dbPath)
+    FileUtils.deleteDirectory(file)
+    FileUtils.forceMkdir(file)
   }
 
-  override def toString: String = "rocks_db"
+  override def toString: String = "rocks_db_statistic"
 }

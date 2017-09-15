@@ -17,7 +17,7 @@ private object BerkeleyDb
 
   val dbName = "producer_transaction_db"
 
-  val dbPath = "/tmp/benchmark/berkeley_db"
+  val dbPath = "/tmp/benchmark/berkeleydb"
 
   val lockMode: LockMode = LockMode.READ_UNCOMMITTED_ALL
 
@@ -177,7 +177,11 @@ class BerkeleyDb
   override def close(): Unit = {
     db.close()
     environment.close()
+
+    val file = new File(dbPath)
+    FileUtils.deleteDirectory(file)
+    FileUtils.forceMkdir(file)
   }
 
-  override def toString: String = "berkeley_db"
+  override def toString: String = "berkeley_db_statistic"
 }

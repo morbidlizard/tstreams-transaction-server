@@ -5,14 +5,27 @@ import com.bwsw.tstreamstransactionserver.netty.server.storage.rocks.MultiAndSin
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 object Main {
+
+  private val syncWritesTestTrialNumber = 10
+  private val asyncWritesTestTrialNumber = 10
+  private val readTestTrialNumber = 10
+  private val readRecordsInIntervalNumber = Seq(
+    10000,
+    25000,
+    50000,
+    100000,
+    500000,
+    1000000
+  )
+
+
   def main(args: Array[String]): Unit = {
     if (args.length < 2)
       throw new IllegalArgumentException(
-        "Path to database folder and name of transaction metadata database folder name should be provided."
+        "Path to database folder and " +
+          "name of transaction metadata database folder name should be provided."
       )
     else {
       val rocksStorage = new MultiAndSingleNodeRockStorage(
@@ -42,18 +55,33 @@ object Main {
       }
       iterator.close()
 
-//      val databases = ()
-
-
-      val rocksDb = new MySql()
+      val recordsAsArray =
+        records.toArray
 
       val collector =
         new StatisticCollector()
 
-      collector.collectWriteStatistics(rocksDb, records.toArray.take(100), 15)
-      collector.collectReadStatistics(rocksDb, records.toArray.take(100), Seq(25000, 50000), 10)
+      val databases = Array(new BerkeleyDb(), new RocksDb(), new MySql())
 
-      rocksDb.close()
+      databases.foreach { database =>
+        collector
+          .collectSyncWriteStatistics(
+            database,
+            recordsAsArray,
+            syncWritesTestTrialNumber)
+        collector
+          .collectAsyncWriteStatistics(
+            database,
+            recordsAsArray,
+            asyncWritesTestTrialNumber)
+        collector
+          .collectReadStatistics(
+            database,
+            recordsAsArray,
+            readRecordsInIntervalNumber,
+            readTestTrialNumber)
+      }
+      databases.foreach(_.close())
     }
   }
 }

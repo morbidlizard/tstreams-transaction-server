@@ -1,9 +1,11 @@
 package benchmark.database
 
+import java.io.File
 import java.sql.DriverManager
 
 import MySql._
 import com.bwsw.tstreamstransactionserver.netty.server.transactionMetadataService.{ProducerTransactionKey, ProducerTransactionRecord}
+import org.apache.commons.io.FileUtils
 
 import scala.collection.mutable
 
@@ -22,6 +24,7 @@ private object MySql {
   val valueColumn = "value"
 
   val url = s"jdbc:mysql://$host:$port/$dbName"
+
   val user = "root"
   val password = "admin"
 }
@@ -198,7 +201,8 @@ class MySql
     buffer.toArray
   }
 
-  override def close(): Unit = {}
+  override def close(): Unit = {
+  }
 
-  override def toString: String = "my_sql"
+  override def toString: String = "my_sql_statistic"
 }

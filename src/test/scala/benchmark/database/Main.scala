@@ -8,7 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-object DatabaseWriteBenchmark {
+object Main {
   def main(args: Array[String]): Unit = {
     if (args.length < 2)
       throw new IllegalArgumentException(
@@ -42,10 +42,16 @@ object DatabaseWriteBenchmark {
       }
       iterator.close()
 
-      val rocksDb = new RocksDb()
+//      val databases = ()
 
-      rocksDb.putRecordsAndDisplayExecutionTime(records.toArray)
-      rocksDb.readRecordsByBatch(10000)
+
+      val rocksDb = new MySql()
+
+      val collector =
+        new StatisticCollector()
+
+      collector.collectWriteStatistics(rocksDb, records.toArray.take(100), 15)
+      collector.collectReadStatistics(rocksDb, records.toArray.take(100), Seq(25000, 50000), 10)
 
       rocksDb.close()
     }

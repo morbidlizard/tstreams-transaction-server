@@ -17,7 +17,7 @@ private object BerkeleyDb
 
   val dbName = "producer_transaction_db"
 
-  val dbPath = "/tmp/benchmark/berkeley"
+  val dbPath = "/tmp/benchmark/berkeley_db"
 
   val lockMode: LockMode = LockMode.READ_UNCOMMITTED_ALL
 
@@ -40,28 +40,31 @@ private object BerkeleyDb
 
 
 class BerkeleyDb
-  extends WriteBatchTimeMeasurable
-  with ReadTimeMeasurable
-  with Closeable {
+  extends AllInOneMeasurable {
 
+  private def init(): (Environment, Database) = {
+    val environment = {
+      val file = new File(dbPath)
+      FileUtils.deleteDirectory(file)
+      FileUtils.forceMkdir(file)
 
-  private val environment = {
-    val file = new File(dbPath)
-    FileUtils.deleteDirectory(file)
-    FileUtils.forceMkdir(file)
+      new Environment(
+        new File(dbPath),
+        environmentConfig
+      )
+    }
 
-    new Environment(
-      new File(dbPath),
-      environmentConfig
-    )
+    val db =
+      environment.openDatabase(
+        null,
+        dbName,
+        databaseConfig
+      )
+    (environment, db)
   }
 
-  private val db =
-    environment.openDatabase(
-      null,
-      dbName,
-      databaseConfig
-    )
+  var (environment, db) = init()
+
 
   private def newTransaction() = {
     environment.beginTransaction(
@@ -124,11 +127,6 @@ class BerkeleyDb
     buffer.toArray
   }
 
-  override def close(): Unit = {
-    db.close()
-    environment.close()
-  }
-
   override def readRecords(from: Array[Byte],
                            to: Array[Byte]): Array[(Array[Byte], Array[Byte])] = {
     val transaction =
@@ -167,4 +165,19 @@ class BerkeleyDb
     buffer.toArray
 
   }
+
+  override def dropAllRecords(): Unit = {
+    close()
+    val result = init()
+    environment = result._1
+    db = result._2
+  }
+
+
+  override def close(): Unit = {
+    db.close()
+    environment.close()
+  }
+
+  override def toString: String = "berkeley_db"
 }

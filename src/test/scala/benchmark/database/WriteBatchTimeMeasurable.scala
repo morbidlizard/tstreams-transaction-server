@@ -22,7 +22,7 @@ trait WriteBatchTimeMeasurable
   def putRecords(records: Array[(Array[Byte], Array[Byte])]): Boolean
 
 
-  final def putRecordsAndDisplayExecutionTime(records: Array[(Array[Byte], Array[Byte])]): Boolean = {
+  final def putRecordsAndGetExecutionTime(records: Array[(Array[Byte], Array[Byte])]): (Boolean, Long) = {
     measureTime(putRecords(records))
   }
 
@@ -40,13 +40,13 @@ trait WriteBatchTimeMeasurable
     )(_ && _)
   }
 
-  final def putRecordsParallelAndDisplayExecutionTime(records: Array[(Array[Byte], Array[Byte])]): Future[Unit] = {
+  final def putRecordsParallelAndGetExecutionTime(records: Array[(Array[Byte], Array[Byte])]): Future[Long] = {
     val currentTime =
       System.currentTimeMillis()
 
     putRecordsParallel(records)
       .map(_ =>
-        println(System.currentTimeMillis() - currentTime)
+        System.currentTimeMillis() - currentTime
       )
   }
 }

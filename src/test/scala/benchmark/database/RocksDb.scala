@@ -16,7 +16,7 @@ private object RocksDb {
 
   val dbName = "producer_transaction_db"
 
-  val dbPath = "/tmp/benchmark/rocksdb"
+  val dbPath = "/tmp/benchmark/rocks_db"
 
   val dbOptions: Options =
     new Options()
@@ -30,13 +30,11 @@ private object RocksDb {
 }
 
 class RocksDb
-  extends WriteBatchTimeMeasurable
-    with ReadTimeMeasurable
-    with Closeable {
+  extends AllInOneMeasurable {
 
   RocksDB.loadLibrary()
 
-  private val rocksDb = {
+  private def init() = {
     val file = new File(dbPath)
     FileUtils.deleteDirectory(file)
     FileUtils.forceMkdir(file)
@@ -46,6 +44,8 @@ class RocksDb
       dbPath
     )
   }
+
+  private var rocksDb = init()
 
   override def putRecords(records: Array[(Array[Byte], Array[Byte])]): Boolean = {
     val batch = new WriteBatch()
@@ -79,10 +79,6 @@ class RocksDb
     buffer.toArray
   }
 
-  override def close(): Unit = {
-    rocksDb.close()
-  }
-
   override def readRecords(from: Array[Byte],
                            to: Array[Byte]): Array[(Array[Byte], Array[Byte])] = {
 
@@ -101,4 +97,16 @@ class RocksDb
 
     buffer.toArray
   }
+
+  override def dropAllRecords(): Unit = {
+    close()
+    rocksDb = init()
+  }
+
+
+  override def close(): Unit = {
+    rocksDb.close()
+  }
+
+  override def toString: String = "rocks_db"
 }

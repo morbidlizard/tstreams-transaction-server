@@ -13,7 +13,7 @@ private object MySql {
   // JDBC URL, username and password of MySQL server
 
   val host = "localhost"
-  val port = 3306
+  val port = 6603
 
   val dbName = "Transaction"
   val tableName = "Producer_Transaction"

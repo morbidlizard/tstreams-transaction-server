@@ -8,9 +8,9 @@ import scala.collection.mutable.ArrayBuffer
 
 object Main {
 
-  private val syncWritesTestTrialNumber = 10
-  private val asyncWritesTestTrialNumber = 10
-  private val readTestTrialNumber = 10
+  private val syncWritesTestTrialNumber = 2
+  private val asyncWritesTestTrialNumber = 2
+  private val readTestTrialNumber = 2
   private val readRecordsInIntervalNumber = Seq(
     10000,
     25000,
@@ -18,6 +18,12 @@ object Main {
     100000,
     500000,
     1000000
+  )
+
+  private val databases = Array(
+    new BerkeleyDb(),
+    new RocksDb(),
+    // new MySql()
   )
 
 
@@ -61,19 +67,49 @@ object Main {
       val collector =
         new StatisticCollector()
 
-      val databases = Array(new BerkeleyDb(), new RocksDb(), new MySql())
-
       databases.foreach { database =>
-        collector
-          .collectSyncWriteStatistics(
-            database,
-            recordsAsArray,
-            syncWritesTestTrialNumber)
+        /*
         collector
           .collectAsyncWriteStatistics(
             database,
             recordsAsArray,
+            readRecordsInIntervalNumber,
+            1, // thread number
+            0, // shift ratio
             asyncWritesTestTrialNumber)
+        collector
+          .collectAsyncWriteStatistics(
+            database,
+            recordsAsArray,
+            readRecordsInIntervalNumber,
+            2, // thread number
+            0, // shift ratio
+            asyncWritesTestTrialNumber)
+        collector
+          .collectAsyncWriteStatistics(
+            database,
+            recordsAsArray,
+            readRecordsInIntervalNumber,
+            2, // thread number
+            0.5, // shift ratio
+            asyncWritesTestTrialNumber)
+        collector
+          .collectAsyncWriteStatistics(
+            database,
+            recordsAsArray,
+            readRecordsInIntervalNumber,
+            4, // thread number
+            0, // shift ratio
+            asyncWritesTestTrialNumber)
+        collector
+          .collectAsyncWriteStatistics(
+            database,
+            recordsAsArray,
+            readRecordsInIntervalNumber,
+            4, // thread number
+            0.25, // shift ratio
+            asyncWritesTestTrialNumber)
+        */
         collector
           .collectReadStatistics(
             database,

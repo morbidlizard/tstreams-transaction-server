@@ -17,7 +17,7 @@ private object BerkeleyDb
 
   val dbName = "producer_transaction_db"
 
-  val dbPath = "/tmp/benchmark/berkeleydb"
+  val dbPath = "/home/rakhimov_vv/trans/bm/tmp/berkeleydb"
 
   val lockMode: LockMode = LockMode.READ_UNCOMMITTED_ALL
 

@@ -1,7 +1,9 @@
 package benchmark.database
 
+import sys.process._
+
 import java.io.{File, FileWriter}
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Paths}
 
 import benchmark.database.StatisticCollector._
 import benchmark.database.misc.{Arithmetic, ProgressBar}
@@ -22,7 +24,7 @@ private object StatisticCollector {
   val writeTestBatchAsync = "batch_async"
 }
 
-class StatisticCollector(path: String = "/home/rakhimov_vv/trans/bm/output") {
+class StatisticCollector(path: String = "/home/rakhimovvv/trans/bm/output") {
 
   private def clearPath(): Unit = {
     // remove everything from the folder

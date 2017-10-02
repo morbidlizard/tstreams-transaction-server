@@ -1,5 +1,7 @@
 package benchmark.database
 
+import sys.process._
+
 import com.bwsw.tstreamstransactionserver.netty.server.storage.Storage
 import com.bwsw.tstreamstransactionserver.netty.server.storage.rocks.MultiAndSingleNodeRockStorage
 import com.bwsw.tstreamstransactionserver.options.SingleNodeServerOptions
@@ -13,15 +15,15 @@ object Main {
   private val readTestTrialNumber = 2
   private val readRecordsInIntervalNumber = Seq(
     10000,
-    25000,
-    50000,
-    100000,
-    500000,
-    1000000
+    // 25000,
+    // 50000,
+    // 100000,
+    // 500000,
+    // 1000000
   )
 
-  private val databases = Array(
-    new BerkeleyDb(),
+  private val databases = Array[AllInOneMeasurable](
+    // new BerkeleyDb(),
     new RocksDb(),
     // new MySql()
   )
@@ -118,6 +120,8 @@ object Main {
             readTestTrialNumber)
       }
       databases.foreach(_.close())
+
+      "python3 src/test/scala/benchmark/database/py/graphs.py" !!
     }
   }
 }

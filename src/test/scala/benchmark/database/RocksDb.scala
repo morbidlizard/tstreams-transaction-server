@@ -16,7 +16,7 @@ private object RocksDb {
 
   val dbName = "producer_transaction_db"
 
-  val dbPath = "/home/rakhimov_vv/trans/bm/tmp/rocks_db"
+  val dbPath = "/home/rakhimovvv/trans/bm/tmp/rocks_db"
 
   val dbOptions: Options =
     new Options()

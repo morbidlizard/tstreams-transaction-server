@@ -17,8 +17,6 @@ private object BerkeleyDb
 
   val dbName = "producer_transaction_db"
 
-  val dbPath = "/home/rakhimovvv/trans/bm/tmp/berkeleydb"
-
   val lockMode: LockMode = LockMode.READ_UNCOMMITTED_ALL
 
   val environmentConfig: EnvironmentConfig =
@@ -39,8 +37,9 @@ private object BerkeleyDb
 }
 
 
-class BerkeleyDb
+class BerkeleyDb(initDbPath: String)
   extends AllInOneMeasurable {
+  private val dbPath = s"${initDbPath}/tmp/berkeleydb"
 
   private def init(): (Environment, Database) = {
     val environment = {

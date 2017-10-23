@@ -15,19 +15,20 @@ object Main {
   private val readTestTrialNumber = 2
   private val readRecordsInIntervalNumber = Seq(
     10000,
-    // 25000,
-    // 50000,
-    // 100000,
-    // 500000,
-    // 1000000
+    25000,
+    50000,
+    100000,
+    250000,
+    500000,
+    750000,
+    1000000
   )
 
-  private val databases = Array[AllInOneMeasurable](
-    // new BerkeleyDb(),
-    new RocksDb(),
-    // new MySql()
+  private val databaseConstructors = Array[String => AllInOneMeasurable](
+    path => new BerkeleyDb(path),
+    path => new RocksDb(path),
+    // path => new MySql()
   )
-
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2)
@@ -36,9 +37,15 @@ object Main {
           "name of transaction metadata database folder name should be provided."
       )
     else {
+      val path = args(0)
+
+      val databases = databaseConstructors
+        .map(_(path))
+        .toList
+
       val rocksStorage = new MultiAndSingleNodeRockStorage(
         SingleNodeServerOptions.StorageOptions(
-          path = args(0),
+          path = s"${path}/input",
           metadataDirectory = args(1)
         ),
         SingleNodeServerOptions.RocksStorageOptions(
@@ -67,10 +74,10 @@ object Main {
         records.toArray
 
       val collector =
-        new StatisticCollector()
+        new StatisticCollector(s"${path}/output")
 
       databases.foreach { database =>
-        /*
+        /**/
         collector
           .collectAsyncWriteStatistics(
             database,
@@ -79,6 +86,7 @@ object Main {
             1, // thread number
             0, // shift ratio
             asyncWritesTestTrialNumber)
+
         collector
           .collectAsyncWriteStatistics(
             database,
@@ -87,6 +95,7 @@ object Main {
             2, // thread number
             0, // shift ratio
             asyncWritesTestTrialNumber)
+
         collector
           .collectAsyncWriteStatistics(
             database,
@@ -111,17 +120,18 @@ object Main {
             4, // thread number
             0.25, // shift ratio
             asyncWritesTestTrialNumber)
-        */
+        /*
         collector
           .collectReadStatistics(
             database,
             recordsAsArray,
             readRecordsInIntervalNumber,
             readTestTrialNumber)
+        */
       }
       databases.foreach(_.close())
 
-      "python3 src/test/scala/benchmark/database/py/graphs.py" !!
+      s"python3 src/test/scala/benchmark/database/py/graphs.py $path" !!
     }
   }
 }

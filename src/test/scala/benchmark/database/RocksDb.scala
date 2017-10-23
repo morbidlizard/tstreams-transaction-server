@@ -16,8 +16,6 @@ private object RocksDb {
 
   val dbName = "producer_transaction_db"
 
-  val dbPath = "/home/rakhimovvv/trans/bm/tmp/rocks_db"
-
   val dbOptions: Options =
     new Options()
       .setCreateIfMissing(true)
@@ -29,8 +27,10 @@ private object RocksDb {
     new WriteOptions()
 }
 
-class RocksDb
+class RocksDb(initDbPath: String)
   extends AllInOneMeasurable {
+
+  private val dbPath = s"${initDbPath}/tmp/rocks_db"
 
   RocksDB.loadLibrary()
 
